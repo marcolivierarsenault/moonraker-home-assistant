@@ -5,8 +5,8 @@
 [![hacs][hacsbadge]][hacs]
 
 _Component to integrate with [Moonraker][integration_blueprint]._
-![sensor](assets/sensors.png)
-![camera](assets/camera.png)
+![sensor](https://github.com/marcolivierarsenault/moonraker-home-assistant/assets/sensors.png)
+![camera](https://github.com/marcolivierarsenault/moonraker-home-assistant/assets/camera.png)
 
 **This component will set up the following platforms.**
 

@@ -2,7 +2,8 @@
     "name": "Moonraker",
     "hacs": "1.6.0",
     "domains": [
-        "sensor"
+        "sensor",
+        "camera"
     ],
     "homeassistant": "0.118.0"
 }
