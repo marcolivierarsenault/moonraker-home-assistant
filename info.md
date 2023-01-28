@@ -4,24 +4,17 @@
 
 [![hacs][hacsbadge]][hacs]
 
-_Component to integrate with [integration_blueprint][integration_blueprint]._
+_Component to integrate with [Moonraker][integration_blueprint]._
+![sensor](assets/sensors.png)
+![camera](assets/camera.png)
 
 **This component will set up the following platforms.**
 
 Platform | Description
 -- | --
-`sensor` | Show info from API.
+`sensor` | Show printer info from Moonraker.
+`camera` | Show camera information.
 
-{% if not installed %}
-## Installation
-
-1. Click install.
-1. In the HA UI go to "Configuration" -> "Integrations" click "+" and search for "Blueprint".
-
-{% endif %}
-
-
-## Configuration is done in the UI
 
 <!---->
 

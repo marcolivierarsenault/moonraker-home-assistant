@@ -14,7 +14,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .api import MoonrakerApiClient
 from .const import DOMAIN, PLATFORMS, CONF_URL
 
-SCAN_INTERVAL = timedelta(seconds=15)
+SCAN_INTERVAL = timedelta(seconds=30)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -36,7 +36,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     client = MoonrakerApiClient(url)
     await hass.async_add_executor_job(client.connect_client)
 
-    coordinator = MoonrakerDataUpdateCoordinator(hass, client=client)
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=client, config_entry=entry
+    )
     await coordinator.async_refresh()
 
     if not coordinator.last_update_success:
@@ -56,11 +58,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching data from the API."""
 
-    def __init__(self, hass: HomeAssistant, client: MoonrakerApiClient) -> None:
+    def __init__(
+        self, hass: HomeAssistant, client: MoonrakerApiClient, config_entry: ConfigEntry
+    ) -> None:
         """Initialize."""
         self.moonraker = client
         self.platforms = []
         self.hass = hass
+        self.config_entry = config_entry
 
         super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=SCAN_INTERVAL)
 
