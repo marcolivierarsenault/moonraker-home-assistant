@@ -1,6 +1,5 @@
 {
     "name": "Moonraker",
     "hacs": "1.6.0",
-    "iot_class": "Local Polling",
     "homeassistant": "0.118.0"
 }
