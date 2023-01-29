@@ -1,10 +1,6 @@
 {
     "name": "Moonraker",
     "hacs": "1.6.0",
-    "domains": [
-        "sensor",
-        "camera"
-    ],
     "iot_class": "Local Polling",
     "homeassistant": "0.118.0"
 }
