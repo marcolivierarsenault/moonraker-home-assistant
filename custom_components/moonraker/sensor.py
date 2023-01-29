@@ -24,12 +24,12 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="state",
         name="State",
-        value_fn=lambda data: data["webhooks"]["state"],
+        value_fn=lambda data: data["print_stats"]["state"],
     ),
     MoonrakerSensorDescription(
         key="message",
         name="Message",
-        value_fn=lambda data: data["webhooks"]["state_message"],
+        value_fn=lambda data: data["print_stats"]["message"],
     ),
     MoonrakerSensorDescription(
         key="extruder_temp",
@@ -67,28 +67,28 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="total_duration",
         name="Total Duration",
-        value_fn=lambda data: data["print_stats"]["total_duration"],
+        value_fn=lambda data: int(data["print_stats"]["total_duration"] / 60),
         icon="mdi:timer",
         unit=TIME_MINUTES,
     ),
     MoonrakerSensorDescription(
         key="print_duration",
         name="Print Duration",
-        value_fn=lambda data: data["print_stats"]["print_duration"],
+        value_fn=lambda data: int(data["print_stats"]["print_duration"] / 60),
         icon="mdi:timer",
         unit=TIME_MINUTES,
     ),
     MoonrakerSensorDescription(
         key="filament_used",
         name="Filament Used",
-        value_fn=lambda data: data["print_stats"]["filament_used"],
+        value_fn=lambda data: int(data["print_stats"]["filament_used"]) * 1.0 / 1000,
         icon="mdi:tape-measure",
         unit=LENGTH_METERS,
     ),
     MoonrakerSensorDescription(
         key="progress",
         name="Progress",
-        value_fn=lambda data: int(data["display_status"]["progress"]),
+        value_fn=lambda data: int(data["display_status"]["progress"] * 100),
         icon="mdi:percent",
         unit=PERCENTAGE,
     ),
