@@ -121,7 +121,6 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
         self._attr_unique_id = f"{DOMAIN}_{description.key}"
         self._attr_icon = description.icon
         self._attr_native_unit_of_measurement = description.unit
-        _LOGGER.debug(self._attr_unique_id)
 
     @callback
     def _handle_coordinator_update(self) -> None:
