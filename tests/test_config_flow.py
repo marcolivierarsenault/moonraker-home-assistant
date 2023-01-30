@@ -43,3 +43,24 @@ async def test_successful_config_flow(hass):
     assert result["title"] == "Moonraker"
     assert result["data"] == MOCK_CONFIG
     assert result["result"]
+
+
+async def test_tmp_failing_config_flow(hass):
+    """Test a failed config flow due to credential validation failure."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    assert result["type"] == data_entry_flow.RESULT_TYPE_FORM
+    assert result["step_id"] == "user"
+
+    with patch(
+        "custom_components.moonraker.config_flow.MoonrakerFlowHandler._test_connection",
+        return_value=False,
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], user_input=MOCK_CONFIG
+        )
+
+    assert result["type"] == data_entry_flow.RESULT_TYPE_FORM
+    assert result["errors"] == {"base": "error"}
