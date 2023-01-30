@@ -2,12 +2,17 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 
+import logging
+
 from homeassistant.core import callback
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 from homeassistant.const import DEGREE, TIME_MINUTES, PERCENTAGE, LENGTH_METERS
 
 from .const import NAME, DOMAIN
 from .entity import BaseMoonrakerEntity
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -41,14 +46,14 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="extruder_target",
         name="Extruder Target",
-        value_fn=lambda data: data["extruder"]["target"],
+        value_fn=lambda data: float(data["extruder"]["target"]),
         icon="mdi:thermometer",
         unit=DEGREE,
     ),
     MoonrakerSensorDescription(
         key="bed_target",
         name="Bed Target",
-        value_fn=lambda data: data["heater_bed"]["target"],
+        value_fn=lambda data: float(data["heater_bed"]["target"]),
         icon="mdi:thermometer",
         unit=DEGREE,
     ),
@@ -113,7 +118,7 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
         self._attr_name = f"{description.name}"
         self.entity_description = description
         self._attr_native_value = description.value_fn(coordinator.data)
-        self._attr_unique_id = f"{NAME}_sensor_{description.name}"
+        self._attr_unique_id = f"{DOMAIN}_{description.key}"
         self._attr_icon = description.icon
         self._attr_native_unit_of_measurement = description.unit
 

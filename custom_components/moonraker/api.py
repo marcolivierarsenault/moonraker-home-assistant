@@ -28,9 +28,6 @@ class MoonrakerApiClient:
     def connect_client(self) -> None:
         """Connect moonraker"""
         self._moonraker_client = MoonrakerPrinter(self._url)
-        # self._moonraker_client = await hass.async_add_executor_job(
-        #    MoonrakerPrinter(self._url)
-        # )
 
     def get_data(self) -> dict:
         """Get data from the API."""

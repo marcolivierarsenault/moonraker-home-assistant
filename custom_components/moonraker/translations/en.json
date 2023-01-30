@@ -2,7 +2,6 @@
     "config": {
         "step": {
             "user": {
-                "title": "Moonraker",
                 "description": "Moonraker connection information",
                 "data": {
                     "url": "url"

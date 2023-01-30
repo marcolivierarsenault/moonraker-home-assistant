@@ -30,7 +30,7 @@ class MoonrakerCamera(MjpegCamera):
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, config_entry.entry_id)}
         )
-        self.url = coordinator.config_entry.data.get(CONF_URL)
+        self.url = config_entry.data.get(CONF_URL)
         super().__init__(
             device_info=self._attr_device_info,
             mjpeg_url=f"{self.url}/webcam/?action=stream",
