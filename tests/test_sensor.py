@@ -1,4 +1,4 @@
-"""Test moonraker switch."""
+"""Test moonraker sensor."""
 from unittest.mock import patch
 import datetime as dt
 
