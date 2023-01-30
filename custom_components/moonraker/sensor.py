@@ -5,7 +5,11 @@ from dataclasses import dataclass
 import logging
 
 from homeassistant.core import callback
-from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
+from homeassistant.components.sensor import (
+    SensorEntity,
+    SensorEntityDescription,
+    SensorDeviceClass,
+)
 from homeassistant.const import DEGREE, TIME_MINUTES, PERCENTAGE, LENGTH_METERS
 
 from .const import NAME, DOMAIN
@@ -23,6 +27,7 @@ class MoonrakerSensorDescription(SensorEntityDescription):
     sensor_name: str | None = None
     icon: str | None = None
     unit: str | None = None
+    device_class: str | None = None
 
 
 SENSORS: tuple[MoonrakerSensorDescription, ...] = [
@@ -70,18 +75,41 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         value_fn=lambda data: data["print_stats"]["filename"],
     ),
     MoonrakerSensorDescription(
-        key="total_duration",
-        name="Total Duration",
-        value_fn=lambda data: int(data["print_stats"]["total_duration"] / 60),
+        key="print_projected_duration",
+        name="print Projected Duration",
+        value_fn=lambda data: (
+            (data["print_stats"]["print_duration"] / 60)
+            / data["display_status"]["progress"]
+        )
+        if data["display_status"]["progress"] != 0
+        else 0,
         icon="mdi:timer",
         unit=TIME_MINUTES,
+        device_class=SensorDeviceClass.DURATION,
+    ),
+    MoonrakerSensorDescription(
+        key="print_eta",
+        name="ETA",
+        value_fn=lambda data: (
+            (
+                (data["print_stats"]["print_duration"] / 60)
+                / data["display_status"]["progress"]
+                if data["display_status"]["progress"] != 0
+                else 0
+            )
+            - data["print_stats"]["print_duration"] / 60
+        ),
+        icon="mdi:timer",
+        unit=TIME_MINUTES,
+        device_class=SensorDeviceClass.DURATION,
     ),
     MoonrakerSensorDescription(
         key="print_duration",
         name="Print Duration",
-        value_fn=lambda data: int(data["print_stats"]["print_duration"] / 60),
+        value_fn=lambda data: (data["print_stats"]["print_duration"] / 60),
         icon="mdi:timer",
         unit=TIME_MINUTES,
+        device_class=SensorDeviceClass.DURATION,
     ),
     MoonrakerSensorDescription(
         key="filament_used",
