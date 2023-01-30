@@ -8,7 +8,6 @@ from .const import DOMAIN, CONF_URL, NAME
 
 
 _LOGGER = logging.getLogger(__name__)
-_LOGGER.warning("=====================")
 
 
 class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):

@@ -1,61 +1,45 @@
-"""Test the moonraker config flow."""
+"""Test moonraker config flow."""
 from unittest.mock import patch
 
-from homeassistant import config_entries
-from homeassistant.core import HomeAssistant
-from homeassistant.data_entry_flow import FlowResultType
+from homeassistant import config_entries, data_entry_flow
+import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+from custom_components.moonraker.const import DOMAIN, PLATFORMS
+
+from .const import MOCK_CONFIG
 
 
-from custom_components.moonraker.const import NAME, DOMAIN
-
-
-async def test_form(hass: HomeAssistant) -> None:
-    """Test we get the form."""
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_USER}
-    )
-    assert result["type"] == FlowResultType.FORM
-    assert result["errors"] is None
-
-    with patch(
-        "homeassistant.components.moonraker.config_flow.PlaceholderHub.authenticate",
+@pytest.fixture(autouse=True)
+def bypass_setup_fixture():
+    """Prevent setup."""
+    with patch("custom_components.moonraker.async_setup", return_value=True,), patch(
+        "custom_components.moonraker.async_setup_entry",
         return_value=True,
-    ), patch(
-        "homeassistant.components.moonraker.async_setup_entry",
-        return_value=True,
-    ) as mock_setup_entry:
-        result2 = await hass.config_entries.flow.async_configure(
-            result["flow_id"],
-            {"url": "http://1.1.1.1"},
-        )
-        await hass.async_block_till_done()
-
-    assert result2["type"] == FlowResultType.CREATE_ENTRY
-    assert result2["title"] == NAME
-    assert result2["data"] == {"url": "http://1.1.1.1"}
-    assert len(mock_setup_entry.mock_calls) == 1
-
-
-async def test_form_cannot_connect(hass: HomeAssistant) -> None:
-    """Test we handle cannot connect error."""
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_USER}
-    )
-    """
-    with patch(
-        "homeassistant.components.moonraker.config_flow.PlaceholderHub.authenticate",
-        side_effect=CannotConnect,
     ):
-        result2 = await hass.config_entries.flow.async_configure(
-            result["flow_id"],
-            {
-                "host": "1.1.1.1",
-                "username": "test-username",
-                "password": "test-password",
-            },
-        )
+        yield
 
-    assert result2["type"] == FlowResultType.FORM
-    assert result2["errors"] == {"base": "cannot_connect"}
-    """
-    assert 1 == 1
+
+async def test_successful_config_flow(hass):
+    """Test a successful config flow."""
+    # Initialize a config flow
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    # Check that the config flow shows the user form as the first step
+    assert result["type"] == data_entry_flow.RESULT_TYPE_FORM
+    assert result["step_id"] == "user"
+
+    # If a user were to enter `test_username` for username and `test_password`
+    # for password, it would result in this function call
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input=MOCK_CONFIG
+    )
+
+    # Check that the config flow is complete and a new entry is created with
+    # the input data
+    assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
+    assert result["title"] == "Moonraker"
+    assert result["data"] == MOCK_CONFIG
+    assert result["result"]

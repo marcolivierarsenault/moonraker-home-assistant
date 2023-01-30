@@ -9,6 +9,6 @@ VERSION = "0.1.0"
 MANIFACTURER = "@marcolivierarsenault"
 
 # Platforms
-PLATFORMS = [Platform.SENSOR, Platform.CAMERA]
+PLATFORMS = [Platform.SENSOR]
 
 CONF_URL = "url"
