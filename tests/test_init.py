@@ -1,8 +1,9 @@
 """Test moonraker setup process."""
-from homeassistant.exceptions import ConfigEntryNotReady
+from unittest.mock import patch
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from homeassistant.exceptions import ConfigEntryNotReady
 from custom_components.moonraker import (
     MoonrakerDataUpdateCoordinator,
     async_reload_entry,
@@ -37,7 +38,7 @@ async def test_setup_unload_and_reload_entry(hass, bypass_connect_client):
     assert config_entry.entry_id not in hass.data[DOMAIN]
 
 
-async def test_setup_entry_exception(hass, error_on_get_data):
+async def test_setup_entry_exception(hass, bypass_connect_client, error_on_get_data):
     """Test ConfigEntryNotReady when API raises an exception during entry setup."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
 

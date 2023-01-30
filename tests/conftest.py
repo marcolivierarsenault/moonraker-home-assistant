@@ -51,7 +51,7 @@ def bypass_connect_client_fixture():
 def error_get_data_fixture():
     """Simulate error when retrieving data from API."""
     with patch(
-        "custom_components.moonraker.MoonrakerApiClient.connect_client",
+        "custom_components.moonraker.MoonrakerApiClient.get_data",
         side_effect=Exception,
     ):
         yield
