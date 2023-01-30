@@ -143,10 +143,11 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
 
         super().__init__(coordinator, entry)
         self.coordinator = coordinator
-        self._attr_name = f"{description.name}"
+        self._attr_unique_id = f"{NAME}_{description.key}_123"
+        self._attr_name = description.name
+        self._attr_has_entity_name = True
         self.entity_description = description
         self._attr_native_value = description.value_fn(coordinator.data)
-        self._attr_unique_id = f"{DOMAIN}_{description.key}"
         self._attr_icon = description.icon
         self._attr_native_unit_of_measurement = description.unit
 

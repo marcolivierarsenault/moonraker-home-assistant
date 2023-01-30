@@ -23,7 +23,7 @@ async def test_sensor_services(hass, get_data, bypass_connect_client):
         assert await async_setup_entry(hass, config_entry)
         await hass.async_block_till_done()
 
-    state = hass.states.get("sensor.bed_target")
+    state = hass.states.get("sensor.moonraker_bed_target")
 
     assert state.state == "0.0"
 
