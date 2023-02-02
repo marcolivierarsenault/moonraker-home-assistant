@@ -1,4 +1,5 @@
 """test moonraker camera"""
+import pytest
 from unittest.mock import patch
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -10,9 +11,17 @@ from homeassistant.helpers import entity_registry as er
 from .const import MOCK_CONFIG
 
 
-async def test_sensor_services(hass, get_data, bypass_connect_client):
+@pytest.fixture(name="bypass_connect_client", autouse=True)
+def bypass_connect_client_fixture():
+    """Skip calls to get data from API."""
+    with patch("custom_components.moonraker.MoonrakerApiClient.start"):
+        yield
+
+
+async def test_sensor_services(hass, get_data, get_printer_info):
     with patch(
-        "custom_components.moonraker.MoonrakerApiClient.get_data", return_value=get_data
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={**get_data, **get_printer_info},
     ):
         config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
         assert await async_setup_entry(hass, config_entry)

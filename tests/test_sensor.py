@@ -1,4 +1,6 @@
 """Test moonraker sensor."""
+import pytest
+
 from unittest.mock import patch
 import datetime as dt
 
@@ -13,22 +15,30 @@ from custom_components.moonraker.const import DOMAIN
 from .const import MOCK_CONFIG
 
 
-async def test_sensor_services(hass, get_data, bypass_connect_client):
+@pytest.fixture(name="bypass_connect_client", autouse=True)
+def bypass_connect_client_fixture():
+    """Skip calls to get data from API."""
+    with patch("custom_components.moonraker.MoonrakerApiClient.start"):
+        yield
+
+
+async def test_sensor_services(hass, get_data, get_printer_info):
     """Test sensor services."""
     # Create a mock entry so we don't have to go through config flow
     with patch(
-        "custom_components.moonraker.MoonrakerApiClient.get_data", return_value=get_data
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={**get_data, **get_printer_info},
     ):
         config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
         assert await async_setup_entry(hass, config_entry)
         await hass.async_block_till_done()
 
-    state = hass.states.get("sensor.moonraker_bed_target")
+    state = hass.states.get("sensor.mainsail_bed_target")
 
     assert state.state == "0.0"
 
     with patch(
-        "custom_components.moonraker.MoonrakerApiClient.get_data", return_value=get_data
+        "moonraker_api.MoonrakerClient.call_method", return_value=get_data
     ), patch(
         "custom_components.moonraker.MoonrakerDataUpdateCoordinator._async_update_data"
     ):

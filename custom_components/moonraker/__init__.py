@@ -44,6 +44,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     try:
         async with async_timeout.timeout(TIMEOUT):
             printer_info = await api.client.call_method("printer.info")
+            _LOGGER.debug(printer_info)
             api_device_name = printer_info[HOSTNAME]
     except Exception:
         raise ConfigEntryNotReady
@@ -95,6 +96,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             result = await self.moonraker.client.call_method(
                 "printer.objects.query", **self.query_obj
             )
+            _LOGGER.debug(result)
             return result
         except Exception as exception:
             raise UpdateFailed() from exception
