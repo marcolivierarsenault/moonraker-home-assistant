@@ -1,2 +1,2 @@
 homeassistant
-moonrakerpy
+moonraker-api==2.0.5

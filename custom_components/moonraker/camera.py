@@ -7,7 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, NAME, CONF_URL
+from .const import DOMAIN, CONF_URL
 
 
 async def async_setup_entry(
@@ -33,8 +33,8 @@ class MoonrakerCamera(MjpegCamera):
         self.url = config_entry.data.get(CONF_URL)
         super().__init__(
             device_info=self._attr_device_info,
-            mjpeg_url=f"{self.url}/webcam/?action=stream",
+            mjpeg_url=f"http://{self.url}/webcam/?action=stream",
             name="Moonraker Camera",
-            still_image_url=f"{self.url}/webcam/?action=snapshot",
-            unique_id=f"{NAME}_camera",
+            still_image_url=f"http://{self.url}/webcam/?action=snapshot",
+            unique_id=f"{coordinator.api_device_name}_camera",
         )

@@ -12,7 +12,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import DEGREE, TIME_MINUTES, PERCENTAGE, LENGTH_METERS
 
-from .const import NAME, DOMAIN
+from .const import DOMAIN
 from .entity import BaseMoonrakerEntity
 
 
@@ -28,61 +28,73 @@ class MoonrakerSensorDescription(SensorEntityDescription):
     icon: str | None = None
     unit: str | None = None
     device_class: str | None = None
+    subscriptions: list | None = None
 
 
 SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="state",
         name="State",
-        value_fn=lambda data: data["print_stats"]["state"],
+        value_fn=lambda data: data["status"]["print_stats"]["state"],
+        subscriptions=[("print_stats", "state")],
     ),
     MoonrakerSensorDescription(
         key="message",
         name="Message",
-        value_fn=lambda data: data["print_stats"]["message"],
+        value_fn=lambda data: data["status"]["print_stats"]["message"],
+        subscriptions=[("print_stats", "message")],
     ),
     MoonrakerSensorDescription(
         key="extruder_temp",
         name="Extruder Temperature",
-        value_fn=lambda data: float(data["extruder"]["temperature"]),
+        value_fn=lambda data: float(data["status"]["extruder"]["temperature"]),
+        subscriptions=[("extruder", "temperature")],
         icon="mdi:thermometer",
         unit=DEGREE,
     ),
     MoonrakerSensorDescription(
         key="extruder_target",
         name="Extruder Target",
-        value_fn=lambda data: float(data["extruder"]["target"]),
+        value_fn=lambda data: float(data["status"]["extruder"]["target"]),
+        subscriptions=[("extruder", "target")],
         icon="mdi:thermometer",
         unit=DEGREE,
     ),
     MoonrakerSensorDescription(
         key="bed_target",
         name="Bed Target",
-        value_fn=lambda data: float(data["heater_bed"]["target"]),
+        value_fn=lambda data: float(data["status"]["heater_bed"]["target"]),
+        subscriptions=[("heater_bed", "target")],
         icon="mdi:thermometer",
         unit=DEGREE,
     ),
     MoonrakerSensorDescription(
         key="bed_temp",
         name="Bed Temperature",
-        value_fn=lambda data: float(data["heater_bed"]["temperature"]),
+        value_fn=lambda data: float(data["status"]["heater_bed"]["temperature"]),
+        subscriptions=[("heater_bed", "temperature")],
         icon="mdi:thermometer",
         unit=DEGREE,
     ),
     MoonrakerSensorDescription(
         key="filename",
         name="Filename",
-        value_fn=lambda data: data["print_stats"]["filename"],
+        value_fn=lambda data: data["status"]["print_stats"]["filename"],
+        subscriptions=[("print_stats", "filename")],
     ),
     MoonrakerSensorDescription(
         key="print_projected_duration",
         name="print Projected Duration",
         value_fn=lambda data: (
-            (data["print_stats"]["print_duration"] / 60)
-            / data["display_status"]["progress"]
+            (data["status"]["print_stats"]["print_duration"] / 60)
+            / data["status"]["display_status"]["progress"]
         )
-        if data["display_status"]["progress"] != 0
+        if data["status"]["display_status"]["progress"] != 0
         else 0,
+        subscriptions=[
+            ("print_stats", "print_duration"),
+            ("display_status", "progress"),
+        ],
         icon="mdi:timer",
         unit=TIME_MINUTES,
         device_class=SensorDeviceClass.DURATION,
@@ -92,13 +104,17 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         name="ETA",
         value_fn=lambda data: (
             (
-                (data["print_stats"]["print_duration"] / 60)
-                / data["display_status"]["progress"]
-                if data["display_status"]["progress"] != 0
+                (data["status"]["print_stats"]["print_duration"] / 60)
+                / data["status"]["display_status"]["progress"]
+                if data["status"]["display_status"]["progress"] != 0
                 else 0
             )
-            - data["print_stats"]["print_duration"] / 60
+            - data["status"]["print_stats"]["print_duration"] / 60
         ),
+        subscriptions=[
+            ("print_stats", "print_duration"),
+            ("display_status", "progress"),
+        ],
         icon="mdi:timer",
         unit=TIME_MINUTES,
         device_class=SensorDeviceClass.DURATION,
@@ -106,7 +122,8 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="print_duration",
         name="Print Duration",
-        value_fn=lambda data: (data["print_stats"]["print_duration"] / 60),
+        value_fn=lambda data: (data["status"]["print_stats"]["print_duration"] / 60),
+        subscriptions=[("print_stats", "print_duration")],
         icon="mdi:timer",
         unit=TIME_MINUTES,
         device_class=SensorDeviceClass.DURATION,
@@ -114,14 +131,18 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="filament_used",
         name="Filament Used",
-        value_fn=lambda data: int(data["print_stats"]["filament_used"]) * 1.0 / 1000,
+        value_fn=lambda data: int(data["status"]["print_stats"]["filament_used"])
+        * 1.0
+        / 1000,
+        subscriptions=[("print_stats", "filament_used")],
         icon="mdi:tape-measure",
         unit=LENGTH_METERS,
     ),
     MoonrakerSensorDescription(
         key="progress",
         name="Progress",
-        value_fn=lambda data: int(data["display_status"]["progress"] * 100),
+        value_fn=lambda data: int(data["status"]["display_status"]["progress"] * 100),
+        subscriptions=[("display_status", "progress")],
         icon="mdi:percent",
         unit=PERCENTAGE,
     ),
@@ -143,7 +164,7 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
 
         super().__init__(coordinator, entry)
         self.coordinator = coordinator
-        self._attr_unique_id = f"{NAME}_{description.key}_123"
+        self._attr_unique_id = f"{coordinator.api_device_name}_{description.key}_123"
         self._attr_name = description.name
         self._attr_has_entity_name = True
         self.entity_description = description

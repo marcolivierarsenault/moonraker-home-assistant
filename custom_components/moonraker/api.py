@@ -1,47 +1,31 @@
-"""Sample SYNC moonraker Client."""
+"""Sample ASYNC moonraker Client."""
 import logging
 
-from moonrakerpy import MoonrakerPrinter
+from moonraker_api import MoonrakerListener, MoonrakerClient
 
 TIMEOUT = 10
 
 
 _LOGGER = logging.getLogger(__name__)
 
-PRINTER_OBJECT = [
-    "webhooks",
-    "extruder",
-    "heater_bed",
-    "print_stats",
-    "display_status",
-    "filament_switch_sensor",
-]
 
-
-class MoonrakerApiClient:
+class MoonrakerApiClient(MoonrakerListener):
     """Moonraker communication API"""
 
-    def __init__(self, url: str) -> None:
-        """Sample API Client."""
-        self._url = url
+    def __init__(self, url, session):
+        self.running = False
+        self.client = MoonrakerClient(listener=self, host=url, session=session)
 
-    def connect_client(self) -> None:
-        """Connect moonraker"""
-        self._moonraker_client = MoonrakerPrinter(self._url)
+    async def state_changed(self, state: str) -> None:
+        """Notifies of changing websocket state."""
+        _LOGGER.debug(f"Stated changed to {state}")
 
-    def get_data(self) -> dict:
-        """Get data from the API."""
-        return self._printer_status()
+    async def start(self) -> None:
+        """Start the websocket connection."""
+        self.running = True
+        return await self.client.connect()
 
-    def _printer_status(self) -> dict:
-        """Get information from the API."""
-        try:
-            printer_status = {}
-            for printer_obj in PRINTER_OBJECT:
-                printer_status[printer_obj] = self._moonraker_client.query_status(
-                    printer_obj
-                )
-            return printer_status
-
-        except Exception as exception:  # pylint: disable=broad-except
-            _LOGGER.error("Something really wrong happened! - %s", exception)
+    async def stop(self) -> None:
+        """Stop the websocket connection."""
+        self.running = False
+        await self.client.disconnect()
