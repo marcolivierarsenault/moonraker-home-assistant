@@ -87,11 +87,10 @@ class PreviewCamera(Camera):
         if self._current_path == new_path and self._current_pic is not None:
             return self._current_pic
 
-        if new_path == "":
+        if new_path == "" or new_path == None:
             self._current_pic = None
             self._current_path = ""
             return None
-
         response = await self._session.get(
             f"http://{self.url}/server/files/gcodes/{new_path}"
         )
