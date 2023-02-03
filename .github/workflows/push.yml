@@ -46,12 +46,6 @@ jobs:
         run: python3 -m pip install -r requirements_test.txt
       - name: Run tests
         run: |
-          pytest \
-            -qq \
-            --timeout=9 \
-            --durations=10 \
-            -n auto \
-            --cov custom_components.moonraker \
-            -o console_output_style=count \
-            -p no:sugar \
-            tests
+          pytest . --cov=custom_components.moonraker --cov-report=xml
+      - name: Upload coverage reports to Codecov with GitHub Action
+        uses: codecov/codecov-action@v3
