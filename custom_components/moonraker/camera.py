@@ -9,11 +9,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from homeassistant.components.camera import (
-    DOMAIN as CAMERA_DOMAIN,
-    Camera,
-    CameraEntityFeature,
-)
+from homeassistant.components.camera import Camera
 
 from .const import DOMAIN, CONF_URL
 
@@ -90,6 +86,11 @@ class PreviewCamera(Camera):
         new_path = self.coordinator.data["thumbnails"]
         if self._current_path == new_path and self._current_pic is not None:
             return self._current_pic
+
+        if new_path == "":
+            self._current_pic = None
+            self._current_path = ""
+            return None
 
         response = await self._session.get(
             f"http://{self.url}/server/files/gcodes/{new_path}"
