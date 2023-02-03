@@ -48,7 +48,7 @@ def get_data_fixture():
             "print_stats": {
                 "state": "standby",
                 "message": "",
-                "filename": "CE3E3V2_picture_frame_holder-32x32.png",
+                "filename": "",
                 "print_duration": 0.0,
                 "filament_used": 0.0,
             },
