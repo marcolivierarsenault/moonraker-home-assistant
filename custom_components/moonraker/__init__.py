@@ -112,6 +112,9 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         }
 
     async def _async_fetch_data(self, query_path, query_object):
+        if not self.moonraker.client.is_connected:
+            _LOGGER.warning("connection to moonraker down, restarting")
+            await self.moonraker.start()
         try:
             if query_object is None:
                 result = await self.moonraker.client.call_method(query_path)
