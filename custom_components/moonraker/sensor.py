@@ -151,7 +151,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         name="Bed Power",
         value_fn=lambda data: int(data["status"]["heater_bed"]["power"] * 100),
         subscriptions=[("heater_bed", "power")],
-        icon="mdi:percent",
+        icon="mdi:flash",
         unit=PERCENTAGE,
     ),
     MoonrakerSensorDescription(
@@ -159,7 +159,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         name="Extruder Power",
         value_fn=lambda data: int(data["status"]["extruder"]["power"] * 100),
         subscriptions=[("extruder", "power")],
-        icon="mdi:percent",
+        icon="mdi:flash",
         unit=PERCENTAGE,
     ),
 ]
