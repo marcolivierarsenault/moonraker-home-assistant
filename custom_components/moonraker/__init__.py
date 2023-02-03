@@ -85,6 +85,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         self.hass = hass
         self.config_entry = config_entry
         self.api_device_name = api_device_name
+        config_entry.title = api_device_name
         self.query_obj = {OBJ: {}}
         self.load_all_sensor_data()
 
@@ -92,14 +93,24 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self):
         """Update data via library."""
+        return await self._async_fetch_data("printer.objects.query", self.query_obj)
+
+    async def _async_fetch_data(self, query_path, query_object):
         try:
-            result = await self.moonraker.client.call_method(
-                "printer.objects.query", **self.query_obj
-            )
+            if query_object is None:
+                result = await self.moonraker.client.call_method(query_path)
+            else:
+                result = await self.moonraker.client.call_method(
+                    query_path, **query_object
+                )
             _LOGGER.debug(result)
             return result
         except Exception as exception:
             raise UpdateFailed() from exception
+
+    async def async_get_cameras(self):
+        """Return list of cameras"""
+        return await self._async_fetch_data("server.webcams.list", None)
 
     def load_all_sensor_data(self):
         """pre loading all sensor data, so we can poll the right object"""

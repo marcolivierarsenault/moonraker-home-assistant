@@ -19,6 +19,7 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         """Initialize."""
         _LOGGER.debug("loading moonraker confFlowHandler")
         self._errors = {}
+        self.title = None
 
     async def async_step_user(self, user_input=None):
         """Handle a flow initialized by the user."""

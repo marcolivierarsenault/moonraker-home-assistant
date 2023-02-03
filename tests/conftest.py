@@ -72,3 +72,23 @@ def get_printer_info_fixture():
         "software_version": "v0.11.0-89-gead81fbf",
         "cpu_info": "4 core ARMv7 Processor rev 3 (v7l)",
     }
+
+
+@pytest.fixture(name="get_camera_info")
+def get_camera_info_fixture():
+    return {
+        "webcams": [
+            {
+                "name": "webcam",
+                "location": "printer",
+                "service": "mjpegstreamer-adaptive",
+                "target_fps": "15",
+                "stream_url": "/webcam/?action=stream",
+                "snapshot_url": "/webcam/?action=snapshot",
+                "flip_horizontal": False,
+                "flip_vertical": False,
+                "rotation": 0,
+                "source": "database",
+            }
+        ]
+    }

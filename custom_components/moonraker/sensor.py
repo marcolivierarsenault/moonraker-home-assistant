@@ -164,7 +164,7 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
 
         super().__init__(coordinator, entry)
         self.coordinator = coordinator
-        self._attr_unique_id = f"{coordinator.api_device_name}_{description.key}_123"
+        self._attr_unique_id = f"{entry.entry_id}_{description.key}"
         self._attr_name = description.name
         self._attr_has_entity_name = True
         self.entity_description = description
