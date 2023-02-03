@@ -4,10 +4,20 @@ from __future__ import annotations
 from homeassistant.components.mjpeg.camera import MjpegCamera
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+import logging
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from homeassistant.components.camera import (
+    DOMAIN as CAMERA_DOMAIN,
+    Camera,
+    CameraEntityFeature,
+)
+
 from .const import DOMAIN, CONF_URL
+
+_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
@@ -22,6 +32,16 @@ async def async_setup_entry(
 
     for id, camera in enumerate(cameras["webcams"]):
         async_add_entities([MoonrakerCamera(config_entry, coordinator, camera, id)])
+
+    async_add_entities(
+        [
+            PreviewCamera(
+                config_entry,
+                coordinator,
+                async_get_clientsession(hass, verify_ssl=False),
+            )
+        ]
+    )
 
 
 class MoonrakerCamera(MjpegCamera):
@@ -41,3 +61,41 @@ class MoonrakerCamera(MjpegCamera):
             still_image_url=f"http://{self.url}{camera['snapshot_url']}",
             unique_id=f"{config_entry.entry_id}_{camera['name']}_{id}",
         )
+
+
+class PreviewCamera(Camera):
+    """Representation of the gcode thumnail."""
+
+    _attr_is_streaming = False
+
+    def __init__(self, config_entry, coordinator, session) -> None:
+        """Initialize as a subclass of MjpegCamera."""
+
+        super().__init__()
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, config_entry.entry_id)}
+        )
+        self.url = config_entry.data.get(CONF_URL)
+        self.coordinator = coordinator
+        self._attr_name = f"{coordinator.api_device_name} Thumbnail"
+        self._attr_unique_id = f"{config_entry.entry_id}_thumbnail"
+        self._session = session
+        self._current_pic = None
+        self._current_path = ""
+
+    async def async_camera_image(
+        self, width: int | None = None, height: int | None = None
+    ) -> bytes | None:
+
+        new_path = self.coordinator.data["thumbnails"]
+        if self._current_path == new_path and self._current_pic is not None:
+            return self._current_pic
+
+        response = await self._session.get(
+            f"http://{self.url}/server/files/gcodes/{new_path}"
+        )
+
+        self._current_path = new_path
+        self._current_pic = await response.read()
+
+        return self._current_pic
