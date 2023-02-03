@@ -40,45 +40,55 @@ def skip_notifications_fixture():
         yield
 
 
-@pytest.fixture(name="bypass_connect_client")
-def bypass_connect_client_fixture():
-    """Skip calls to get data from API."""
-    with patch("custom_components.moonraker.MoonrakerApiClient.connect_client"):
-        yield
-
-
-@pytest.fixture(name="error_on_get_data")
-def error_get_data_fixture():
-    """Simulate error when retrieving data from API."""
-    with patch(
-        "custom_components.moonraker.MoonrakerApiClient.get_data",
-        side_effect=Exception,
-    ):
-        yield
-
-
 @pytest.fixture(name="get_data")
 def get_data_fixture():
     return {
-        "webhooks": {"state": "ready", "state_message": "Printer is ready"},
-        "extruder": {
-            "temperature": 21.17,
-            "target": 0.0,
-            "power": 0.0,
-            "can_extrude": False,
-            "pressure_advance": 0.65,
-            "smooth_time": 0.04,
+        "eventtime": 128684.342831779,
+        "status": {
+            "print_stats": {
+                "state": "standby",
+                "message": "",
+                "filename": "",
+                "print_duration": 0.0,
+                "filament_used": 0.0,
+            },
+            "extruder": {"temperature": 33.99, "target": 0.0},
+            "heater_bed": {"target": 0.0, "temperature": 46.22},
+            "display_status": {"progress": 0.0},
         },
-        "heater_bed": {"temperature": 22.25, "target": 0.0, "power": 0.0},
-        "print_stats": {
-            "filename": "",
-            "total_duration": 0.0,
-            "print_duration": 0.0,
-            "filament_used": 0.0,
-            "state": "standby",
-            "message": "",
-            "info": {"total_layer": None, "current_layer": None},
-        },
-        "display_status": {"progress": 0.0, "message": "speed F4800"},
-        "filament_switch_sensor": {},
+    }
+
+
+@pytest.fixture(name="get_printer_info")
+def get_printer_info_fixture():
+    return {
+        "state": "shutdown",
+        "state_message": "Off",
+        "hostname": "mainsail",
+        "klipper_path": "/home/pi/klipper",
+        "python_path": "/home/pi/klippy-env/bin/python",
+        "log_file": "/home/pi/printer_data/logs/klippy.log",
+        "config_file": "/home/pi/printer_data/config/printer.cfg",
+        "software_version": "v0.11.0-89-gead81fbf",
+        "cpu_info": "4 core ARMv7 Processor rev 3 (v7l)",
+    }
+
+
+@pytest.fixture(name="get_camera_info")
+def get_camera_info_fixture():
+    return {
+        "webcams": [
+            {
+                "name": "webcam",
+                "location": "printer",
+                "service": "mjpegstreamer-adaptive",
+                "target_fps": "15",
+                "stream_url": "/webcam/?action=stream",
+                "snapshot_url": "/webcam/?action=snapshot",
+                "flip_horizontal": False,
+                "flip_vertical": False,
+                "rotation": 0,
+                "source": "database",
+            }
+        ]
     }
