@@ -93,7 +93,9 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self):
         """Update data via library."""
-        return await self._async_fetch_data("printer.objects.query", self.query_obj)
+        query = await self._async_fetch_data("printer.objects.query", self.query_obj)
+        info = await self._async_fetch_data("printer.info", None)
+        return {**query, **{"printer.info": info}}
 
     async def _async_fetch_data(self, query_path, query_object):
         try:

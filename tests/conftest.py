@@ -52,9 +52,22 @@ def get_data_fixture():
                 "print_duration": 0.0,
                 "filament_used": 0.0,
             },
-            "extruder": {"temperature": 33.99, "target": 0.0},
-            "heater_bed": {"target": 0.0, "temperature": 46.22},
+            "extruder": {"temperature": 33.99, "target": 0.0, "power": 0.0},
+            "heater_bed": {"target": 0.0, "temperature": 46.22, "power": 0.0},
             "display_status": {"progress": 0.0},
+        },
+        "printer.info": {
+            "result": {
+                "state": "ready",
+                "state_message": "Printer is ready",
+                "hostname": "mainsail",
+                "klipper_path": "/home/pi/klipper",
+                "python_path": "/home/pi/klippy-env/bin/python",
+                "log_file": "/home/pi/printer_data/logs/klippy.log",
+                "config_file": "/home/pi/printer_data/config/printer.cfg",
+                "software_version": "v0.11.0-89-gead81fbf",
+                "cpu_info": "4 core ARMv7 Processor rev 3 (v7l)",
+            }
         },
     }
 
