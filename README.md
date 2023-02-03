@@ -1,3 +1,6 @@
+[![codecov](https://codecov.io/github/marcolivierarsenault/moonraker-home-assistant/branch/main/graph/badge.svg?token=OT5PZG1QZE)](https://codecov.io/github/marcolivierarsenault/moonraker-home-assistant) 
+
+
 # Moonraker Home Assistant
 
 # Install
