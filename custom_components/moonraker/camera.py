@@ -65,7 +65,7 @@ class PreviewCamera(Camera):
     _attr_is_streaming = False
 
     def __init__(self, config_entry, coordinator, session) -> None:
-        """Initialize as a subclass of MjpegCamera."""
+        """Initialize as a subclass of Camera for the Thumbnail Preview"""
 
         super().__init__()
         self._attr_device_info = DeviceInfo(
