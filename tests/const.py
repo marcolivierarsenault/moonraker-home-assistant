@@ -2,4 +2,4 @@
 from custom_components.moonraker.const import CONF_URL
 
 # Mock config data to be used across multiple tests
-MOCK_CONFIG = {CONF_URL: "http://1.2.3.4"}
+MOCK_CONFIG = {CONF_URL: "1.2.3.4"}

@@ -93,9 +93,28 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self):
         """Update data via library."""
-        return await self._async_fetch_data("printer.objects.query", self.query_obj)
+        query = await self._async_fetch_data("printer.objects.query", self.query_obj)
+        info = await self._async_fetch_data("printer.info", None)
+        thumbnail = await self._async_get_thumbnail(
+            query["status"]["print_stats"]["filename"]
+        )
+        return {**query, **{"printer.info": info}, **thumbnail}
+
+    async def _async_get_thumbnail(self, gcode_filename):
+        if gcode_filename is None or gcode_filename == "":
+            return {"thumbnails": None}
+        query_object = {"filename": gcode_filename}
+        gcode = await self._async_fetch_data("server.files.metadata", query_object)
+        return {
+            "thumbnails": gcode["thumbnails"][len(gcode["thumbnails"]) - 1][
+                "relative_path"
+            ]
+        }
 
     async def _async_fetch_data(self, query_path, query_object):
+        if not self.moonraker.client.is_connected:
+            _LOGGER.warning("connection to moonraker down, restarting")
+            await self.moonraker.start()
         try:
             if query_object is None:
                 result = await self.moonraker.client.call_method(query_path)
