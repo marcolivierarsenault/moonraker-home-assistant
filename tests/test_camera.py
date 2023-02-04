@@ -1,7 +1,6 @@
 """test moonraker camera"""
-import pytest
 from unittest.mock import patch
-import datetime as dt
+import pytest
 from PIL import Image
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -27,6 +26,7 @@ def bypass_connect_client_fixture():
 
 
 async def test_camera_services(hass, get_data, get_printer_info, get_camera_info):
+    """ Test camera services"""
     with patch(
         "moonraker_api.MoonrakerClient.call_method",
         return_value={**get_data, **get_printer_info, **get_camera_info},
@@ -41,7 +41,8 @@ async def test_camera_services(hass, get_data, get_printer_info, get_camera_info
     assert entry is not None
 
 
-async def test_two_camera_services(hass, get_data, get_printer_info, get_camera_info):
+async def test_two_cameras_services(hass, get_data, get_printer_info, get_camera_info):
+    """ Test cameras Services"""
     double_cam = get_camera_info
     double_cam["webcams"].append(
         {
@@ -63,9 +64,9 @@ async def test_two_camera_services(hass, get_data, get_printer_info, get_camera_
     assert entity_registry.async_get("camera.mainsail_webcam2") is not None
 
 
-async def test_two_camera_same_name_services(
-    hass, get_data, get_printer_info, get_camera_info
-):
+async def test_two_cameras_same_name_services(
+    hass, get_data, get_printer_info, get_camera_info):
+    """Test two cameras same name"""
     double_cam = get_camera_info
     double_cam["webcams"].append(
         {
@@ -88,9 +89,8 @@ async def test_two_camera_same_name_services(
 
 
 async def test_setup_thumbnail_camera(
-    hass, get_data, get_printer_info, get_camera_info
-):
-
+    hass, get_data, get_printer_info, get_camera_info):
+    """Test setup thumbnail camera"""
     get_data["status"]["print_stats"]["filename"] = "CE3E3V2_picture_frame_holder.gcode"
     with patch(
         "moonraker_api.MoonrakerClient.call_method",
@@ -109,6 +109,7 @@ async def test_setup_thumbnail_camera(
 async def test_thumbnail_camera_image(
     hass, aioclient_mock, get_data, get_printer_info, get_camera_info
 ):
+    """ Test thumbnail camera image """
 
     get_data["status"]["print_stats"]["filename"] = "CE3E3V2_picture_frame_holder.gcode"
     with patch(
@@ -132,6 +133,7 @@ async def test_thumbnail_camera_image(
 async def test_thumbnail_camera_from_img_to_none(
     hass, get_data, get_printer_info, get_camera_info
 ):
+    """ Test thumbnail camera from img to none"""
     with patch(
         "moonraker_api.MoonrakerClient.call_method",
         return_value={**get_data, **get_printer_info, **get_camera_info},

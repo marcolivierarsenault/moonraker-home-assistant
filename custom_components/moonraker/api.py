@@ -19,7 +19,7 @@ class MoonrakerApiClient(MoonrakerListener):
 
     async def state_changed(self, state: str) -> None:
         """Notifies of changing websocket state."""
-        _LOGGER.debug(f"Stated changed to {state}")
+        _LOGGER.debug("Stated changed to {%s}", state)
 
     async def start(self) -> None:
         """Start the websocket connection."""

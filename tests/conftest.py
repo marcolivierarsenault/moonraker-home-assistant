@@ -18,13 +18,15 @@ from unittest.mock import patch
 
 import pytest
 
-pytest_plugins = "pytest_homeassistant_custom_component"
+PYTEST_PLUGINS = "pytest_homeassistant_custom_component"
 
 
 # This fixture enables loading custom integrations in all tests.
 # Remove to enable selective use of this fixture
 @pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(enable_custom_integrations):
+    """Auto enable custom integrations"""
+    del enable_custom_integrations
     yield
 
 
@@ -42,6 +44,7 @@ def skip_notifications_fixture():
 
 @pytest.fixture(name="get_data")
 def get_data_fixture():
+    """ Get data Fixture"""
     return {
         "eventtime": 128684.342831779,
         "status": {
@@ -104,6 +107,7 @@ def get_data_fixture():
 
 @pytest.fixture(name="get_printer_info")
 def get_printer_info_fixture():
+    """ Get printer info fixture"""
     return {
         "state": "shutdown",
         "state_message": "Off",
@@ -119,6 +123,7 @@ def get_printer_info_fixture():
 
 @pytest.fixture(name="get_camera_info")
 def get_camera_info_fixture():
+    """ Get camera info fixture"""
     return {
         "webcams": [
             {

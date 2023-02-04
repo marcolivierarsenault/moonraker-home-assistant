@@ -1,10 +1,10 @@
 """
 HACS integration for Moonraker
 """
-import asyncio
-import async_timeout
-from datetime import timedelta
 import logging
+import asyncio
+from datetime import timedelta
+import async_timeout
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Config, HomeAssistant
@@ -25,7 +25,7 @@ _LOGGER = logging.getLogger(__name__)
 _LOGGER.debug("loading moonraker init")
 
 
-async def async_setup(hass: HomeAssistant, config: Config):
+async def async_setup(_hass: HomeAssistant, _config: Config):
     """Set up this integration using YAML is not supported."""
     return True
 
@@ -46,8 +46,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             printer_info = await api.client.call_method("printer.info")
             _LOGGER.debug(printer_info)
             api_device_name = printer_info[HOSTNAME]
-    except Exception:
-        raise ConfigEntryNotReady
+    except Exception as exc:
+        raise ConfigEntryNotReady from exc
 
     coordinator = MoonrakerDataUpdateCoordinator(
         hass, client=api, config_entry=entry, api_device_name=api_device_name

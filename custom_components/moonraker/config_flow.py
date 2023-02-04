@@ -1,8 +1,7 @@
 """Adds config flow for Moonraker."""
+import logging
 from homeassistant import config_entries
 import voluptuous as vol
-
-import logging
 
 from .const import DOMAIN, CONF_URL
 
@@ -42,9 +41,9 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return await self._show_config_form(user_input)
 
     async def _show_config_form(self, user_input):  # pylint: disable=unused-argument
+        """Show the configuration form to edit location data."""
 
         _LOGGER.debug("Showing moonraker conf")
-        """Show the configuration form to edit location data."""
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
@@ -55,6 +54,6 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             errors=self._errors,
         )
 
-    async def _test_connection(self, url):
+    async def _test_connection(self, _url):
         """Return true if connection is valid."""
         return True

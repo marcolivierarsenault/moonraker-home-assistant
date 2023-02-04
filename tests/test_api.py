@@ -1,11 +1,11 @@
-import pytest
-
+""" API Tests"""
 from unittest.mock import patch
 
 from custom_components.moonraker.api import MoonrakerApiClient
 
 
 async def test_connect_client():
+    """ Test connect client"""
     with patch("moonraker_api.MoonrakerClient"), patch(
         "moonraker_api.websockets.websocketclient.WebsocketClient.connect"
     ), patch("moonraker_api.websockets.websocketclient.WebsocketClient.disconnect"):
