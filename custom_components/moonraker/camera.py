@@ -27,7 +27,9 @@ async def async_setup_entry(
     cameras = await coordinator.async_get_cameras()
 
     for camera_id, camera in enumerate(cameras["webcams"]):
-        async_add_entities([MoonrakerCamera(config_entry, coordinator, camera, camera_id)])
+        async_add_entities(
+            [MoonrakerCamera(config_entry, coordinator, camera, camera_id)]
+        )
 
     async_add_entities(
         [
@@ -84,7 +86,7 @@ class PreviewCamera(Camera):
     ) -> bytes | None:
         """Return current camera image"""
         del width, height
-        
+
         new_path = self.coordinator.data["thumbnails"]
         if self._current_path == new_path and self._current_pic is not None:
             return self._current_pic
