@@ -1,10 +1,10 @@
 """Adds config flow for Moonraker."""
 import logging
+
 from homeassistant import config_entries
 import voluptuous as vol
 
-from .const import DOMAIN, CONF_URL
-
+from .const import CONF_URL, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 

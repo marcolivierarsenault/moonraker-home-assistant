@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import logging
+
+from homeassistant.components.camera import Camera
 from homeassistant.components.mjpeg.camera import MjpegCamera
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -9,9 +11,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from homeassistant.components.camera import Camera
-
-from .const import DOMAIN, CONF_URL
+from .const import CONF_URL, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 

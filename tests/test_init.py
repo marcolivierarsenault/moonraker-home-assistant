@@ -1,9 +1,10 @@
 """Test moonraker setup process."""
 from unittest.mock import patch
+
+from homeassistant.exceptions import ConfigEntryNotReady
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from homeassistant.exceptions import ConfigEntryNotReady
 from custom_components.moonraker import (
     MoonrakerDataUpdateCoordinator,
     async_reload_entry,

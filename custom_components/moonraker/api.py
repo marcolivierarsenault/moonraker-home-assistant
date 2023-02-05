@@ -1,8 +1,7 @@
 """Sample ASYNC moonraker Client."""
 import logging
 
-
-from moonraker_api import MoonrakerListener, MoonrakerClient
+from moonraker_api import MoonrakerClient, MoonrakerListener
 
 TIMEOUT = 10
 

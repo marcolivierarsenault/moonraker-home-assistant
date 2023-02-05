@@ -1,8 +1,8 @@
 """Test moonraker sensor."""
-from unittest.mock import patch
 import datetime as dt
-import pytest
+from unittest.mock import patch
 
+import pytest
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_fire_time_changed,
