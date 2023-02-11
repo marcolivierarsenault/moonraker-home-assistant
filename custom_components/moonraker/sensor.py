@@ -34,15 +34,27 @@ class MoonrakerSensorDescription(SensorEntityDescription):
 SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="state",
-        name="State",
+        name="Printer State",
         value_fn=lambda data: data["printer.info"]["state"],
         subscriptions=[],
     ),
     MoonrakerSensorDescription(
         key="message",
-        name="Message",
+        name="Printer Message",
         value_fn=lambda data: data["printer.info"]["state_message"],
         subscriptions=[],
+    ),
+    MoonrakerSensorDescription(
+        key="print_state",
+        name="Current Print State",
+        value_fn=lambda data: data["status"]["print_stats"]["state"],
+        subscriptions=[("print_stats", "state")],
+    ),
+    MoonrakerSensorDescription(
+        key="print_message",
+        name="Current Print Message",
+        value_fn=lambda data: data["status"]["print_stats"]["message"],
+        subscriptions=[("print_stats", "message")],
     ),
     MoonrakerSensorDescription(
         key="extruder_temp",
