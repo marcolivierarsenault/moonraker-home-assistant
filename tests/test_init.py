@@ -1,9 +1,10 @@
 """Test moonraker setup process."""
 from unittest.mock import patch
+
+from homeassistant.exceptions import ConfigEntryNotReady
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from homeassistant.exceptions import ConfigEntryNotReady
 from custom_components.moonraker import (
     MoonrakerDataUpdateCoordinator,
     async_reload_entry,
@@ -33,17 +34,15 @@ async def test_setup_unload_and_reload_entry(hass, get_data, get_printer_info):
 
         assert await async_setup_entry(hass, config_entry)
         assert DOMAIN in hass.data and config_entry.entry_id in hass.data[DOMAIN]
-        assert (
-            type(hass.data[DOMAIN][config_entry.entry_id])
-            == MoonrakerDataUpdateCoordinator
+        assert isinstance(
+            hass.data[DOMAIN][config_entry.entry_id], MoonrakerDataUpdateCoordinator
         )
 
         # Reload the entry and assert that the data from above is still there
         assert await async_reload_entry(hass, config_entry) is None
         assert DOMAIN in hass.data and config_entry.entry_id in hass.data[DOMAIN]
-        assert (
-            type(hass.data[DOMAIN][config_entry.entry_id])
-            == MoonrakerDataUpdateCoordinator
+        assert isinstance(
+            hass.data[DOMAIN][config_entry.entry_id], MoonrakerDataUpdateCoordinator
         )
 
         # Unload the entry and verify that the data has been removed
@@ -64,10 +63,11 @@ async def test_setup_entry_exception(hass):
 
 
 def load_data(endpoint, *args, **kwargs):
+    """Load data"""
     if endpoint == "printer.info":
         return {"hostname": "mainsail"}
-    else:
-        raise Exception
+
+    raise Exception
 
 
 async def test_failed_first_refresh(hass):

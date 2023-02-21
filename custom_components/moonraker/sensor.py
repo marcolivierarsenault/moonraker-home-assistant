@@ -1,20 +1,18 @@
 """Sensor platform for integration_blueprint."""
 from collections.abc import Callable
 from dataclasses import dataclass
-
 import logging
 
-from homeassistant.core import callback
 from homeassistant.components.sensor import (
+    SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
-    SensorDeviceClass,
 )
-from homeassistant.const import DEGREE, TIME_MINUTES, PERCENTAGE, LENGTH_METERS
+from homeassistant.const import DEGREE, LENGTH_METERS, PERCENTAGE, TIME_MINUTES
+from homeassistant.core import callback
 
 from .const import DOMAIN
 from .entity import BaseMoonrakerEntity
-
 
 _LOGGER = logging.getLogger(__name__)
 

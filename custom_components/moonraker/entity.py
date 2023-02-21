@@ -1,6 +1,6 @@
 """Base class entity for Moonraker"""
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 
@@ -15,6 +15,7 @@ class BaseMoonrakerEntity(CoordinatorEntity):
 
     @property
     def device_info(self):
+        """ Entity device info"""
         return DeviceInfo(
             identifiers={(DOMAIN, self.config_entry.entry_id)},
             name=self.api_device_name,

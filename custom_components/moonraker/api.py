@@ -1,8 +1,7 @@
 """Sample ASYNC moonraker Client."""
 import logging
 
-
-from moonraker_api import MoonrakerListener, MoonrakerClient
+from moonraker_api import MoonrakerClient, MoonrakerListener
 
 TIMEOUT = 10
 
@@ -19,7 +18,7 @@ class MoonrakerApiClient(MoonrakerListener):
 
     async def state_changed(self, state: str) -> None:
         """Notifies of changing websocket state."""
-        _LOGGER.debug(f"Stated changed to {state}")
+        _LOGGER.debug("Stated changed to {%s}", state)
 
     async def start(self) -> None:
         """Start the websocket connection."""

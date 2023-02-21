@@ -1,17 +1,17 @@
 """Support for OctoPrint binary camera."""
 from __future__ import annotations
 
+import logging
+
+from homeassistant.components.camera import Camera
 from homeassistant.components.mjpeg.camera import MjpegCamera
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-import logging
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from homeassistant.components.camera import Camera
-
-from .const import DOMAIN, CONF_URL
+from .const import CONF_URL, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,8 +26,10 @@ async def async_setup_entry(
 
     cameras = await coordinator.async_get_cameras()
 
-    for id, camera in enumerate(cameras["webcams"]):
-        async_add_entities([MoonrakerCamera(config_entry, coordinator, camera, id)])
+    for camera_id, camera in enumerate(cameras["webcams"]):
+        async_add_entities(
+            [MoonrakerCamera(config_entry, coordinator, camera, camera_id)]
+        )
 
     async_add_entities(
         [
@@ -43,7 +45,7 @@ async def async_setup_entry(
 class MoonrakerCamera(MjpegCamera):
     """Representation of an Moonraker Camera Stream."""
 
-    def __init__(self, config_entry, coordinator, camera, id) -> None:
+    def __init__(self, config_entry, coordinator, camera, camera_id) -> None:
         """Initialize as a subclass of MjpegCamera."""
 
         self._attr_device_info = DeviceInfo(
@@ -55,7 +57,7 @@ class MoonrakerCamera(MjpegCamera):
             mjpeg_url=f"http://{self.url}{camera['stream_url']}",
             name=f"{coordinator.api_device_name} {camera['name']}",
             still_image_url=f"http://{self.url}{camera['snapshot_url']}",
-            unique_id=f"{config_entry.entry_id}_{camera['name']}_{id}",
+            unique_id=f"{config_entry.entry_id}_{camera['name']}_{camera_id}",
         )
 
 
@@ -82,12 +84,14 @@ class PreviewCamera(Camera):
     async def async_camera_image(
         self, width: int | None = None, height: int | None = None
     ) -> bytes | None:
+        """Return current camera image"""
+        del width, height
 
         new_path = self.coordinator.data["thumbnails"]
         if self._current_path == new_path and self._current_pic is not None:
             return self._current_pic
 
-        if new_path == "" or new_path == None:
+        if new_path == "" or new_path is None:
             self._current_pic = None
             self._current_path = ""
             return None
