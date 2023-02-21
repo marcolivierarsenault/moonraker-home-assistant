@@ -34,7 +34,7 @@ async def test_sensor_services_update(hass, get_data, get_printer_info):
 
     state = hass.states.get("sensor.mainsail_bed_target")
 
-    assert state.state == "0.0"
+    assert state.state == "60.0"
 
     get_data["status"]["heater_bed"]["target"] = 100.0
 
@@ -55,10 +55,22 @@ async def test_sensor_services_update(hass, get_data, get_printer_info):
 @pytest.mark.parametrize(
     "sensor, value",
     [
-        ("mainsail_bed_target", "0.0"),
-        ("mainsail_bed_temperature", "46.22"),
-        ("mainsail_extruder_target", "0.0"),
-        ("mainsail_extruder_temperature", "33.99"),
+        ("mainsail_bed_target", "60.0"),
+        ("mainsail_bed_temperature", "60.01"),
+        ("mainsail_extruder_target", "205.0"),
+        ("mainsail_extruder_temperature", "205.02"),
+        ("mainsail_progress", "90"),
+        ("mainsail_printer_state", "ready"),
+        ("mainsail_printer_message", "Printer is ready"),
+        ("mainsail_current_print_state", "printing"),
+        ("mainsail_current_print_message", ""),
+        ("mainsail_print_projected_duration", "147.14"),
+        ("mainsail_eta", "13.56"),
+        ("mainsail_print_duration", "133.58"),
+        ("mainsail_filament_used", "7.77"),
+        ("mainsail_progress", "90"),
+        ("mainsail_bed_power", "26"),
+        ("mainsail_extruder_power", "66"),
     ],
 )
 async def test_sensors(hass, sensor, value, get_data, get_printer_info):

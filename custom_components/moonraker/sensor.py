@@ -95,9 +95,12 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="print_projected_duration",
         name="print Projected Duration",
-        value_fn=lambda data: (
-            (data["status"]["print_stats"]["print_duration"] / 60)
-            / data["status"]["display_status"]["progress"]
+        value_fn=lambda data: round(
+            (
+                (data["status"]["print_stats"]["print_duration"] / 60)
+                / data["status"]["display_status"]["progress"]
+            ),
+            2,
         )
         if data["status"]["display_status"]["progress"] != 0
         else 0,
@@ -114,12 +117,16 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         name="ETA",
         value_fn=lambda data: (
             (
-                (data["status"]["print_stats"]["print_duration"] / 60)
-                / data["status"]["display_status"]["progress"]
+                round(
+                    data["status"]["print_stats"]["print_duration"]
+                    / 60
+                    / data["status"]["display_status"]["progress"],
+                    2,
+                )
                 if data["status"]["display_status"]["progress"] != 0
                 else 0
             )
-            - data["status"]["print_stats"]["print_duration"] / 60
+            - round(data["status"]["print_stats"]["print_duration"] / 60, 2)
         ),
         subscriptions=[
             ("print_stats", "print_duration"),
@@ -132,7 +139,9 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="print_duration",
         name="Print Duration",
-        value_fn=lambda data: (data["status"]["print_stats"]["print_duration"] / 60),
+        value_fn=lambda data: round(
+            data["status"]["print_stats"]["print_duration"] / 60, 2
+        ),
         subscriptions=[("print_stats", "print_duration")],
         icon="mdi:timer",
         unit=TIME_MINUTES,
@@ -141,9 +150,9 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="filament_used",
         name="Filament Used",
-        value_fn=lambda data: int(data["status"]["print_stats"]["filament_used"])
-        * 1.0
-        / 1000,
+        value_fn=lambda data: round(
+            int(data["status"]["print_stats"]["filament_used"]) * 1.0 / 1000, 2
+        ),
         subscriptions=[("print_stats", "filament_used")],
         icon="mdi:tape-measure",
         unit=LENGTH_METERS,
