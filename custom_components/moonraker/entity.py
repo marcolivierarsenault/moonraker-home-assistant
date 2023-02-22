@@ -15,7 +15,7 @@ class BaseMoonrakerEntity(CoordinatorEntity):
 
     @property
     def device_info(self):
-        """ Entity device info"""
+        """Entity device info"""
         return DeviceInfo(
             identifiers={(DOMAIN, self.config_entry.entry_id)},
             name=self.api_device_name,
