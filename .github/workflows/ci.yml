@@ -1,4 +1,4 @@
-name: Pull actions
+name: CI actions
 
 on:
   pull_request:
