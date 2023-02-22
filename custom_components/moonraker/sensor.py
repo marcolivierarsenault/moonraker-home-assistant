@@ -187,7 +187,6 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
     """MoonrakerSensor Sensor class."""
 
     def __init__(self, coordinator, entry, description):
-
         super().__init__(coordinator, entry)
         self.coordinator = coordinator
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"

@@ -44,7 +44,7 @@ def skip_notifications_fixture():
 
 @pytest.fixture(name="get_data")
 def get_data_fixture():
-    """ Get data Fixture"""
+    """Get data Fixture"""
     return {
         "eventtime": 128684.342831779,
         "status": {
@@ -107,7 +107,7 @@ def get_data_fixture():
 
 @pytest.fixture(name="get_printer_info")
 def get_printer_info_fixture():
-    """ Get printer info fixture"""
+    """Get printer info fixture"""
     return {
         "state": "shutdown",
         "state_message": "Off",
@@ -123,7 +123,7 @@ def get_printer_info_fixture():
 
 @pytest.fixture(name="get_camera_info")
 def get_camera_info_fixture():
-    """ Get camera info fixture"""
+    """Get camera info fixture"""
     return {
         "webcams": [
             {
