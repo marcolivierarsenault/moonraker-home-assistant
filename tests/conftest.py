@@ -1,19 +1,4 @@
 """Global fixtures for integration_blueprint integration."""
-# Fixtures allow you to replace functions with a Mock object. You can perform
-# many options via the Mock to reflect a particular behavior from the original
-# function that you want to see without going through the function's actual logic.
-# Fixtures can either be passed into tests as parameters, or if autouse=True, they
-# will automatically be used across all tests.
-#
-# Fixtures that are defined in conftest.py are available across all tests. You can also
-# define fixtures within a particular test file to scope them locally.
-#
-# pytest_homeassistant_custom_component provides some fixtures that are provided by
-# Home Assistant core. You can find those fixture definitions here:
-# https://github.com/MatthewFlamm/pytest-homeassistant-custom-component/blob/master/pytest_homeassistant_custom_component/common.py
-#
-# See here for more info: https://docs.pytest.org/en/latest/fixture.html (note that
-# pytest includes fixtures OOB which you can use as defined on this page)
 from unittest.mock import patch
 
 import pytest
@@ -49,15 +34,28 @@ def get_data_fixture():
         "eventtime": 128684.342831779,
         "status": {
             "print_stats": {
-                "state": "standby",
+                "filename": "CE3E3V2_picture_frame_holder.gcode",
+                "total_duration": 8232.396654963959,
+                "print_duration": 8014.528148686048,
+                "filament_used": 7771.1721800000005,
+                "state": "printing",
                 "message": "",
-                "filename": "",
-                "print_duration": 0.0,
-                "filament_used": 0.0,
+                "info": {"total_layer": None, "current_layer": None},
             },
-            "extruder": {"temperature": 33.99, "target": 0.0, "power": 0.0},
-            "heater_bed": {"target": 0.0, "temperature": 46.22, "power": 0.0},
-            "display_status": {"progress": 0.0},
+            "extruder": {
+                "temperature": 205.02,
+                "target": 205.0,
+                "power": 0.6667108063925052,
+                "can_extrude": True,
+                "pressure_advance": 0.325,
+                "smooth_time": 0.04,
+            },
+            "heater_bed": {
+                "temperature": 60.01,
+                "target": 60.0,
+                "power": 0.26053745272533363,
+            },
+            "display_status": {"progress": 0.9078104237663283, "message": None},
         },
         "printer.info": {
             "result": {
@@ -109,8 +107,8 @@ def get_data_fixture():
 def get_printer_info_fixture():
     """Get printer info fixture"""
     return {
-        "state": "shutdown",
-        "state_message": "Off",
+        "state": "ready",
+        "state_message": "Printer is ready",
         "hostname": "mainsail",
         "klipper_path": "/home/pi/klipper",
         "python_path": "/home/pi/klippy-env/bin/python",
