@@ -4,3 +4,12 @@ venv
 .venv
 .coverage
 .idea
+.HA_VERSION
+automations.yaml
+home-assistant_v2.db
+home-assistant.log*
+scenes.yaml
+scripts.yaml
+secrets.yaml
+.storage
+blueprints

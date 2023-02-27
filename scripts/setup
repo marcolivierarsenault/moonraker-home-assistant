@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+set -e
+
+cd "$(dirname "$0")/.."
+
+sudo apt-get update
+sudo apt-get install libturbojpeg0
+
+
+python3 -m pip install --requirement requirements.txt

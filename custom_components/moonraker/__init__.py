@@ -1,5 +1,5 @@
 """
-HACS integration for Moonraker
+Moonraker integration for Home Assistant
 """
 import asyncio
 from datetime import timedelta
