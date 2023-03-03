@@ -11,7 +11,7 @@ MANIFACTURER = "@marcolivierarsenault"
 PLATFORMS = [Platform.SENSOR, Platform.CAMERA]
 
 CONF_URL = "url"
-
+CONF_PORT = "port"
 
 # API dict keys
 

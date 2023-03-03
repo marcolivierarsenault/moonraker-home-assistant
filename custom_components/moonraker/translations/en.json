@@ -4,12 +4,14 @@
             "user": {
                 "description": "Moonraker connection information",
                 "data": {
-                    "url": "url"
+                    "url": "url",
+                    "port": "port"
                 }
             }
         },
         "error": {
-            "error": "Invalid connection."
+            "error": "Invalid connection.",
+            "port_error": "Invalid port, must be a number between 1024 and 65535."
         }
     }
 }

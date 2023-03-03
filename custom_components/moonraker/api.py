@@ -12,9 +12,11 @@ _LOGGER = logging.getLogger(__name__)
 class MoonrakerApiClient(MoonrakerListener):
     """Moonraker communication API"""
 
-    def __init__(self, url, session):
+    def __init__(self, url, session, port: int = 7125):
         self.running = False
-        self.client = MoonrakerClient(listener=self, host=url, session=session)
+        self.client = MoonrakerClient(
+            listener=self, host=url, port=port, session=session
+        )
 
     async def state_changed(self, state: str) -> None:
         """Notifies of changing websocket state."""
