@@ -5,7 +5,7 @@ from homeassistant import config_entries, data_entry_flow
 
 from custom_components.moonraker.const import DOMAIN
 
-from .const import MOCK_CONFIG
+from .const import MOCK_CONFIG, MOCK_CONFIG_BAD_PORT
 
 
 async def test_successful_config_flow(hass):
@@ -52,3 +52,10 @@ async def test_tmp_failing_config_flow(hass):
 
     assert result["type"] == data_entry_flow.RESULT_TYPE_FORM
     assert result["errors"] == {"base": "error"}
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input=MOCK_CONFIG_BAD_PORT
+    )
+
+    assert result["type"] == data_entry_flow.RESULT_TYPE_FORM
+    assert result["errors"] == {"port": "port_error"}

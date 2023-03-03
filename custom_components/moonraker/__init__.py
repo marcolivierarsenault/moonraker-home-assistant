@@ -13,7 +13,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import MoonrakerApiClient
-from .const import CONF_URL, CONF_PORT, DOMAIN, HOSTNAME, OBJ, PLATFORMS
+from .const import CONF_PORT, CONF_URL, DOMAIN, HOSTNAME, OBJ, PLATFORMS
 from .sensor import SENSORS
 
 SCAN_INTERVAL = timedelta(seconds=30)
