@@ -59,7 +59,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         name="Extruder Temperature",
         value_fn=lambda data: float(data["status"]["extruder"]["temperature"]),
         subscriptions=[("extruder", "temperature")],
-        icon="mdi:thermometer",
+        icon="mdi:printer-3d-nozzle-heat",
         unit=DEGREE,
     ),
     MoonrakerSensorDescription(
@@ -67,7 +67,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         name="Extruder Target",
         value_fn=lambda data: float(data["status"]["extruder"]["target"]),
         subscriptions=[("extruder", "target")],
-        icon="mdi:thermometer",
+        icon="mdi:printer-3d-nozzle-heat",
         unit=DEGREE,
     ),
     MoonrakerSensorDescription(
@@ -75,7 +75,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         name="Bed Target",
         value_fn=lambda data: float(data["status"]["heater_bed"]["target"]),
         subscriptions=[("heater_bed", "target")],
-        icon="mdi:thermometer",
+        icon="mdi:radiator",
         unit=DEGREE,
     ),
     MoonrakerSensorDescription(
@@ -83,7 +83,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         name="Bed Temperature",
         value_fn=lambda data: float(data["status"]["heater_bed"]["temperature"]),
         subscriptions=[("heater_bed", "temperature")],
-        icon="mdi:thermometer",
+        icon="mdi:radiator",
         unit=DEGREE,
     ),
     MoonrakerSensorDescription(
