@@ -5,8 +5,19 @@
 [![hacs][hacsbadge]][hacs]
 
 _Component to integrate with [Moonraker][integration_blueprint]._
-![sensor](https://github.com/marcolivierarsenault/moonraker-home-assistant/blob/main/assets/sensors.png)
-![camera](https://github.com/marcolivierarsenault/moonraker-home-assistant/blob/main/assets/camera.png)
+
+Non official integration for Moonraker in Home Assistant. 
+
+This allows you home assistant to connect to your 3D printer and display:
+- key information about the printer (sensors)
+- show the camera (if installed)
+- thumbnail of what is being printed at the moment.
+
+# Screenshot
+Sensors           |  Camer
+:-------------------------:|:-------------------------:
+![sensor](https://github.com/marcolivierarsenault/moonraker-home-assistant/blob/main/assets/sensors.png)  | ![camera](https://github.com/marcolivierarsenault/moonraker-home-assistant/blob/main/assets/camera.png)
+
 
 **This component will set up the following platforms.**
 
