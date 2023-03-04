@@ -54,29 +54,69 @@ async def test_tmp_failing_config_flow(hass):
     assert result["errors"] == {CONF_URL: "error"}
 
 
-async def test_server_port_config_flow(hass):
-    """Test some port config flow."""
+async def test_server_port_too_low(hass):
+    """Test server port when it's too low."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
 
-    # Not an int
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], user_input={CONF_URL: "1.2.3.4", CONF_PORT: "1234wdw"}
+        result["flow_id"], user_input={CONF_PORT: "32"}
     )
-    assert result["type"] == data_entry_flow.RESULT_TYPE_FORM
     assert result["errors"] == {CONF_PORT: "port_error"}
 
-    # Too small
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], user_input={CONF_URL: "1.2.3.4", CONF_PORT: "32"}
+
+async def test_server_port_too_high(hass):
+    """Test server port when it's too high."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
-    assert result["type"] == data_entry_flow.RESULT_TYPE_FORM
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={CONF_PORT: "4840138103"}
+    )
     assert result["errors"] == {CONF_PORT: "port_error"}
 
-    # Too big
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], user_input={CONF_URL: "1.2.3.4", CONF_PORT: "4840138103"}
+
+async def test_server_port_not_an_int(hass):
+    """Test port when it's not an int."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
-    assert result["type"] == data_entry_flow.RESULT_TYPE_FORM
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={CONF_PORT: "1234wdw"}
+    )
     assert result["errors"] == {CONF_PORT: "port_error"}
+
+
+async def test_server_port_when_good_port(hass):
+    """Test server port when it's good."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={CONF_URL: "1.2.3.4", CONF_PORT: "7611"}
+    )
+
+    assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
+    assert result["title"] == "moonraker"
+    assert result["data"] == {CONF_URL: "1.2.3.4", CONF_PORT: "7611"}
+    assert result["result"]
+
+
+async def test_server_port_when_port_empty(hass):
+    """Test server port is left empty"""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={CONF_URL: "1.2.3.4", CONF_PORT: ""}
+    )
+
+    assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
+    assert result["title"] == "moonraker"
+    assert result["data"] == {CONF_URL: "1.2.3.4", CONF_PORT: ""}
+    assert result["result"]
