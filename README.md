@@ -25,7 +25,7 @@ This allows you home assistant to connect to your 3D printer and display:
 
 
 # Screenshot
-Sensors           |  Camer
+Sensors           |  Camera
 :-------------------------:|:-------------------------:
 ![sensor](https://github.com/marcolivierarsenault/moonraker-home-assistant/blob/main/assets/sensors.png)  | ![camera](https://github.com/marcolivierarsenault/moonraker-home-assistant/blob/main/assets/camera.png)
 
