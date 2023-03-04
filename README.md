@@ -1,8 +1,16 @@
 [![codecov](https://codecov.io/github/marcolivierarsenault/moonraker-home-assistant/branch/main/graph/badge.svg?token=OT5PZG1QZE)](https://codecov.io/github/marcolivierarsenault/moonraker-home-assistant) 
+[![hacs_badge](https://img.shields.io/badge/HACS-Default-blue.svg)](https://github.com/custom-components/hacs)
 
 
 # Moonraker Home Assistant
 
+
+Non official integration for Moonraker in Home Assistant. 
+
+This allows you home assistant to connect to your 3D printer and display:
+- key information about the printer (sensors)
+- show the camera (if installed)
+- thumbnail of what is being printed at the moment.
 
 # Install
 
