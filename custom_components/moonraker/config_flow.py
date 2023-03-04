@@ -25,13 +25,11 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self._errors = {}
 
         if user_input is not None:
-            valid = await self._test_connection(user_input[CONF_URL])
-            if not valid:
-                self._errors["base"] = "error"
+            if not await self._test_connection(user_input[CONF_URL]):
+                self._errors[CONF_URL] = "error"
                 return await self._show_config_form(user_input)
 
-            valid = await self._test_port(user_input[CONF_PORT])
-            if not valid:
+            if not await self._test_port(user_input[CONF_PORT]):
                 self._errors[CONF_PORT] = "port_error"
                 return await self._show_config_form(user_input)
 

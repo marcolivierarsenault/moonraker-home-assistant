@@ -3,9 +3,9 @@ from unittest.mock import patch
 
 from homeassistant import config_entries, data_entry_flow
 
-from custom_components.moonraker.const import DOMAIN
+from custom_components.moonraker.const import CONF_PORT, CONF_URL, DOMAIN
 
-from .const import MOCK_CONFIG, MOCK_CONFIG_BAD_PORT
+from .const import MOCK_CONFIG
 
 
 async def test_successful_config_flow(hass):
@@ -51,11 +51,32 @@ async def test_tmp_failing_config_flow(hass):
         )
 
     assert result["type"] == data_entry_flow.RESULT_TYPE_FORM
-    assert result["errors"] == {"base": "error"}
+    assert result["errors"] == {CONF_URL: "error"}
 
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], user_input=MOCK_CONFIG_BAD_PORT
+
+async def test_server_port_config_flow(hass):
+    """Test some port config flow."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
 
+    # Not an int
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={CONF_URL: "1.2.3.4", CONF_PORT: "1234wdw"}
+    )
     assert result["type"] == data_entry_flow.RESULT_TYPE_FORM
-    assert result["errors"] == {"port": "port_error"}
+    assert result["errors"] == {CONF_PORT: "port_error"}
+
+    # Too small
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={CONF_URL: "1.2.3.4", CONF_PORT: "32"}
+    )
+    assert result["type"] == data_entry_flow.RESULT_TYPE_FORM
+    assert result["errors"] == {CONF_PORT: "port_error"}
+
+    # Too big
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={CONF_URL: "1.2.3.4", CONF_PORT: "4840138103"}
+    )
+    assert result["type"] == data_entry_flow.RESULT_TYPE_FORM
+    assert result["errors"] == {CONF_PORT: "port_error"}
