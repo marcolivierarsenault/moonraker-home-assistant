@@ -18,7 +18,6 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         """Initialize."""
         _LOGGER.debug("loading moonraker confFlowHandler")
         self._errors = {}
-        self.title = DOMAIN
 
     async def async_step_user(self, user_input=None):
         """Handle a flow initialized by the user."""
@@ -33,7 +32,7 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 self._errors[CONF_PORT] = "port_error"
                 return await self._show_config_form(user_input)
 
-            return self.async_create_entry(title=self.title, data=user_input)
+            return self.async_create_entry(title=DOMAIN, data=user_input)
 
         user_input = {}
         # Provide defaults for form

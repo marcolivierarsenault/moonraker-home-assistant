@@ -13,7 +13,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import MoonrakerApiClient
-from .const import CONF_PORT, CONF_URL, DOMAIN, OBJ, PLATFORMS
+from .const import CONF_PORT, CONF_URL, DOMAIN, HOSTNAME, OBJ, PLATFORMS
 from .sensor import SENSORS
 
 SCAN_INTERVAL = timedelta(seconds=30)
@@ -47,7 +47,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         async with async_timeout.timeout(TIMEOUT):
             printer_info = await api.client.call_method("printer.info")
             _LOGGER.debug(printer_info)
-            api_device_name = entry.title
+            api_device_name = printer_info[HOSTNAME]
+            if entry.title == DOMAIN:
+                entry.title = api_device_name
     except Exception as exc:
         raise ConfigEntryNotReady from exc
 
