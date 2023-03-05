@@ -47,7 +47,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         async with async_timeout.timeout(TIMEOUT):
             printer_info = await api.client.call_method("printer.info")
             _LOGGER.debug(printer_info)
-            api_device_name = printer_info[HOSTNAME]
+            api_device_name = entry.title
     except Exception as exc:
         raise ConfigEntryNotReady from exc
 
