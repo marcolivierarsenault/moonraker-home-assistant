@@ -12,10 +12,12 @@ _LOGGER = logging.getLogger(__name__)
 class MoonrakerApiClient(MoonrakerListener):
     """Moonraker communication API"""
 
-    def __init__(self, url, session, port: int = 7125):
+    def __init__(self, url, session, port: int = 7125, api_key: str = None):
         self.running = False
+        if api_key == "":
+            api_key = None
         self.client = MoonrakerClient(
-            listener=self, host=url, port=port, session=session
+            listener=self, host=url, port=port, session=session, api_key=api_key
         )
 
     async def state_changed(self, state: str) -> None:

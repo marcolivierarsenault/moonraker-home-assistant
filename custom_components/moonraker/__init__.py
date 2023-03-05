@@ -13,7 +13,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import MoonrakerApiClient
-from .const import CONF_PORT, CONF_URL, DOMAIN, HOSTNAME, OBJ, PLATFORMS
+from .const import CONF_API_KEY, CONF_PORT, CONF_URL, DOMAIN, HOSTNAME, OBJ, PLATFORMS
 from .sensor import SENSORS
 
 SCAN_INTERVAL = timedelta(seconds=30)
@@ -36,9 +36,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     url = entry.data.get(CONF_URL)
     port = entry.data.get(CONF_PORT)
+    api_key = entry.data.get(CONF_API_KEY)
 
     api = MoonrakerApiClient(
-        url, async_get_clientsession(hass, verify_ssl=False), port=port
+        url, async_get_clientsession(hass, verify_ssl=False), port=port, api_key=api_key
     )
 
     await api.start()
@@ -48,6 +49,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             printer_info = await api.client.call_method("printer.info")
             _LOGGER.debug(printer_info)
             api_device_name = printer_info[HOSTNAME]
+            if entry.title == DOMAIN:
+                entry.title = api_device_name
     except Exception as exc:
         raise ConfigEntryNotReady from exc
 
@@ -87,7 +90,6 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         self.hass = hass
         self.config_entry = config_entry
         self.api_device_name = api_device_name
-        config_entry.title = api_device_name
         self.query_obj = {OBJ: {}}
         self.load_all_sensor_data()
 
@@ -167,5 +169,5 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload config entry."""
-    await async_unload_entry(hass, entry)
-    await async_setup_entry(hass, entry)
+    hass.data[DOMAIN][entry.entry_id].config_entry = entry
+    await hass.config_entries.async_reload(entry.entry_id)

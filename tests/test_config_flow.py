@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from homeassistant import config_entries, data_entry_flow
 
-from custom_components.moonraker.const import CONF_PORT, CONF_URL, DOMAIN
+from custom_components.moonraker.const import CONF_API_KEY, CONF_PORT, CONF_URL, DOMAIN
 
 from .const import MOCK_CONFIG
 
@@ -28,7 +28,7 @@ async def test_successful_config_flow(hass):
     # Check that the config flow is complete and a new entry is created with
     # the input data
     assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
-    assert result["title"] == "moonraker"
+    assert result["title"] == DOMAIN
     assert result["data"] == MOCK_CONFIG
     assert result["result"]
 
@@ -101,8 +101,8 @@ async def test_server_port_when_good_port(hass):
     )
 
     assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
-    assert result["title"] == "moonraker"
-    assert result["data"] == {CONF_URL: "1.2.3.4", CONF_PORT: "7611"}
+    assert result["title"] == DOMAIN
+    assert result["data"] == {CONF_URL: "1.2.3.4", CONF_PORT: "7611", CONF_API_KEY: ""}
     assert result["result"]
 
 
@@ -117,6 +117,85 @@ async def test_server_port_when_port_empty(hass):
     )
 
     assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
+    assert result["title"] == DOMAIN
+    assert result["data"] == {CONF_URL: "1.2.3.4", CONF_PORT: "", CONF_API_KEY: ""}
+
+
+async def test_server_api_key_weird_char(hass):
+    """Test api key when contains weird characters"""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={CONF_API_KEY: "$7ylD3EuPWWxGlsshlCIJjzR$NbQzlre"}
+    )
+    assert result["errors"] == {CONF_API_KEY: "api_key_error"}
+
+
+async def test_server_api_key_too_short(hass):
+    """Test api key when it's too short"""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={CONF_API_KEY: "D7ylD3EuPWWxGlsshlCIJjzRQzlre"}
+    )
+    assert result["errors"] == {CONF_API_KEY: "api_key_error"}
+
+
+async def test_server_api_key_too_long(hass):
+    """Test api key when it's too long"""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={CONF_API_KEY: "D7ylD3EuPWWxGlsshlsd1CIJjzRSNbQzlre"},
+    )
+    assert result["errors"] == {CONF_API_KEY: "api_key_error"}
+
+
+async def test_server_api_key_when_good(hass):
+    """Test api key when it's good"""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_URL: "1.2.3.4",
+            CONF_API_KEY: "A7ylD3EuPWWxGlsshlCIJjzRBNbQzlre",
+        },
+    )
+
+    assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
     assert result["title"] == "moonraker"
-    assert result["data"] == {CONF_URL: "1.2.3.4", CONF_PORT: ""}
+    assert result["data"] == {
+        CONF_URL: "1.2.3.4",
+        CONF_PORT: "7125",
+        CONF_API_KEY: "A7ylD3EuPWWxGlsshlCIJjzRBNbQzlre",
+    }
+    assert result["result"]
+
+
+async def test_server_api_key_when_empty(hass):
+    """Test api key when it's empty"""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_URL: "1.2.3.4",
+        },
+    )
+
+    assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
+    assert result["title"] == "moonraker"
+    assert result["data"] == {CONF_URL: "1.2.3.4", CONF_PORT: "7125", CONF_API_KEY: ""}
     assert result["result"]

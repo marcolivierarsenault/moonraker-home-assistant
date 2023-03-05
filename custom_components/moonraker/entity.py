@@ -19,6 +19,6 @@ class BaseMoonrakerEntity(CoordinatorEntity):
         return DeviceInfo(
             identifiers={(DOMAIN, self.config_entry.entry_id)},
             name=self.api_device_name,
-            model=self.api_device_name,
+            model=DOMAIN,
             manufacturer=DOMAIN,
         )
