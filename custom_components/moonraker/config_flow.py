@@ -4,7 +4,7 @@ import logging
 from homeassistant import config_entries
 import voluptuous as vol
 
-from .const import CONF_URL, DOMAIN
+from .const import CONF_PORT, CONF_URL, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,18 +25,21 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self._errors = {}
 
         if user_input is not None:
-            valid = await self._test_connection(user_input[CONF_URL])
-            if valid:
-                return self.async_create_entry(
-                    title=DOMAIN, data=user_input
-                )  # changer DOMAIN pour name
-            self._errors["base"] = "error"
+            if not await self._test_connection(user_input[CONF_URL]):
+                self._errors[CONF_URL] = "error"
+                return await self._show_config_form(user_input)
 
-            return await self._show_config_form(user_input)
+            if not await self._test_port(user_input[CONF_PORT]):
+                self._errors[CONF_PORT] = "port_error"
+                return await self._show_config_form(user_input)
+
+            # changer DOMAIN pour name
+            return self.async_create_entry(title=DOMAIN, data=user_input)
 
         user_input = {}
         # Provide defaults for form
         user_input[CONF_URL] = "192.168.1.123"
+        user_input[CONF_PORT] = "7125"
 
         return await self._show_config_form(user_input)
 
@@ -49,6 +52,7 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_URL, default=user_input[CONF_URL]): str,
+                    vol.Optional(CONF_PORT, default=user_input[CONF_PORT]): str,
                 }
             ),
             errors=self._errors,
@@ -56,4 +60,10 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def _test_connection(self, _url):
         """Return true if connection is valid."""
+        return True
+
+    async def _test_port(self, port):
+        if not port == "":
+            if not port.isdigit() or int(port) > 65535 or int(port) <= 1024:
+                return False
         return True
