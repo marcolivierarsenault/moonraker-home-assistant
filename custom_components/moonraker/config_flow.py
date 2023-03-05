@@ -18,7 +18,6 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         """Initialize."""
         _LOGGER.debug("loading moonraker confFlowHandler")
         self._errors = {}
-        self.title = None
 
     async def async_step_user(self, user_input=None):
         """Handle a flow initialized by the user."""
@@ -66,6 +65,10 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def _test_connection(self, _url):
         """Return true if connection is valid."""
+        # Test connection and get hostname
+        # await api.client.call_method("printer.info")
+        # printer_info[HOSTNAME]
+        self.title = DOMAIN  # TODO change for hostname
         return True
 
     async def _test_port(self, port):

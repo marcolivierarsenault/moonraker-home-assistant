@@ -49,6 +49,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             printer_info = await api.client.call_method("printer.info")
             _LOGGER.debug(printer_info)
             api_device_name = printer_info[HOSTNAME]
+            if entry.title == DOMAIN:
+                entry.title = api_device_name
     except Exception as exc:
         raise ConfigEntryNotReady from exc
 
@@ -88,7 +90,6 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         self.hass = hass
         self.config_entry = config_entry
         self.api_device_name = api_device_name
-        config_entry.title = api_device_name
         self.query_obj = {OBJ: {}}
         self.load_all_sensor_data()
 
@@ -168,5 +169,5 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload config entry."""
-    await async_unload_entry(hass, entry)
-    await async_setup_entry(hass, entry)
+    hass.data[DOMAIN][entry.entry_id].config_entry = entry
+    await hass.config_entries.async_reload(entry.entry_id)
