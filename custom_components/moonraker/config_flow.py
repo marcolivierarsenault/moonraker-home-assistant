@@ -4,7 +4,7 @@ import logging
 from homeassistant import config_entries
 import voluptuous as vol
 
-from .const import CONF_PORT, CONF_URL, DOMAIN
+from .const import CONF_PORT, CONF_URL, DOMAIN, INTEGRATION_NAME
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,8 +33,7 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 self._errors[CONF_PORT] = "port_error"
                 return await self._show_config_form(user_input)
 
-            # changer DOMAIN pour name
-            return self.async_create_entry(title=DOMAIN, data=user_input)
+            return self.async_create_entry(title=INTEGRATION_NAME, data=user_input)
 
         user_input = {}
         # Provide defaults for form

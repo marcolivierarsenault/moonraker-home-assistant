@@ -38,7 +38,8 @@ async def test_setup_unload_and_reload_entry(hass, get_data, get_printer_info):
             hass.data[DOMAIN][config_entry.entry_id], MoonrakerDataUpdateCoordinator
         )
 
-        # Reload the entry and assert that the data from above is still there
+        # Reload the entry and assert that the data from above is still there.
+        hass.config_entries._entries[config_entry.entry_id] = config_entry
         assert await async_reload_entry(hass, config_entry) is None
         assert DOMAIN in hass.data and config_entry.entry_id in hass.data[DOMAIN]
         assert isinstance(

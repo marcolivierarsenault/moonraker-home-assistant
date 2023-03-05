@@ -3,7 +3,12 @@ from unittest.mock import patch
 
 from homeassistant import config_entries, data_entry_flow
 
-from custom_components.moonraker.const import CONF_PORT, CONF_URL, DOMAIN
+from custom_components.moonraker.const import (
+    CONF_PORT,
+    CONF_URL,
+    DOMAIN,
+    INTEGRATION_NAME,
+)
 
 from .const import MOCK_CONFIG
 
@@ -28,7 +33,7 @@ async def test_successful_config_flow(hass):
     # Check that the config flow is complete and a new entry is created with
     # the input data
     assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
-    assert result["title"] == "moonraker"
+    assert result["title"] == INTEGRATION_NAME
     assert result["data"] == MOCK_CONFIG
     assert result["result"]
 
@@ -101,7 +106,7 @@ async def test_server_port_when_good_port(hass):
     )
 
     assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
-    assert result["title"] == "moonraker"
+    assert result["title"] == INTEGRATION_NAME
     assert result["data"] == {CONF_URL: "1.2.3.4", CONF_PORT: "7611"}
     assert result["result"]
 
@@ -117,6 +122,6 @@ async def test_server_port_when_port_empty(hass):
     )
 
     assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
-    assert result["title"] == "moonraker"
+    assert result["title"] == INTEGRATION_NAME
     assert result["data"] == {CONF_URL: "1.2.3.4", CONF_PORT: ""}
     assert result["result"]
