@@ -15,5 +15,4 @@ CONF_PORT = "port"
 
 # API dict keys
 
-HOSTNAME = "hostname"
 OBJ = "objects"
