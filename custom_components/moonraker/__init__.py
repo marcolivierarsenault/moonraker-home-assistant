@@ -13,7 +13,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import MoonrakerApiClient
-from .const import CONF_PORT, CONF_URL, DOMAIN, HOSTNAME, OBJ, PLATFORMS
+from .const import CONF_API_KEY, CONF_PORT, CONF_URL, DOMAIN, HOSTNAME, OBJ, PLATFORMS
 from .sensor import SENSORS
 
 SCAN_INTERVAL = timedelta(seconds=30)
@@ -36,9 +36,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     url = entry.data.get(CONF_URL)
     port = entry.data.get(CONF_PORT)
+    api_key = entry.data.get(CONF_API_KEY)
 
     api = MoonrakerApiClient(
-        url, async_get_clientsession(hass, verify_ssl=False), port=port
+        url, async_get_clientsession(hass, verify_ssl=False), port=port, api_key=api_key
     )
 
     await api.start()
