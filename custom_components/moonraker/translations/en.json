@@ -6,7 +6,7 @@
                 "data": {
                     "url": "url",
                     "port": "port",
-                    "api_key": "api_key"
+                    "api_key": "api_key (Optional)"
                 }
             }
         },
