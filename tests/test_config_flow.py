@@ -102,7 +102,7 @@ async def test_server_port_when_good_port(hass):
 
     assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
     assert result["title"] == DOMAIN
-    assert result["data"] == {CONF_URL: "1.2.3.4", CONF_PORT: "7611"}
+    assert result["data"] == {CONF_URL: "1.2.3.4", CONF_PORT: "7611", CONF_API_KEY: ""}
     assert result["result"]
 
 
@@ -118,7 +118,8 @@ async def test_server_port_when_port_empty(hass):
 
     assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
     assert result["title"] == DOMAIN
-    assert result["data"] == {CONF_URL: "1.2.3.4", CONF_PORT: ""}
+    assert result["data"] == {CONF_URL: "1.2.3.4", CONF_PORT: "", CONF_API_KEY: ""}
+
 
 async def test_server_api_key_weird_char(hass):
     """Test api key when contains weird characters"""
