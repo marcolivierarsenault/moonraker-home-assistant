@@ -4,7 +4,7 @@ import logging
 from homeassistant import config_entries
 import voluptuous as vol
 
-from .const import CONF_PORT, CONF_URL, DOMAIN, INTEGRATION_NAME
+from .const import CONF_PORT, CONF_URL, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         """Initialize."""
         _LOGGER.debug("loading moonraker confFlowHandler")
         self._errors = {}
-        self.title = None
+        self.title = DOMAIN
 
     async def async_step_user(self, user_input=None):
         """Handle a flow initialized by the user."""
@@ -33,7 +33,7 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 self._errors[CONF_PORT] = "port_error"
                 return await self._show_config_form(user_input)
 
-            return self.async_create_entry(title=INTEGRATION_NAME, data=user_input)
+            return self.async_create_entry(title=self.title, data=user_input)
 
         user_input = {}
         # Provide defaults for form
@@ -59,6 +59,10 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def _test_connection(self, _url):
         """Return true if connection is valid."""
+        # Test connection and get hostname
+        # await api.client.call_method("printer.info")
+        # printer_info[HOSTNAME]
+        self.title = DOMAIN  # TODO change for hostname
         return True
 
     async def _test_port(self, port):
