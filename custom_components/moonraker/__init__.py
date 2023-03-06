@@ -109,11 +109,17 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             return {"thumbnails": None}
         query_object = {"filename": gcode_filename}
         gcode = await self._async_fetch_data("server.files.metadata", query_object)
-        return {
-            "thumbnails": gcode["thumbnails"][len(gcode["thumbnails"]) - 1][
-                "relative_path"
-            ]
-        }
+        try:
+            return {
+                "thumbnails": gcode["thumbnails"][len(gcode["thumbnails"]) - 1][
+                    "relative_path"
+                ]
+            }
+        except Exception as e:
+            _LOGGER.error("failed to get thumbnails  {%s}", e)
+            _LOGGER.error("Query Object {%s}", query_object)
+            _LOGGER.error("gcode {%s}", gcode)
+            return {"thumbnails": None}
 
     async def _async_fetch_data(self, query_path, query_object):
         if not self.moonraker.client.is_connected:
