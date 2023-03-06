@@ -16,6 +16,8 @@ class MoonrakerApiClient(MoonrakerListener):
         self.running = False
         if api_key == "":
             api_key = None
+        if port is None:
+            port = 7125
         self.client = MoonrakerClient(
             listener=self, host=url, port=port, session=session, api_key=api_key
         )
