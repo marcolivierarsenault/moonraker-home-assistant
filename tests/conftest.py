@@ -55,7 +55,10 @@ def get_data_fixture():
                 "target": 60.0,
                 "power": 0.26053745272533363,
             },
-            "display_status": {"progress": 0.9078104237663283, "message": None},
+            "display_status": {
+                "progress": 0.9078104237663283,
+                "message": "Custom Message",
+            },
         },
         "printer.info": {
             "result": {
