@@ -55,6 +55,12 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         subscriptions=[("print_stats", "message")],
     ),
     MoonrakerSensorDescription(
+        key="display_message",
+        name="Current Display Message",
+        value_fn=lambda data: data["status"]["display_status"]["message"],
+        subscriptions=[("display_status", "message")],
+    ),
+    MoonrakerSensorDescription(
         key="extruder_temp",
         name="Extruder Temperature",
         value_fn=lambda data: float(data["status"]["extruder"]["temperature"]),

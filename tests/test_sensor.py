@@ -61,6 +61,7 @@ async def test_sensor_services_update(hass, get_data, get_printer_info):
         ("mainsail_extruder_temperature", "205.02"),
         ("mainsail_progress", "90"),
         ("mainsail_printer_state", "ready"),
+        ("mainsail_current_display_message", "Custom Message"),
         ("mainsail_printer_message", "Printer is ready"),
         ("mainsail_current_print_state", "printing"),
         ("mainsail_current_print_message", ""),
