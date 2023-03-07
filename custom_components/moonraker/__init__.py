@@ -42,9 +42,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         url, async_get_clientsession(hass, verify_ssl=False), port=port, api_key=api_key
     )
 
-    await api.start()
-
     try:
+        await api.start()
         async with async_timeout.timeout(TIMEOUT):
             printer_info = await api.client.call_method("printer.info")
             _LOGGER.debug(printer_info)
@@ -52,7 +51,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             if entry.title == DOMAIN:
                 entry.title = api_device_name
     except Exception as exc:
-        raise ConfigEntryNotReady from exc
+        raise ConfigEntryNotReady(f"Error connecting to {url}:{port}") from exc
 
     coordinator = MoonrakerDataUpdateCoordinator(
         hass, client=api, config_entry=entry, api_device_name=api_device_name
