@@ -1,6 +1,7 @@
 """Sensor platform for integration_blueprint."""
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 import logging
 
 from homeassistant.components.sensor import (
@@ -101,10 +102,12 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="print_projected_total_duration",
         name="print Projected Total Duration",
-        value_fn=lambda data: round(data["status"]["print_stats"]["print_duration"] / calculate_pct_job(data)
-        if  calculate_pct_job(data) != 0
-        else 0,
-        2),
+        value_fn=lambda data: round(
+            data["status"]["print_stats"]["print_duration"] / calculate_pct_job(data)
+            if calculate_pct_job(data) != 0
+            else 0,
+            2,
+        ),
         subscriptions=[
             ("print_stats", "print_duration"),
             ("display_status", "progress"),
@@ -116,10 +119,16 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="print_time_left",
         name="Print Time Left",
-        value_fn=lambda data: round((data["status"]["print_stats"]["print_duration"] / calculate_pct_job(data)
-        if  calculate_pct_job(data) != 0
-        else 0) - data["status"]["print_stats"]["print_duration"],
-        2),
+        value_fn=lambda data: round(
+            (
+                data["status"]["print_stats"]["print_duration"]
+                / calculate_pct_job(data)
+                if calculate_pct_job(data) != 0
+                else 0
+            )
+            - data["status"]["print_stats"]["print_duration"],
+            2,
+        ),
         subscriptions=[
             ("print_stats", "print_duration"),
             ("display_status", "progress"),
@@ -127,6 +136,31 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         icon="mdi:timer",
         unit=TIME_MINUTES,
         device_class=SensorDeviceClass.DURATION,
+    ),
+    MoonrakerSensorDescription(
+        key="print_eta",
+        name="Print ETA",
+        value_fn=lambda data: datetime.now(timezone.utc)
+        + timedelta(
+            0,
+            round(
+                (
+                    data["status"]["print_stats"]["print_duration"]
+                    / calculate_pct_job(data)
+                    if calculate_pct_job(data) != 0
+                    else 0
+                )
+                - data["status"]["print_stats"]["print_duration"],
+                2,
+            ),
+        ),
+        subscriptions=[
+            ("print_stats", "print_duration"),
+            ("display_status", "progress"),
+        ],
+        icon="mdi:timer",
+        # unit=TIME_MINUTES,
+        device_class=SensorDeviceClass.TIMESTAMP,
     ),
     MoonrakerSensorDescription(
         key="print_duration",
@@ -205,6 +239,7 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
             self.coordinator.data
         )
         self.async_write_ha_state()
+
 
 def calculate_pct_job(data) -> float:
     """Get best estimate of %"""
