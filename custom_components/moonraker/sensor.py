@@ -140,20 +140,24 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="print_eta",
         name="Print ETA",
-        value_fn=lambda data: datetime.now(timezone.utc)
-        + timedelta(
-            0,
-            round(
-                (
-                    data["status"]["print_stats"]["print_duration"]
-                    / calculate_pct_job(data)
-                    if calculate_pct_job(data) != 0
-                    else 0
-                )
-                - data["status"]["print_stats"]["print_duration"],
-                2,
-            ),
-        ),
+        value_fn=lambda data: (
+            datetime.now(timezone.utc)
+            + timedelta(
+                0,
+                round(
+                    (
+                        data["status"]["print_stats"]["print_duration"]
+                        / calculate_pct_job(data)
+                        if calculate_pct_job(data) != 0
+                        else 0
+                    )
+                    - data["status"]["print_stats"]["print_duration"],
+                    2,
+                ),
+            )
+        )
+        if data["status"]["print_stats"]["print_duration"] > 0
+        else None,
         subscriptions=[
             ("print_stats", "print_duration"),
             ("display_status", "progress"),
