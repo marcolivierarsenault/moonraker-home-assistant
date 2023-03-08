@@ -99,17 +99,12 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         subscriptions=[("print_stats", "filename")],
     ),
     MoonrakerSensorDescription(
-        key="print_projected_duration",
-        name="print Projected Duration",
-        value_fn=lambda data: round(
-            (
-                (data["status"]["print_stats"]["print_duration"] / 60)
-                / data["status"]["display_status"]["progress"]
-            ),
-            2,
-        )
-        if data["status"]["display_status"]["progress"] != 0
+        key="print_projected_total_duration",
+        name="print Projected Total Duration",
+        value_fn=lambda data: round(data["status"]["print_stats"]["print_duration"] / calculate_pct_job(data)
+        if  calculate_pct_job(data) != 0
         else 0,
+        2),
         subscriptions=[
             ("print_stats", "print_duration"),
             ("display_status", "progress"),
@@ -119,21 +114,12 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         device_class=SensorDeviceClass.DURATION,
     ),
     MoonrakerSensorDescription(
-        key="print_eta",
-        name="ETA",
-        value_fn=lambda data: (
-            (
-                round(
-                    data["status"]["print_stats"]["print_duration"]
-                    / 60
-                    / data["status"]["display_status"]["progress"],
-                    2,
-                )
-                if data["status"]["display_status"]["progress"] != 0
-                else 0
-            )
-            - round(data["status"]["print_stats"]["print_duration"] / 60, 2)
-        ),
+        key="print_time_left",
+        name="Print Time Left",
+        value_fn=lambda data: round((data["status"]["print_stats"]["print_duration"] / calculate_pct_job(data)
+        if  calculate_pct_job(data) != 0
+        else 0) - data["status"]["print_stats"]["print_duration"],
+        2),
         subscriptions=[
             ("print_stats", "print_duration"),
             ("display_status", "progress"),
@@ -166,7 +152,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="progress",
         name="Progress",
-        value_fn=lambda data: int(data["status"]["display_status"]["progress"] * 100),
+        value_fn=lambda data: int(calculate_pct_job(data) * 100),
         subscriptions=[("display_status", "progress")],
         icon="mdi:percent",
         unit=PERCENTAGE,
@@ -219,3 +205,17 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
             self.coordinator.data
         )
         self.async_write_ha_state()
+
+def calculate_pct_job(data) -> float:
+    """Get best estimate of %"""
+    print_expected_duration = data["estimated_time"]
+    print_duration = data["status"]["print_stats"]["print_duration"]
+    filament_used = data["status"]["print_stats"]["filament_used"]
+    expected_filament = data["filament_total"]
+    if print_expected_duration == 0 or expected_filament == 0:
+        return 0
+
+    time_pct = 1.0 * print_duration / print_expected_duration
+    filament_pct = 1.0 * filament_used / expected_filament
+
+    return (time_pct + filament_pct) / 2
