@@ -108,14 +108,15 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             "thumbnails_path": None,
             "estimated_time": 1,
             "filament_total": 1,
-
         }
         if gcode_filename is None or gcode_filename == "":
             return return_gcode
         query_object = {"filename": gcode_filename}
         gcode = await self._async_fetch_data("server.files.metadata", query_object)
         try:
-            return_gcode["thumbnails_path"] = gcode["thumbnails"][len(gcode["thumbnails"]) - 1]["relative_path"]
+            return_gcode["thumbnails_path"] = gcode["thumbnails"][
+                len(gcode["thumbnails"]) - 1
+            ]["relative_path"]
             return_gcode["estimated_time"] = gcode["estimated_time"]
             return_gcode["filament_total"] = gcode["filament_total"]
             return return_gcode
