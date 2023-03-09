@@ -27,7 +27,10 @@ def data_for_calculate_pct_fixture():
     """data_for_calculate_pct"""
     return {
         "estimated_time": 10,
-        "status": {"print_stats": {"print_duration": 6, "filament_used": 1}},
+        "status": {
+            "print_stats": {"print_duration": 6, "filament_used": 1},
+            "display_status": {"progress": 0.60},
+        },
         "filament_total": 2,
     }
 
@@ -76,8 +79,8 @@ async def test_sensor_services_update(hass, get_data, get_printer_info):
         ("mainsail_printer_message", "Printer is ready"),
         ("mainsail_current_print_state", "printing"),
         ("mainsail_current_print_message", ""),
-        ("mainsail_print_projected_total_duration", "8862.98"),
-        ("mainsail_print_time_left", "848.45"),
+        ("mainsail_print_projected_total_duration", "9197.46"),
+        ("mainsail_print_time_left", "1182.94"),
         ("mainsail_print_duration", "133.58"),
         ("mainsail_filament_used", "5.0"),
         ("mainsail_progress", "90"),
@@ -112,10 +115,10 @@ async def test_eta(hass, get_data, get_printer_info):
 
     assert dt.datetime.strptime(state.state, "%Y-%m-%dT%H:%M:%S%z") < dt.datetime.now(
         dt.timezone.utc
-    ) + dt.timedelta(0, 848.45 + 2)
+    ) + dt.timedelta(0, 1182.94 + 2)
     assert dt.datetime.strptime(state.state, "%Y-%m-%dT%H:%M:%S%z") > dt.datetime.now(
         dt.timezone.utc
-    ) + dt.timedelta(0, 848.45 - 2)
+    ) + dt.timedelta(0, 1182.94 - 2)
 
 
 async def test_calculate_pct_job(data_for_calculate_pct):

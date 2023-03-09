@@ -248,7 +248,6 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
 def calculate_pct_job(data) -> float:
     """Get best estimate of %"""
     print_expected_duration = data["estimated_time"]
-    print_duration = data["status"]["print_stats"]["total_duration"]
     filament_used = data["status"]["print_stats"]["filament_used"]
     expected_filament = data["filament_total"]
     if print_expected_duration == 0 or expected_filament == 0:
@@ -256,4 +255,5 @@ def calculate_pct_job(data) -> float:
 
     time_pct = data["status"]["display_status"]["progress"]
     filament_pct = 1.0 * filament_used / expected_filament
+
     return (time_pct + filament_pct) / 2
