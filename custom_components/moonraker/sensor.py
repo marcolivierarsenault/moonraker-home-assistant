@@ -9,7 +9,7 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorEntityDescription,
 )
-from homeassistant.const import DEGREE, LENGTH_METERS, PERCENTAGE, TIME_MINUTES
+from homeassistant.const import DEGREE, LENGTH_METERS, PERCENTAGE, TIME_SECONDS
 from homeassistant.core import callback
 
 from .const import DOMAIN
@@ -109,11 +109,11 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
             2,
         ),
         subscriptions=[
-            ("print_stats", "print_duration"),
+            ("print_stats", "total_duration"),
             ("display_status", "progress"),
         ],
         icon="mdi:timer",
-        unit=TIME_MINUTES,
+        unit=TIME_SECONDS,
         device_class=SensorDeviceClass.DURATION,
     ),
     MoonrakerSensorDescription(
@@ -134,7 +134,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
             ("display_status", "progress"),
         ],
         icon="mdi:timer",
-        unit=TIME_MINUTES,
+        unit=TIME_SECONDS,
         device_class=SensorDeviceClass.DURATION,
     ),
     MoonrakerSensorDescription(
@@ -174,7 +174,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         ),
         subscriptions=[("print_stats", "print_duration")],
         icon="mdi:timer",
-        unit=TIME_MINUTES,
+        unit=TIME_SECONDS,
         device_class=SensorDeviceClass.DURATION,
     ),
     MoonrakerSensorDescription(
@@ -248,7 +248,7 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
 def calculate_pct_job(data) -> float:
     """Get best estimate of %"""
     print_expected_duration = data["estimated_time"]
-    print_duration = data["status"]["print_stats"]["print_duration"]
+    print_duration = data["status"]["print_stats"]["total_duration"]
     filament_used = data["status"]["print_stats"]["filament_used"]
     expected_filament = data["filament_total"]
     if print_expected_duration == 0 or expected_filament == 0:
