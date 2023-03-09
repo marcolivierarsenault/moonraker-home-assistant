@@ -190,7 +190,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="progress",
         name="Progress",
-        value_fn=lambda data: int(calculate_pct_job(data) * 100),
+        value_fn=lambda data: int(data["status"]["display_status"]["progress"] * 100),
         subscriptions=[("display_status", "progress")],
         icon="mdi:percent",
         unit=PERCENTAGE,
@@ -254,7 +254,6 @@ def calculate_pct_job(data) -> float:
     if print_expected_duration == 0 or expected_filament == 0:
         return 0
 
-    time_pct = 1.0 * print_duration / print_expected_duration
+    time_pct = data["status"]["display_status"]["progress"]
     filament_pct = 1.0 * filament_used / expected_filament
-
     return (time_pct + filament_pct) / 2
