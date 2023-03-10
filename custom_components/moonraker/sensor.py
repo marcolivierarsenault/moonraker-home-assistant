@@ -140,30 +140,12 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="print_eta",
         name="Print ETA",
-        value_fn=lambda data: (
-            datetime.now(timezone.utc)
-            + timedelta(
-                0,
-                round(
-                    (
-                        data["status"]["print_stats"]["print_duration"]
-                        / calculate_pct_job(data)
-                        if calculate_pct_job(data) != 0
-                        else 0
-                    )
-                    - data["status"]["print_stats"]["print_duration"],
-                    2,
-                ),
-            )
-        )
-        if data["status"]["print_stats"]["print_duration"] > 0
-        else None,
+        value_fn=lambda data: calculate_eta(data),
         subscriptions=[
             ("print_stats", "print_duration"),
             ("display_status", "progress"),
         ],
         icon="mdi:timer",
-        # unit=TIME_MINUTES,
         device_class=SensorDeviceClass.TIMESTAMP,
     ),
     MoonrakerSensorDescription(
@@ -246,7 +228,10 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
 
 
 def calculate_pct_job(data) -> float:
-    """Get best estimate of %"""
+    """
+    Get a pct estimate of the job based on a mix of progress value and fillament used.
+    This strategy is inline with Mainsail estimate
+    """
     print_expected_duration = data["estimated_time"]
     filament_used = data["status"]["print_stats"]["filament_used"]
     expected_filament = data["filament_total"]
@@ -257,3 +242,20 @@ def calculate_pct_job(data) -> float:
     filament_pct = 1.0 * filament_used / expected_filament
 
     return (time_pct + filament_pct) / 2
+
+
+def calculate_eta(data):
+    """Calculate ETA of current print"""
+    if (
+        data["status"]["print_stats"]["print_duration"] <= 0
+        or calculate_pct_job(data) <= 0
+    ):
+        return None
+
+    time_left = round(
+        (data["status"]["print_stats"]["print_duration"] / calculate_pct_job(data))
+        - data["status"]["print_stats"]["print_duration"],
+        2,
+    )
+
+    return datetime.now(timezone.utc) + timedelta(0, time_left)

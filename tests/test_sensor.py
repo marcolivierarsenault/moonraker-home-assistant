@@ -121,6 +121,21 @@ async def test_eta(hass, get_data, get_printer_info):
     ) + dt.timedelta(0, 1182.94 - 2)
 
 
+async def test_eta_no_current_data(hass, get_data, get_printer_info):
+    get_data["status"]["print_stats"]["print_duration"] = 0
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={**get_data, **get_printer_info},
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        assert await async_setup_entry(hass, config_entry)
+        await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_print_eta")
+
+    assert state.state == "unknown"
+
+
 async def test_calculate_pct_job(data_for_calculate_pct):
     assert calculate_pct_job(data_for_calculate_pct) == 0.55
 
