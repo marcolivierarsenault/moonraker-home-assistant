@@ -87,7 +87,7 @@ class PreviewCamera(Camera):
         """Return current camera image"""
         del width, height
 
-        new_path = self.coordinator.data["thumbnails"]
+        new_path = self.coordinator.data["thumbnails_path"]
         if self._current_path == new_path and self._current_pic is not None:
             return self._current_pic
 

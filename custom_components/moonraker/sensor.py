@@ -1,6 +1,7 @@
 """Sensor platform for integration_blueprint."""
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 import logging
 
 from homeassistant.components.sensor import (
@@ -8,7 +9,7 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorEntityDescription,
 )
-from homeassistant.const import DEGREE, LENGTH_METERS, PERCENTAGE, TIME_MINUTES
+from homeassistant.const import DEGREE, LENGTH_METERS, PERCENTAGE, TIME_SECONDS
 from homeassistant.core import callback
 
 from .const import DOMAIN
@@ -101,48 +102,53 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         subscriptions=[("print_stats", "filename")],
     ),
     MoonrakerSensorDescription(
-        key="print_projected_duration",
-        name="print Projected Duration",
+        key="print_projected_total_duration",
+        name="print Projected Total Duration",
         value_fn=lambda data: round(
-            (
-                (data["status"]["print_stats"]["print_duration"] / 60)
-                / data["status"]["display_status"]["progress"]
-            ),
+            data["status"]["print_stats"]["print_duration"] / calculate_pct_job(data)
+            if calculate_pct_job(data) != 0
+            else 0,
             2,
-        )
-        if data["status"]["display_status"]["progress"] != 0
-        else 0,
+        ),
         subscriptions=[
-            ("print_stats", "print_duration"),
+            ("print_stats", "total_duration"),
             ("display_status", "progress"),
         ],
         icon="mdi:timer",
-        unit=TIME_MINUTES,
+        unit=TIME_SECONDS,
         device_class=SensorDeviceClass.DURATION,
     ),
     MoonrakerSensorDescription(
-        key="print_eta",
-        name="ETA",
-        value_fn=lambda data: (
+        key="print_time_left",
+        name="Print Time Left",
+        value_fn=lambda data: round(
             (
-                round(
-                    data["status"]["print_stats"]["print_duration"]
-                    / 60
-                    / data["status"]["display_status"]["progress"],
-                    2,
-                )
-                if data["status"]["display_status"]["progress"] != 0
+                data["status"]["print_stats"]["print_duration"]
+                / calculate_pct_job(data)
+                if calculate_pct_job(data) != 0
                 else 0
             )
-            - round(data["status"]["print_stats"]["print_duration"] / 60, 2)
+            - data["status"]["print_stats"]["print_duration"],
+            2,
         ),
         subscriptions=[
             ("print_stats", "print_duration"),
             ("display_status", "progress"),
         ],
         icon="mdi:timer",
-        unit=TIME_MINUTES,
+        unit=TIME_SECONDS,
         device_class=SensorDeviceClass.DURATION,
+    ),
+    MoonrakerSensorDescription(
+        key="print_eta",
+        name="Print ETA",
+        value_fn=lambda data: calculate_eta(data),
+        subscriptions=[
+            ("print_stats", "print_duration"),
+            ("display_status", "progress"),
+        ],
+        icon="mdi:timer",
+        device_class=SensorDeviceClass.TIMESTAMP,
     ),
     MoonrakerSensorDescription(
         key="print_duration",
@@ -152,7 +158,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         ),
         subscriptions=[("print_stats", "print_duration")],
         icon="mdi:timer",
-        unit=TIME_MINUTES,
+        unit=TIME_SECONDS,
         device_class=SensorDeviceClass.DURATION,
     ),
     MoonrakerSensorDescription(
@@ -221,3 +227,37 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
             self.coordinator.data
         )
         self.async_write_ha_state()
+
+
+def calculate_pct_job(data) -> float:
+    """
+    Get a pct estimate of the job based on a mix of progress value and fillament used.
+    This strategy is inline with Mainsail estimate
+    """
+    print_expected_duration = data["estimated_time"]
+    filament_used = data["status"]["print_stats"]["filament_used"]
+    expected_filament = data["filament_total"]
+    if print_expected_duration == 0 or expected_filament == 0:
+        return 0
+
+    time_pct = data["status"]["display_status"]["progress"]
+    filament_pct = 1.0 * filament_used / expected_filament
+
+    return (time_pct + filament_pct) / 2
+
+
+def calculate_eta(data):
+    """Calculate ETA of current print"""
+    if (
+        data["status"]["print_stats"]["print_duration"] <= 0
+        or calculate_pct_job(data) <= 0
+    ):
+        return None
+
+    time_left = round(
+        (data["status"]["print_stats"]["print_duration"] / calculate_pct_job(data))
+        - data["status"]["print_stats"]["print_duration"],
+        2,
+    )
+
+    return datetime.now(timezone.utc) + timedelta(0, time_left)
