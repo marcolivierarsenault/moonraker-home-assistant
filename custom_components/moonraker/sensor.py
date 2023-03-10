@@ -58,7 +58,9 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="display_message",
         name="Current Display Message",
-        value_fn=lambda data: data["status"]["display_status"]["message"],
+        value_fn=lambda data: data["status"]["display_status"]["message"]
+        if data["status"]["display_status"]["message"] is not None
+        else "",
         subscriptions=[("display_status", "message")],
     ),
     MoonrakerSensorDescription(
