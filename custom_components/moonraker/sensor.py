@@ -223,6 +223,16 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         icon="mdi:flash",
         unit=PERCENTAGE,
     ),
+    MoonrakerSensorDescription(
+        key="fan_speed",
+        name="Fan speed",
+        value_fn=lambda sensor: float(
+            sensor.coordinator.data["status"]["fan"]["speed"] * 100
+        ),
+        subscriptions=[("fan", "speed")],
+        icon="mdi:fan",
+        unit=PERCENTAGE,
+    ),
 ]
 
 

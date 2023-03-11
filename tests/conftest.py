@@ -62,6 +62,10 @@ def get_data_fixture():
                 "progress": 0.9078104237663283,
                 "message": "Custom Message",
             },
+            "fan": {
+                "speed": 0.5123,
+                "rpm": 3000,
+            },
         },
         "printer.info": {
             "result": {
