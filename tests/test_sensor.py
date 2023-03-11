@@ -35,12 +35,14 @@ def data_for_calculate_pct_fixture():
     }
 
 
-async def test_sensor_services_update(hass, get_data, get_printer_info):
+async def test_sensor_services_update(
+    hass, get_data, get_printer_info, get_printer_objects_list
+):
     """Test sensor services."""
     # Create a mock entry so we don't have to go through config flow
     with patch(
         "moonraker_api.MoonrakerClient.call_method",
-        return_value={**get_data, **get_printer_info},
+        return_value={**get_data, **get_printer_info, **get_printer_objects_list},
     ):
         config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
         assert await async_setup_entry(hass, config_entry)
@@ -69,6 +71,7 @@ async def test_sensor_services_update(hass, get_data, get_printer_info):
 @pytest.mark.parametrize(
     "sensor, value",
     [
+        ("mainsail_mcu_temp", "32.43"),
         ("mainsail_bed_target", "60.0"),
         ("mainsail_bed_temperature", "60.01"),
         ("mainsail_extruder_target", "205.0"),
@@ -88,10 +91,12 @@ async def test_sensor_services_update(hass, get_data, get_printer_info):
         ("mainsail_extruder_power", "66"),
     ],
 )
-async def test_sensors(hass, sensor, value, get_data, get_printer_info):
+async def test_sensors(
+    hass, sensor, value, get_data, get_printer_info, get_printer_objects_list
+):
     with patch(
         "moonraker_api.MoonrakerClient.call_method",
-        return_value={**get_data, **get_printer_info},
+        return_value={**get_data, **get_printer_info, **get_printer_objects_list},
     ):
         config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
         assert await async_setup_entry(hass, config_entry)
@@ -102,10 +107,26 @@ async def test_sensors(hass, sensor, value, get_data, get_printer_info):
     assert state.state == value
 
 
-async def test_eta(hass, get_data, get_printer_info):
+async def test_opt_sensor_missing(
+    hass, get_data, get_printer_info, get_printer_objects_list
+):
+    get_data["status"].pop("temperature_sensor mcu_temp", None)
     with patch(
         "moonraker_api.MoonrakerClient.call_method",
-        return_value={**get_data, **get_printer_info},
+        return_value={**get_data, **get_printer_info, **get_printer_objects_list},
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        assert await async_setup_entry(hass, config_entry)
+        await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_mcu_temp")
+    assert state.state == "unknown"
+
+
+async def test_eta(hass, get_data, get_printer_info, get_printer_objects_list):
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={**get_data, **get_printer_info, **get_printer_objects_list},
     ):
         config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
         assert await async_setup_entry(hass, config_entry)
@@ -121,11 +142,13 @@ async def test_eta(hass, get_data, get_printer_info):
     ) + dt.timedelta(0, 1182.94 - 2)
 
 
-async def test_eta_no_current_data(hass, get_data, get_printer_info):
+async def test_eta_no_current_data(
+    hass, get_data, get_printer_info, get_printer_objects_list
+):
     get_data["status"]["print_stats"]["print_duration"] = 0
     with patch(
         "moonraker_api.MoonrakerClient.call_method",
-        return_value={**get_data, **get_printer_info},
+        return_value={**get_data, **get_printer_info, **get_printer_objects_list},
     ):
         config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
         assert await async_setup_entry(hass, config_entry)

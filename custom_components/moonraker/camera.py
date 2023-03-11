@@ -1,4 +1,4 @@
-"""Support for OctoPrint binary camera."""
+"""Support for Moonraker camera."""
 from __future__ import annotations
 
 import logging

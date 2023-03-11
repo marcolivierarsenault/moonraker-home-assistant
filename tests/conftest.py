@@ -55,6 +55,9 @@ def get_data_fixture():
                 "target": 60.0,
                 "power": 0.26053745272533363,
             },
+            "temperature_sensor mcu_temp": {
+                "temperature": 32.43,
+            },
             "display_status": {
                 "progress": 0.9078104237663283,
                 "message": "Custom Message",
@@ -119,6 +122,41 @@ def get_printer_info_fixture():
         "config_file": "/home/pi/printer_data/config/printer.cfg",
         "software_version": "v0.11.0-89-gead81fbf",
         "cpu_info": "4 core ARMv7 Processor rev 3 (v7l)",
+    }
+
+
+@pytest.fixture(name="get_printer_objects_list")
+def get_printer_objects_list_fixture():
+    """Get printer objects list fixture"""
+    return {
+        "objects": [
+            "webhooks",
+            "configfile",
+            "mcu",
+            "gcode_move",
+            "print_stats",
+            "virtual_sdcard",
+            "pause_resume",
+            "display_status",
+            "gcode_macro CANCEL_PRINT",
+            "gcode_macro PAUSE",
+            "gcode_macro RESUME",
+            "idle_timeout",
+            "heaters",
+            "heater_bed",
+            "fan",
+            "probe",
+            "bed_mesh",
+            "screws_tilt_adjust",
+            "temperature_sensor mcu_temp",
+            "stepper_enable",
+            "motion_report",
+            "query_endstops",
+            "system_stats",
+            "manual_probe",
+            "toolhead",
+            "extruder",
+        ]
     }
 
 

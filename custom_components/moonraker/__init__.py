@@ -146,9 +146,19 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         """Return list of cameras"""
         return await self._async_fetch_data("server.webcams.list", None)
 
+    async def async_get_printer_object_list(self):
+        """Return printer objects"""
+        return await self._async_fetch_data("printer.objects.list", None)
+
     def load_all_sensor_data(self):
         """pre loading all sensor data, so we can poll the right object"""
         for sensor in SENSORS:
+            for subscriptions in sensor.subscriptions:
+                self.add_query_objects(subscriptions[0], subscriptions[1])
+
+    def load_sensor_list(self, sensor_list):
+        """Load a sensor list"""
+        for sensor in sensor_list:
             for subscriptions in sensor.subscriptions:
                 self.add_query_objects(subscriptions[0], subscriptions[1])
 

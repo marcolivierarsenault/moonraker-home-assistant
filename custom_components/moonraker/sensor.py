@@ -201,9 +201,49 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
 async def async_setup_entry(hass, entry, async_add_entities):
     """Setup sensor platform."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
+
+    async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in SENSORS])
+
+    object_list = await coordinator.async_get_printer_object_list()
+    opt_sensors = await async_setup_optional_temp_sensors(object_list)
+
     async_add_entities(
-        [MoonrakerSensor(coordinator, entry, description) for description in SENSORS]
+        [MoonrakerSensor(coordinator, entry, desc) for desc in opt_sensors]
     )
+
+    coordinator.load_sensor_list(opt_sensors)
+
+
+async def async_setup_optional_temp_sensors(object_list):
+    """Setup optional sensor platform."""
+    sensor_list = []
+    for obj in object_list["objects"]:
+        split_obj = obj.split()
+        if split_obj[0] == "temperature_sensor":
+            sensor_list.append(
+                MoonrakerSensorDescription(
+                    key=split_obj[1],
+                    name=split_obj[1].replace("_", " ").title(),
+                    value_fn=MoonrakerOptionalTempSensor(obj),
+                    subscriptions=[(obj, "temperature")],
+                    icon="mdi:thermometer",
+                    unit=DEGREE,
+                )
+            )
+    return sensor_list
+
+
+class MoonrakerOptionalTempSensor:
+    """MoonrakerOptionalTempSensor Sensor class."""
+
+    def __init__(self, sensor_name):
+        self.sensor_name = sensor_name
+
+    def __call__(self, data):
+        try:
+            return data["status"][self.sensor_name]["temperature"]
+        except KeyError:
+            return None
 
 
 class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
