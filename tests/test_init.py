@@ -2,6 +2,7 @@
 from unittest.mock import patch
 
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers.update_coordinator import UpdateFailed
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -11,7 +12,7 @@ from custom_components.moonraker import (
     async_setup_entry,
     async_unload_entry,
 )
-from custom_components.moonraker.const import DOMAIN
+from custom_components.moonraker.const import DOMAIN, METHOD
 
 from .const import MOCK_CONFIG
 
@@ -49,6 +50,27 @@ async def test_setup_unload_and_reload_entry(hass, get_data, get_printer_info):
         # Unload the entry and verify that the data has been removed
         assert await async_unload_entry(hass, config_entry)
         assert config_entry.entry_id not in hass.data[DOMAIN]
+
+
+async def test_async_send_data_exception(hass, get_data, get_printer_info):
+    """Test async_post_exception"""
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={**get_data, **get_printer_info},
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        assert await async_setup_entry(hass, config_entry)
+
+        with patch(
+            "moonraker_api.MoonrakerClient.call_method",
+            side_effect=UpdateFailed,
+            return_value={"result": "error"},
+        ):
+            with pytest.raises(UpdateFailed):
+                coordinator = hass.data[DOMAIN][config_entry.entry_id]
+                assert await coordinator.async_send_data(METHOD.PRINTER_EMERGENCY_STOP)
+
+        assert await async_unload_entry(hass, config_entry)
 
 
 async def test_setup_entry_exception(hass):

@@ -153,9 +153,22 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         except Exception as exception:
             raise UpdateFailed() from exception
 
+    async def _async_send_data(self, query_path) -> None:
+        if not self.moonraker.client.is_connected:
+            _LOGGER.warning("connection to moonraker down, restarting")
+            await self.moonraker.start()
+        try:
+            await self.moonraker.client.call_method(query_path)
+        except Exception as exception:
+            raise UpdateFailed() from exception
+
     async def async_fetch_data(self, query_path: METHOD):
         """Fetch data from moonraker"""
         return await self._async_fetch_data(query_path, None)
+
+    async def async_send_data(self, query_path: METHOD):
+        """Send data to moonraker"""
+        return await self._async_send_data(query_path)
 
     def load_sensor_data(self, sensor_list):
         """Loading sensor data, so we can poll the right object"""
