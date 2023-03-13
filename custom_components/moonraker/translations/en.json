@@ -1,19 +1,19 @@
 {
-    "config": {
-        "step": {
-            "user": {
-                "description": "Moonraker connection information",
-                "data": {
-                    "url": "url",
-                    "port": "port",
-                    "api_key": "api_key (Optional)"
-                }
-            }
-        },
-        "error": {
-            "error": "Invalid connection.",
-            "port_error": "Invalid port, must be a number between 1024 and 65535.",
-            "api_key_error": "Invalid API key, must be 32 alphanumeric characters."
+  "config": {
+    "step": {
+      "user": {
+        "description": "Moonraker connection information",
+        "data": {
+          "url": "url",
+          "port": "port",
+          "api_key": "api_key (Optional)"
         }
+      }
+    },
+    "error": {
+      "error": "Invalid connection.",
+      "port_error": "Invalid port, must be a number between 1024 and 65535.",
+      "api_key_error": "Invalid API key, must be 32 alphanumeric characters."
     }
+  }
 }

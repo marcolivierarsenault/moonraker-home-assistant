@@ -1,17 +1,17 @@
 {
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "Run Home Assistant on port 8123",
-            "type": "shell",
-            "command": "scripts/develop",
-            "problemMatcher": []
-        },
-        {
-            "label": "Run tests",
-            "type": "shell",
-            "command": "pytest --durations=10 --cov-report term-missing --cov=custom_components.moonraker tests",
-            "problemMatcher": []
-        }
-    ]
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run Home Assistant on port 8123",
+      "type": "shell",
+      "command": "scripts/develop",
+      "problemMatcher": []
+    },
+    {
+      "label": "Run tests",
+      "type": "shell",
+      "command": "pytest --durations=10 --cov-report term-missing --cov=custom_components.moonraker tests",
+      "problemMatcher": []
+    }
+  ]
 }
