@@ -1,6 +1,7 @@
 """Constants for Moonraker."""
-from homeassistant.const import Platform
 from enum import Enum
+
+from homeassistant.const import Platform
 
 # Base component constants
 DOMAIN = "moonraker"

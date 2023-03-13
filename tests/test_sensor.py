@@ -111,6 +111,7 @@ async def test_opt_sensor_missing(
     hass, get_data, get_printer_info, get_printer_objects_list
 ):
     get_data["status"].pop("temperature_sensor mcu_temp", None)
+    get_printer_objects_list["objects"].remove("temperature_sensor mcu_temp")
     with patch(
         "moonraker_api.MoonrakerClient.call_method",
         return_value={**get_data, **get_printer_info, **get_printer_objects_list},
