@@ -120,7 +120,7 @@ async def test_opt_sensor_missing(
         await hass.async_block_till_done()
 
     state = hass.states.get("sensor.mainsail_mcu_temp")
-    assert state.state == "unknown"
+    assert state is None
 
 
 async def test_eta(hass, get_data, get_printer_info, get_printer_objects_list):
