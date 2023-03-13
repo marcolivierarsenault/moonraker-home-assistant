@@ -12,7 +12,7 @@ from homeassistant.components.sensor import (
 from homeassistant.const import DEGREE, LENGTH_METERS, PERCENTAGE, TIME_SECONDS
 from homeassistant.core import callback
 
-from .const import DOMAIN
+from .const import DOMAIN, METHOD
 from .entity import BaseMoonrakerEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -226,7 +226,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in SENSORS])
 
-    object_list = await coordinator.async_get_printer_object_list()
+    object_list = await coordinator.async_fetch_data(METHOD.PRINTER_OBJECTS_LIST)
     opt_sensors = await async_setup_optional_temp_sensors(object_list)
 
     async_add_entities(
