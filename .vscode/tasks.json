@@ -12,6 +12,12 @@
       "type": "shell",
       "command": "pytest --durations=10 --cov-report term-missing --cov=custom_components.moonraker tests",
       "problemMatcher": []
+    },
+    {
+      "label": "Run pre-commit hook",
+      "type": "shell",
+      "command": "pre-commit run --all-files",
+      "problemMatcher": []
     }
   ]
 }
