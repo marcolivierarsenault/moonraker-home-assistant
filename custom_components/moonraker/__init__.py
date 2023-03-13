@@ -19,9 +19,9 @@ from .const import (
     CONF_URL,
     DOMAIN,
     HOSTNAME,
+    METHOD,
     OBJ,
     PLATFORMS,
-    METHOD,
 )
 from .sensor import SENSORS
 

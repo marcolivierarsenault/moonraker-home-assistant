@@ -234,11 +234,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     object_list = await coordinator.async_fetch_data(METHOD.PRINTER_OBJECTS_LIST)
     opt_sensors = await async_setup_optional_sensors(object_list)
-    if not opt_sensors:
-        return
 
     coordinator.load_sensor_data(opt_sensors)
-
     await coordinator.async_refresh()
 
     async_add_entities(
