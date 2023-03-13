@@ -99,14 +99,14 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         self.config_entry = config_entry
         self.api_device_name = api_device_name
         self.query_obj = {OBJ: {}}
-        self.load_all_sensor_data()
+        self.load_sensor_data(SENSORS)
 
         super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=SCAN_INTERVAL)
 
     async def _async_update_data(self):
         """Update data via library."""
         query = await self._async_fetch_data(
-            METHOD.PRINTER_OBJECT_QUERY, self.query_obj
+            METHOD.PRINTER_OBJECTS_QUERY, self.query_obj
         )
         info = await self.async_fetch_data(METHOD.PRINTER_INFO)
         gcode_file_details = await self._async_get_gcode_file_detail(
@@ -157,14 +157,8 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         """Fetch data from moonraker"""
         return await self._async_fetch_data(query_path, None)
 
-    def load_all_sensor_data(self):
-        """pre loading all sensor data, so we can poll the right object"""
-        for sensor in SENSORS:
-            for subscriptions in sensor.subscriptions:
-                self.add_query_objects(subscriptions[0], subscriptions[1])
-
-    def load_sensor_list(self, sensor_list):
-        """Load a sensor list"""
+    def load_sensor_data(self, sensor_list):
+        """Loading sensor data, so we can poll the right object"""
         for sensor in sensor_list:
             for subscriptions in sensor.subscriptions:
                 self.add_query_objects(subscriptions[0], subscriptions[1])

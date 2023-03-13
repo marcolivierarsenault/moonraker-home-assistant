@@ -233,16 +233,20 @@ async def async_setup_entry(hass, entry, async_add_entities):
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in SENSORS])
 
     object_list = await coordinator.async_fetch_data(METHOD.PRINTER_OBJECTS_LIST)
-    opt_sensors = await async_setup_optional_temp_sensors(object_list)
+    opt_sensors = await async_setup_optional_sensors(object_list)
+    if not opt_sensors:
+        return
+
+    coordinator.load_sensor_data(opt_sensors)
+
+    await coordinator.async_refresh()
 
     async_add_entities(
         [MoonrakerSensor(coordinator, entry, desc) for desc in opt_sensors]
     )
 
-    coordinator.load_sensor_list(opt_sensors)
 
-
-async def async_setup_optional_temp_sensors(object_list):
+async def async_setup_optional_sensors(object_list):
     """Setup optional sensor platform."""
     sensor_list = []
     for obj in object_list["objects"]:
