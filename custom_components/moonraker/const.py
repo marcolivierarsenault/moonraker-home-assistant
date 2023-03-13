@@ -1,4 +1,6 @@
 """Constants for Moonraker."""
+from enum import Enum
+
 from homeassistant.const import Platform
 
 # Base component constants
@@ -17,3 +19,17 @@ CONF_PORT = "port"
 # API dict keys
 HOSTNAME = "hostname"
 OBJ = "objects"
+
+
+class METHOD(Enum):
+    """API methods."""
+
+    SERVER_FILES_METADATA = "server.files.metadata"
+    SERVER_WEBCAMS_LIST = "server.webcams.list"
+    PRINTER_INFO = "printer.info"
+    PRINTER_OBJECTS_LIST = "printer.objects.list"
+    PRINTER_OBJECTS_QUERY = "printer.objects.query"
+
+    def __str__(self):
+        """Return the method name."""
+        return self.value
