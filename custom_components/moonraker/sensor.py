@@ -12,7 +12,7 @@ from homeassistant.components.sensor import (
 from homeassistant.const import DEGREE, LENGTH_METERS, PERCENTAGE, TIME_SECONDS
 from homeassistant.core import callback
 
-from .const import DOMAIN
+from .const import DOMAIN, METHOD
 from .entity import BaseMoonrakerEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -34,39 +34,49 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="state",
         name="Printer State",
-        value_fn=lambda data: data["printer.info"]["state"],
+        value_fn=lambda sensor: sensor.coordinator.data["printer.info"]["state"],
         subscriptions=[],
     ),
     MoonrakerSensorDescription(
         key="message",
         name="Printer Message",
-        value_fn=lambda data: data["printer.info"]["state_message"],
+        value_fn=lambda sensor: sensor.coordinator.data["printer.info"][
+            "state_message"
+        ],
         subscriptions=[],
     ),
     MoonrakerSensorDescription(
         key="print_state",
         name="Current Print State",
-        value_fn=lambda data: data["status"]["print_stats"]["state"],
+        value_fn=lambda sensor: sensor.coordinator.data["status"]["print_stats"][
+            "state"
+        ],
         subscriptions=[("print_stats", "state")],
     ),
     MoonrakerSensorDescription(
         key="print_message",
         name="Current Print Message",
-        value_fn=lambda data: data["status"]["print_stats"]["message"],
+        value_fn=lambda sensor: sensor.coordinator.data["status"]["print_stats"][
+            "message"
+        ],
         subscriptions=[("print_stats", "message")],
     ),
     MoonrakerSensorDescription(
         key="display_message",
         name="Current Display Message",
-        value_fn=lambda data: data["status"]["display_status"]["message"]
-        if data["status"]["display_status"]["message"] is not None
+        value_fn=lambda sensor: sensor.coordinator.data["status"]["display_status"][
+            "message"
+        ]
+        if sensor.coordinator.data["status"]["display_status"]["message"] is not None
         else "",
         subscriptions=[("display_status", "message")],
     ),
     MoonrakerSensorDescription(
         key="extruder_temp",
         name="Extruder Temperature",
-        value_fn=lambda data: float(data["status"]["extruder"]["temperature"]),
+        value_fn=lambda sensor: float(
+            sensor.coordinator.data["status"]["extruder"]["temperature"]
+        ),
         subscriptions=[("extruder", "temperature")],
         icon="mdi:printer-3d-nozzle-heat",
         unit=DEGREE,
@@ -74,7 +84,9 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="extruder_target",
         name="Extruder Target",
-        value_fn=lambda data: float(data["status"]["extruder"]["target"]),
+        value_fn=lambda sensor: float(
+            sensor.coordinator.data["status"]["extruder"]["target"]
+        ),
         subscriptions=[("extruder", "target")],
         icon="mdi:printer-3d-nozzle-heat",
         unit=DEGREE,
@@ -82,7 +94,9 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="bed_target",
         name="Bed Target",
-        value_fn=lambda data: float(data["status"]["heater_bed"]["target"]),
+        value_fn=lambda sensor: float(
+            sensor.coordinator.data["status"]["heater_bed"]["target"]
+        ),
         subscriptions=[("heater_bed", "target")],
         icon="mdi:radiator",
         unit=DEGREE,
@@ -90,7 +104,9 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="bed_temp",
         name="Bed Temperature",
-        value_fn=lambda data: float(data["status"]["heater_bed"]["temperature"]),
+        value_fn=lambda sensor: float(
+            sensor.coordinator.data["status"]["heater_bed"]["temperature"]
+        ),
         subscriptions=[("heater_bed", "temperature")],
         icon="mdi:radiator",
         unit=DEGREE,
@@ -98,15 +114,18 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="filename",
         name="Filename",
-        value_fn=lambda data: data["status"]["print_stats"]["filename"],
+        value_fn=lambda sensor: sensor.coordinator.data["status"]["print_stats"][
+            "filename"
+        ],
         subscriptions=[("print_stats", "filename")],
     ),
     MoonrakerSensorDescription(
         key="print_projected_total_duration",
         name="print Projected Total Duration",
-        value_fn=lambda data: round(
-            data["status"]["print_stats"]["print_duration"] / calculate_pct_job(data)
-            if calculate_pct_job(data) != 0
+        value_fn=lambda sensor: round(
+            sensor.coordinator.data["status"]["print_stats"]["print_duration"]
+            / calculate_pct_job(sensor.coordinator.data)
+            if calculate_pct_job(sensor.coordinator.data) != 0
             else 0,
             2,
         ),
@@ -121,14 +140,14 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="print_time_left",
         name="Print Time Left",
-        value_fn=lambda data: round(
+        value_fn=lambda sensor: round(
             (
-                data["status"]["print_stats"]["print_duration"]
-                / calculate_pct_job(data)
-                if calculate_pct_job(data) != 0
+                sensor.coordinator.data["status"]["print_stats"]["print_duration"]
+                / calculate_pct_job(sensor.coordinator.data)
+                if calculate_pct_job(sensor.coordinator.data) != 0
                 else 0
             )
-            - data["status"]["print_stats"]["print_duration"],
+            - sensor.coordinator.data["status"]["print_stats"]["print_duration"],
             2,
         ),
         subscriptions=[
@@ -142,7 +161,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="print_eta",
         name="Print ETA",
-        value_fn=lambda data: calculate_eta(data),
+        value_fn=lambda sensor: calculate_eta(sensor.coordinator.data),
         subscriptions=[
             ("print_stats", "print_duration"),
             ("display_status", "progress"),
@@ -153,8 +172,8 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="print_duration",
         name="Print Duration",
-        value_fn=lambda data: round(
-            data["status"]["print_stats"]["print_duration"] / 60, 2
+        value_fn=lambda sensor: round(
+            sensor.coordinator.data["status"]["print_stats"]["print_duration"] / 60, 2
         ),
         subscriptions=[("print_stats", "print_duration")],
         icon="mdi:timer",
@@ -164,8 +183,11 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="filament_used",
         name="Filament Used",
-        value_fn=lambda data: round(
-            int(data["status"]["print_stats"]["filament_used"]) * 1.0 / 1000, 2
+        value_fn=lambda sensor: round(
+            int(sensor.coordinator.data["status"]["print_stats"]["filament_used"])
+            * 1.0
+            / 1000,
+            2,
         ),
         subscriptions=[("print_stats", "filament_used")],
         icon="mdi:tape-measure",
@@ -174,7 +196,9 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="progress",
         name="Progress",
-        value_fn=lambda data: int(data["status"]["display_status"]["progress"] * 100),
+        value_fn=lambda sensor: int(
+            sensor.coordinator.data["status"]["display_status"]["progress"] * 100
+        ),
         subscriptions=[("display_status", "progress")],
         icon="mdi:percent",
         unit=PERCENTAGE,
@@ -182,7 +206,9 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="bed_power",
         name="Bed Power",
-        value_fn=lambda data: int(data["status"]["heater_bed"]["power"] * 100),
+        value_fn=lambda sensor: int(
+            sensor.coordinator.data["status"]["heater_bed"]["power"] * 100
+        ),
         subscriptions=[("heater_bed", "power")],
         icon="mdi:flash",
         unit=PERCENTAGE,
@@ -190,7 +216,9 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="extruder_power",
         name="Extruder Power",
-        value_fn=lambda data: int(data["status"]["extruder"]["power"] * 100),
+        value_fn=lambda sensor: int(
+            sensor.coordinator.data["status"]["extruder"]["power"] * 100
+        ),
         subscriptions=[("extruder", "power")],
         icon="mdi:flash",
         unit=PERCENTAGE,
@@ -201,9 +229,39 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
 async def async_setup_entry(hass, entry, async_add_entities):
     """Setup sensor platform."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
+
+    async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in SENSORS])
+
+    object_list = await coordinator.async_fetch_data(METHOD.PRINTER_OBJECTS_LIST)
+    opt_sensors = await async_setup_optional_sensors(object_list)
+
+    coordinator.load_sensor_data(opt_sensors)
+    await coordinator.async_refresh()
+
     async_add_entities(
-        [MoonrakerSensor(coordinator, entry, description) for description in SENSORS]
+        [MoonrakerSensor(coordinator, entry, desc) for desc in opt_sensors]
     )
+
+
+async def async_setup_optional_sensors(object_list):
+    """Setup optional sensor platform."""
+    sensor_list = []
+    for obj in object_list["objects"]:
+        split_obj = obj.split()
+        if split_obj[0] == "temperature_sensor":
+            sensor_list.append(
+                MoonrakerSensorDescription(
+                    key=split_obj[1],
+                    name=split_obj[1].replace("_", " ").title(),
+                    value_fn=lambda sensor: sensor.coordinator.data["status"][
+                        f"temperature_sensor {sensor.entity_description.key}"
+                    ]["temperature"],
+                    subscriptions=[(obj, "temperature")],
+                    icon="mdi:thermometer",
+                    unit=DEGREE,
+                )
+            )
+    return sensor_list
 
 
 class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
@@ -216,16 +274,14 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
         self._attr_name = description.name
         self._attr_has_entity_name = True
         self.entity_description = description
-        self._attr_native_value = description.value_fn(coordinator.data)
+        self._attr_native_value = description.value_fn(self)
         self._attr_icon = description.icon
         self._attr_native_unit_of_measurement = description.unit
 
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        self._attr_native_value = self.entity_description.value_fn(
-            self.coordinator.data
-        )
+        self._attr_native_value = self.entity_description.value_fn(self)
         self.async_write_ha_state()
 
 

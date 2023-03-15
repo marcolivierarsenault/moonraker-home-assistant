@@ -167,14 +167,24 @@ async def test_thumbnail_no_thumbnail(
 
 
 async def test_thumbnail_no_thumbnail_after_update(
-    hass, aioclient_mock, get_data, get_printer_info, get_camera_info
+    hass,
+    aioclient_mock,
+    get_data,
+    get_printer_info,
+    get_camera_info,
+    get_printer_objects_list,
 ):
     """Test setup thumbnail camera"""
 
     get_data["status"]["print_stats"]["filename"] = "CE3E3V2_picture_frame_holder.gcode"
     with patch(
         "moonraker_api.MoonrakerClient.call_method",
-        return_value={**get_data, **get_printer_info, **get_camera_info},
+        return_value={
+            **get_data,
+            **get_printer_info,
+            **get_camera_info,
+            **get_printer_objects_list,
+        },
     ):
         config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
         assert await async_setup_entry(hass, config_entry)
