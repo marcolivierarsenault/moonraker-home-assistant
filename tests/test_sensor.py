@@ -89,6 +89,7 @@ async def test_sensor_services_update(
         ("mainsail_progress", "90"),
         ("mainsail_bed_power", "26"),
         ("mainsail_extruder_power", "66"),
+        ("mainsail_fan_speed", "51.23"),
     ],
 )
 async def test_sensors(
