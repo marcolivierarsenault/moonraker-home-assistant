@@ -7,7 +7,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.moonraker import async_setup_entry
-from custom_components.moonraker.const import METHOD, DOMAIN
+from custom_components.moonraker.const import DOMAIN, METHOD
 
 from .const import MOCK_CONFIG
 
