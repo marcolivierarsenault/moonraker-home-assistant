@@ -10,7 +10,7 @@ VERSION = "0.4.0"
 MANIFACTURER = "@marcolivierarsenault"
 
 # Platforms
-PLATFORMS = [Platform.SENSOR, Platform.CAMERA]
+PLATFORMS = [Platform.SENSOR, Platform.CAMERA, Platform.BUTTON]
 
 CONF_API_KEY = "api_key"
 CONF_URL = "url"
@@ -26,6 +26,7 @@ class METHOD(Enum):
 
     SERVER_FILES_METADATA = "server.files.metadata"
     SERVER_WEBCAMS_LIST = "server.webcams.list"
+    PRINTER_EMERGENCY_STOP = "printer.emergency_stop"
     PRINTER_INFO = "printer.info"
     PRINTER_OBJECTS_LIST = "printer.objects.list"
     PRINTER_OBJECTS_QUERY = "printer.objects.query"
