@@ -39,6 +39,7 @@ The available tasks are:
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Run Home Assistant on port 8123 | Launch Home Assistant with your custom component code and the configuration defined in `.devcontainer/configuration.yaml`. |
 | Run tests                       | Run the unit tests                                                                                                         |
+| Run pre-commit hook             | Run the pre-commit hook on all files                                                                                       |
 
 ### Step by Step debugging
 
