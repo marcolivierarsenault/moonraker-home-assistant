@@ -7,7 +7,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.moonraker import async_setup_entry
-from custom_components.moonraker.const import DOMAIN
+from custom_components.moonraker.const import METHOD, DOMAIN
 
 from .const import MOCK_CONFIG
 
@@ -33,7 +33,7 @@ async def test_buttons(hass, button, get_data, get_printer_info):
         assert await async_setup_entry(hass, config_entry)
         await hass.async_block_till_done()
 
-        hass.states.async_set(f"button.{button}", "on")
+    with patch("moonraker_api.MoonrakerClient.call_method") as mock_api:
         await hass.services.async_call(
             BUTTON_DOMAIN,
             SERVICE_PRESS,
@@ -42,3 +42,6 @@ async def test_buttons(hass, button, get_data, get_printer_info):
             },
             blocking=True,
         )
+
+        await hass.async_block_till_done()
+        mock_api.assert_called_once_with(METHOD.PRINTER_EMERGENCY_STOP)
