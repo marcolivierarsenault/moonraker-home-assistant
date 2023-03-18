@@ -153,12 +153,15 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         except Exception as exception:
             raise UpdateFailed() from exception
 
-    async def _async_send_data(self, query_path) -> None:
+    async def _async_send_data(self, query_path, query_obj) -> None:
         if not self.moonraker.client.is_connected:
             _LOGGER.warning("connection to moonraker down, restarting")
             await self.moonraker.start()
         try:
-            await self.moonraker.client.call_method(query_path)
+            if query_obj is None:
+                await self.moonraker.client.call_method(str(query_path))
+            else:
+                await self.moonraker.client.call_method(str(query_path), **query_obj)
         except Exception as exception:
             raise UpdateFailed() from exception
 
@@ -166,9 +169,11 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         """Fetch data from moonraker"""
         return await self._async_fetch_data(query_path, None)
 
-    async def async_send_data(self, query_path: METHOD):
+    async def async_send_data(
+        self, query_path: METHOD, query_obj: dict[str:any] = None
+    ):
         """Send data to moonraker"""
-        return await self._async_send_data(query_path)
+        return await self._async_send_data(query_path, query_obj)
 
     def load_sensor_data(self, sensor_list):
         """Loading sensor data, so we can poll the right object"""

@@ -19,15 +19,10 @@ def bypass_connect_client_fixture():
         yield
 
 
-# test all buttons
-@pytest.mark.parametrize(
-    "button",
-    [("mainsail_emergency_stop")],
-)
-async def test_buttons(hass, button, get_data, get_printer_info):
+async def test_emergency_button(hass, get_data, get_printer_info, get_gcode_help):
     with patch(
         "moonraker_api.MoonrakerClient.call_method",
-        return_value={**get_data, **get_printer_info, "result": "ok"},
+        return_value={**get_data, **get_printer_info, "result": "ok", **get_gcode_help},
     ):
         config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
         assert await async_setup_entry(hass, config_entry)
@@ -38,10 +33,35 @@ async def test_buttons(hass, button, get_data, get_printer_info):
             BUTTON_DOMAIN,
             SERVICE_PRESS,
             {
-                ATTR_ENTITY_ID: f"button.{button}",
+                ATTR_ENTITY_ID: "button.mainsail_emergency_stop",
             },
             blocking=True,
         )
 
         await hass.async_block_till_done()
-        mock_api.assert_called_once_with(METHOD.PRINTER_EMERGENCY_STOP)
+        mock_api.assert_called_once_with(str(METHOD.PRINTER_EMERGENCY_STOP))
+
+
+async def test_gcode_macro(hass, get_data, get_printer_info, get_gcode_help):
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={**get_data, **get_printer_info, "result": "ok", **get_gcode_help},
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        assert await async_setup_entry(hass, config_entry)
+        await hass.async_block_till_done()
+
+    with patch("moonraker_api.MoonrakerClient.call_method") as mock_api:
+        await hass.services.async_call(
+            BUTTON_DOMAIN,
+            SERVICE_PRESS,
+            {
+                ATTR_ENTITY_ID: "button.mainsail_macro_start_print",
+            },
+            blocking=True,
+        )
+
+        await hass.async_block_till_done()
+        mock_api.assert_called_once_with(
+            str(METHOD.PRINTER_GCODE_SCRIPT), script="START_PRINT"
+        )

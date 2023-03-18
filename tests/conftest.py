@@ -129,6 +129,20 @@ def get_printer_info_fixture():
     }
 
 
+@pytest.fixture(name="get_gcode_help")
+def get_gcode_help_fixture():
+    """Get gcode help fixture"""
+    return {
+        "SET_PAUSE_NEXT_LAYER": "Enable a pause if the next layer is reached",
+        "SET_PAUSE_AT_LAYER": "Enable/disable a pause if a given layer number is reached",
+        "_TOOLHEAD_PARK_PAUSE_CANCEL": "Helper: park toolhead used in PAUSE and CANCEL_PRINT",
+        "_CLIENT_EXTRUDE": "Extrudes, if the extruder is hot enough",
+        "_CLIENT_RETRACT": "Retracts, if the extruder is hot enough",
+        "START_PRINT": "G-Code macro",
+        "END_PRINT": "G-Code macro",
+    }
+
+
 @pytest.fixture(name="get_printer_objects_list")
 def get_printer_objects_list_fixture():
     """Get printer objects list fixture"""
