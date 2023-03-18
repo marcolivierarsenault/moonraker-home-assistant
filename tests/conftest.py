@@ -58,6 +58,21 @@ def get_data_fixture():
             "temperature_sensor mcu_temp": {
                 "temperature": 32.43,
             },
+            "temperature_fan fan_temp": {
+                "temperature": 32.43,
+            },
+            "temperature_host host_temp": {
+                "temperature": 32.43,
+            },
+            "bme280 bme280_temp": {
+                "temperature": 32.43,
+            },
+            "htu21d htu21d_temp": {
+                "temperature": 32.43,
+            },
+            "lm75 lm75_temp": {
+                "temperature": 32.43,
+            },
             "display_status": {
                 "progress": 0.9078104237663283,
                 "message": "Custom Message",
@@ -174,6 +189,11 @@ def get_printer_objects_list_fixture():
             "manual_probe",
             "toolhead",
             "extruder",
+            "temperature_fan fan_temp",
+            "temperature_host host_temp",
+            "bme280 bme280_temp",
+            "htu21d htu21d_temp",
+            "lm75 lm75_temp",
         ]
     }
 

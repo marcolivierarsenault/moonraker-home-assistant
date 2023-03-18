@@ -24,6 +24,7 @@ class MoonrakerSensorDescription(SensorEntityDescription):
 
     value_fn: Callable | None = None
     sensor_name: str | None = None
+    status_key: str | None = None
     icon: str | None = None
     unit: str | None = None
     device_class: str | None = None
@@ -255,23 +256,33 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 async def async_setup_optional_sensors(object_list):
     """Setup optional sensor platform."""
-    sensor_list = []
+
+    temperature_keys = [
+        "temperature_sensor",
+        "temperature_fan",
+        "temperature_host",
+        "bme280",
+        "htu21d",
+        "lm75",
+    ]
+
+    sensors = []
     for obj in object_list["objects"]:
         split_obj = obj.split()
-        if split_obj[0] == "temperature_sensor":
-            sensor_list.append(
-                MoonrakerSensorDescription(
-                    key=split_obj[1],
-                    name=split_obj[1].replace("_", " ").title(),
-                    value_fn=lambda sensor: sensor.coordinator.data["status"][
-                        f"temperature_sensor {sensor.entity_description.key}"
-                    ]["temperature"],
-                    subscriptions=[(obj, "temperature")],
-                    icon="mdi:thermometer",
-                    unit=DEGREE,
-                )
+        if split_obj[0] in temperature_keys:
+            desc = MoonrakerSensorDescription(
+                key=split_obj[1],
+                status_key=obj,
+                name=split_obj[1].replace("_", " ").title(),
+                value_fn=lambda sensor: sensor.coordinator.data["status"][
+                    sensor.status_key
+                ]["temperature"],
+                subscriptions=[(obj, "temperature")],
+                icon="mdi:thermometer",
+                unit=DEGREE,
             )
-    return sensor_list
+            sensors.append(desc)
+    return sensors
 
 
 class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
@@ -280,6 +291,7 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
     def __init__(self, coordinator, entry, description):
         super().__init__(coordinator, entry)
         self.coordinator = coordinator
+        self.status_key = description.status_key
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
         self._attr_name = description.name
         self._attr_has_entity_name = True
