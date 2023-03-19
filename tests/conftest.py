@@ -103,6 +103,16 @@ def get_data_fixture():
                 "cpu_info": "4 core ARMv7 Processor rev 3 (v7l)",
             }
         },
+        "history": {
+            "job_totals": {
+                "total_jobs": 3,
+                "total_time": 11748.077333278954,
+                "total_print_time": 11348.794790096988,
+                "total_filament_used": 11615.718840001999,
+                "longest_job": 11665.191012736992,
+                "longest_print": 11348.794790096988,
+            }
+        },
         "size": 3433628,
         "modified": 1675395952.8169234,
         "uuid": "76ae56ef-3391-4f7a-89b4-8cc1cb4d6454",
@@ -226,4 +236,19 @@ def get_camera_info_fixture():
                 "source": "database",
             }
         ]
+    }
+
+
+@pytest.fixture(name="get_history")
+def get_history_fixture():
+    """Get history fixture"""
+    return {
+        "job_totals": {
+            "total_jobs": 3,
+            "total_time": 11748.077333278954,
+            "total_print_time": 11348.794790096988,
+            "total_filament_used": 11615.718840001999,
+            "longest_job": 11665.191012736992,
+            "longest_print": 11348.794790096988,
+        }
     }

@@ -109,10 +109,16 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             METHOD.PRINTER_OBJECTS_QUERY, self.query_obj
         )
         info = await self.async_fetch_data(METHOD.PRINTER_INFO)
+        history = await self.async_fetch_data(METHOD.SERVER_HISTORY_TOTALS)
         gcode_file_details = await self._async_get_gcode_file_detail(
             query["status"]["print_stats"]["filename"]
         )
-        return {**query, **{"printer.info": info}, **gcode_file_details}
+        return {
+            **query,
+            **{"printer.info": info},
+            **gcode_file_details,
+            **{"history": history},
+        }
 
     async def _async_get_gcode_file_detail(self, gcode_filename):
         return_gcode = {
