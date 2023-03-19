@@ -81,6 +81,14 @@ def get_data_fixture():
                 "speed": 0.5123,
                 "rpm": 3000,
             },
+            "heater_fan heater_fan": {
+                "speed": 0.5123,
+                "rpm": 3000,
+            },
+            "controller_fan controller_fan": {
+                "speed": 0.5123,
+                "rpm": 3000,
+            },
         },
         "printer.info": {
             "result": {
@@ -194,6 +202,8 @@ def get_printer_objects_list_fixture():
             "bme280 bme280_temp",
             "htu21d htu21d_temp",
             "lm75 lm75_temp",
+            "heater_fan heater_fan",
+            "controller_fan controller_fan",
         ]
     }
 

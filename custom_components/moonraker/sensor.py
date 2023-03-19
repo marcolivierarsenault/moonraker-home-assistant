@@ -266,9 +266,12 @@ async def async_setup_optional_sensors(object_list):
         "lm75",
     ]
 
+    fan_keys = ["heater_fan", "controller_fan"]
+
     sensors = []
     for obj in object_list["objects"]:
         split_obj = obj.split()
+
         if split_obj[0] in temperature_keys:
             desc = MoonrakerSensorDescription(
                 key=split_obj[1],
@@ -282,6 +285,21 @@ async def async_setup_optional_sensors(object_list):
                 unit=DEGREE,
             )
             sensors.append(desc)
+        elif split_obj[0] in fan_keys:
+            desc = MoonrakerSensorDescription(
+                key=split_obj[1],
+                status_key=obj,
+                name=split_obj[1].replace("_", " ").title(),
+                value_fn=lambda sensor: float(
+                    sensor.coordinator.data["status"][sensor.status_key]["speed"]
+                )
+                * 100,
+                subscriptions=[(obj, "speed")],
+                icon="mdi:fan",
+                unit=PERCENTAGE,
+            )
+            sensors.append(desc)
+
     return sensors
 
 

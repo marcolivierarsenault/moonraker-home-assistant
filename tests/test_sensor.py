@@ -95,6 +95,8 @@ async def test_sensor_services_update(
         ("mainsail_bme280_temp", "32.43"),
         ("mainsail_htu21d_temp", "32.43"),
         ("mainsail_lm75_temp", "32.43"),
+        ("mainsail_heater_fan", "51.23"),
+        ("mainsail_controller_fan", "51.23"),
     ],
 )
 async def test_sensors(
