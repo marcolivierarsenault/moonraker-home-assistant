@@ -241,20 +241,17 @@ async def async_setup_entry(hass, entry, async_add_entities):
     """Setup sensor platform."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
 
+    await async_setup_basic_sensor(coordinator, entry, async_add_entities)
+    await async_setup_optional_sensors(coordinator, entry, async_add_entities)
+
+
+async def async_setup_basic_sensor(coordinator, entry, async_add_entities):
+    """Setup basic sensor platform."""
+    coordinator.load_sensor_data(SENSORS)
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in SENSORS])
 
-    object_list = await coordinator.async_fetch_data(METHOD.PRINTER_OBJECTS_LIST)
-    opt_sensors = await async_setup_optional_sensors(object_list)
 
-    coordinator.load_sensor_data(opt_sensors)
-    await coordinator.async_refresh()
-
-    async_add_entities(
-        [MoonrakerSensor(coordinator, entry, desc) for desc in opt_sensors]
-    )
-
-
-async def async_setup_optional_sensors(object_list):
+async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
     """Setup optional sensor platform."""
 
     temperature_keys = [
@@ -269,6 +266,7 @@ async def async_setup_optional_sensors(object_list):
     fan_keys = ["heater_fan", "controller_fan"]
 
     sensors = []
+    object_list = await coordinator.async_fetch_data(METHOD.PRINTER_OBJECTS_LIST)
     for obj in object_list["objects"]:
         split_obj = obj.split()
 
@@ -300,7 +298,9 @@ async def async_setup_optional_sensors(object_list):
             )
             sensors.append(desc)
 
-    return sensors
+    coordinator.load_sensor_data(sensors)
+    await coordinator.async_refresh()
+    async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
 
 
 class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):

@@ -34,9 +34,13 @@ BUTTONS: tuple[MoonrakerButtonDescription, ...] = [
 async def async_setup_entry(hass, entry, async_add_entities):
     """Setup sensor platform."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([MoonrakerButton(coordinator, entry, desc) for desc in BUTTONS])
-
+    await async_setup_basic_buttons(coordinator, entry, async_add_entities)
     await async_setup_macros(coordinator, entry, async_add_entities)
+
+
+async def async_setup_basic_buttons(coordinator, entry, async_add_entities):
+    """Setup optional button platform."""
+    async_add_entities([MoonrakerButton(coordinator, entry, desc) for desc in BUTTONS])
 
 
 async def async_setup_macros(coordinator, entry, async_add_entities):
