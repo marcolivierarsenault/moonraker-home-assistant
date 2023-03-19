@@ -97,14 +97,29 @@ async def test_sensor_services_update(
         ("mainsail_lm75_temp", "32.43"),
         ("mainsail_heater_fan", "51.23"),
         ("mainsail_controller_fan", "51.23"),
+        ("mainsail_totals_print_time", "3h 9m 9s"),
+        ("mainsail_totals_jobs", "3"),
+        ("mainsail_totals_filament_used", "11.62"),
+        ("mainsail_longest_print", "3h 9m 9s"),
     ],
 )
 async def test_sensors(
-    hass, sensor, value, get_data, get_printer_info, get_printer_objects_list
+    hass,
+    sensor,
+    value,
+    get_data,
+    get_printer_info,
+    get_printer_objects_list,
+    get_history,
 ):
     with patch(
         "moonraker_api.MoonrakerClient.call_method",
-        return_value={**get_data, **get_printer_info, **get_printer_objects_list},
+        return_value={
+            **get_data,
+            **get_printer_info,
+            **get_printer_objects_list,
+            **get_history,
+        },
     ):
         config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
         assert await async_setup_entry(hass, config_entry)
