@@ -304,10 +304,16 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
 
 
+async def _history_updater(coordinator):
+    return {"history": await coordinator.async_fetch_data(METHOD.SERVER_HISTORY_TOTALS)}
+
+
 async def async_setup_history_sensors(coordinator, entry, async_add_entities):
     history = await coordinator.async_fetch_data(METHOD.SERVER_HISTORY_TOTALS)
     if history.get("error"):
         return
+
+    coordinator.add_data_updater(_history_updater)
 
     sensors = [
         MoonrakerSensorDescription(
