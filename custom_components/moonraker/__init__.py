@@ -82,6 +82,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     return True
 
 
+async def _printer_objects_updater(coordinator):
+    return await coordinator._async_fetch_data(
+        METHOD.PRINTER_OBJECTS_QUERY, coordinator.query_obj
+    )
+
+
+async def _printer_info_updater(coordinator):
+    return {
+        "printer.info": await coordinator._async_fetch_data(METHOD.PRINTER_INFO, None)
+    }
+
+
+async def _gcode_file_detail_updater(coordinator):
+    data = await coordinator._async_fetch_data(
+        METHOD.PRINTER_OBJECTS_QUERY, coordinator.query_obj
+    )
+    return await coordinator._async_get_gcode_file_detail(
+        data["status"]["print_stats"]["filename"]
+    )
+
+
 class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching data from the API."""
 
@@ -95,6 +116,11 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         """Initialize."""
         self.moonraker = client
         self.platforms = []
+        self.updaters = [
+            _printer_objects_updater,
+            _printer_info_updater,
+            _gcode_file_detail_updater,
+        ]
         self.hass = hass
         self.config_entry = config_entry
         self.api_device_name = api_device_name
@@ -105,14 +131,12 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self):
         """Update data via library."""
-        query = await self._async_fetch_data(
-            METHOD.PRINTER_OBJECTS_QUERY, self.query_obj
-        )
-        info = await self.async_fetch_data(METHOD.PRINTER_INFO)
-        gcode_file_details = await self._async_get_gcode_file_detail(
-            query["status"]["print_stats"]["filename"]
-        )
-        return {**query, **{"printer.info": info}, **gcode_file_details}
+        data = dict()
+
+        for updater in self.updaters:
+            data.update(await updater(self))
+
+        return data
 
     async def _async_get_gcode_file_detail(self, gcode_filename):
         return_gcode = {
@@ -174,6 +198,9 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
     ):
         """Send data to moonraker"""
         return await self._async_send_data(query_path, query_obj)
+
+    def add_data_updater(self, updater):
+        self.updaters.append(updater)
 
     def load_sensor_data(self, sensor_list):
         """Loading sensor data, so we can poll the right object"""

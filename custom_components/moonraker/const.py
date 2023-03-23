@@ -25,6 +25,7 @@ class METHOD(Enum):
     """API methods."""
 
     SERVER_FILES_METADATA = "server.files.metadata"
+    SERVER_HISTORY_TOTALS = "server.history.totals"
     SERVER_WEBCAMS_LIST = "server.webcams.list"
     PRINTER_EMERGENCY_STOP = "printer.emergency_stop"
     PRINTER_GCODE_HELP = "printer.gcode.help"
