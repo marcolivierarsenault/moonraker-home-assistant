@@ -195,3 +195,25 @@ async def test_calculate_pct_job_no_time(data_for_calculate_pct):
 async def test_calculate_pct_job_no_filament(data_for_calculate_pct):
     data_for_calculate_pct["filament_total"] = 0
     assert calculate_pct_job(data_for_calculate_pct) == 0
+
+
+async def test_no_history_data(
+    hass, get_data, get_printer_info, get_printer_objects_list
+):
+    get_history = {"error": "method not found"}
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={
+            **get_data,
+            **get_printer_info,
+            **get_printer_objects_list,
+            **get_history,
+        },
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        assert await async_setup_entry(hass, config_entry)
+        await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_totals_jobs")
+    assert state is None
