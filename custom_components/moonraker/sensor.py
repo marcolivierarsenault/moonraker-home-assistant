@@ -272,7 +272,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
 
         if split_obj[0] in temperature_keys:
             desc = MoonrakerSensorDescription(
-                key=split_obj[1],
+                key=f"{split_obj[0]}_{split_obj[1]}",
                 status_key=obj,
                 name=split_obj[1].replace("_", " ").title(),
                 value_fn=lambda sensor: sensor.coordinator.data["status"][
@@ -285,7 +285,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
             sensors.append(desc)
         elif split_obj[0] in fan_keys:
             desc = MoonrakerSensorDescription(
-                key=split_obj[1],
+                key=f"{split_obj[0]}_{split_obj[1]}",
                 status_key=obj,
                 name=split_obj[1].replace("_", " ").title(),
                 value_fn=lambda sensor: float(
