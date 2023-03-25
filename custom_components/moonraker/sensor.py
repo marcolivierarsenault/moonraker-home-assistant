@@ -52,6 +52,8 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         value_fn=lambda sensor: sensor.coordinator.data["status"]["print_stats"][
             "state"
         ],
+        device_class=SensorDeviceClass.ENUM,
+        options=["standby", "printing", "paused", "complete", "cancelled", "error"],
         subscriptions=[("print_stats", "state")],
     ),
     MoonrakerSensorDescription(
