@@ -2,6 +2,7 @@
 import datetime as dt
 from unittest.mock import patch
 
+from homeassistant.helpers.entity_registry import async_get as get_entity_registry
 import pytest
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
@@ -216,3 +217,37 @@ async def test_no_history_data(
 
     state = hass.states.get("sensor.mainsail_totals_jobs")
     assert state is None
+
+
+async def test_double_sensor_data(
+    hass, get_data, get_printer_info, get_printer_objects_list, get_history
+):
+    get_printer_objects_list["objects"].append("heater_fan controller_fan")
+    get_data["status"]["heater_fan controller_fan"] = {"speed": 0.1234}
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={
+            **get_data,
+            **get_printer_info,
+            **get_printer_objects_list,
+            **get_history,
+        },
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        assert await async_setup_entry(hass, config_entry)
+        await hass.async_block_till_done()
+
+    registry = get_entity_registry(hass)
+
+    assert (
+        registry.async_get_entity_id(
+            "sensor", DOMAIN, "test_controller_fan_controller_fan"
+        )
+        is not None
+    )
+
+    assert (
+        registry.async_get_entity_id("sensor", DOMAIN, "test_heater_fan_controller_fan")
+        is not None
+    )
