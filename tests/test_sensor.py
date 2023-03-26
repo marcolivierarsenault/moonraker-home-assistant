@@ -79,6 +79,7 @@ async def test_sensor_services_update(
         ("mainsail_extruder_temperature", "205.02"),
         ("mainsail_progress", "90"),
         ("mainsail_printer_state", "ready"),
+        ("mainsail_filename", "CE3E3V2_picture_frame_holder.gcode"),
         ("mainsail_current_display_message", "Custom Message"),
         ("mainsail_printer_message", "Printer is ready"),
         ("mainsail_current_print_state", "printing"),
@@ -125,7 +126,7 @@ async def test_sensors(
         assert await async_setup_entry(hass, config_entry)
         await hass.async_block_till_done()
 
-    state = hass.states.get(f"sensor.{sensor}")
+    assert hass.states.get(f"sensor.{sensor}").state == value
 
 
 # test sensor affected by not printing state
