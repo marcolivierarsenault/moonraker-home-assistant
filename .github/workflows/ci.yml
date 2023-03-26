@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: "actions/checkout@v2"
       - uses: "actions/setup-python@v1"
-      - uses: isort/isort-action@v1.0.0
+      - uses: isort/isort-action@v1.1.0
       - uses: jpetrucciani/black-check@master
         with:
           python-version: "3.x"
