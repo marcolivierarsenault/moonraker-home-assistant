@@ -119,27 +119,23 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="filename",
         name="Filename",
-        value_fn=lambda sensor: sensor.coordinator.data["status"]["print_stats"][
-            "filename"
-        ]
-        if sensor.coordinator.data["status"]["print_stats"]["state"]
-        == PRINTSTATES.PRINTING.value
-        else "",
+        value_fn=lambda sensor: sensor.empty_result_when_not_printing(
+            sensor.coordinator.data["status"]["print_stats"]["filename"]
+        ),
         subscriptions=[("print_stats", "filename")],
     ),
     MoonrakerSensorDescription(
         key="print_projected_total_duration",
         name="print Projected Total Duration",
-        value_fn=lambda sensor: round(
-            sensor.coordinator.data["status"]["print_stats"]["print_duration"]
-            / calculate_pct_job(sensor.coordinator.data)
-            if calculate_pct_job(sensor.coordinator.data) != 0
-            else 0,
-            2,
-        )
-        if sensor.coordinator.data["status"]["print_stats"]["state"]
-        == PRINTSTATES.PRINTING.value
-        else "",
+        value_fn=lambda sensor: sensor.empty_result_when_not_printing(
+            round(
+                sensor.coordinator.data["status"]["print_stats"]["print_duration"]
+                / calculate_pct_job(sensor.coordinator.data)
+                if calculate_pct_job(sensor.coordinator.data) != 0
+                else 0,
+                2,
+            )
+        ),
         subscriptions=[
             ("print_stats", "total_duration"),
             ("display_status", "progress"),
@@ -151,19 +147,18 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="print_time_left",
         name="Print Time Left",
-        value_fn=lambda sensor: round(
-            (
-                sensor.coordinator.data["status"]["print_stats"]["print_duration"]
-                / calculate_pct_job(sensor.coordinator.data)
-                if calculate_pct_job(sensor.coordinator.data) != 0
-                else 0
+        value_fn=lambda sensor: sensor.empty_result_when_not_printing(
+            round(
+                (
+                    sensor.coordinator.data["status"]["print_stats"]["print_duration"]
+                    / calculate_pct_job(sensor.coordinator.data)
+                    if calculate_pct_job(sensor.coordinator.data) != 0
+                    else 0
+                )
+                - sensor.coordinator.data["status"]["print_stats"]["print_duration"],
+                2,
             )
-            - sensor.coordinator.data["status"]["print_stats"]["print_duration"],
-            2,
-        )
-        if sensor.coordinator.data["status"]["print_stats"]["state"]
-        == PRINTSTATES.PRINTING.value
-        else "",
+        ),
         subscriptions=[
             ("print_stats", "print_duration"),
             ("display_status", "progress"),
@@ -186,12 +181,12 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="print_duration",
         name="Print Duration",
-        value_fn=lambda sensor: round(
-            sensor.coordinator.data["status"]["print_stats"]["print_duration"] / 60, 2
-        )
-        if sensor.coordinator.data["status"]["print_stats"]["state"]
-        == PRINTSTATES.PRINTING.value
-        else "",
+        value_fn=lambda sensor: sensor.empty_result_when_not_printing(
+            round(
+                sensor.coordinator.data["status"]["print_stats"]["print_duration"] / 60,
+                2,
+            )
+        ),
         subscriptions=[("print_stats", "print_duration")],
         icon="mdi:timer",
         unit=TIME_SECONDS,
@@ -200,15 +195,14 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="filament_used",
         name="Filament Used",
-        value_fn=lambda sensor: round(
-            int(sensor.coordinator.data["status"]["print_stats"]["filament_used"])
-            * 1.0
-            / 1000,
-            2,
-        )
-        if sensor.coordinator.data["status"]["print_stats"]["state"]
-        == PRINTSTATES.PRINTING.value
-        else "",
+        value_fn=lambda sensor: sensor.empty_result_when_not_printing(
+            round(
+                int(sensor.coordinator.data["status"]["print_stats"]["filament_used"])
+                * 1.0
+                / 1000,
+                2,
+            )
+        ),
         subscriptions=[("print_stats", "filament_used")],
         icon="mdi:tape-measure",
         unit=LENGTH_METERS,
@@ -216,12 +210,9 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="progress",
         name="Progress",
-        value_fn=lambda sensor: int(
-            sensor.coordinator.data["status"]["display_status"]["progress"] * 100
-        )
-        if sensor.coordinator.data["status"]["print_stats"]["state"]
-        == PRINTSTATES.PRINTING.value
-        else "",
+        value_fn=lambda sensor: sensor.empty_result_when_not_printing(
+            int(sensor.coordinator.data["status"]["display_status"]["progress"] * 100)
+        ),
         subscriptions=[("display_status", "progress")],
         icon="mdi:percent",
         unit=PERCENTAGE,
@@ -404,6 +395,15 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
         """Handle updated data from the coordinator."""
         self._attr_native_value = self.entity_description.value_fn(self)
         self.async_write_ha_state()
+
+    def empty_result_when_not_printing(self, value: str = "") -> str:
+        """Return empty string when not printing"""
+        if (
+            self.coordinator.data["status"]["print_stats"]["state"]
+            != PRINTSTATES.PRINTING.value
+        ):
+            return ""
+        return value
 
 
 def calculate_pct_job(data) -> float:
