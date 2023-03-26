@@ -1,31 +1,41 @@
 [![GitHub Release][releases-shield]][releases]
 [![GitHub Activity][commits-shield]][commits]
 [![License][license-shield]][license]
-
 [![hacs][hacsbadge]][hacs]
+![install_badge](https://img.shields.io/badge/dynamic/json?color=41BDF5&logo=home-assistant&label=integration%20usage&suffix=%20installs&cacheSeconds=15600&url=https://analytics.home-assistant.io/custom_integrations.json&query=$.moonraker.total)
 
 _Component to integrate with [Moonraker][integration_blueprint]._
 
-Non official integration for Moonraker in Home Assistant.
+Non official integration for Moonraker and Klipper in Home Assistant.
 
-This allows you home assistant to connect to your 3D printer and display:
+This allows you home assistant to connect to your Klipper 3D printer and display:
 
 - key information about the printer (sensors)
 - show the camera (if installed)
 - thumbnail of what is being printed at the moment.
+- Emergency stop button
+- Button to trigger macros
 
-# Screenshot
+### Entity details
 
-|                                                 Sensors                                                  |                                                 Camera                                                  |
-| :------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------: |
-| ![sensor](https://github.com/marcolivierarsenault/moonraker-home-assistant/blob/main/assets/sensors.png) | ![camera](https://github.com/marcolivierarsenault/moonraker-home-assistant/blob/main/assets/camera.png) |
+[List of all sensor and details](https://github.com/marcolivierarsenault/moonraker-home-assistant/wiki/Entities)
+
+## Platform
 
 **This component will set up the following platforms.**
 
-| Platform | Description                       |
-| -------- | --------------------------------- |
-| `sensor` | Show printer info from Moonraker. |
-| `camera` | Show camera information.          |
+| Platform | Description                                                                         |
+| -------- | ----------------------------------------------------------------------------------- |
+| `sensor` | Show various info printer info from Moonraker.                                      |
+| `camera` | Show camera livestream and thumbnail of current print.                              |
+| `button` | Allow to use simple macro (cannot change variables) and trigger emergency shutdown. |
+
+## Screenshots
+
+![sensor](https://raw.githubusercontent.com/marcolivierarsenault/moonraker-home-assistant/main/assets/sensors.png)
+![button](https://raw.githubusercontent.com/marcolivierarsenault/moonraker-home-assistant/main/assets/button.png)
+![camera](https://raw.githubusercontent.com/marcolivierarsenault/moonraker-home-assistant/main/assets/camera.png)
+![thumbnial](https://raw.githubusercontent.com/marcolivierarsenault/moonraker-home-assistant/main/assets/thumbnail.png)
 
 <!---->
 

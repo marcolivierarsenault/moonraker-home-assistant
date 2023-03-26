@@ -4,13 +4,19 @@
 
 # Moonraker Home Assistant
 
-Non official integration for Moonraker in Home Assistant.
+Non official integration for Moonraker and Klipper in Home Assistant (via HACS).
+
+# Supported Entities
 
 This allows you home assistant to connect to your 3D printer and display:
 
 - key information about the printer (sensors)
 - show the camera (if installed)
 - thumbnail of what is being printed at the moment.
+- Emergency stop button
+- Button to trigger macros
+
+To access the list of all entites and their documentations. Look at our [WIKI](https://github.com/marcolivierarsenault/moonraker-home-assistant/wiki/Entities). The list of entities keeps growing on each versions :rocket: . Keep an eye on the wiki page.
 
 # Install
 
@@ -23,11 +29,16 @@ This allows you home assistant to connect to your 3D printer and display:
   - Navigate to the 'Integrations' tab in HACS, click `explore & Download` and search for the 'Moonraker' integration there. On the next screen, select "Download". Once fully downloaded, restart HomeAssistant.
 - In the sidebar, click 'Configuration', then 'Devices & Services'. Click the + icon to add "Moonraker" to your Home Assistant installation. An URL (or IP) of your Moonraker and start printing
 
+# Support
+
+You have issue with the integration, you want new sensors? Please open an Issue.
+
 # Screenshot
 
-|                                                 Sensors                                                  |                                                 Camera                                                  |
-| :------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------: |
-| ![sensor](https://github.com/marcolivierarsenault/moonraker-home-assistant/blob/main/assets/sensors.png) | ![camera](https://github.com/marcolivierarsenault/moonraker-home-assistant/blob/main/assets/camera.png) |
+![sensor](https://raw.githubusercontent.com/marcolivierarsenault/moonraker-home-assistant/main/assets/sensors.png)
+![button](https://raw.githubusercontent.com/marcolivierarsenault/moonraker-home-assistant/main/assets/button.png)
+![camera](https://raw.githubusercontent.com/marcolivierarsenault/moonraker-home-assistant/main/assets/camera.png)
+![thumbnial](https://raw.githubusercontent.com/marcolivierarsenault/moonraker-home-assistant/main/assets/thumbnail.png)
 
 # Slack Workspace
 
