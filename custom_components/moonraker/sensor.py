@@ -36,6 +36,8 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         key="state",
         name="Printer State",
         value_fn=lambda sensor: sensor.coordinator.data["printer.info"]["state"],
+        device_class=SensorDeviceClass.ENUM,
+        options=PRINTERSTATES.list(),
         subscriptions=[],
     ),
     MoonrakerSensorDescription(
@@ -53,7 +55,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
             "state"
         ],
         device_class=SensorDeviceClass.ENUM,
-        options=["standby", "printing", "paused", "complete", "cancelled", "error"],
+        options=PRINTSTATES.list(),
         subscriptions=[("print_stats", "state")],
     ),
     MoonrakerSensorDescription(
