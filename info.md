@@ -10,15 +10,15 @@ Non official integration for Moonraker and Klipper in Home Assistant.
 
 This allows you home assistant to connect to your Klipper 3D printer and display:
 
-- key information about the printer (sensors)
-- show the camera (if installed)
-- thumbnail of what is being printed at the moment.
+- Key information about the printer (sensors)
+- Show the camera image (if installed)
+- Thumbnail of what is being printed at the moment.
 - Emergency stop button
 - Button to trigger macros
 
-### Entity details
+### Entities details
 
-[List of all sensor and details](https://github.com/marcolivierarsenault/moonraker-home-assistant/wiki/Entities)
+[List of all sensors and details](https://github.com/marcolivierarsenault/moonraker-home-assistant/wiki/Entities)
 
 ## Platform
 
