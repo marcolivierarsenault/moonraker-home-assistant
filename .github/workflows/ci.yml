@@ -27,7 +27,7 @@ jobs:
     name: Check style formatting
     steps:
       - uses: "actions/checkout@v3"
-      - uses: "actions/setup-python@v1"
+      - uses: "actions/setup-python@v4"
       - uses: isort/isort-action@v1.0.0
       - uses: jpetrucciani/black-check@master
         with:
@@ -43,7 +43,7 @@ jobs:
       - name: Check out code from GitHub
         uses: "actions/checkout@v3"
       - name: Setup Python
-        uses: "actions/setup-python@v1"
+        uses: "actions/setup-python@v4"
         with:
           python-version: "3.10"
       - name: Install requirements
