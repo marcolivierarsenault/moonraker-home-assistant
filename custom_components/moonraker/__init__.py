@@ -19,7 +19,7 @@ from .const import (
     CONF_URL,
     DOMAIN,
     HOSTNAME,
-    METHOD,
+    METHODS,
     OBJ,
     PLATFORMS,
 )
@@ -83,19 +83,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
 async def _printer_objects_updater(coordinator):
     return await coordinator._async_fetch_data(
-        METHOD.PRINTER_OBJECTS_QUERY, coordinator.query_obj
+        METHODS.PRINTER_OBJECTS_QUERY, coordinator.query_obj
     )
 
 
 async def _printer_info_updater(coordinator):
     return {
-        "printer.info": await coordinator._async_fetch_data(METHOD.PRINTER_INFO, None)
+        "printer.info": await coordinator._async_fetch_data(METHODS.PRINTER_INFO, None)
     }
 
 
 async def _gcode_file_detail_updater(coordinator):
     data = await coordinator._async_fetch_data(
-        METHOD.PRINTER_OBJECTS_QUERY, coordinator.query_obj
+        METHODS.PRINTER_OBJECTS_QUERY, coordinator.query_obj
     )
     return await coordinator._async_get_gcode_file_detail(
         data["status"]["print_stats"]["filename"]
@@ -146,7 +146,9 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         if gcode_filename is None or gcode_filename == "":
             return return_gcode
         query_object = {"filename": gcode_filename}
-        gcode = await self._async_fetch_data(METHOD.SERVER_FILES_METADATA, query_object)
+        gcode = await self._async_fetch_data(
+            METHODS.SERVER_FILES_METADATA, query_object
+        )
         try:
             return_gcode["thumbnails_path"] = gcode["thumbnails"][
                 len(gcode["thumbnails"]) - 1
@@ -160,40 +162,40 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.error("gcode {%s}", gcode)
             return return_gcode
 
-    async def _async_fetch_data(self, query_path, query_object):
+    async def _async_fetch_data(self, query_path: METHODS, query_object):
         if not self.moonraker.client.is_connected:
             _LOGGER.warning("connection to moonraker down, restarting")
             await self.moonraker.start()
         try:
             if query_object is None:
-                result = await self.moonraker.client.call_method(str(query_path))
+                result = await self.moonraker.client.call_method(query_path.value)
             else:
                 result = await self.moonraker.client.call_method(
-                    str(query_path), **query_object
+                    query_path.value, **query_object
                 )
             _LOGGER.debug(result)
             return result
         except Exception as exception:
             raise UpdateFailed() from exception
 
-    async def _async_send_data(self, query_path, query_obj) -> None:
+    async def _async_send_data(self, query_path: METHODS, query_obj) -> None:
         if not self.moonraker.client.is_connected:
             _LOGGER.warning("connection to moonraker down, restarting")
             await self.moonraker.start()
         try:
             if query_obj is None:
-                await self.moonraker.client.call_method(str(query_path))
+                await self.moonraker.client.call_method(query_path.value)
             else:
-                await self.moonraker.client.call_method(str(query_path), **query_obj)
+                await self.moonraker.client.call_method(query_path.value, **query_obj)
         except Exception as exception:
             raise UpdateFailed() from exception
 
-    async def async_fetch_data(self, query_path: METHOD):
+    async def async_fetch_data(self, query_path: METHODS):
         """Fetch data from moonraker"""
         return await self._async_fetch_data(query_path, None)
 
     async def async_send_data(
-        self, query_path: METHOD, query_obj: dict[str:any] = None
+        self, query_path: METHODS, query_obj: dict[str:any] = None
     ):
         """Send data to moonraker"""
         return await self._async_send_data(query_path, query_obj)

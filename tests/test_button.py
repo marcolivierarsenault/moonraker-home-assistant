@@ -7,7 +7,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.moonraker import async_setup_entry
-from custom_components.moonraker.const import DOMAIN, METHOD
+from custom_components.moonraker.const import DOMAIN, METHODS
 
 from .const import MOCK_CONFIG
 
@@ -39,7 +39,7 @@ async def test_emergency_button(hass, get_data, get_printer_info, get_gcode_help
         )
 
         await hass.async_block_till_done()
-        mock_api.assert_called_once_with(str(METHOD.PRINTER_EMERGENCY_STOP))
+        mock_api.assert_called_once_with(METHODS.PRINTER_EMERGENCY_STOP.value)
 
 
 async def test_gcode_macro(hass, get_data, get_printer_info, get_gcode_help):
@@ -63,5 +63,5 @@ async def test_gcode_macro(hass, get_data, get_printer_info, get_gcode_help):
 
         await hass.async_block_till_done()
         mock_api.assert_called_once_with(
-            str(METHOD.PRINTER_GCODE_SCRIPT), script="START_PRINT"
+            METHODS.PRINTER_GCODE_SCRIPT.value, script="START_PRINT"
         )
