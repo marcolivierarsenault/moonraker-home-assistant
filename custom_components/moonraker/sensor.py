@@ -121,7 +121,10 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         name="Filename",
         value_fn=lambda sensor: sensor.coordinator.data["status"]["print_stats"][
             "filename"
-        ],
+        ]
+        if sensor.coordinator.data["status"]["print_stats"]["state"]
+        == PRINTSTATES.PRINTING.value
+        else "",
         subscriptions=[("print_stats", "filename")],
     ),
     MoonrakerSensorDescription(
@@ -133,7 +136,10 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
             if calculate_pct_job(sensor.coordinator.data) != 0
             else 0,
             2,
-        ),
+        )
+        if sensor.coordinator.data["status"]["print_stats"]["state"]
+        == PRINTSTATES.PRINTING.value
+        else "",
         subscriptions=[
             ("print_stats", "total_duration"),
             ("display_status", "progress"),
@@ -154,7 +160,10 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
             )
             - sensor.coordinator.data["status"]["print_stats"]["print_duration"],
             2,
-        ),
+        )
+        if sensor.coordinator.data["status"]["print_stats"]["state"]
+        == PRINTSTATES.PRINTING.value
+        else "",
         subscriptions=[
             ("print_stats", "print_duration"),
             ("display_status", "progress"),
@@ -179,7 +188,10 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         name="Print Duration",
         value_fn=lambda sensor: round(
             sensor.coordinator.data["status"]["print_stats"]["print_duration"] / 60, 2
-        ),
+        )
+        if sensor.coordinator.data["status"]["print_stats"]["state"]
+        == PRINTSTATES.PRINTING.value
+        else "",
         subscriptions=[("print_stats", "print_duration")],
         icon="mdi:timer",
         unit=TIME_SECONDS,
@@ -193,7 +205,10 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
             * 1.0
             / 1000,
             2,
-        ),
+        )
+        if sensor.coordinator.data["status"]["print_stats"]["state"]
+        == PRINTSTATES.PRINTING.value
+        else "",
         subscriptions=[("print_stats", "filament_used")],
         icon="mdi:tape-measure",
         unit=LENGTH_METERS,
@@ -203,7 +218,10 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         name="Progress",
         value_fn=lambda sensor: int(
             sensor.coordinator.data["status"]["display_status"]["progress"] * 100
-        ),
+        )
+        if sensor.coordinator.data["status"]["print_stats"]["state"]
+        == PRINTSTATES.PRINTING.value
+        else "",
         subscriptions=[("display_status", "progress")],
         icon="mdi:percent",
         unit=PERCENTAGE,
@@ -407,14 +425,16 @@ def calculate_pct_job(data) -> float:
 
 def calculate_eta(data):
     """Calculate ETA of current print"""
+    percent_job = calculate_pct_job(data)
     if (
         data["status"]["print_stats"]["print_duration"] <= 0
-        or calculate_pct_job(data) <= 0
+        or percent_job <= 0
+        or percent_job >= 1
     ):
         return None
 
     time_left = round(
-        (data["status"]["print_stats"]["print_duration"] / calculate_pct_job(data))
+        (data["status"]["print_stats"]["print_duration"] / percent_job)
         - data["status"]["print_stats"]["print_duration"],
         2,
     )

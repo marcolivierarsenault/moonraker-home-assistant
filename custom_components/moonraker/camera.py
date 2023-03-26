@@ -85,6 +85,12 @@ class PreviewCamera(Camera):
         self, width: int | None = None, height: int | None = None
     ) -> bytes | None:
         """Return current camera image"""
+        if (
+            self.coordinator.data["status"]["print_stats"]["state"]
+            != PRINTSTATES.PRINTING.value
+        ):
+            return None
+
         del width, height
 
         new_path = self.coordinator.data["thumbnails_path"]

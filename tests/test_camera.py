@@ -12,7 +12,7 @@ from pytest_homeassistant_custom_component.common import (
 )
 
 from custom_components.moonraker import async_setup_entry
-from custom_components.moonraker.const import DOMAIN
+from custom_components.moonraker.const import DOMAIN, PRINTSTATES
 
 from .const import MOCK_CONFIG
 
@@ -164,6 +164,29 @@ async def test_thumbnail_no_thumbnail(
     entry = entity_registry.async_get("camera.mainsail_thumbnail")
 
     assert entry is not None
+
+
+async def test_thumbnail_not_printing(
+    hass, aioclient_mock, get_data, get_printer_info, get_camera_info
+):
+    """Test setup thumbnail camera"""
+    get_data["status"]["print_stats"]["state"] = PRINTSTATES.STANDBY.value
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={**get_data, **get_printer_info, **get_camera_info},
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        assert await async_setup_entry(hass, config_entry)
+        await hass.async_block_till_done()
+
+    test_path = (
+        "http://1.2.3.4/server/files/gcodes/.thumbs/CE3E3V2_picture_frame_holder.png"
+    )
+
+    aioclient_mock.get(test_path, content=Image.new("RGB", (30, 30)))
+
+    with pytest.raises(Exception):
+        await camera.async_get_image(hass, "camera.mainsail_thumbnail")
 
 
 async def test_thumbnail_no_thumbnail_after_update(
