@@ -231,9 +231,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="fan_speed",
         name="Fan speed",
-        value_fn=lambda sensor: float(
-            sensor.coordinator.data["status"]["fan"]["speed"] * 100
-        ),
+        value_fn=lambda sensor: sensor.coordinator.data["status"]["fan"]["speed"] * 100,
         subscriptions=[("fan", "speed")],
         icon="mdi:fan",
         unit=PERCENTAGE,
@@ -292,9 +290,9 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 key=f"{split_obj[0]}_{split_obj[1]}",
                 status_key=obj,
                 name=split_obj[1].replace("_", " ").title(),
-                value_fn=lambda sensor: float(
-                    sensor.coordinator.data["status"][sensor.status_key]["speed"]
-                )
+                value_fn=lambda sensor: sensor.coordinator.data["status"][
+                    sensor.status_key
+                ]["speed"]
                 * 100,
                 subscriptions=[(obj, "speed")],
                 icon="mdi:fan",
