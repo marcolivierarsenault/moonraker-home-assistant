@@ -10,7 +10,7 @@ from pytest_homeassistant_custom_component.common import (
 )
 
 from custom_components.moonraker import async_setup_entry
-from custom_components.moonraker.const import DOMAIN
+from custom_components.moonraker.const import DOMAIN, PRINTSTATES
 from custom_components.moonraker.sensor import calculate_pct_job
 
 from .const import MOCK_CONFIG
@@ -79,6 +79,7 @@ async def test_sensor_services_update(
         ("mainsail_extruder_temperature", "205.02"),
         ("mainsail_progress", "90"),
         ("mainsail_printer_state", "ready"),
+        ("mainsail_filename", "CE3E3V2_picture_frame_holder.gcode"),
         ("mainsail_current_display_message", "Custom Message"),
         ("mainsail_printer_message", "Printer is ready"),
         ("mainsail_current_print_state", "printing"),
@@ -125,9 +126,46 @@ async def test_sensors(
         assert await async_setup_entry(hass, config_entry)
         await hass.async_block_till_done()
 
-    state = hass.states.get(f"sensor.{sensor}")
+    assert hass.states.get(f"sensor.{sensor}").state == value
 
-    assert state.state == value
+
+# test sensor affected by not printing state
+@pytest.mark.parametrize(
+    "sensor_not_printing, value",
+    [
+        ("mainsail_filename", ""),
+        ("mainsail_current_print_state", "standby"),
+        ("mainsail_filament_used", ""),
+        ("mainsail_print_duration", ""),
+        ("mainsail_print_time_left", ""),
+        ("mainsail_print_projected_total_duration", ""),
+        ("mainsail_progress", ""),
+    ],
+)
+async def test_sensors_not_printing(
+    hass,
+    sensor_not_printing,
+    value,
+    get_data,
+    get_printer_info,
+    get_printer_objects_list,
+    get_history,
+):
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={
+            **get_data,
+            **get_printer_info,
+            **get_printer_objects_list,
+            **get_history,
+        },
+    ):
+        get_data["status"]["print_stats"]["state"] = PRINTSTATES.STANDBY.value
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        assert await async_setup_entry(hass, config_entry)
+        await hass.async_block_till_done()
+
+    assert hass.states.get(f"sensor.{sensor_not_printing}").state == value
 
 
 async def test_opt_sensor_missing(

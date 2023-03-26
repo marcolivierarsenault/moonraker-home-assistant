@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
 
-from .const import DOMAIN, METHOD
+from .const import DOMAIN, METHODS
 from .entity import BaseMoonrakerEntity
 
 
@@ -24,7 +24,7 @@ BUTTONS: tuple[MoonrakerButtonDescription, ...] = [
         key="emergency_stop",
         name="Emergency Stop",
         press_fn=lambda button: button.coordinator.async_send_data(
-            METHOD.PRINTER_EMERGENCY_STOP
+            METHODS.PRINTER_EMERGENCY_STOP
         ),
         icon="mdi:alert-octagon-outline",
     ),
@@ -45,7 +45,7 @@ async def async_setup_basic_buttons(coordinator, entry, async_add_entities):
 
 async def async_setup_macros(coordinator, entry, async_add_entities):
     """Setup optional button platform."""
-    cmds = await coordinator.async_fetch_data(METHOD.PRINTER_GCODE_HELP)
+    cmds = await coordinator.async_fetch_data(METHODS.PRINTER_GCODE_HELP)
 
     macros = []
     for cmd, desc in cmds.items():
@@ -57,7 +57,7 @@ async def async_setup_macros(coordinator, entry, async_add_entities):
                 key=cmd,
                 name="Macro " + cmd.lower().replace("_", " ").title(),
                 press_fn=lambda button: button.coordinator.async_send_data(
-                    METHOD.PRINTER_GCODE_SCRIPT, {"script": button.invoke_name}
+                    METHODS.PRINTER_GCODE_SCRIPT, {"script": button.invoke_name}
                 ),
                 icon="mdi:play",
             )

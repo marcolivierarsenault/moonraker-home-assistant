@@ -11,7 +11,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_URL, DOMAIN, METHOD
+from .const import CONF_URL, DOMAIN, METHODS, PRINTSTATES
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ async def async_setup_entry(
     """Set up the available Moonraker camera."""
     coordinator = hass.data[DOMAIN][config_entry.entry_id]
 
-    cameras = await coordinator.async_fetch_data(METHOD.SERVER_WEBCAMS_LIST)
+    cameras = await coordinator.async_fetch_data(METHODS.SERVER_WEBCAMS_LIST)
 
     for camera_id, camera in enumerate(cameras["webcams"]):
         async_add_entities(
@@ -85,6 +85,12 @@ class PreviewCamera(Camera):
         self, width: int | None = None, height: int | None = None
     ) -> bytes | None:
         """Return current camera image"""
+        if (
+            self.coordinator.data["status"]["print_stats"]["state"]
+            != PRINTSTATES.PRINTING.value
+        ):
+            return None
+
         del width, height
 
         new_path = self.coordinator.data["thumbnails_path"]
