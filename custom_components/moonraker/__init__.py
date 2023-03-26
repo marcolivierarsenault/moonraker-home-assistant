@@ -156,8 +156,8 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             return_gcode["estimated_time"] = gcode["estimated_time"]
             return_gcode["filament_total"] = gcode["filament_total"]
             return return_gcode
-        except Exception as e:
-            _LOGGER.error("failed to get thumbnails  {%s}", e)
+        except Exception as ex:
+            _LOGGER.error("failed to get thumbnails  {%s}", ex)
             _LOGGER.error("Query Object {%s}", query_object)
             _LOGGER.error("gcode {%s}", gcode)
             return return_gcode
