@@ -12,7 +12,7 @@ from homeassistant.components.sensor import (
 from homeassistant.const import DEGREE, LENGTH_METERS, PERCENTAGE, TIME_SECONDS
 from homeassistant.core import callback
 
-from .const import DOMAIN, METHOD
+from .const import DOMAIN, METHODS, PRINTERSTATES, PRINTSTATES
 from .entity import BaseMoonrakerEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -268,7 +268,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
     fan_keys = ["heater_fan", "controller_fan"]
 
     sensors = []
-    object_list = await coordinator.async_fetch_data(METHOD.PRINTER_OBJECTS_LIST)
+    object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
     for obj in object_list["objects"]:
         split_obj = obj.split()
 
@@ -306,11 +306,13 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
 
 
 async def _history_updater(coordinator):
-    return {"history": await coordinator.async_fetch_data(METHOD.SERVER_HISTORY_TOTALS)}
+    return {
+        "history": await coordinator.async_fetch_data(METHODS.SERVER_HISTORY_TOTALS)
+    }
 
 
 async def async_setup_history_sensors(coordinator, entry, async_add_entities):
-    history = await coordinator.async_fetch_data(METHOD.SERVER_HISTORY_TOTALS)
+    history = await coordinator.async_fetch_data(METHODS.SERVER_HISTORY_TOTALS)
     if history.get("error"):
         return
 

@@ -21,7 +21,7 @@ HOSTNAME = "hostname"
 OBJ = "objects"
 
 
-class METHOD(Enum):
+class METHODS(Enum):
     """API methods."""
 
     SERVER_FILES_METADATA = "server.files.metadata"
@@ -34,6 +34,11 @@ class METHOD(Enum):
     PRINTER_OBJECTS_LIST = "printer.objects.list"
     PRINTER_OBJECTS_QUERY = "printer.objects.query"
 
-    def __str__(self):
-        """Return the method name."""
-        return self.value
+
+class ExtendedEnum(Enum):
+    """Extended Enum class."""
+
+    @classmethod
+    def list(cls):
+        """Return a list of all enum values."""
+        return list(map(lambda c: c.value, cls))
