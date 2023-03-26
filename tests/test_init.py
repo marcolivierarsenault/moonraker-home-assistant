@@ -12,7 +12,7 @@ from custom_components.moonraker import (
     async_setup_entry,
     async_unload_entry,
 )
-from custom_components.moonraker.const import DOMAIN, METHOD
+from custom_components.moonraker.const import DOMAIN, METHODS
 
 from .const import MOCK_CONFIG
 
@@ -68,7 +68,7 @@ async def test_async_send_data_exception(hass, get_data, get_printer_info):
         ):
             with pytest.raises(UpdateFailed):
                 coordinator = hass.data[DOMAIN][config_entry.entry_id]
-                assert await coordinator.async_send_data(METHOD.PRINTER_EMERGENCY_STOP)
+                assert await coordinator.async_send_data(METHODS.PRINTER_EMERGENCY_STOP)
 
         assert await async_unload_entry(hass, config_entry)
 
