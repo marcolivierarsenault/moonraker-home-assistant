@@ -42,3 +42,23 @@ class ExtendedEnum(Enum):
     def list(cls):
         """Return a list of all enum values."""
         return list(map(lambda c: c.value, cls))
+
+
+class PRINTSTATES(ExtendedEnum):
+    """Printer state."""
+
+    STANDBY = "standby"
+    PRINTING = "printing"
+    PAUSED = "paused"
+    COMPLETE = "complete"
+    CANCELLED = "cancelled"
+    ERROR = "error"
+
+
+class PRINTERSTATES(ExtendedEnum):
+    """Printer state."""
+
+    READY = "ready"
+    STARTUP = "startup"
+    SHUTDOWN = "shutdown"
+    ERROR = "error"
