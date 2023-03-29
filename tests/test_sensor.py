@@ -289,3 +289,26 @@ async def test_double_sensor_data(
         registry.async_get_entity_id("sensor", DOMAIN, "test_heater_fan_controller_fan")
         is not None
     )
+
+
+async def test_no_fan_sensor(
+    hass, get_data, get_printer_info, get_printer_objects_list, get_history
+):
+    get_data["status"].pop("fan")
+    get_printer_objects_list["objects"].remove("fan")
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={
+            **get_data,
+            **get_printer_info,
+            **get_printer_objects_list,
+            **get_history,
+        },
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        assert await async_setup_entry(hass, config_entry)
+        await hass.async_block_till_done()
+
+        state = hass.states.get("sensor.mainsail_fan")
+        assert state is None
