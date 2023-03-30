@@ -10,7 +10,7 @@ VERSION = "0.6.1"
 MANIFACTURER = "@marcolivierarsenault"
 
 # Platforms
-PLATFORMS = [Platform.SENSOR, Platform.CAMERA, Platform.BUTTON]
+PLATFORMS = [Platform.SENSOR, Platform.CAMERA, Platform.BUTTON, Platform.BINARY_SENSOR]
 
 CONF_API_KEY = "api_key"
 CONF_URL = "url"
