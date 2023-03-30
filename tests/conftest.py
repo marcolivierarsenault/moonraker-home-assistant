@@ -89,6 +89,14 @@ def get_data_fixture():
                 "speed": 0.5123,
                 "rpm": 3000,
             },
+            "filament_switch_sensor filament_sensor_1": {
+                "filament_detected": True,
+                "enabled": True,
+            },
+            "filament_switch_sensor filament_sensor_2": {
+                "filament_detected": True,
+                "enabled": True,
+            },
         },
         "printer.info": {
             "result": {
@@ -214,6 +222,8 @@ def get_printer_objects_list_fixture():
             "lm75 lm75_temp",
             "heater_fan heater_fan",
             "controller_fan controller_fan",
+            "filament_switch_sensor filament_sensor_1",
+            "filament_switch_sensor filament_sensor_2",
         ]
     }
 
