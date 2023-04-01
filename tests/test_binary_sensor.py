@@ -17,9 +17,7 @@ def bypass_connect_client_fixture():
         yield
 
 
-async def test_runout_filament_sensor_missing(
-    hass, get_data, get_printer_info, get_printer_objects_list
-):
+async def test_runout_filament_sensor_missing(hass, get_data, get_printer_objects_list):
     get_data["status"].pop("filament_switch_sensor filament_sensor_1", None)
     get_data["status"].pop("filament_switch_sensor filament_sensor_2", None)
     get_printer_objects_list["objects"].remove(
@@ -29,13 +27,9 @@ async def test_runout_filament_sensor_missing(
         "filament_switch_sensor filament_sensor_2"
     )
 
-    with patch(
-        "moonraker_api.MoonrakerClient.call_method",
-        return_value={**get_data, **get_printer_info, **get_printer_objects_list},
-    ):
-        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
-        assert await async_setup_entry(hass, config_entry)
-        await hass.async_block_till_done()
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    assert await async_setup_entry(hass, config_entry)
+    await hass.async_block_till_done()
 
     state = hass.states.get("binary_sensor.mainsail_filament_sensor_1")
     assert state is None
@@ -43,31 +37,19 @@ async def test_runout_filament_sensor_missing(
     assert state is None
 
 
-async def test_runout_filament_sensor(
-    hass, get_data, get_printer_info, get_printer_objects_list
-):
-    with patch(
-        "moonraker_api.MoonrakerClient.call_method",
-        return_value={**get_data, **get_printer_info, **get_printer_objects_list},
-    ):
-        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
-        assert await async_setup_entry(hass, config_entry)
-        await hass.async_block_till_done()
+async def test_runout_filament_sensor(hass):
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    assert await async_setup_entry(hass, config_entry)
+    await hass.async_block_till_done()
 
     state = hass.states.get("binary_sensor.mainsail_filament_sensor_1")
     assert state.state == "on"
 
 
-async def test_multiple_runout_filament_sensor(
-    hass, get_data, get_printer_info, get_printer_objects_list
-):
-    with patch(
-        "moonraker_api.MoonrakerClient.call_method",
-        return_value={**get_data, **get_printer_info, **get_printer_objects_list},
-    ):
-        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
-        assert await async_setup_entry(hass, config_entry)
-        await hass.async_block_till_done()
+async def test_multiple_runout_filament_sensor(hass):
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    assert await async_setup_entry(hass, config_entry)
+    await hass.async_block_till_done()
 
     state = hass.states.get("binary_sensor.mainsail_filament_sensor_1")
     assert state.state == "on"
@@ -76,20 +58,14 @@ async def test_multiple_runout_filament_sensor(
     assert state.state == "on"
 
 
-async def test_runout_filament_sensor_off(
-    hass, get_data, get_printer_info, get_printer_objects_list
-):
+async def test_runout_filament_sensor_off(hass, get_data):
     get_data["status"]["filament_switch_sensor filament_sensor_1"][
         "filament_detected"
     ] = False
 
-    with patch(
-        "moonraker_api.MoonrakerClient.call_method",
-        return_value={**get_data, **get_printer_info, **get_printer_objects_list},
-    ):
-        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
-        assert await async_setup_entry(hass, config_entry)
-        await hass.async_block_till_done()
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    assert await async_setup_entry(hass, config_entry)
+    await hass.async_block_till_done()
 
     state = hass.states.get("binary_sensor.mainsail_filament_sensor_1")
     assert state.state == "off"

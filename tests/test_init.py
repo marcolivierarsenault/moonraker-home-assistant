@@ -24,53 +24,47 @@ def bypass_connect_client_fixture():
         yield
 
 
-async def test_setup_unload_and_reload_entry(hass, get_data, get_printer_info):
+async def test_setup_unload_and_reload_entry(hass):
     """Test entry setup and unload."""
     # Create a mock entry so we don't have to go through config flow
-    with patch(
-        "moonraker_api.MoonrakerClient.call_method",
-        return_value={**get_data, **get_printer_info},
-    ):
-        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
 
-        assert await async_setup_entry(hass, config_entry)
-        assert DOMAIN in hass.data and config_entry.entry_id in hass.data[DOMAIN]
-        assert isinstance(
-            hass.data[DOMAIN][config_entry.entry_id], MoonrakerDataUpdateCoordinator
-        )
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
 
-        # Reload the entry and assert that the data from above is still there.
-        hass.config_entries._entries[config_entry.entry_id] = config_entry
-        assert await async_reload_entry(hass, config_entry) is None
-        assert DOMAIN in hass.data and config_entry.entry_id in hass.data[DOMAIN]
-        assert isinstance(
-            hass.data[DOMAIN][config_entry.entry_id], MoonrakerDataUpdateCoordinator
-        )
+    assert await async_setup_entry(hass, config_entry)
+    assert DOMAIN in hass.data and config_entry.entry_id in hass.data[DOMAIN]
+    assert isinstance(
+        hass.data[DOMAIN][config_entry.entry_id], MoonrakerDataUpdateCoordinator
+    )
 
-        # Unload the entry and verify that the data has been removed
-        assert await async_unload_entry(hass, config_entry)
-        assert config_entry.entry_id not in hass.data[DOMAIN]
+    # Reload the entry and assert that the data from above is still there.
+    hass.config_entries._entries[config_entry.entry_id] = config_entry
+    assert await async_reload_entry(hass, config_entry) is None
+    assert DOMAIN in hass.data and config_entry.entry_id in hass.data[DOMAIN]
+    assert isinstance(
+        hass.data[DOMAIN][config_entry.entry_id], MoonrakerDataUpdateCoordinator
+    )
+
+    # Unload the entry and verify that the data has been removed
+    assert await async_unload_entry(hass, config_entry)
+    assert config_entry.entry_id not in hass.data[DOMAIN]
 
 
-async def test_async_send_data_exception(hass, get_data, get_printer_info):
+async def test_async_send_data_exception(hass):
     """Test async_post_exception"""
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    assert await async_setup_entry(hass, config_entry)
+
     with patch(
         "moonraker_api.MoonrakerClient.call_method",
-        return_value={**get_data, **get_printer_info},
+        side_effect=UpdateFailed,
+        return_value={"result": "error"},
     ):
-        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
-        assert await async_setup_entry(hass, config_entry)
+        with pytest.raises(UpdateFailed):
+            coordinator = hass.data[DOMAIN][config_entry.entry_id]
+            assert await coordinator.async_send_data(METHODS.PRINTER_EMERGENCY_STOP)
 
-        with patch(
-            "moonraker_api.MoonrakerClient.call_method",
-            side_effect=UpdateFailed,
-            return_value={"result": "error"},
-        ):
-            with pytest.raises(UpdateFailed):
-                coordinator = hass.data[DOMAIN][config_entry.entry_id]
-                assert await coordinator.async_send_data(METHODS.PRINTER_EMERGENCY_STOP)
-
-        assert await async_unload_entry(hass, config_entry)
+    assert await async_unload_entry(hass, config_entry)
 
 
 async def test_setup_entry_exception(hass):
