@@ -28,6 +28,30 @@ BUTTONS: tuple[MoonrakerButtonDescription, ...] = [
         ),
         icon="mdi:alert-octagon-outline",
     ),
+    MoonrakerButtonDescription(
+        key="pause_print",
+        name="Pause Print",
+        press_fn=lambda button: button.coordinator.async_send_data(
+            METHODS.PRINTER_PRINT_PAUSE
+        ),
+        icon="mdi:pause",
+    ),
+    MoonrakerButtonDescription(
+        key="resume_print",
+        name="Resume Print",
+        press_fn=lambda button: button.coordinator.async_send_data(
+            METHODS.PRINTER_PRINT_RESUME
+        ),
+        icon="mdi:play",
+    ),
+    MoonrakerButtonDescription(
+        key="cancel_print",
+        name="Cancel Print",
+        press_fn=lambda button: button.coordinator.async_send_data(
+            METHODS.PRINTER_PRINT_CANCEL
+        ),
+        icon="mdi:stop",
+    ),
 ]
 
 
