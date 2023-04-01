@@ -262,3 +262,32 @@ def get_history_fixture():
             "longest_print": 11348.794790096988,
         }
     }
+
+
+@pytest.fixture(name="get_default_api_response")
+def get_default_api_response_fixure(
+    get_data,
+    get_printer_info,
+    get_printer_objects_list,
+    get_history,
+    get_camera_info,
+    get_gcode_help,
+):
+    """Get all the default fixture returned by moonraker"""
+    return {
+        **get_data,
+        **get_printer_info,
+        **get_printer_objects_list,
+        **get_history,
+        **get_camera_info,
+        **get_gcode_help,
+    }
+
+
+@pytest.fixture(name="_moonraker_default_mock", autouse=True)
+def get_moonraker_default_mock(get_default_api_response):
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value=get_default_api_response,
+    ):
+        yield

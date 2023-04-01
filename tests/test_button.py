@@ -19,14 +19,10 @@ def bypass_connect_client_fixture():
         yield
 
 
-async def test_emergency_button(hass, get_data, get_printer_info, get_gcode_help):
-    with patch(
-        "moonraker_api.MoonrakerClient.call_method",
-        return_value={**get_data, **get_printer_info, "result": "ok", **get_gcode_help},
-    ):
-        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
-        assert await async_setup_entry(hass, config_entry)
-        await hass.async_block_till_done()
+async def test_emergency_button(hass):
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    assert await async_setup_entry(hass, config_entry)
+    await hass.async_block_till_done()
 
     with patch("moonraker_api.MoonrakerClient.call_method") as mock_api:
         await hass.services.async_call(
@@ -42,14 +38,10 @@ async def test_emergency_button(hass, get_data, get_printer_info, get_gcode_help
         mock_api.assert_called_once_with(METHODS.PRINTER_EMERGENCY_STOP.value)
 
 
-async def test_gcode_macro(hass, get_data, get_printer_info, get_gcode_help):
-    with patch(
-        "moonraker_api.MoonrakerClient.call_method",
-        return_value={**get_data, **get_printer_info, "result": "ok", **get_gcode_help},
-    ):
-        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
-        assert await async_setup_entry(hass, config_entry)
-        await hass.async_block_till_done()
+async def test_gcode_macro(hass):
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    assert await async_setup_entry(hass, config_entry)
+    await hass.async_block_till_done()
 
     with patch("moonraker_api.MoonrakerClient.call_method") as mock_api:
         await hass.services.async_call(
