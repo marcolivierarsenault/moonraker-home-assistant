@@ -26,16 +26,19 @@ class METHODS(Enum):
 
     SERVER_FILES_METADATA = "server.files.metadata"
     SERVER_HISTORY_TOTALS = "server.history.totals"
+    SERVER_RESTART = "server.restart"
     SERVER_WEBCAMS_LIST = "server.webcams.list"
     PRINTER_EMERGENCY_STOP = "printer.emergency_stop"
+    PRINTER_INFO = "printer.info"
+    PRINTER_GCODE_HELP = "printer.gcode.help"
+    PRINTER_GCODE_SCRIPT = "printer.gcode.script"
+    PRINTER_OBJECTS_LIST = "printer.objects.list"
+    PRINTER_OBJECTS_QUERY = "printer.objects.query"
     PRINTER_PRINT_CANCEL = "printer.print.cancel"
     PRINTER_PRINT_PAUSE = "printer.print.pause"
     PRINTER_PRINT_RESUME = "printer.print.resume"
-    PRINTER_GCODE_HELP = "printer.gcode.help"
-    PRINTER_GCODE_SCRIPT = "printer.gcode.script"
-    PRINTER_INFO = "printer.info"
-    PRINTER_OBJECTS_LIST = "printer.objects.list"
-    PRINTER_OBJECTS_QUERY = "printer.objects.query"
+    PRINTER_FIRMWARE_RESTART = "printer.firmware_restart"
+    PRINTER_RESTART = "printer.restart"
 
 
 class ExtendedEnum(Enum):
