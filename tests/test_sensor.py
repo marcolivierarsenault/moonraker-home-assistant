@@ -249,3 +249,14 @@ async def test_no_fan_sensor(hass, get_data, get_printer_objects_list):
 
     state = hass.states.get("sensor.mainsail_fan")
     assert state is None
+
+
+async def test_rounding_fan(hass, get_data):
+    get_data["status"]["fan"]["speed"] = 0.33333333333
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    assert await async_setup_entry(hass, config_entry)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_fan_speed")
+    assert state.state == "33.33"
