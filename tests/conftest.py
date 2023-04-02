@@ -42,6 +42,17 @@ def get_data_fixture():
                 "message": "",
                 "info": {"total_layer": None, "current_layer": None},
             },
+            "toolhead": {
+                "homed_axes": "xyz",
+                "print_time": 0.0,
+                "estimated_print_time": 0.0,
+                "extruder": "extruder",
+                "position": [23.3, 22.2, 10.2, 234.2],
+                "max_velocity": 500.0,
+                "max_accel": 3000.0,
+                "max_accel_to_decel": 1500.0,
+                "square_corner_velocity": 5.0,
+            },
             "extruder": {
                 "temperature": 205.02,
                 "target": 205.0,
