@@ -19,7 +19,19 @@ def bypass_connect_client_fixture():
         yield
 
 
-async def test_emergency_button(hass):
+@pytest.mark.parametrize(
+    "button, method",
+    [
+        ("mainsail_emergency_stop", METHODS.PRINTER_EMERGENCY_STOP.value),
+        ("mainsail_firmware_restart", METHODS.PRINTER_FIRMWARE_RESTART.value),
+        ("mainsail_host_restart", METHODS.PRINTER_RESTART.value),
+        ("mainsail_pause_print", METHODS.PRINTER_PRINT_PAUSE.value),
+        ("mainsail_resume_print", METHODS.PRINTER_PRINT_RESUME.value),
+        ("mainsail_server_restart", METHODS.SERVER_RESTART.value),
+        ("mainsail_cancel_print", METHODS.PRINTER_PRINT_CANCEL.value),
+    ],
+)
+async def test_buttons(hass, button, method):
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
@@ -29,13 +41,13 @@ async def test_emergency_button(hass):
             BUTTON_DOMAIN,
             SERVICE_PRESS,
             {
-                ATTR_ENTITY_ID: "button.mainsail_emergency_stop",
+                ATTR_ENTITY_ID: f"button.{button}",
             },
             blocking=True,
         )
 
         await hass.async_block_till_done()
-        mock_api.assert_called_once_with(METHODS.PRINTER_EMERGENCY_STOP.value)
+        mock_api.assert_called_once_with(method)
 
 
 async def test_gcode_macro(hass):
