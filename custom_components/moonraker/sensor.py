@@ -9,7 +9,7 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorEntityDescription,
 )
-from homeassistant.const import DEGREE, LENGTH_METERS, PERCENTAGE, TIME_SECONDS
+from homeassistant.const import DEGREE, PERCENTAGE, TIME_SECONDS, UnitOfLength
 from homeassistant.core import callback
 
 from .const import DOMAIN, METHODS, PRINTERSTATES, PRINTSTATES
@@ -205,7 +205,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         ),
         subscriptions=[("print_stats", "filament_used")],
         icon="mdi:tape-measure",
-        unit=LENGTH_METERS,
+        unit=UnitOfLength.METERS,
     ),
     MoonrakerSensorDescription(
         key="progress",
@@ -236,6 +236,52 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         subscriptions=[("extruder", "power")],
         icon="mdi:flash",
         unit=PERCENTAGE,
+    ),
+    MoonrakerSensorDescription(
+        key="total_layer",
+        name="Total Layer",
+        value_fn=lambda sensor: sensor.empty_result_when_not_printing(
+            sensor.coordinator.data["layer_count"]
+        ),
+        subscriptions=[("print_stats", "info", "total_layer")],
+        icon="mdi:layers-triple",
+    ),
+    MoonrakerSensorDescription(
+        key="current_layer",
+        name="Current Layer",
+        value_fn=lambda sensor: calculate_current_layer(sensor.coordinator.data),
+        subscriptions=[("print_stats", "info", "current_layer")],
+        icon="mdi:layers-edit",
+    ),
+    MoonrakerSensorDescription(
+        key="toolhead_position_x",
+        name="Toolhead position X",
+        value_fn=lambda sensor: sensor.coordinator.data["status"]["toolhead"][
+            "position"
+        ][0],
+        subscriptions=[("toolhead", "position")],
+        icon="mdi:axis-x-arrow",
+        unit=UnitOfLength.MILLIMETERS,
+    ),
+    MoonrakerSensorDescription(
+        key="toolhead_position_y",
+        name="Toolhead position Y",
+        value_fn=lambda sensor: sensor.coordinator.data["status"]["toolhead"][
+            "position"
+        ][1],
+        subscriptions=[("toolhead", "position")],
+        icon="mdi:axis-x-arrow",
+        unit=UnitOfLength.MILLIMETERS,
+    ),
+    MoonrakerSensorDescription(
+        key="toolhead_position_z",
+        name="Toolhead position Z",
+        value_fn=lambda sensor: sensor.coordinator.data["status"]["toolhead"][
+            "position"
+        ][2],
+        subscriptions=[("toolhead", "position")],
+        icon="mdi:axis-x-arrow",
+        unit=UnitOfLength.MILLIMETERS,
     ),
 ]
 
@@ -304,10 +350,9 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
             desc = MoonrakerSensorDescription(
                 key="fan_speed",
                 name="Fan speed",
-                value_fn=lambda sensor: sensor.coordinator.data["status"]["fan"][
-                    "speed"
-                ]
-                * 100,
+                value_fn=lambda sensor: round(
+                    sensor.coordinator.data["status"]["fan"]["speed"] * 100, 2
+                ),
                 subscriptions=[("fan", "speed")],
                 icon="mdi:fan",
                 unit=PERCENTAGE,
@@ -362,7 +407,7 @@ async def async_setup_history_sensors(coordinator, entry, async_add_entities):
             ),
             subscriptions=[],
             icon="mdi:clock-outline",
-            unit=LENGTH_METERS,
+            unit=UnitOfLength.METERS,
         ),
         MoonrakerSensorDescription(
             key="longest_print",
@@ -445,6 +490,28 @@ def calculate_eta(data):
     )
 
     return datetime.now(timezone.utc) + timedelta(0, time_left)
+
+
+def calculate_current_layer(data):
+    """Calculate current layer"""
+
+    if (
+        data["status"]["print_stats"]["state"] != PRINTSTATES.PRINTING.value
+        or data["status"]["print_stats"]["filename"] == ""
+    ):
+        return ""
+
+    # layer = (current_z - first_layer_height) / layer_height + 1
+    return (
+        int(
+            round(
+                (data["status"]["toolhead"]["position"][2] - data["first_layer_height"])
+                / data["layer_height"],
+                0,
+            )
+        )
+        + 1
+    )
 
 
 def convert_time(time_s):

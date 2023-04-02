@@ -93,6 +93,11 @@ async def test_sensor_services_update(hass, get_data):
         ("mainsail_totals_jobs", "3"),
         ("mainsail_totals_filament_used", "11.62"),
         ("mainsail_longest_print", "3h 9m 9s"),
+        ("mainsail_total_layer", "313"),
+        ("mainsail_current_layer", "51"),
+        ("mainsail_toolhead_position_x", "23.3"),
+        ("mainsail_toolhead_position_y", "22.2"),
+        ("mainsail_toolhead_position_z", "10.2"),
     ],
 )
 async def test_sensors(
@@ -118,6 +123,8 @@ async def test_sensors(
         ("mainsail_print_time_left", ""),
         ("mainsail_print_projected_total_duration", ""),
         ("mainsail_progress", ""),
+        ("mainsail_total_layer", ""),
+        ("mainsail_current_layer", ""),
     ],
 )
 async def test_sensors_not_printing(
@@ -249,3 +256,14 @@ async def test_no_fan_sensor(hass, get_data, get_printer_objects_list):
 
     state = hass.states.get("sensor.mainsail_fan")
     assert state is None
+
+
+async def test_rounding_fan(hass, get_data):
+    get_data["status"]["fan"]["speed"] = 0.33333333333
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    assert await async_setup_entry(hass, config_entry)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_fan_speed")
+    assert state.state == "33.33"
