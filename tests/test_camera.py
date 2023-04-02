@@ -89,7 +89,9 @@ async def test_setup_thumbnail_camera(hass, get_data):
     assert entry is not None
 
 
-async def test_thumbnail_camera_image(hass, aioclient_mock, get_data):
+async def test_thumbnail_camera_image(
+    hass, aioclient_mock, get_data, _moonraker_default_mock
+):
     """Test thumbnail camera image"""
 
     get_data["status"]["print_stats"]["filename"] = "CE3E3V2_picture_frame_holder.gcode"
@@ -184,15 +186,20 @@ async def test_thumbnail_no_thumbnail_after_update(
         await camera.async_get_image(hass, "camera.mainsail_thumbnail")
 
 
-async def test_thumbnail_data_failing(hass, aioclient_mock, get_data):
+async def test_thumbnail_data_failing(
+    hass, get_data, get_printer_info, get_camera_info
+):
     """Test setup thumbnail camera"""
 
     get_data["status"]["print_stats"]["filename"] = "CE3E3V2_picture_frame_holder.gcode"
     del get_data["thumbnails"]
-
-    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
-    assert await async_setup_entry(hass, config_entry)
-    await hass.async_block_till_done()
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={**get_data, **get_printer_info, **get_camera_info},
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        assert await async_setup_entry(hass, config_entry)
+        await hass.async_block_till_done()
 
     entity_registry = er.async_get(hass)
     entry = entity_registry.async_get("camera.mainsail_thumbnail")
