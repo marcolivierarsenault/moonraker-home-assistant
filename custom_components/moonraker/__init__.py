@@ -141,6 +141,9 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             "thumbnails_path": None,
             "estimated_time": 1,
             "filament_total": 1,
+            "layer_count": None,
+            "layer_height": None,
+            "first_layer_height": None,
         }
         if gcode_filename is None or gcode_filename == "":
             return return_gcode
@@ -149,11 +152,16 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             METHODS.SERVER_FILES_METADATA, query_object
         )
         try:
+            return_gcode["estimated_time"] = gcode["estimated_time"]
+            return_gcode["filament_total"] = gcode["filament_total"]
+            return_gcode["layer_count"] = gcode["layer_count"]
+            return_gcode["layer_height"] = gcode["layer_height"]
+            return_gcode["first_layer_height"] = gcode["first_layer_height"]
+
+            # Keep last since this can fail but, we still want the other data
             return_gcode["thumbnails_path"] = gcode["thumbnails"][
                 len(gcode["thumbnails"]) - 1
             ]["relative_path"]
-            return_gcode["estimated_time"] = gcode["estimated_time"]
-            return_gcode["filament_total"] = gcode["filament_total"]
             return return_gcode
         except Exception as ex:
             _LOGGER.error("failed to get thumbnails  {%s}", ex)

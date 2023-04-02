@@ -93,6 +93,11 @@ async def test_sensor_services_update(hass, get_data):
         ("mainsail_totals_jobs", "3"),
         ("mainsail_totals_filament_used", "11.62"),
         ("mainsail_longest_print", "3h 9m 9s"),
+        ("mainsail_total_layer", "313"),
+        ("mainsail_current_layer", "51"),
+        ("mainsail_toolhead_position_x", "23.3"),
+        ("mainsail_toolhead_position_y", "22.2"),
+        ("mainsail_toolhead_position_z", "10.2"),
     ],
 )
 async def test_sensors(
@@ -118,6 +123,8 @@ async def test_sensors(
         ("mainsail_print_time_left", ""),
         ("mainsail_print_projected_total_duration", ""),
         ("mainsail_progress", ""),
+        ("mainsail_total_layer", ""),
+        ("mainsail_current_layer", ""),
     ],
 )
 async def test_sensors_not_printing(
