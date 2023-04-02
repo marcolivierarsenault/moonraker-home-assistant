@@ -304,10 +304,9 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
             desc = MoonrakerSensorDescription(
                 key="fan_speed",
                 name="Fan speed",
-                value_fn=lambda sensor: sensor.coordinator.data["status"]["fan"][
-                    "speed"
-                ]
-                * 100,
+                value_fn=lambda sensor: round(
+                    sensor.coordinator.data["status"]["fan"]["speed"] * 100, 2
+                ),
                 subscriptions=[("fan", "speed")],
                 icon="mdi:fan",
                 unit=PERCENTAGE,
