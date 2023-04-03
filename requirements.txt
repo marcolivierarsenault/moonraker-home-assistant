@@ -1,4 +1,4 @@
-pytest-homeassistant-custom-component==0.13.10
+pytest-homeassistant-custom-component==0.13.14
 moonraker-api==2.0.5
 aiohttp_cors==0.7.0
 Pillow==9.4.0
