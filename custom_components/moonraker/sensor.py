@@ -179,6 +179,14 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         device_class=SensorDeviceClass.TIMESTAMP,
     ),
     MoonrakerSensorDescription(
+        key="file_print_estimate",
+        name="File Print Estimate",
+        value_fn=lambda sensor: sensor.coordinator.data["estimated_time"],
+        subscriptions=[],
+        icon="mdi:timer",
+        device_class=SensorDeviceClass.DURATION,
+    ),
+    MoonrakerSensorDescription(
         key="print_duration",
         name="Print Duration",
         value_fn=lambda sensor: sensor.empty_result_when_not_printing(
