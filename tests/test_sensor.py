@@ -98,6 +98,7 @@ async def test_sensor_services_update(hass, get_data):
         ("mainsail_toolhead_position_x", "23.3"),
         ("mainsail_toolhead_position_y", "22.2"),
         ("mainsail_toolhead_position_z", "10.2"),
+        ("mainsail_slicer_print_duration_estimate", "8232.0"),
     ],
 )
 async def test_sensors(
@@ -166,6 +167,23 @@ async def test_eta(hass):
     assert dt.datetime.strptime(state.state, "%Y-%m-%dT%H:%M:%S%z") > dt.datetime.now(
         dt.timezone.utc
     ) + dt.timedelta(0, 1182.94 - 2)
+
+
+async def test_slicer_time_left(hass, get_data):
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    assert await async_setup_entry(hass, config_entry)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_slicer_print_time_left_estimate")
+
+    target = str(
+        round(
+            get_data["estimated_time"]
+            - get_data["status"]["print_stats"]["print_duration"],
+            12,
+        )
+    )
+    assert state.state == target
 
 
 async def test_eta_no_current_data(hass, get_data):
