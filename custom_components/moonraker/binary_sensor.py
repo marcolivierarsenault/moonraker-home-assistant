@@ -59,7 +59,7 @@ async def async_setup_optional_binary_sensors(coordinator, entry, async_add_enti
 
 
 class MoonrakerBinarySensor(BaseMoonrakerEntity, BinarySensorEntity):
-    """integration_blueprint binary_sensor class."""
+    """Moonraker binary_sensor class."""
 
     def __init__(
         self,
