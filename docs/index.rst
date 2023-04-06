@@ -13,8 +13,21 @@ Facts database <https://world.openfoodfacts.org/>`_ and offers a *simple* and
 
 
 .. toctree::
-   :caption: First steps
+   :caption: Installation
    :hidden:
 
    install
-   support
+
+.. toctree::
+   :caption: Usage
+   :hidden:
+
+   entities/sensors
+
+.. toctree::
+   :caption: Support
+   :hidden:
+
+   support/logs
+   support/latest
+   support/reload
