@@ -179,6 +179,29 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         device_class=SensorDeviceClass.TIMESTAMP,
     ),
     MoonrakerSensorDescription(
+        key="slicer_print_duration_estimate",
+        name="Slicer Print Duration Estimate",
+        value_fn=lambda sensor: sensor.empty_result_when_not_printing(
+            sensor.coordinator.data["estimated_time"]
+        ),
+        subscriptions=[],
+        icon="mdi:timer",
+        device_class=SensorDeviceClass.DURATION,
+        unit=TIME_SECONDS,
+    ),
+    MoonrakerSensorDescription(
+        key="slicer_print_time_left_estimate",
+        name="Slicer Print Time Left Estimate",
+        value_fn=lambda sensor: sensor.empty_result_when_not_printing(
+            sensor.coordinator.data["estimated_time"]
+            - sensor.coordinator.data["status"]["print_stats"]["print_duration"]
+        ),
+        subscriptions=[("print_stats", "print_duration")],
+        icon="mdi:timer",
+        device_class=SensorDeviceClass.DURATION,
+        unit=TIME_SECONDS,
+    ),
+    MoonrakerSensorDescription(
         key="print_duration",
         name="Print Duration",
         value_fn=lambda sensor: sensor.empty_result_when_not_printing(
