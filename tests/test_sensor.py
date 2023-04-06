@@ -168,6 +168,16 @@ async def test_eta(hass):
         dt.timezone.utc
     ) + dt.timedelta(0, 1182.94 - 2)
 
+async def test_slicer_time_left(hass, get_data):
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    assert await async_setup_entry(hass, config_entry)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_slicer_print_time_left_estimate")
+
+    target = str(round(get_data["estimated_time"] - get_data["status"]["print_stats"]["print_duration"], 12))
+    assert state.state == target
+
 
 async def test_eta_no_current_data(hass, get_data):
     get_data["status"]["print_stats"]["print_duration"] = 0
