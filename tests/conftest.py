@@ -275,6 +275,27 @@ def get_history_fixture():
     }
 
 
+@pytest.fixture(name="get_power_devices")
+def get_power_devices_fixture():
+    """Get power devices fixture"""
+    return {
+        "devices": [
+            {
+                "device": "printer",
+                "status": "on",
+                "locked_while_printing": False,
+                "type": "tplink_smartplug",
+            },
+            {
+                "device": "light",
+                "status": "off",
+                "locked_while_printing": False,
+                "type": "tplink_smartplug",
+            },
+        ]
+    }
+
+
 @pytest.fixture(name="get_default_api_response")
 def get_default_api_response_fixure(
     get_data,
@@ -283,6 +304,7 @@ def get_default_api_response_fixure(
     get_history,
     get_camera_info,
     get_gcode_help,
+    get_power_devices,
 ):
     """Get all the default fixture returned by moonraker"""
     return {
@@ -292,6 +314,7 @@ def get_default_api_response_fixure(
         **get_history,
         **get_camera_info,
         **get_gcode_help,
+        **get_power_devices,
     }
 
 

@@ -10,7 +10,13 @@ VERSION = "0.7.0"
 MANIFACTURER = "@marcolivierarsenault"
 
 # Platforms
-PLATFORMS = [Platform.SENSOR, Platform.CAMERA, Platform.BUTTON, Platform.BINARY_SENSOR]
+PLATFORMS = [
+    Platform.SENSOR,
+    Platform.CAMERA,
+    Platform.BUTTON,
+    Platform.BINARY_SENSOR,
+    Platform.SWITCH,
+]
 
 CONF_API_KEY = "api_key"
 CONF_URL = "url"
@@ -24,10 +30,9 @@ OBJ = "objects"
 class METHODS(Enum):
     """API methods."""
 
-    SERVER_FILES_METADATA = "server.files.metadata"
-    SERVER_HISTORY_TOTALS = "server.history.totals"
-    SERVER_RESTART = "server.restart"
-    SERVER_WEBCAMS_LIST = "server.webcams.list"
+    MACHINE_DEVICE_POWER_DEVICES = "machine.device_power.devices"
+    MACHINE_DEVICE_POWER_GET_DEVICE = "machine.device_power.get_device"
+    MACHINE_DEVICE_POWER_POST_DEVICE = "machine.device_power.post_device"
     PRINTER_EMERGENCY_STOP = "printer.emergency_stop"
     PRINTER_INFO = "printer.info"
     PRINTER_GCODE_HELP = "printer.gcode.help"
@@ -39,6 +44,10 @@ class METHODS(Enum):
     PRINTER_PRINT_RESUME = "printer.print.resume"
     PRINTER_FIRMWARE_RESTART = "printer.firmware_restart"
     PRINTER_RESTART = "printer.restart"
+    SERVER_FILES_METADATA = "server.files.metadata"
+    SERVER_HISTORY_TOTALS = "server.history.totals"
+    SERVER_RESTART = "server.restart"
+    SERVER_WEBCAMS_LIST = "server.webcams.list"
 
 
 class ExtendedEnum(Enum):
