@@ -13,3 +13,4 @@ scripts.yaml
 secrets.yaml
 .storage
 blueprints
+docs/_build
