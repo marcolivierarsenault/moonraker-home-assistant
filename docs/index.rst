@@ -5,10 +5,19 @@ Welcome to Moonraker Home Assistant's documentation!
 
    This is the non-official custom integration of Moonraker and Klipper for Home Assistant.
 
-**Lumache** (/lu'make/) is a Python library for cooks and food lovers that
-creates recipes mixing random ingredients.  It pulls data from the `Open Food
-Facts database <https://world.openfoodfacts.org/>`_ and offers a *simple* and
-*intuitive* API.
+This is a custom integration for Home Assistant to control your 3D printer powered by Moonraker and Klipper. The integration prodvides entities for the following:
+
+* Key informations about the printer (sensors)
+
+* Show the camera image (if installed)
+
+* Thumbnail of what is being printed at the moment.
+
+* Emergency stop button
+
+* Button to trigger macros
+
+
 
 
 
@@ -24,6 +33,7 @@ Facts database <https://world.openfoodfacts.org/>`_ and offers a *simple* and
 
    entities/sensors
    entities/camera
+   entities/button
    entities/binary_sensors
    entities/calculated_pct
 
