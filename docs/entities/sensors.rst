@@ -73,6 +73,12 @@ Sensors that are added on integration startup.
   * - Fan Speed
     - Percentage of fan speed
     - From Moonraker API (fan, speed)
+  * - Slicer Print Duration Estimate
+    - Total duration of the print as estimated by the slicer
+    - From Moonraker API (files_metadata, estimated_time)
+  * - Slicer Print Time Left Estimate
+    - Remaining time on the print according to the slicer estimate
+    - Based on the slicer print duration estimate and the print duration so far
 
 
 
