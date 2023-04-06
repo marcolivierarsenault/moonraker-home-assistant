@@ -9,8 +9,9 @@ Default sensor
 
 Sensors that are added on integration startup.
 
+
 .. list-table:: Default Sensors
-   :header-rows: 1
+  :header-rows: 1
 
   * - Sensor Name
     - Description
@@ -53,13 +54,13 @@ Sensors that are added on integration startup.
     - From Moonraker API (print_stats, filename)
   * - print Projected Total Duration
     - Total predicted duration of the print
-    - Based on our Calculated percentage
+    - Based on our :doc:`Calculated percentage <calculated_pct>`
   * - print time left
     - Total predicted length left for the print
-    - Based on our Calculated percentage
+    - Based on our :doc:`Calculated percentage <calculated_pct>`
   * - print ETA
     - Estimated time at which the print will be finished
-    - Based on our Calculated percentage
+    - Based on our :doc:`Calculated percentage <calculated_pct>`
   * - print duration
     - Print duration from start to now
     - From Moonraker API (print_stats, print_duration)
@@ -80,9 +81,8 @@ History sensor
 
 History info, *if enabled in moonraker config*.
 
-.. list-table:: Title
-   :widths: 25 25 50
-   :header-rows: 1
+.. list-table:: History Sensors
+  :header-rows: 1
 
   * - Sensor Name
     - Description

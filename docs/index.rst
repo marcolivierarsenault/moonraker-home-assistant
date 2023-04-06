@@ -23,6 +23,9 @@ Facts database <https://world.openfoodfacts.org/>`_ and offers a *simple* and
    :hidden:
 
    entities/sensors
+   entities/camera
+   entities/binary_sensors
+   entities/calculated_pct
 
 .. toctree::
    :caption: Support
