@@ -1,7 +1,7 @@
-Buttons
+Controls
 =================================
 
-Buttons are available to send command to the printer.
+Different controls are available to send command to the printer.
 
 Default buttons
 ---------------------------------
