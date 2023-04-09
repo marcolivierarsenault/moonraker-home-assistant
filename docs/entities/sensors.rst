@@ -4,8 +4,8 @@ Sensors
 Most of the sensor objects come straight from the API. It is available
 `here <https://moonraker.readthedocs.io/en/latest/printer_objects/>`__
 
-Default sensor
---------------
+Default Sensors
+----------------------------
 
 Sensors that are added on integration startup.
 
@@ -54,13 +54,13 @@ Sensors that are added on integration startup.
     - From Moonraker API (print_stats, filename)
   * - print Projected Total Duration
     - Total predicted duration of the print
-    - Based on our :doc:`Calculated percentage <calculated_pct>`
+    - Based on our :ref:`percentage`
   * - print time left
     - Total predicted length left for the print
-    - Based on our :doc:`Calculated percentage <calculated_pct>`
+    - Based on our :ref:`percentage`
   * - print ETA
     - Estimated time at which the print will be finished
-    - Based on our :doc:`Calculated percentage <calculated_pct>`
+    - Based on our :ref:`percentage`
   * - print duration
     - Print duration from start to now
     - From Moonraker API (print_stats, print_duration)
@@ -79,11 +79,25 @@ Sensors that are added on integration startup.
   * - Slicer Print Time Left Estimate
     - Remaining time on the print according to the slicer estimate
     - Based on the slicer print duration estimate and the print duration so far
+  * - Toolhead position X
+    - X position of the toolhead
+    - From Moonraker API (toolhead, position, x)
+  * - Toolhead position Y
+    - Y position of the toolhead
+    - From Moonraker API (toolhead, position, y)
+  * - Toolhead position Z
+    - Z position of the toolhead
+    - From Moonraker API (toolhead, position, z)
+  * - Current Layer
+    - Currenr layer being printed.
+    - Based on our :ref:`layer`
+  * - Total Layer
+    - Total number of layer in the current print.
+    - From Moonraker API (print_stats, info, total_layer)
 
 
-
-History sensor
---------------
+History Sensors
+----------------------------
 
 History info, *if enabled in moonraker config*.
 
@@ -106,8 +120,24 @@ History info, *if enabled in moonraker config*.
     - Time of the historical longest print.
     - From Moonraker API (job_totals, longest_print)
 
-Optional sensor
----------------
+
+Binary Sensors
+-----------------------------
+
+Binary Sensors are used to represent a single binary value. They can are used for triggers, main use cases is the filament runout sensor.
+
+.. list-table:: Binary Sensors
+  :header-rows: 1
+
+  * - Sensor Name
+    - Description
+    - Definition
+  * - Filament Switch Sensor
+    - True if filament is missing
+    - From Moonraker API
+
+Optional Sensors
+-----------------------------
 
 -  For every optional fan object available in [“heater_fan”,
    “controller_fan”] we will create a sensor showing fan speed.
