@@ -12,7 +12,7 @@
     },
     "error": {
       "error": "Invalid connection.",
-      "port_error": "Invalid port, must be a number between 1024 and 65535.",
+      "port_error": "Invalid port, must be a number between 1 and 65535.",
       "api_key_error": "Invalid API key, must be 32 alphanumeric characters."
     }
   }
