@@ -18,7 +18,7 @@ This allows you home assistant to connect to your Klipper 3D printer and display
 
 ### Entities details
 
-[List of all sensors and details](https://github.com/marcolivierarsenault/moonraker-home-assistant/wiki/Entities)
+[List of all sensors and details](https://moonraker-home-assistant.readthedocs.io/en/latest/entities/sensors.html)
 
 ## Platform
 

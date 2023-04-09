@@ -61,7 +61,7 @@ async def test_server_port_too_low(hass):
     )
 
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], user_input={CONF_PORT: "32"}
+        result["flow_id"], user_input={CONF_PORT: "-32"}
     )
     assert result["errors"] == {CONF_PORT: "port_error"}
 

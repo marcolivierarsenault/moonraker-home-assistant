@@ -1,4 +1,4 @@
-Installation procedure
+Installation Procedure
 ====================================================
 
 * The installation is done inside `HACS <https://hacs.xyz/>`_ (Home Assistant Community Store).
