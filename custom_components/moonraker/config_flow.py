@@ -73,7 +73,7 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def _test_port(self, port):
         if not port == "":
-            if not port.isdigit() or int(port) > 65535 or int(port) <= 1024:
+            if not port.isdigit() or int(port) > 65535 or int(port) <= 1:
                 return False
         return True
 

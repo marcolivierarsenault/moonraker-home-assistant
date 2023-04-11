@@ -197,9 +197,11 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         except Exception as exception:
             raise UpdateFailed() from exception
 
-    async def async_fetch_data(self, query_path: METHODS):
+    async def async_fetch_data(
+        self, query_path: METHODS, query_obj: dict[str:any] = None
+    ):
         """Fetch data from moonraker"""
-        return await self._async_fetch_data(query_path, None)
+        return await self._async_fetch_data(query_path, query_obj)
 
     async def async_send_data(
         self, query_path: METHODS, query_obj: dict[str:any] = None

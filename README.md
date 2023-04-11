@@ -16,7 +16,7 @@ This allows you home assistant to connect to your 3D printer and display:
 - Emergency stop button
 - Button to trigger macros
 
-To access the list of all entities and their documentations, look at our [WIKI](https://github.com/marcolivierarsenault/moonraker-home-assistant/wiki/Entities). The list of entities keeps growing on each versions :rocket: . Keep an eye on the wiki page.
+To access the list of all entities and their documentations, look at our [documentation](https://moonraker-home-assistant.readthedocs.io/en/latest/). The list of entities keeps growing on each versions :rocket: . Keep an eye on the releases.
 
 # Install
 

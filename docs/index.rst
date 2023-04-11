@@ -33,8 +33,7 @@ This is a custom integration for Home Assistant to control your 3D printer power
 
    entities/sensors
    entities/camera
-   entities/button
-   entities/binary_sensors
+   entities/controls
    entities/calculated_pct
 
 .. toctree::
