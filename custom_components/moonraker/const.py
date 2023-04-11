@@ -6,7 +6,7 @@ from homeassistant.const import Platform
 # Base component constants
 DOMAIN = "moonraker"
 DOMAIN_DATA = f"{DOMAIN}_data"
-VERSION = "0.7.0"
+VERSION = "0.8.0"
 MANIFACTURER = "@marcolivierarsenault"
 
 # Platforms
