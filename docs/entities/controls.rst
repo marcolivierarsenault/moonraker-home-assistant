@@ -3,7 +3,7 @@ Controls
 
 Different controls are available to send command to the printer.
 
-Default buttons
+Default Buttons
 ---------------------------------
 
 A series of buttons are available by default. They are:
@@ -35,7 +35,24 @@ A series of buttons are available by default. They are:
   * - Firmware Restart
     - Restart the printer onboard controller.
     - From Moonraker API (*printer.firmware_restart*)
+  * - Printer Switch
+    - Power On/Off the printer.
+    - From Moonraker API (*machine.device_power.devices*)
 
+Default Switches
+---------------------------------
+
+A series of switches are available by default. They are:
+
+.. list-table:: Default Switches
+  :header-rows: 1
+
+  * - Switch Name
+    - Description
+    - Definition
+  * - Printer Switch
+    - Power On/Off the printer.
+    - From Moonraker API (*machine.device_power.devices*)
 
 Macros
 ---------------------------------
