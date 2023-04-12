@@ -119,13 +119,13 @@ async def test_sensors(
     [
         ("mainsail_filename", ""),
         ("mainsail_current_print_state", "standby"),
-        ("mainsail_filament_used", ""),
-        ("mainsail_print_duration", ""),
-        ("mainsail_print_time_left", ""),
-        ("mainsail_print_projected_total_duration", ""),
-        ("mainsail_progress", ""),
-        ("mainsail_total_layer", ""),
-        ("mainsail_current_layer", ""),
+        ("mainsail_filament_used", "0.0"),
+        ("mainsail_print_duration", "0.0"),
+        ("mainsail_print_time_left", "0.0"),
+        ("mainsail_print_projected_total_duration", "0.0"),
+        ("mainsail_progress", "0.0"),
+        ("mainsail_total_layer", "0.0"),
+        ("mainsail_current_layer", "0"),
     ],
 )
 async def test_sensors_not_printing(
