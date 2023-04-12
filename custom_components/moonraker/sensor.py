@@ -279,9 +279,9 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="toolhead_position_x",
         name="Toolhead position X",
-        value_fn=lambda sensor: sensor.coordinator.data["status"]["toolhead"][
-            "position"
-        ][0],
+        value_fn=lambda sensor: round(
+            sensor.coordinator.data["status"]["toolhead"]["position"][0], 2
+        ),
         subscriptions=[("toolhead", "position")],
         icon="mdi:axis-x-arrow",
         unit=UnitOfLength.MILLIMETERS,
@@ -289,9 +289,9 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="toolhead_position_y",
         name="Toolhead position Y",
-        value_fn=lambda sensor: sensor.coordinator.data["status"]["toolhead"][
-            "position"
-        ][1],
+        value_fn=lambda sensor: round(
+            sensor.coordinator.data["status"]["toolhead"]["position"][1], 2
+        ),
         subscriptions=[("toolhead", "position")],
         icon="mdi:axis-x-arrow",
         unit=UnitOfLength.MILLIMETERS,
@@ -299,9 +299,9 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="toolhead_position_z",
         name="Toolhead position Z",
-        value_fn=lambda sensor: sensor.coordinator.data["status"]["toolhead"][
-            "position"
-        ][2],
+        value_fn=lambda sensor: round(
+            sensor.coordinator.data["status"]["toolhead"]["position"][2], 2
+        ),
         subscriptions=[("toolhead", "position")],
         icon="mdi:axis-x-arrow",
         unit=UnitOfLength.MILLIMETERS,
