@@ -469,13 +469,13 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
         self._attr_native_value = self.entity_description.value_fn(self)
         self.async_write_ha_state()
 
-    def empty_result_when_not_printing(self, value: str = "") -> str:
+    def empty_result_when_not_printing(self, value=""):
         """Return empty string when not printing"""
         if (
             self.coordinator.data["status"]["print_stats"]["state"]
             != PRINTSTATES.PRINTING.value
         ):
-            return ""
+            return "" if isinstance(value, str) else 0.0
         return value
 
 
@@ -522,7 +522,7 @@ def calculate_current_layer(data):
         data["status"]["print_stats"]["state"] != PRINTSTATES.PRINTING.value
         or data["status"]["print_stats"]["filename"] == ""
     ):
-        return ""
+        return 0
 
     # layer = (current_z - first_layer_height) / layer_height + 1
     return (
