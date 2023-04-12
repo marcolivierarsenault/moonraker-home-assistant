@@ -57,7 +57,7 @@ def get_data_fixture():
                 "print_time": 0.0,
                 "estimated_print_time": 0.0,
                 "extruder": "extruder",
-                "position": [23.3, 22.2, 10.2, 234.2],
+                "position": [23.30234, 22.20234, 10.20234, 234.2],
                 "max_velocity": 500.0,
                 "max_accel": 3000.0,
                 "max_accel_to_decel": 1500.0,
