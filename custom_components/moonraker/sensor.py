@@ -9,7 +9,7 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorEntityDescription,
 )
-from homeassistant.const import DEGREE, PERCENTAGE, TIME_SECONDS, UnitOfLength
+from homeassistant.const import DEGREE, PERCENTAGE, UnitOfLength, UnitOfTime
 from homeassistant.core import callback
 
 from .const import DOMAIN, METHODS, PRINTERSTATES, PRINTSTATES
@@ -141,7 +141,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
             ("display_status", "progress"),
         ],
         icon="mdi:timer",
-        unit=TIME_SECONDS,
+        unit=UnitOfTime.SECONDS,
         device_class=SensorDeviceClass.DURATION,
     ),
     MoonrakerSensorDescription(
@@ -164,7 +164,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
             ("display_status", "progress"),
         ],
         icon="mdi:timer",
-        unit=TIME_SECONDS,
+        unit=UnitOfTime.SECONDS,
         device_class=SensorDeviceClass.DURATION,
     ),
     MoonrakerSensorDescription(
@@ -187,7 +187,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         subscriptions=[],
         icon="mdi:timer",
         device_class=SensorDeviceClass.DURATION,
-        unit=TIME_SECONDS,
+        unit=UnitOfTime.SECONDS,
     ),
     MoonrakerSensorDescription(
         key="slicer_print_time_left_estimate",
@@ -199,7 +199,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         subscriptions=[("print_stats", "print_duration")],
         icon="mdi:timer",
         device_class=SensorDeviceClass.DURATION,
-        unit=TIME_SECONDS,
+        unit=UnitOfTime.SECONDS,
     ),
     MoonrakerSensorDescription(
         key="print_duration",
@@ -212,7 +212,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         ),
         subscriptions=[("print_stats", "print_duration")],
         icon="mdi:timer",
-        unit=TIME_SECONDS,
+        unit=UnitOfTime.MINUTES,
         device_class=SensorDeviceClass.DURATION,
     ),
     MoonrakerSensorDescription(
