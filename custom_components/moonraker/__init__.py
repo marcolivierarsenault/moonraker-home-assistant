@@ -184,7 +184,9 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.error("gcode {%s}", gcode)
             return return_gcode
 
-    async def _async_fetch_data(self, query_path: METHODS, query_object):
+    async def _async_fetch_data(
+        self, query_path: METHODS, query_object, quiet: bool = False
+    ):
         if not self.moonraker.client.is_connected:
             _LOGGER.warning("connection to moonraker down, restarting")
             await self.moonraker.start()
@@ -195,7 +197,8 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
                 result = await self.moonraker.client.call_method(
                     query_path.value, **query_object
                 )
-            _LOGGER.debug(result)
+            if not quiet:
+                _LOGGER.debug(result)
             return result
         except Exception as exception:
             raise UpdateFailed() from exception
@@ -213,10 +216,10 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             raise UpdateFailed() from exception
 
     async def async_fetch_data(
-        self, query_path: METHODS, query_obj: dict[str:any] = None
+        self, query_path: METHODS, query_obj: dict[str:any] = None, quiet: bool = False
     ):
         """Fetch data from moonraker"""
-        return await self._async_fetch_data(query_path, query_obj)
+        return await self._async_fetch_data(query_path, query_obj, quiet=quiet)
 
     async def async_send_data(
         self, query_path: METHODS, query_obj: dict[str:any] = None
