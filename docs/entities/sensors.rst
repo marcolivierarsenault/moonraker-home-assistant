@@ -93,7 +93,7 @@ Sensors that are added on integration startup.
     - Based on our :ref:`layer`
   * - Total Layer
     - Total number of layer in the current print.
-    - From Moonraker API (print_stats, info, total_layer)
+    - From Moonraker API (print_stats, info, total_layer). Make sure your Slicer include it. `Details <https://github.com/marcolivierarsenault/moonraker-home-assistant/issues/112#issuecomment-1505664692>`__
 
 
 History Sensors
