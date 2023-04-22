@@ -152,11 +152,21 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             METHODS.SERVER_FILES_METADATA, query_object
         )
         try:
-            return_gcode["estimated_time"] = gcode["estimated_time"]
-            return_gcode["filament_total"] = gcode["filament_total"]
-            return_gcode["layer_count"] = gcode["layer_count"]
-            return_gcode["layer_height"] = gcode["layer_height"]
-            return_gcode["first_layer_height"] = gcode["first_layer_height"]
+            return_gcode["estimated_time"] = (
+                gcode["estimated_time"] if "estimated_time" in gcode else 0
+            )
+            return_gcode["filament_total"] = (
+                gcode["filament_total"] if "filament_total" in gcode else 0
+            )
+            return_gcode["layer_count"] = (
+                gcode["layer_count"] if "layer_count" in gcode else 0
+            )
+            return_gcode["layer_height"] = (
+                gcode["layer_height"] if "layer_height" in gcode else 0
+            )
+            return_gcode["first_layer_height"] = (
+                gcode["first_layer_height"] if "first_layer_height" in gcode else 0
+            )
 
             # Keep last since this can fail but, we still want the other data
             return_gcode["thumbnails_path"] = gcode["thumbnails"][
