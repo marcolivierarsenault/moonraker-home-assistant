@@ -4,6 +4,7 @@ Moonraker integration for Home Assistant
 import asyncio
 from datetime import timedelta
 import logging
+import os.path
 
 import async_timeout
 from homeassistant.config_entries import ConfigEntry
@@ -147,6 +148,10 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         }
         if gcode_filename is None or gcode_filename == "":
             return return_gcode
+
+        # Get prefix of the filename to get the appropriate thumbnail
+        dirname = os.path.dirname(gcode_filename)
+
         query_object = {"filename": gcode_filename}
         gcode = await self._async_fetch_data(
             METHODS.SERVER_FILES_METADATA, query_object
@@ -169,9 +174,9 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
 
         try:
             # Keep last since this can fail but, we still want the other data
-            return_gcode["thumbnails_path"] = gcode["thumbnails"][
-                len(gcode["thumbnails"]) - 1
-            ]["relative_path"]
+            path = gcode["thumbnails"][len(gcode["thumbnails"]) - 1]["relative_path"]
+
+            return_gcode["thumbnails_path"] = os.path.join(dirname, path)
             return return_gcode
         except Exception as ex:
             _LOGGER.error("failed to get thumbnails  {%s}", ex)

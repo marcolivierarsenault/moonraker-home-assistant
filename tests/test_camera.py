@@ -205,3 +205,20 @@ async def test_thumbnail_data_failing(
     entry = entity_registry.async_get("camera.mainsail_thumbnail")
 
     assert entry is not None
+
+
+async def test_thumbnail_on_subfolder(hass, get_data, aioclient_mock):
+    get_data["status"]["print_stats"][
+        "filename"
+    ] = "subfolder/CE3E3V2_picture_frame_holder.gcode"
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    assert await async_setup_entry(hass, config_entry)
+    await hass.async_block_till_done()
+
+    test_path = "http://1.2.3.4/server/files/gcodes/subfolder/.thumbs/CE3E3V2_picture_frame_holder.png"
+
+    aioclient_mock.get(test_path, content=Image.new("RGB", (30, 30)))
+
+    await camera.async_get_image(hass, "camera.mainsail_thumbnail")
+    await camera.async_get_image(hass, "camera.mainsail_thumbnail")
