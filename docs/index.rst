@@ -17,8 +17,9 @@ This is a custom integration for Home Assistant to control your 3D printer power
 
 * Button to trigger macros
 
-
-
+Special thanks
+-------------------------------------
+Special thanks to `Clifford Roche <https://github.com/cmroche>`__ who built `moonraker-api <https://github.com/cmroche/moonraker-api>`__ which it the conector library we are using for this integration. 🚀
 
 
 .. toctree::
