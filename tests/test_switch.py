@@ -23,7 +23,16 @@ def bypass_connect_client_fixture():
         yield
 
 
-async def test_switch_turn_on(hass, get_default_api_response):
+# test switches
+@pytest.mark.parametrize(
+    "switch, switch_type",
+    [
+        ("mainsail_light", "power"),
+        ("mainsail_printer", "power"),
+        ("mainsail_output_pin_digital", "pin"),
+    ],
+)
+async def test_switch_turn_on(hass, switch, switch_type, get_default_api_response):
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
@@ -36,19 +45,34 @@ async def test_switch_turn_on(hass, get_default_api_response):
             SWITCH_DOMAIN,
             SERVICE_TURN_ON,
             {
-                ATTR_ENTITY_ID: "switch.mainsail_light",
+                ATTR_ENTITY_ID: f"switch.{switch}",
             },
             blocking=True,
         )
 
-        mock_api.assert_any_call(
-            METHODS.MACHINE_DEVICE_POWER_POST_DEVICE.value,
-            device="light",
-            action="on",
-        )
+        if switch_type == "power":
+            mock_api.assert_any_call(
+                METHODS.MACHINE_DEVICE_POWER_POST_DEVICE.value,
+                device=switch.split("_")[1],
+                action="on",
+            )
+        elif switch_type == "pin":
+            mock_api.assert_any_call(
+                METHODS.PRINTER_GCODE_SCRIPT.value,
+                script=f"SET_PIN PIN={switch.split('_')[3]} VALUE=1",
+            )
 
 
-async def test_switch_turn_off(hass, get_default_api_response):
+# test switches
+@pytest.mark.parametrize(
+    "switch, switch_type",
+    [
+        ("mainsail_light", "power"),
+        ("mainsail_printer", "power"),
+        ("mainsail_output_pin_digital", "pin"),
+    ],
+)
+async def test_switch_turn_off(hass, switch, switch_type, get_default_api_response):
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
@@ -61,13 +85,19 @@ async def test_switch_turn_off(hass, get_default_api_response):
             SWITCH_DOMAIN,
             SERVICE_TURN_OFF,
             {
-                ATTR_ENTITY_ID: "switch.mainsail_printer",
+                ATTR_ENTITY_ID: f"switch.{switch}",
             },
             blocking=True,
         )
 
-        mock_api.assert_any_call(
-            METHODS.MACHINE_DEVICE_POWER_POST_DEVICE.value,
-            device="printer",
-            action="off",
-        )
+        if switch_type == "power":
+            mock_api.assert_any_call(
+                METHODS.MACHINE_DEVICE_POWER_POST_DEVICE.value,
+                device=switch.split("_")[1],
+                action="off",
+            )
+        elif switch_type == "pin":
+            mock_api.assert_any_call(
+                METHODS.PRINTER_GCODE_SCRIPT.value,
+                script=f"SET_PIN PIN={switch.split('_')[3]} VALUE=0",
+            )
