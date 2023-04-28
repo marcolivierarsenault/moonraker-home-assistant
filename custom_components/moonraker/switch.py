@@ -123,7 +123,6 @@ class MoonrakerPowerDeviceSwitchSensor(MoonrakerSwitchSensor):
         for device in self.coordinator.data["power_devices"]["devices"]:
             if device["device"] == self.sensor_name:
                 return device["status"] == "on"
-        return False
 
     async def async_turn_on(self, **_: any) -> None:
         """Turn on the switch."""

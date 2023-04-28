@@ -43,6 +43,16 @@ def get_data_fixture():
     return {
         "eventtime": 128684.342831779,
         "status": {
+            "configfile": {
+                "settings": {
+                    "output_pin digital": {
+                        "pwm": False,
+                    },
+                    "output_pin pwm": {
+                        "pwm": True,
+                    },
+                },
+            },
             "print_stats": {
                 "filename": "CE3E3V2_picture_frame_holder.gcode",
                 "total_duration": 8232.396654963959,
@@ -117,6 +127,12 @@ def get_data_fixture():
             "filament_switch_sensor filament_sensor_2": {
                 "filament_detected": True,
                 "enabled": True,
+            },
+            "output_pin digital": {
+                "value": 1.0,
+            },
+            "output_pin pwm": {
+                "value": 0.5,
             },
         },
         "printer.info": {
@@ -245,6 +261,8 @@ def get_printer_objects_list_fixture():
             "controller_fan controller_fan",
             "filament_switch_sensor filament_sensor_1",
             "filament_switch_sensor filament_sensor_2",
+            "output_pin digital",
+            "output_pin pwm",
         ]
     }
 
