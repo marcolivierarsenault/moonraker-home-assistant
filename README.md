@@ -43,3 +43,7 @@ You have issue with the integration, you want new sensors? Please open an Issue.
 # Slack Workspace
 
 Join our [Slack Workspace](https://join.slack.com/t/moonraker-ha/shared_invite/zt-1q7rqkttj-SQ5N7qm9d1h6HqIONpDhZA) for more Sync conversations
+
+# Special thanks
+
+Special thanks to [Clifford Roche](https://github.com/cmroche) who built [moonraker-api](https://github.com/cmroche/moonraker-api) which it the conector library we are using for this integration. 🚀
