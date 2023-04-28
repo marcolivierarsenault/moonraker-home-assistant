@@ -53,8 +53,25 @@ A series of switches are available by default. They are:
   * - Printer Switch
     - Power On/Off the printer.
     - From Moonraker API (*machine.device_power.devices*)
+  * - Output pin digital
+    - Set a digital output pin to on or off.
+    - From Moonraker API (*printer.gcode.script*)
 
-Macros
+Default Numbers
+---------------------------------
+
+A series of Numbers are available by default as slidder. They are:
+
+.. list-table:: Default Switches
+  :header-rows: 1
+
+  * - Number Name
+    - Description
+    - Definition
+  * - Output pin pwm
+    - Set a pwm output pin to a value.
+    - From Moonraker API (*printer.gcode.script*)
+
 ---------------------------------
 
 Each macro configured in Klipper is available as a button.
