@@ -27,6 +27,7 @@ Special thanks to `Clifford Roche <https://github.com/cmroche>`__ who built `moo
    :hidden:
 
    install
+   dashboard
 
 .. toctree::
    :caption: Usage
