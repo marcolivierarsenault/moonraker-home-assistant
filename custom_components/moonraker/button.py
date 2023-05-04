@@ -64,7 +64,7 @@ BUTTONS: tuple[MoonrakerButtonDescription, ...] = [
         key="host_restart",
         name="Host Restart",
         press_fn=lambda button: button.coordinator.async_send_data(
-            METHODS.PRINTER_RESTART
+            METHODS.HOST_RESTART
         ),
         icon="mdi:restart",
     ),
@@ -73,6 +73,14 @@ BUTTONS: tuple[MoonrakerButtonDescription, ...] = [
         name="Firmware Restart",
         press_fn=lambda button: button.coordinator.async_send_data(
             METHODS.PRINTER_FIRMWARE_RESTART
+        ),
+        icon="mdi:restart",
+    ),
+    MoonrakerButtonDescription(
+        key="host_shutdown",
+        name="Host Shutdown",
+        press_fn=lambda button: button.coordinator.async_send_data(
+            METHODS.HOST_SHUTDOWN
         ),
         icon="mdi:restart",
     ),

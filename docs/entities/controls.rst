@@ -31,7 +31,10 @@ A series of buttons are available by default. They are:
     - From Moonraker API (*server.restart*)
   * - Host Restart
     - Restart the device running Klipper (Rpi).
-    - From Moonraker API (*printer.restart*)
+    - From Moonraker API (*machine.restart*)
+  * - Host Shutdown
+    - Shutdown the device running Klipper (Rpi).
+    - From Moonraker API (*machine.shutdown*)
   * - Firmware Restart
     - Restart the printer onboard controller.
     - From Moonraker API (*printer.firmware_restart*)

@@ -44,11 +44,12 @@ class METHODS(Enum):
     PRINTER_PRINT_PAUSE = "printer.print.pause"
     PRINTER_PRINT_RESUME = "printer.print.resume"
     PRINTER_FIRMWARE_RESTART = "printer.firmware_restart"
-    PRINTER_RESTART = "printer.restart"
     SERVER_FILES_METADATA = "server.files.metadata"
     SERVER_HISTORY_TOTALS = "server.history.totals"
     SERVER_RESTART = "server.restart"
     SERVER_WEBCAMS_LIST = "server.webcams.list"
+    HOST_SHUTDOWN = "machine.shutdown"
+    HOST_RESTART = "machine.reboot"
 
 
 class ExtendedEnum(Enum):

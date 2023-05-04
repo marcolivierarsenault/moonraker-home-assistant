@@ -24,7 +24,8 @@ def bypass_connect_client_fixture():
     [
         ("mainsail_emergency_stop", METHODS.PRINTER_EMERGENCY_STOP.value),
         ("mainsail_firmware_restart", METHODS.PRINTER_FIRMWARE_RESTART.value),
-        ("mainsail_host_restart", METHODS.PRINTER_RESTART.value),
+        ("mainsail_host_restart", METHODS.HOST_RESTART.value),
+        ("mainsail_host_shutdown", METHODS.HOST_SHUTDOWN.value),
         ("mainsail_pause_print", METHODS.PRINTER_PRINT_PAUSE.value),
         ("mainsail_resume_print", METHODS.PRINTER_PRINT_RESUME.value),
         ("mainsail_server_restart", METHODS.SERVER_RESTART.value),
