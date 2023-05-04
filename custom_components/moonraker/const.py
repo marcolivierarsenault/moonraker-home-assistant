@@ -31,6 +31,8 @@ OBJ = "objects"
 class METHODS(Enum):
     """API methods."""
 
+    HOST_RESTART = "machine.reboot"
+    HOST_SHUTDOWN = "machine.shutdown"
     MACHINE_DEVICE_POWER_DEVICES = "machine.device_power.devices"
     MACHINE_DEVICE_POWER_GET_DEVICE = "machine.device_power.get_device"
     MACHINE_DEVICE_POWER_POST_DEVICE = "machine.device_power.post_device"
@@ -48,8 +50,6 @@ class METHODS(Enum):
     SERVER_HISTORY_TOTALS = "server.history.totals"
     SERVER_RESTART = "server.restart"
     SERVER_WEBCAMS_LIST = "server.webcams.list"
-    HOST_SHUTDOWN = "machine.shutdown"
-    HOST_RESTART = "machine.reboot"
 
 
 class ExtendedEnum(Enum):
