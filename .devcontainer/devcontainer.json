@@ -1,5 +1,5 @@
 {
-  "name": "ludeeus/integration_blueprint",
+  "name": "moonraker-home-assistant",
   "image": "mcr.microsoft.com/vscode/devcontainers/python:0-3.11-bullseye",
   "postCreateCommand": "scripts/setup",
   "forwardPorts": [8123],

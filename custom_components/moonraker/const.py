@@ -31,6 +31,8 @@ OBJ = "objects"
 class METHODS(Enum):
     """API methods."""
 
+    HOST_RESTART = "machine.reboot"
+    HOST_SHUTDOWN = "machine.shutdown"
     MACHINE_DEVICE_POWER_DEVICES = "machine.device_power.devices"
     MACHINE_DEVICE_POWER_GET_DEVICE = "machine.device_power.get_device"
     MACHINE_DEVICE_POWER_POST_DEVICE = "machine.device_power.post_device"
@@ -44,7 +46,6 @@ class METHODS(Enum):
     PRINTER_PRINT_PAUSE = "printer.print.pause"
     PRINTER_PRINT_RESUME = "printer.print.resume"
     PRINTER_FIRMWARE_RESTART = "printer.firmware_restart"
-    PRINTER_RESTART = "printer.restart"
     SERVER_FILES_METADATA = "server.files.metadata"
     SERVER_HISTORY_TOTALS = "server.history.totals"
     SERVER_RESTART = "server.restart"
