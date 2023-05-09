@@ -6,4 +6,4 @@ pre-commit==3.3.1
 sphinx==6.2.0
 sphinx-rtd-theme==1.2.0
 colorlog==6.7.0
-urllib3==1.26.15
+urllib3==2.0.2
