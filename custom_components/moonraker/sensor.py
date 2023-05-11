@@ -11,9 +11,10 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import DEGREE, PERCENTAGE, UnitOfLength, UnitOfTime
 from homeassistant.core import callback
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 from .const import DOMAIN, METHODS, PRINTERSTATES, PRINTSTATES
-from .entity import BaseMoonrakerEntity
+from .entity import BaseMoonrakerEntity, BaseMoonrakerPushEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ class MoonrakerSensorDescription(SensorEntityDescription):
     unit: str | None = None
     device_class: str | None = None
     subscriptions: list | None = None
+    signal: str | None = None
 
 
 SENSORS: tuple[MoonrakerSensorDescription, ...] = [
@@ -316,6 +318,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     await async_setup_basic_sensor(coordinator, entry, async_add_entities)
     await async_setup_optional_sensors(coordinator, entry, async_add_entities)
     await async_setup_history_sensors(coordinator, entry, async_add_entities)
+    await async_setup_push_sensors(coordinator, entry, async_add_entities)
 
 
 async def async_setup_basic_sensor(coordinator, entry, async_add_entities):
@@ -448,6 +451,25 @@ async def async_setup_history_sensors(coordinator, entry, async_add_entities):
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
 
 
+async def async_setup_push_sensors(coordinator, entry, async_add_entities):
+    """Setup push sensor platform."""
+
+    sensors = [
+        MoonrakerSensorDescription(
+            key="toolhead_position_x_push",
+            name="Toolhead position X push",
+            signal="THISISATEST",
+            value_fn=lambda params: params["position"][0],
+            icon="mdi:axis-x-arrow",
+            unit=UnitOfLength.MILLIMETERS,
+        ),
+    ]
+
+    async_add_entities(
+        [MoonrakerPushSensor(coordinator, entry, desc) for desc in sensors]
+    )
+
+
 class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
     """MoonrakerSensor Sensor class."""
 
@@ -477,6 +499,39 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
         ):
             return "" if isinstance(value, str) else 0.0
         return value
+
+
+class MoonrakerPushSensor(BaseMoonrakerPushEntity, SensorEntity):
+    """MoonrakerSensor Push Sensor class."""
+
+    def __init__(self, coordinator, entry, description):
+        super().__init__(coordinator.api_device_name, entry)
+
+        self.status_key = description.status_key
+        self._attr_unique_id = f"{entry.entry_id}_{description.key}"
+        self._attr_name = description.name
+        self._attr_has_entity_name = True
+        self.entity_description = description
+        self._attr_icon = description.icon
+        self._attr_native_unit_of_measurement = description.unit
+
+    async def async_added_to_hass(self) -> None:
+        """Configure entity update handlers."""
+        await super().async_added_to_hass()
+
+        @callback
+        def update_state(params) -> None:
+            """Entity state update."""
+            try:
+                self._attr_native_value = self.entity_description.value_fn(params)
+            except KeyError:
+                pass
+            else:
+                self.async_write_ha_state()
+
+        self.async_on_remove(
+            async_dispatcher_connect(self.hass, "THISISATEST", update_state)
+        )
 
 
 def calculate_pct_job(data) -> float:

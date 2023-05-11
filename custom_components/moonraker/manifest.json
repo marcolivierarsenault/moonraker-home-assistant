@@ -1,12 +1,19 @@
 {
   "domain": "moonraker",
   "name": "Moonraker",
-  "codeowners": ["@marcolivierarsenault", "@cashew22"],
+  "codeowners": [
+    "@marcolivierarsenault",
+    "@cashew22"
+  ],
   "config_flow": true,
   "documentation": "https://moonraker-home-assistant.readthedocs.io/en/latest/",
-  "iot_class": "local_polling",
+  "iot_class": "local_push",
   "issue_tracker": "https://github.com/marcolivierarsenault/moonraker-home-assistant/issues",
-  "loggers": ["moonraker"],
-  "requirements": ["moonraker-api==2.0.5"],
+  "loggers": [
+    "moonraker"
+  ],
+  "requirements": [
+    "moonraker-api==2.0.5"
+  ],
   "version": "0.9.1"
 }

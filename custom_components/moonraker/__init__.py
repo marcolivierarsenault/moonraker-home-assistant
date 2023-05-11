@@ -49,7 +49,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     api_key = entry.data.get(CONF_API_KEY)
 
     api = MoonrakerApiClient(
-        url, async_get_clientsession(hass, verify_ssl=False), port=port, api_key=api_key
+        hass,
+        url,
+        async_get_clientsession(hass, verify_ssl=False),
+        port=port,
+        api_key=api_key,
     )
 
     try:
