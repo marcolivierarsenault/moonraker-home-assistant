@@ -4,6 +4,6 @@ aiohttp_cors==0.7.0
 Pillow==9.5.0
 pre-commit==3.3.1
 sphinx==6.2.0
-sphinx-rtd-theme==1.2.0
+sphinx-rtd-theme==1.2.1
 colorlog==6.7.0
 urllib3==1.26.15
