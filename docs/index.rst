@@ -22,6 +22,11 @@ Special thanks
 Special thanks to `Clifford Roche <https://github.com/cmroche>`__ who built `moonraker-api <https://github.com/cmroche/moonraker-api>`__ which it the conector library we are using for this integration. 🚀
 
 
+Hardware limits
+-------------------------------------
+This software seems to have issues working on **FLSUN Speeder Pad** and **Sonic Pad**, so those are unsuported.
+
+
 .. toctree::
    :caption: Installation
    :hidden:
