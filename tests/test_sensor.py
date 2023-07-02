@@ -89,6 +89,7 @@ async def test_sensor_services_update(hass, get_data):
         ("mainsail_lm75_temp", "32.43"),
         ("mainsail_heater_fan", "51.23"),
         ("mainsail_controller_fan", "51.23"),
+        ("mainsail_nevermore_fan", "12.34"),
         ("mainsail_totals_print_time", "3h 9m 9s"),
         ("mainsail_totals_jobs", "3"),
         ("mainsail_totals_filament_used", "11.62"),

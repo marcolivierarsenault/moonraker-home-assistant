@@ -140,7 +140,7 @@ Optional Sensors
 -----------------------------
 
 -  For every optional fan object available in [“heater_fan”,
-   “controller_fan”] we will create a sensor showing fan speed.
+   “controller_fan”, "fan_generic"] we will create a sensor showing fan speed.
 -  For every optional temperature object available in
    [“temperature_sensor”, “temperature_fan”, “bme280”, “htu21d”, “lm75”]
    we will create a sensor showing sensor temperature.

@@ -92,6 +92,10 @@ def get_data_fixture():
             "temperature_fan fan_temp": {
                 "temperature": 32.43,
             },
+            "fan_generic nevermore_fan": {
+                "speed": 0.1234,
+                "rpm": 4500,
+            },
             "temperature_host host_temp": {
                 "temperature": 32.43,
             },
@@ -263,6 +267,7 @@ def get_printer_objects_list_fixture():
             "filament_switch_sensor filament_sensor_2",
             "output_pin digital",
             "output_pin pwm",
+            "fan_generic nevermore_fan",
         ]
     }
 
