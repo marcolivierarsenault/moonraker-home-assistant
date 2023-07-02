@@ -1,6 +1,6 @@
 {
   "name": "moonraker-home-assistant",
-  "image": "mcr.microsoft.com/vscode/devcontainers/python:0-3.11-bullseye",
+  "image": "mcr.microsoft.com/vscode/devcontainers/python:3.11-bookworm",
   "postCreateCommand": "scripts/setup",
   "forwardPorts": [8123],
   "customizations": {
