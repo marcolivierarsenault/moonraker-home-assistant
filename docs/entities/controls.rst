@@ -42,6 +42,19 @@ A series of buttons are available by default. They are:
     - Power On/Off the printer.
     - From Moonraker API (*machine.device_power.devices*)
 
+Macros
+---------------------------------
+
+Each macro configured in Klipper is available as a button.
+
+If the Macro description is `G-Code macro` it will be enabled by default, otherwise it will be disabled.
+You can enable a specific macro by enabling it's entity in HomeAssistant configuration. (Like any other disabled entity.)
+
+.. note::
+
+   Current limitation, we cannot change any parameters for those macros.
+
+
 Default Switches
 ---------------------------------
 
@@ -65,7 +78,7 @@ Default Numbers
 
 A series of Numbers are available by default as slidder. They are:
 
-.. list-table:: Default Switches
+.. list-table:: Default Numbers
   :header-rows: 1
 
   * - Number Name
@@ -74,11 +87,3 @@ A series of Numbers are available by default as slidder. They are:
   * - Output pin pwm
     - Set a pwm output pin to a value.
     - From Moonraker API (*printer.gcode.script*)
-
----------------------------------
-
-Each macro configured in Klipper is available as a button.
-
-.. note::
-
-   Current limitation, we cannot change any parameter for those macros.

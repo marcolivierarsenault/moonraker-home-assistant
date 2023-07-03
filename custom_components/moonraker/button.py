@@ -105,8 +105,9 @@ async def async_setup_macros(coordinator, entry, async_add_entities):
 
     macros = []
     for cmd, desc in cmds.items():
-        if desc != "G-Code macro":
-            continue
+        enable_by_default = False
+        if desc == "G-Code macro":
+            enable_by_default = True
 
         macros.append(
             MoonrakerButtonDescription(
@@ -116,6 +117,7 @@ async def async_setup_macros(coordinator, entry, async_add_entities):
                     METHODS.PRINTER_GCODE_SCRIPT, {"script": button.invoke_name}
                 ),
                 icon="mdi:play",
+                entity_registry_enabled_default=enable_by_default,
             )
         )
 
