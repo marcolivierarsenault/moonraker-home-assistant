@@ -47,12 +47,12 @@ Macros
 
 Each macro configured in Klipper is available as a button.
 
-Depending of the macro, it may be disabled by default. If Macro Description is `G-Code macro` it will be enabled by default. It will be disabled otherwise.
+If the Macro description is `G-Code macro` it will be enabled by default, otherwise it will be disabled.
 You can enable a specific macro by enabling it's entity in HomeAssistant configuration. (Like any other disabled entity.)
 
 .. note::
 
-   Current limitation, we cannot change any parameter for those macros.
+   Current limitation, we cannot change any parameters for those macros.
 
 
 Default Switches
