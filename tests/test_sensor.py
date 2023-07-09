@@ -11,7 +11,10 @@ from pytest_homeassistant_custom_component.common import (
 
 from custom_components.moonraker import async_setup_entry
 from custom_components.moonraker.const import DOMAIN, PRINTSTATES
-from custom_components.moonraker.sensor import calculate_pct_job
+from custom_components.moonraker.sensor import (
+    calculate_current_layer,
+    calculate_pct_job,
+)
 
 from .const import MOCK_CONFIG
 
@@ -286,3 +289,47 @@ async def test_rounding_fan(hass, get_data):
 
     state = hass.states.get("sensor.mainsail_fan_speed")
     assert state.state == "33.33"
+
+
+async def test_current_layer_in_info():
+    data = {
+        "status": {
+            "print_stats": {
+                "state": PRINTSTATES.PRINTING.value,
+                "filename": "TheUniverse.gcode",
+                "info": {"current_layer": 42},
+            },
+        },
+    }
+    assert calculate_current_layer(data) == 42
+
+
+async def test_current_layer_calculated():
+    data = {
+        "status": {
+            "print_stats": {
+                "state": PRINTSTATES.PRINTING.value,
+                "filename": "TheUniverse.gcode",
+            },
+            "toolhead": {"position": [0, 0, 8.4]},
+        },
+        "first_layer_height": 0.2,
+        "layer_height": 0.2,
+    }
+    assert calculate_current_layer(data) == 42
+
+
+async def test_current_layer_calculated_partial_info():
+    data = {
+        "status": {
+            "print_stats": {
+                "state": PRINTSTATES.PRINTING.value,
+                "filename": "TheUniverse.gcode",
+                "info": {},
+            },
+            "toolhead": {"position": [0, 0, 8.4]},
+        },
+        "first_layer_height": 0.2,
+        "layer_height": 0.2,
+    }
+    assert calculate_current_layer(data) == 42
