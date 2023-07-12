@@ -136,7 +136,7 @@ Binary Sensors are used to represent a single binary value. They can are used fo
     - True if filament is missing
     - From Moonraker API
 
-Curremt Layer
+Current Layer
 -----------------------------
 
 Current layer will be fetched from the value set by `SET_PRINT_STATS_INFO CURRENT_LAYER=[layer_number]` if available,
