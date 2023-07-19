@@ -51,12 +51,18 @@ class MoonrakerCamera(MjpegCamera):
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, config_entry.entry_id)}
         )
-        self.url = config_entry.data.get(CONF_URL)
+        if camera["stream_url"].startswith("http"):
+            self.url = ""
+        else:
+            self.url = f"http://{config_entry.data.get(CONF_URL)}"
+
+        _LOGGER.info(f"Connecting to camera: {self.url}{camera['stream_url']}")
+
         super().__init__(
             device_info=self._attr_device_info,
-            mjpeg_url=f"http://{self.url}{camera['stream_url']}",
+            mjpeg_url=f"{self.url}{camera['stream_url']}",
             name=f"{coordinator.api_device_name} {camera['name']}",
-            still_image_url=f"http://{self.url}{camera['snapshot_url']}",
+            still_image_url=f"{self.url}{camera['snapshot_url']}",
             unique_id=f"{config_entry.entry_id}_{camera['name']}_{camera_id}",
         )
 
