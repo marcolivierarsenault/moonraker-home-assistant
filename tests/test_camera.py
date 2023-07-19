@@ -24,7 +24,7 @@ def bypass_connect_client_fixture():
         yield
 
 
-async def test_camera_services(hass):
+async def test_camera_services(hass, caplog):
     """Test camera services"""
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
@@ -35,6 +35,26 @@ async def test_camera_services(hass):
     entry = entity_registry.async_get("camera.mainsail_webcam")
 
     assert entry is not None
+    assert "Connecting to camera: http://1.2.3.4/webcam/?action=stream" in caplog.text
+
+
+async def test_camera_services_full_path(hass, get_camera_info, caplog):
+    """Test camera services"""
+    get_camera_info["webcams"][0][
+        "stream_url"
+    ] = "http://1.2.3.4/webcam/?action=2stream"
+    get_camera_info["webcams"][0][
+        "snapshot_url"
+    ] = "http://1.2.3.4/webcam/?action=2snapshot"
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    assert await async_setup_entry(hass, config_entry)
+    await hass.async_block_till_done()
+
+    entity_registry = er.async_get(hass)
+    entry = entity_registry.async_get("camera.mainsail_webcam")
+
+    assert entry is not None
+    assert "Connecting to camera: http://1.2.3.4/webcam/?action=2stream" in caplog.text
 
 
 async def test_two_cameras_services(hass, get_camera_info):
