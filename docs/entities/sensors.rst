@@ -89,7 +89,7 @@ Sensors that are added on integration startup.
     - Z position of the toolhead
     - From Moonraker API (toolhead, position, z)
   * - Current Layer
-    - Currenr layer being printed.
+    - Current layer being printed.
     - Based on our :ref:`layer`
   * - Total Layer
     - Total number of layer in the current print.
@@ -135,6 +135,13 @@ Binary Sensors are used to represent a single binary value. They can are used fo
   * - Filament Switch Sensor
     - True if filament is missing
     - From Moonraker API
+
+Current Layer
+-----------------------------
+
+Current layer will be fetched from the value set by `SET_PRINT_STATS_INFO CURRENT_LAYER=[layer_number]` if available,
+otherwise it will be calculated based on print height and layer height.
+
 
 Optional Sensors
 -----------------------------

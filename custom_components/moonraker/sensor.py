@@ -9,7 +9,7 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorEntityDescription,
 )
-from homeassistant.const import DEGREE, PERCENTAGE, UnitOfLength, UnitOfTime
+from homeassistant.const import PERCENTAGE, UnitOfLength, UnitOfTemperature, UnitOfTime
 from homeassistant.core import callback
 
 from .const import DOMAIN, METHODS, PRINTERSTATES, PRINTSTATES
@@ -84,7 +84,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         ),
         subscriptions=[("extruder", "temperature")],
         icon="mdi:printer-3d-nozzle-heat",
-        unit=DEGREE,
+        unit=UnitOfTemperature.CELSIUS,
     ),
     MoonrakerSensorDescription(
         key="extruder_target",
@@ -94,7 +94,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         ),
         subscriptions=[("extruder", "target")],
         icon="mdi:printer-3d-nozzle-heat",
-        unit=DEGREE,
+        unit=UnitOfTemperature.CELSIUS,
     ),
     MoonrakerSensorDescription(
         key="bed_target",
@@ -104,7 +104,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         ),
         subscriptions=[("heater_bed", "target")],
         icon="mdi:radiator",
-        unit=DEGREE,
+        unit=UnitOfTemperature.CELSIUS,
     ),
     MoonrakerSensorDescription(
         key="bed_temp",
@@ -114,7 +114,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         ),
         subscriptions=[("heater_bed", "temperature")],
         icon="mdi:radiator",
-        unit=DEGREE,
+        unit=UnitOfTemperature.CELSIUS,
     ),
     MoonrakerSensorDescription(
         key="filename",
@@ -352,7 +352,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 ]["temperature"],
                 subscriptions=[(obj, "temperature")],
                 icon="mdi:thermometer",
-                unit=DEGREE,
+                unit=UnitOfTemperature.CELSIUS,
             )
             sensors.append(desc)
         elif split_obj[0] in fan_keys:
@@ -523,6 +523,13 @@ def calculate_current_layer(data):
         or data["status"]["print_stats"]["filename"] == ""
     ):
         return 0
+
+    if (
+        "info" in data["status"]["print_stats"]
+        and "current_layer" in data["status"]["print_stats"]["info"]
+        and data["status"]["print_stats"]["info"]["current_layer"] is not None
+    ):
+        return data["status"]["print_stats"]["info"]["current_layer"]
 
     # layer = (current_z - first_layer_height) / layer_height + 1
     return (
