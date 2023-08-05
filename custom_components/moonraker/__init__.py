@@ -144,6 +144,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             "filament_total": 1,
             "layer_count": None,
             "layer_height": None,
+            "object_height": None,
             "first_layer_height": None,
         }
         if gcode_filename is None or gcode_filename == "":
@@ -158,6 +159,9 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         )
         return_gcode["estimated_time"] = (
             gcode["estimated_time"] if "estimated_time" in gcode else 0
+        )
+        return_gcode["object_height"] = (
+            gcode["object_height"] if "object_height" in gcode else 0
         )
         return_gcode["filament_total"] = (
             gcode["filament_total"] if "filament_total" in gcode else 0
