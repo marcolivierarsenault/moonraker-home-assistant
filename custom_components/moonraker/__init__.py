@@ -18,6 +18,7 @@ from .const import (
     CONF_API_KEY,
     CONF_PORT,
     CONF_URL,
+    CONF_PRINTER_NAME,
     DOMAIN,
     HOSTNAME,
     METHODS,
@@ -47,6 +48,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     url = entry.data.get(CONF_URL)
     port = entry.data.get(CONF_PORT)
     api_key = entry.data.get(CONF_API_KEY)
+    printer_name = entry.data.get(CONF_PRINTER_NAME)
 
     api = MoonrakerApiClient(
         url, async_get_clientsession(hass, verify_ssl=False), port=port, api_key=api_key
@@ -57,7 +59,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         async with async_timeout.timeout(TIMEOUT):
             printer_info = await api.client.call_method("printer.info")
             _LOGGER.debug(printer_info)
-            api_device_name = printer_info[HOSTNAME]
+
+            if printer_name == "":
+                api_device_name = printer_info[HOSTNAME]
+            else:
+                api_device_name = printer_name
+
             if entry.title == DOMAIN:
                 entry.title = api_device_name
     except Exception as exc:

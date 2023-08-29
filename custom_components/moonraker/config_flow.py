@@ -4,7 +4,7 @@ import logging
 from homeassistant import config_entries
 import voluptuous as vol
 
-from .const import CONF_API_KEY, CONF_PORT, CONF_URL, DOMAIN
+from .const import CONF_API_KEY, CONF_PORT, CONF_URL, CONF_PRINTER_NAME, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,6 +44,7 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         user_input[CONF_URL] = "192.168.1.123"
         user_input[CONF_PORT] = "7125"
         user_input[CONF_API_KEY] = ""
+        user_input[CONF_PRINTER_NAME] = ""
 
         return await self._show_config_form(user_input)
 
@@ -58,6 +59,7 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_URL, default=user_input[CONF_URL]): str,
                     vol.Optional(CONF_PORT, default=user_input[CONF_PORT]): str,
                     vol.Optional(CONF_API_KEY, default=user_input[CONF_API_KEY]): str,
+                    vol.Optional(CONF_PRINTER_NAME, default=user_input[CONF_PRINTER_NAME]): str,
                 }
             ),
             errors=self._errors,
