@@ -6,7 +6,8 @@
         "data": {
           "url": "url",
           "port": "port",
-          "api_key": "api_key (Optional)"
+          "api_key": "api_key (Optional)",
+          "printer_name": "printer_name (Default is the hostname)"
         }
       }
     },
