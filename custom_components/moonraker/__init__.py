@@ -65,8 +65,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             else:
                 api_device_name = printer_name
 
-            if entry.title == DOMAIN:
-                entry.title = api_device_name
+            entry.title = api_device_name
     except Exception as exc:
         raise ConfigEntryNotReady(f"Error connecting to {url}:{port}") from exc
 
