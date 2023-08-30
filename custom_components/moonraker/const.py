@@ -28,6 +28,9 @@ CONF_PRINTER_NAME = "printer_name"
 HOSTNAME = "hostname"
 OBJ = "objects"
 
+# API timeout
+TIMEOUT = 10
+
 
 class METHODS(Enum):
     """API methods."""
