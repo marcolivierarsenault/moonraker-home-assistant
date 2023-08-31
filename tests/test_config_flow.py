@@ -2,6 +2,7 @@
 from unittest.mock import patch
 
 from homeassistant import config_entries, data_entry_flow
+import pytest
 
 from custom_components.moonraker.const import (
     CONF_API_KEY,
@@ -12,6 +13,13 @@ from custom_components.moonraker.const import (
 )
 
 from .const import MOCK_CONFIG
+
+
+@pytest.fixture(name="bypass_connect_client", autouse=True)
+def bypass_connect_client_fixture():
+    """Skip calls to get data from API."""
+    with patch("custom_components.moonraker.MoonrakerApiClient.start"):
+        yield
 
 
 async def test_successful_config_flow(hass):

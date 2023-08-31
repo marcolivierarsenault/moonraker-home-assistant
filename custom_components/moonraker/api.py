@@ -22,10 +22,6 @@ class MoonrakerApiClient(MoonrakerListener):
             listener=self, host=url, port=port, session=session, api_key=api_key
         )
 
-    async def state_changed(self, state: str) -> None:
-        """Notifies of changing websocket state."""
-        _LOGGER.debug("Stated changed to {%s}", state)
-
     async def start(self) -> None:
         """Start the websocket connection."""
         self.running = True
