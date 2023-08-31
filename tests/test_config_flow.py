@@ -33,8 +33,6 @@ async def test_successful_config_flow(hass):
     assert result["type"] == data_entry_flow.RESULT_TYPE_FORM
     assert result["step_id"] == "user"
 
-    # If a user were to enter `test_username` for username and `test_password`
-    # for password, it would result in this function call
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], user_input=MOCK_CONFIG
     )
@@ -95,7 +93,7 @@ async def test_server_host_with_trailing_slash(hass):
 
 
 async def test_server_host_with_incomplete_ip(hass):
-    """Test server host when has trailing slash."""
+    """Test server host when has incomplete ip."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
@@ -292,7 +290,7 @@ async def test_server_api_key_when_empty(hass):
 
 
 async def test_printer_name_when_invalid(hass):
-    """Test server host when it's invalid."""
+    """Test printer name when it's invalid."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
@@ -305,7 +303,7 @@ async def test_printer_name_when_invalid(hass):
 
 
 async def test_printer_name_when_good(hass):
-    """Test server host when it's invalid."""
+    """Test printer name when good."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )

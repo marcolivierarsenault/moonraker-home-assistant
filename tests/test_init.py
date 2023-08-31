@@ -50,7 +50,7 @@ async def test_setup_unload_and_reload_entry(hass):
 
 
 async def test_setup_unload_and_reload_entry_with_name(hass):
-    """Test entry setup and unload."""
+    """Test entry setup with name and unload."""
     # Create a mock entry so we don't have to go through config flow
 
     config_entry = MockConfigEntry(

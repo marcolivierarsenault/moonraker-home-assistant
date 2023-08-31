@@ -1,12 +1,6 @@
-"""Sample ASYNC moonraker Client."""
-import logging
+"""moonraker Client."""
 
 from moonraker_api import MoonrakerClient, MoonrakerListener
-
-TIMEOUT = 10
-
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class MoonrakerApiClient(MoonrakerListener):

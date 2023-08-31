@@ -24,11 +24,11 @@ from .const import (
     METHODS,
     OBJ,
     PLATFORMS,
+    TIMEOUT,
 )
 from .sensor import SENSORS
 
 SCAN_INTERVAL = timedelta(seconds=30)
-TIMEOUT = 10
 
 _LOGGER = logging.getLogger(__name__)
 
