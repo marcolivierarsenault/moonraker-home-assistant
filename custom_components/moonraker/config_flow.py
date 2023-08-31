@@ -1,17 +1,15 @@
 """Adds config flow for Moonraker."""
 import logging
 import sys
+
 import async_timeout
-
 from homeassistant import config_entries
-from homeassistant.util import slugify, network
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-
-
+from homeassistant.util import network, slugify
 import voluptuous as vol
 
-from .const import CONF_API_KEY, CONF_PORT, CONF_URL, CONF_PRINTER_NAME, DOMAIN, TIMEOUT
 from .api import MoonrakerApiClient
+from .const import CONF_API_KEY, CONF_PORT, CONF_PRINTER_NAME, CONF_URL, DOMAIN, TIMEOUT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -48,9 +46,7 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 return await self._show_config_form(user_input)
 
             if not await self._test_connection(
-                user_input[CONF_URL],
-                user_input[CONF_PORT],
-                user_input[CONF_API_KEY]
+                user_input[CONF_URL], user_input[CONF_PORT], user_input[CONF_API_KEY]
             ):
                 self._errors[CONF_URL] = "printer_connection_error"
                 return await self._show_config_form(user_input)
@@ -78,7 +74,9 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_URL, default=user_input[CONF_URL]): str,
                     vol.Optional(CONF_PORT, default=user_input[CONF_PORT]): str,
                     vol.Optional(CONF_API_KEY, default=user_input[CONF_API_KEY]): str,
-                    vol.Optional(CONF_PRINTER_NAME, default=user_input[CONF_PRINTER_NAME]): str,
+                    vol.Optional(
+                        CONF_PRINTER_NAME, default=user_input[CONF_PRINTER_NAME]
+                    ): str,
                 }
             ),
             errors=self._errors,
@@ -112,7 +110,10 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             return True
 
         api = MoonrakerApiClient(
-            host, async_get_clientsession(self.hass, verify_ssl=False), port=port, api_key=api_key
+            host,
+            async_get_clientsession(self.hass, verify_ssl=False),
+            port=port,
+            api_key=api_key,
         )
 
         try:

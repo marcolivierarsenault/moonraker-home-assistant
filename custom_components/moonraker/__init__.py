@@ -17,8 +17,8 @@ from .api import MoonrakerApiClient
 from .const import (
     CONF_API_KEY,
     CONF_PORT,
-    CONF_URL,
     CONF_PRINTER_NAME,
+    CONF_URL,
     DOMAIN,
     HOSTNAME,
     METHODS,
