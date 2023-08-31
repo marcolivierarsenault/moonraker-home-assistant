@@ -3,7 +3,9 @@ from unittest.mock import patch
 
 from homeassistant import config_entries, data_entry_flow
 
-from custom_components.moonraker.const import CONF_API_KEY, CONF_PORT, CONF_URL, DOMAIN
+from custom_components.moonraker.const import (
+    CONF_API_KEY, CONF_PORT, CONF_URL, DOMAIN, CONF_PRINTER_NAME
+)
 
 from .const import MOCK_CONFIG
 
@@ -51,7 +53,7 @@ async def test_tmp_failing_config_flow(hass):
         )
 
     assert result["type"] == data_entry_flow.RESULT_TYPE_FORM
-    assert result["errors"] == {CONF_URL: "error"}
+    assert result["errors"] == {CONF_URL: "printer_connection_error"}
 
 
 async def test_server_port_too_low(hass):
@@ -102,7 +104,12 @@ async def test_server_port_when_good_port(hass):
 
     assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
     assert result["title"] == DOMAIN
-    assert result["data"] == {CONF_URL: "1.2.3.4", CONF_PORT: "7611", CONF_API_KEY: ""}
+    assert result["data"] == {
+        CONF_URL: "1.2.3.4",
+        CONF_PORT: "7611",
+        CONF_API_KEY: "",
+        CONF_PRINTER_NAME: ""
+    }
     assert result["result"]
 
 
@@ -118,7 +125,12 @@ async def test_server_port_when_port_empty(hass):
 
     assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
     assert result["title"] == DOMAIN
-    assert result["data"] == {CONF_URL: "1.2.3.4", CONF_PORT: "", CONF_API_KEY: ""}
+    assert result["data"] == {
+        CONF_URL: "1.2.3.4",
+        CONF_PORT: "",
+        CONF_API_KEY: "",
+        CONF_PRINTER_NAME: ""
+    }
 
 
 async def test_server_api_key_weird_char(hass):
@@ -178,6 +190,7 @@ async def test_server_api_key_when_good(hass):
         CONF_URL: "1.2.3.4",
         CONF_PORT: "7125",
         CONF_API_KEY: "A7ylD3EuPWWxGlsshlCIJjzRBNbQzlre",
+        CONF_PRINTER_NAME: ""
     }
     assert result["result"]
 
@@ -197,5 +210,10 @@ async def test_server_api_key_when_empty(hass):
 
     assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
     assert result["title"] == "moonraker"
-    assert result["data"] == {CONF_URL: "1.2.3.4", CONF_PORT: "7125", CONF_API_KEY: ""}
+    assert result["data"] == {
+        CONF_URL: "1.2.3.4",
+        CONF_PORT: "7125",
+        CONF_API_KEY: "",
+        CONF_PRINTER_NAME: ""
+    }
     assert result["result"]
