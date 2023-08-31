@@ -50,7 +50,7 @@ You have issue with the integration, you want new sensors? Please open an Issue.
 
 # Slack Workspace
 
-Join our [Slack Workspace](https://join.slack.com/t/moonraker-ha/shared_invite/zt-1q7rqkttj-SQ5N7qm9d1h6HqIONpDhZA) for more Sync conversations
+Join our [Slack Workspace](https://join.slack.com/t/moonraker-ha/shared_invite/zt-22adxor52-MV~zqgFeKCmW8yb0bb2q0Q) for more Sync conversations
 
 # Special thanks
 
