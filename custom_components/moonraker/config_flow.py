@@ -1,6 +1,5 @@
 """Adds config flow for Moonraker."""
 import logging
-import sys
 
 import async_timeout
 from homeassistant import config_entries
@@ -106,9 +105,6 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return True
 
     async def _test_connection(self, host, port, api_key):
-        if "pytest" in sys.modules:
-            return True
-
         api = MoonrakerApiClient(
             host,
             async_get_clientsession(self.hass, verify_ssl=False),
