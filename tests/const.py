@@ -13,3 +13,10 @@ MOCK_CONFIG = {
     CONF_API_KEY: "",
     CONF_PRINTER_NAME: "",
 }
+
+MOCK_CONFIG_WITH_NAME = {
+    CONF_URL: "1.2.3.4",
+    CONF_PORT: "1234",
+    CONF_API_KEY: "",
+    CONF_PRINTER_NAME: "example name",
+}

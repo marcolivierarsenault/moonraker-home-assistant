@@ -60,6 +60,66 @@ async def test_tmp_failing_config_flow(hass):
     assert result["errors"] == {CONF_URL: "printer_connection_error"}
 
 
+async def test_server_host_with_protocol(hass):
+    """Test server host when it has protocol"""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={CONF_URL: "http://1.2.3.4"}
+    )
+
+    assert result["errors"] == {CONF_URL: "host_error"}
+
+
+async def test_server_host_with_trailing_slash(hass):
+    """Test server host when has trailing slash."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={CONF_URL: "website.com/"}
+    )
+
+    assert result["errors"] == {CONF_URL: "host_error"}
+
+
+async def test_server_host_with_incomplete_ip(hass):
+    """Test server host when has trailing slash."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={CONF_URL: "1.2.3"}
+    )
+
+    assert result["errors"] == {CONF_URL: "host_error"}
+
+
+async def test_server_host_when_good(hass):
+    """Test server host when good."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={CONF_URL: "1.2.3.4"}
+    )
+
+    assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
+    assert result["title"] == DOMAIN
+    assert result["data"] == {
+        CONF_URL: "1.2.3.4",
+        CONF_PORT: "7125",
+        CONF_API_KEY: "",
+        CONF_PRINTER_NAME: "",
+    }
+    assert result["result"]
+
+
 async def test_server_port_too_low(hass):
     """Test server port when it's too low."""
     result = await hass.config_entries.flow.async_init(
@@ -219,5 +279,40 @@ async def test_server_api_key_when_empty(hass):
         CONF_PORT: "7125",
         CONF_API_KEY: "",
         CONF_PRINTER_NAME: "",
+    }
+    assert result["result"]
+
+
+async def test_printer_name_when_invalid(hass):
+    """Test server host when it's invalid."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={CONF_PRINTER_NAME: "!"}
+    )
+
+    assert result["errors"] == {CONF_PRINTER_NAME: "printer_name_error"}
+
+
+async def test_printer_name_when_good(hass):
+    """Test server host when it's invalid."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={CONF_URL: "1.2.3.4", CONF_PRINTER_NAME: "example name"},
+    )
+
+    assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
+    assert result["title"] == "moonraker"
+    assert result["data"] == {
+        CONF_URL: "1.2.3.4",
+        CONF_PORT: "7125",
+        CONF_API_KEY: "",
+        CONF_PRINTER_NAME: "example name",
     }
     assert result["result"]

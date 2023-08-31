@@ -8,18 +8,20 @@
       "extensions": [
         "ms-python.python",
         "github.vscode-pull-request-github",
-        "ryanluker.vscode-coverage-gutters",
-        "ms-python.vscode-pylance"
+        "ms-python.black-formatter",
+        "ms-python.flake8",
+        "ms-python.isort",
+        "ms-python.vscode-pylance",
+        "ryanluker.vscode-coverage-gutters"
       ],
       "settings": {
+        "[python]": {
+          "editor.defaultFormatter": "ms-python.black-formatter"
+        },
         "files.eol": "\n",
         "editor.tabSize": 4,
         "python.pythonPath": "/usr/bin/python3",
         "python.analysis.autoSearchPaths": false,
-        "python.linting.pylintEnabled": true,
-        "python.linting.enabled": true,
-        "python.formatting.provider": "black",
-        "python.formatting.blackPath": "/usr/local/py-utils/bin/black",
         "editor.formatOnPaste": false,
         "editor.formatOnSave": true,
         "editor.formatOnType": true,
@@ -29,7 +31,7 @@
             "path": "/usr/bin/zsh"
           }
         },
-        "terminal.integrated.defaultProfile.linux": "zsh"
+        "terminal.integrated.defaultProfile.linux": "zsh",
       }
     }
   },
