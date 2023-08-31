@@ -4,10 +4,7 @@ from unittest.mock import patch
 from homeassistant import config_entries, data_entry_flow
 import pytest
 
-from custom_components.moonraker.const import (
-    CONF_URL,
-    DOMAIN,
-)
+from custom_components.moonraker.const import CONF_URL, DOMAIN
 
 from .const import MOCK_CONFIG
 
