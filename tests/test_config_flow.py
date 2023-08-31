@@ -4,7 +4,11 @@ from unittest.mock import patch
 from homeassistant import config_entries, data_entry_flow
 
 from custom_components.moonraker.const import (
-    CONF_API_KEY, CONF_PORT, CONF_URL, DOMAIN, CONF_PRINTER_NAME
+    CONF_API_KEY,
+    CONF_PORT,
+    CONF_PRINTER_NAME,
+    CONF_URL,
+    DOMAIN,
 )
 
 from .const import MOCK_CONFIG
@@ -108,7 +112,7 @@ async def test_server_port_when_good_port(hass):
         CONF_URL: "1.2.3.4",
         CONF_PORT: "7611",
         CONF_API_KEY: "",
-        CONF_PRINTER_NAME: ""
+        CONF_PRINTER_NAME: "",
     }
     assert result["result"]
 
@@ -129,7 +133,7 @@ async def test_server_port_when_port_empty(hass):
         CONF_URL: "1.2.3.4",
         CONF_PORT: "",
         CONF_API_KEY: "",
-        CONF_PRINTER_NAME: ""
+        CONF_PRINTER_NAME: "",
     }
 
 
@@ -190,7 +194,7 @@ async def test_server_api_key_when_good(hass):
         CONF_URL: "1.2.3.4",
         CONF_PORT: "7125",
         CONF_API_KEY: "A7ylD3EuPWWxGlsshlCIJjzRBNbQzlre",
-        CONF_PRINTER_NAME: ""
+        CONF_PRINTER_NAME: "",
     }
     assert result["result"]
 
@@ -214,6 +218,6 @@ async def test_server_api_key_when_empty(hass):
         CONF_URL: "1.2.3.4",
         CONF_PORT: "7125",
         CONF_API_KEY: "",
-        CONF_PRINTER_NAME: ""
+        CONF_PRINTER_NAME: "",
     }
     assert result["result"]
