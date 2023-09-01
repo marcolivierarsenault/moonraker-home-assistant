@@ -15,13 +15,21 @@ from custom_components.moonraker.const import (
 from .const import MOCK_CONFIG
 
 
-@pytest.fixture(name="bypass_connect_client", autouse=True)
+@pytest.fixture(name="bypass_connect_client")
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
     with patch("custom_components.moonraker.MoonrakerApiClient.start"):
         yield
 
 
+@pytest.fixture(name="error_connect_client")
+def error_connect_client_fixture():
+    """Throw error when trying to connect"""
+    with patch("custom_components.moonraker.MoonrakerApiClient.start"):
+        raise Exception
+
+
+@pytest.mark.usefixtures("bypass_connect_client")
 async def test_successful_config_flow(hass):
     """Test a successful config flow."""
     # Initialize a config flow
@@ -45,6 +53,7 @@ async def test_successful_config_flow(hass):
     assert result["result"]
 
 
+@pytest.mark.usefixtures("bypass_connect_client")
 async def test_tmp_failing_config_flow(hass):
     """Test a failed config flow due to credential validation failure."""
     result = await hass.config_entries.flow.async_init(
@@ -66,6 +75,7 @@ async def test_tmp_failing_config_flow(hass):
     assert result["errors"] == {CONF_URL: "printer_connection_error"}
 
 
+@pytest.mark.usefixtures("bypass_connect_client")
 async def test_server_host_with_protocol(hass):
     """Test server host when it has protocol"""
     result = await hass.config_entries.flow.async_init(
@@ -79,6 +89,7 @@ async def test_server_host_with_protocol(hass):
     assert result["errors"] == {CONF_URL: "host_error"}
 
 
+@pytest.mark.usefixtures("bypass_connect_client")
 async def test_server_host_with_trailing_slash(hass):
     """Test server host when has trailing slash."""
     result = await hass.config_entries.flow.async_init(
@@ -92,6 +103,7 @@ async def test_server_host_with_trailing_slash(hass):
     assert result["errors"] == {CONF_URL: "host_error"}
 
 
+@pytest.mark.usefixtures("bypass_connect_client")
 async def test_server_host_with_incomplete_ip(hass):
     """Test server host when has incomplete ip."""
     result = await hass.config_entries.flow.async_init(
@@ -105,6 +117,7 @@ async def test_server_host_with_incomplete_ip(hass):
     assert result["errors"] == {CONF_URL: "host_error"}
 
 
+@pytest.mark.usefixtures("bypass_connect_client")
 async def test_server_host_when_good(hass):
     """Test server host when good."""
     result = await hass.config_entries.flow.async_init(
@@ -126,6 +139,7 @@ async def test_server_host_when_good(hass):
     assert result["result"]
 
 
+@pytest.mark.usefixtures("bypass_connect_client")
 async def test_server_port_too_low(hass):
     """Test server port when it's too low."""
     result = await hass.config_entries.flow.async_init(
@@ -138,6 +152,7 @@ async def test_server_port_too_low(hass):
     assert result["errors"] == {CONF_PORT: "port_error"}
 
 
+@pytest.mark.usefixtures("bypass_connect_client")
 async def test_server_port_too_high(hass):
     """Test server port when it's too high."""
     result = await hass.config_entries.flow.async_init(
@@ -150,6 +165,7 @@ async def test_server_port_too_high(hass):
     assert result["errors"] == {CONF_PORT: "port_error"}
 
 
+@pytest.mark.usefixtures("bypass_connect_client")
 async def test_server_port_not_an_int(hass):
     """Test port when it's not an int."""
     result = await hass.config_entries.flow.async_init(
@@ -162,6 +178,7 @@ async def test_server_port_not_an_int(hass):
     assert result["errors"] == {CONF_PORT: "port_error"}
 
 
+@pytest.mark.usefixtures("bypass_connect_client")
 async def test_server_port_when_good_port(hass):
     """Test server port when it's good."""
     result = await hass.config_entries.flow.async_init(
@@ -183,6 +200,7 @@ async def test_server_port_when_good_port(hass):
     assert result["result"]
 
 
+@pytest.mark.usefixtures("bypass_connect_client")
 async def test_server_port_when_port_empty(hass):
     """Test server port is left empty"""
     result = await hass.config_entries.flow.async_init(
@@ -203,6 +221,7 @@ async def test_server_port_when_port_empty(hass):
     }
 
 
+@pytest.mark.usefixtures("bypass_connect_client")
 async def test_server_api_key_weird_char(hass):
     """Test api key when contains weird characters"""
     result = await hass.config_entries.flow.async_init(
@@ -215,6 +234,7 @@ async def test_server_api_key_weird_char(hass):
     assert result["errors"] == {CONF_API_KEY: "api_key_error"}
 
 
+@pytest.mark.usefixtures("bypass_connect_client")
 async def test_server_api_key_too_short(hass):
     """Test api key when it's too short"""
     result = await hass.config_entries.flow.async_init(
@@ -227,6 +247,7 @@ async def test_server_api_key_too_short(hass):
     assert result["errors"] == {CONF_API_KEY: "api_key_error"}
 
 
+@pytest.mark.usefixtures("bypass_connect_client")
 async def test_server_api_key_too_long(hass):
     """Test api key when it's too long"""
     result = await hass.config_entries.flow.async_init(
@@ -240,6 +261,7 @@ async def test_server_api_key_too_long(hass):
     assert result["errors"] == {CONF_API_KEY: "api_key_error"}
 
 
+@pytest.mark.usefixtures("bypass_connect_client")
 async def test_server_api_key_when_good(hass):
     """Test api key when it's good"""
     result = await hass.config_entries.flow.async_init(
@@ -265,6 +287,7 @@ async def test_server_api_key_when_good(hass):
     assert result["result"]
 
 
+@pytest.mark.usefixtures("bypass_connect_client")
 async def test_server_api_key_when_empty(hass):
     """Test api key when it's empty"""
     result = await hass.config_entries.flow.async_init(
@@ -289,6 +312,7 @@ async def test_server_api_key_when_empty(hass):
     assert result["result"]
 
 
+@pytest.mark.usefixtures("bypass_connect_client")
 async def test_printer_name_when_invalid(hass):
     """Test printer name when it's invalid."""
     result = await hass.config_entries.flow.async_init(
@@ -302,6 +326,7 @@ async def test_printer_name_when_invalid(hass):
     assert result["errors"] == {CONF_PRINTER_NAME: "printer_name_error"}
 
 
+@pytest.mark.usefixtures("bypass_connect_client")
 async def test_printer_name_when_good(hass):
     """Test printer name when good."""
     result = await hass.config_entries.flow.async_init(
@@ -322,3 +347,21 @@ async def test_printer_name_when_good(hass):
         CONF_PRINTER_NAME: "example name",
     }
     assert result["result"]
+
+
+async def test_bad_connection_config_flow(hass):
+    """Test a config flow with a bad connection."""
+    # Initialize a config flow
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    # Check that the config flow shows the user form as the first step
+    assert result["type"] == data_entry_flow.RESULT_TYPE_FORM
+    assert result["step_id"] == "user"
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input=MOCK_CONFIG
+    )
+
+    assert result["errors"] == {CONF_URL: "printer_connection_error"}
