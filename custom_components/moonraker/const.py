@@ -22,10 +22,14 @@ PLATFORMS = [
 CONF_API_KEY = "api_key"
 CONF_URL = "url"
 CONF_PORT = "port"
+CONF_PRINTER_NAME = "printer_name"
 
 # API dict keys
 HOSTNAME = "hostname"
 OBJ = "objects"
+
+# API timeout
+TIMEOUT = 10
 
 
 class METHODS(Enum):
