@@ -91,6 +91,9 @@ Sensors that are added on integration startup.
   * - Current Layer
     - Current layer being printed.
     - Based on our :ref:`layer`
+  * - Object Height
+    - Object Height of the current print.
+    - From Moonraker API (files_metadata, object_height)
   * - Total Layer
     - Total number of layer in the current print.
     - From Moonraker API (print_stats, info, total_layer). Make sure your Slicer include it. `Details <https://github.com/marcolivierarsenault/moonraker-home-assistant/issues/112#issuecomment-1505664692>`__

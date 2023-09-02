@@ -103,6 +103,7 @@ async def test_sensor_services_update(hass, get_data):
         ("mainsail_toolhead_position_y", "22.2"),
         ("mainsail_toolhead_position_z", "10.2"),
         ("mainsail_slicer_print_duration_estimate", "8232.0"),
+        ("mainsail_object_height", "62.6"),
     ],
 )
 async def test_sensors(
