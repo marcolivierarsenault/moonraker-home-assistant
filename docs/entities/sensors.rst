@@ -91,6 +91,9 @@ Sensors that are added on integration startup.
   * - Current Layer
     - Current layer being printed.
     - Based on our :ref:`layer`
+  * - Object Height
+    - Object Height of the current print.
+    - From Moonraker API (files_metadata, object_height)
   * - Total Layer
     - Total number of layer in the current print.
     - From Moonraker API (print_stats, info, total_layer). Make sure your Slicer include it. `Details <https://github.com/marcolivierarsenault/moonraker-home-assistant/issues/112#issuecomment-1505664692>`__
@@ -146,10 +149,10 @@ otherwise it will be calculated based on print height and layer height.
 Optional Sensors
 -----------------------------
 
--  For every optional fan object available in [“heater_fan”,
-   “controller_fan”, "fan_generic"] we will create a sensor showing fan speed.
+-  For every optional fan object available in [``heater_fan``,
+   ``controller_fan``, ``fan_generic``] we will create a sensor showing fan speed.
 -  For every optional temperature object available in
-   [“temperature_sensor”, “temperature_fan”, “bme280”, “htu21d”, “lm75”]
+   [``temperature_sensor``, ``temperature_fan``, ``bme280``, ``htu21d``, ``lm75``]
    we will create a sensor showing sensor temperature.
 
 

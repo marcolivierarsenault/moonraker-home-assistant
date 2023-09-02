@@ -228,6 +228,8 @@ async def test_thumbnail_data_failing(
 
 
 async def test_thumbnail_on_subfolder(hass, get_data, aioclient_mock):
+    """Test thumbnail on subfolder"""
+
     get_data["status"]["print_stats"][
         "filename"
     ] = "subfolder/CE3E3V2_picture_frame_holder.gcode"

@@ -293,7 +293,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
             sensor.coordinator.data["status"]["toolhead"]["position"][1], 2
         ),
         subscriptions=[("toolhead", "position")],
-        icon="mdi:axis-x-arrow",
+        icon="mdi:axis-y-arrow",
         unit=UnitOfLength.MILLIMETERS,
     ),
     MoonrakerSensorDescription(
@@ -303,7 +303,18 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
             sensor.coordinator.data["status"]["toolhead"]["position"][2], 2
         ),
         subscriptions=[("toolhead", "position")],
-        icon="mdi:axis-x-arrow",
+        icon="mdi:axis-z-arrow",
+        unit=UnitOfLength.MILLIMETERS,
+    ),
+    MoonrakerSensorDescription(
+        key="object_height",
+        name="Object Height",
+        value_fn=lambda sensor: sensor.empty_result_when_not_printing(
+            sensor.coordinator.data["object_height"]
+        ),
+        subscriptions=[],
+        icon="mdi:axis-z-arrow",
+        device_class=SensorDeviceClass.DISTANCE,
         unit=UnitOfLength.MILLIMETERS,
     ),
 ]

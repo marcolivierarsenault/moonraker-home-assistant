@@ -14,3 +14,4 @@ secrets.yaml
 .storage
 blueprints
 docs/_build
+coverage.xml
