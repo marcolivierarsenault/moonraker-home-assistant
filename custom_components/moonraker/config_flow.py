@@ -1,10 +1,14 @@
 """Adds config flow for Moonraker."""
 import logging
 
+import async_timeout
 from homeassistant import config_entries
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.util import network, slugify
 import voluptuous as vol
 
-from .const import CONF_API_KEY, CONF_PORT, CONF_URL, DOMAIN
+from .api import MoonrakerApiClient
+from .const import CONF_API_KEY, CONF_PORT, CONF_PRINTER_NAME, CONF_URL, DOMAIN, TIMEOUT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,8 +28,8 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self._errors = {}
 
         if user_input is not None:
-            if not await self._test_connection(user_input[CONF_URL]):
-                self._errors[CONF_URL] = "error"
+            if not await self._test_host(user_input[CONF_URL]):
+                self._errors[CONF_URL] = "host_error"
                 return await self._show_config_form(user_input)
 
             if not await self._test_port(user_input[CONF_PORT]):
@@ -36,6 +40,16 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 self._errors[CONF_API_KEY] = "api_key_error"
                 return await self._show_config_form(user_input)
 
+            if not await self._test_printer_name(user_input[CONF_PRINTER_NAME]):
+                self._errors[CONF_PRINTER_NAME] = "printer_name_error"
+                return await self._show_config_form(user_input)
+
+            if not await self._test_connection(
+                user_input[CONF_URL], user_input[CONF_PORT], user_input[CONF_API_KEY]
+            ):
+                self._errors[CONF_URL] = "printer_connection_error"
+                return await self._show_config_form(user_input)
+
             # changer DOMAIN pour name
             return self.async_create_entry(title=DOMAIN, data=user_input)
 
@@ -44,6 +58,7 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         user_input[CONF_URL] = "192.168.1.123"
         user_input[CONF_PORT] = "7125"
         user_input[CONF_API_KEY] = ""
+        user_input[CONF_PRINTER_NAME] = ""
 
         return await self._show_config_form(user_input)
 
@@ -58,18 +73,16 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_URL, default=user_input[CONF_URL]): str,
                     vol.Optional(CONF_PORT, default=user_input[CONF_PORT]): str,
                     vol.Optional(CONF_API_KEY, default=user_input[CONF_API_KEY]): str,
+                    vol.Optional(
+                        CONF_PRINTER_NAME, default=user_input[CONF_PRINTER_NAME]
+                    ): str,
                 }
             ),
             errors=self._errors,
         )
 
-    async def _test_connection(self, _url):
-        """Return true if connection is valid."""
-        # Test connection and get hostname
-        # await api.client.call_method("printer.info")
-        # printer_info[HOSTNAME]
-        self.title = DOMAIN  # TODO change for hostname
-        return True
+    async def _test_host(self, host: str):
+        return network.is_host_valid(host)
 
     async def _test_port(self, port):
         if not port == "":
@@ -82,3 +95,27 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             if not api_key.isalnum() or len(api_key) != 32:
                 return False
         return True
+
+    async def _test_printer_name(self, printer_name):
+        slugified_name = slugify(printer_name)
+
+        if slugified_name == "unknown":
+            return False
+
+        return True
+
+    async def _test_connection(self, host, port, api_key):
+        api = MoonrakerApiClient(
+            host,
+            async_get_clientsession(self.hass, verify_ssl=False),
+            port=port,
+            api_key=api_key,
+        )
+
+        try:
+            await api.start()
+            async with async_timeout.timeout(TIMEOUT):
+                await api.client.call_method("printer.info")
+                return True
+        except Exception:
+            return False

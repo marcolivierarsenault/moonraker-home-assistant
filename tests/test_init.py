@@ -14,7 +14,7 @@ from custom_components.moonraker import (
 )
 from custom_components.moonraker.const import DOMAIN, METHODS
 
-from .const import MOCK_CONFIG
+from .const import MOCK_CONFIG, MOCK_CONFIG_WITH_NAME
 
 
 @pytest.fixture(name="bypass_connect_client", autouse=True)
@@ -29,6 +29,33 @@ async def test_setup_unload_and_reload_entry(hass):
     # Create a mock entry so we don't have to go through config flow
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+
+    assert await async_setup_entry(hass, config_entry)
+    assert DOMAIN in hass.data and config_entry.entry_id in hass.data[DOMAIN]
+    assert isinstance(
+        hass.data[DOMAIN][config_entry.entry_id], MoonrakerDataUpdateCoordinator
+    )
+
+    # Reload the entry and assert that the data from above is still there.
+    hass.config_entries._entries[config_entry.entry_id] = config_entry
+    assert await async_reload_entry(hass, config_entry) is None
+    assert DOMAIN in hass.data and config_entry.entry_id in hass.data[DOMAIN]
+    assert isinstance(
+        hass.data[DOMAIN][config_entry.entry_id], MoonrakerDataUpdateCoordinator
+    )
+
+    # Unload the entry and verify that the data has been removed
+    assert await async_unload_entry(hass, config_entry)
+    assert config_entry.entry_id not in hass.data[DOMAIN]
+
+
+async def test_setup_unload_and_reload_entry_with_name(hass):
+    """Test entry setup with name and unload."""
+    # Create a mock entry so we don't have to go through config flow
+
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG_WITH_NAME, entry_id="test"
+    )
 
     assert await async_setup_entry(hass, config_entry)
     assert DOMAIN in hass.data and config_entry.entry_id in hass.data[DOMAIN]

@@ -4,16 +4,19 @@
       "user": {
         "description": "Moonraker connection information",
         "data": {
-          "url": "url",
-          "port": "port",
-          "api_key": "api_key (Optional)"
+          "url": "Host",
+          "port": "Port",
+          "api_key": "API Key (Optional)",
+          "printer_name": "Printer's Name (Defaults to the hostname)"
         }
       }
     },
     "error": {
-      "error": "Invalid connection.",
+      "host_error": "Invalid host. Don't include \"http://\", \"https://\", or a trailing slash.",
       "port_error": "Invalid port, must be a number between 1 and 65535.",
-      "api_key_error": "Invalid API key, must be 32 alphanumeric characters."
+      "api_key_error": "Invalid API key, must be 32 alphanumeric characters.",
+      "printer_name_error": "Invalid printer name.",
+      "printer_connection_error": "Failed to connect."
     }
   }
 }
