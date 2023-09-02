@@ -154,3 +154,23 @@ Optional Sensors
 -  For every optional temperature object available in
    [``temperature_sensor``, ``temperature_fan``, ``bme280``, ``htu21d``, ``lm75``]
    we will create a sensor showing sensor temperature.
+
+
+Optional Temperature Sensor
+-----------------------------
+
+You can add additional temperature sensor in your moonraker configuration.
+
+In your `printer.cfg`
+
+.. code-block:: yaml
+
+    [temperature_sensor raspberry_pi]
+    sensor_type: temperature_host
+    min_temp: 10
+    max_temp: 100
+
+    [temperature_sensor mcu_temp]
+    sensor_type: temperature_mcu
+    min_temp: 0
+    max_temp: 100

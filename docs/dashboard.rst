@@ -7,6 +7,10 @@ Here is some very cool example by `Mike Fischer <https://github.com/greendog99>`
 .. image:: _static/dashboard1.png
     :align: center
 
+.. warning::
+
+   this is a dashboard proposed by a community member and all sensors my not be installed.
+
 
 Here is the yaml code to generate this lovely dashboard.
 
