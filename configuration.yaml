@@ -5,6 +5,10 @@ default_config:
 frontend:
   themes: !include_dir_merge_named themes
 
+# enable for debugging
+
+# debugpy:
+
 # Text to speech
 tts:
   - platform: google_translate
@@ -12,4 +16,4 @@ tts:
 logger:
   default: warning
   logs:
-    custom_components.moonraker: debug
+    custom_components.moonraker: warning
