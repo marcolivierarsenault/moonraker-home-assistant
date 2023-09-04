@@ -10,4 +10,7 @@ sudo apt-get install libturbojpeg0
 
 python3 -m pip install --requirement requirements.txt
 
+# https://github.com/home-assistant/core/issues/95192
+pip install git+https://github.com/boto/botocore
+
 pre-commit install
