@@ -537,6 +537,7 @@ def calculate_current_layer(data):
 
     if (
         "info" in data["status"]["print_stats"]
+        and data["status"]["print_stats"]["info"] is not None
         and "current_layer" in data["status"]["print_stats"]["info"]
         and data["status"]["print_stats"]["info"]["current_layer"] is not None
     ):

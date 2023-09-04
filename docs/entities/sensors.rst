@@ -145,6 +145,8 @@ Current Layer
 Current layer will be fetched from the value set by `SET_PRINT_STATS_INFO CURRENT_LAYER=[layer_number]` if available,
 otherwise it will be calculated based on print height and layer height.
 
+*Note*: In the first min of the prints, it is expected that the probe will move for calibration and aligement. So you should expect that number to move weirdly unlil the actual print starts.
+
 
 Optional Sensors
 -----------------------------
