@@ -8,6 +8,7 @@ from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
+    SensorStateClass,
 )
 from homeassistant.const import PERCENTAGE, UnitOfLength, UnitOfTemperature, UnitOfTime
 from homeassistant.core import callback
@@ -268,6 +269,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         ),
         subscriptions=[("print_stats", "info", "total_layer")],
         icon="mdi:layers-triple",
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     MoonrakerSensorDescription(
         key="current_layer",
@@ -275,6 +277,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         value_fn=lambda sensor: calculate_current_layer(sensor.coordinator.data),
         subscriptions=[("print_stats", "info", "current_layer")],
         icon="mdi:layers-edit",
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     MoonrakerSensorDescription(
         key="toolhead_position_x",
@@ -421,6 +424,7 @@ async def async_setup_history_sensors(coordinator, entry, async_add_entities):
             subscriptions=[],
             icon="mdi:numeric",
             unit="Jobs",
+            state_class=SensorStateClass.TOTAL_INCREASING,
         ),
         MoonrakerSensorDescription(
             key="total_print_time",
@@ -442,6 +446,7 @@ async def async_setup_history_sensors(coordinator, entry, async_add_entities):
             subscriptions=[],
             icon="mdi:clock-outline",
             unit=UnitOfLength.METERS,
+            state_class=SensorStateClass.TOTAL_INCREASING,
         ),
         MoonrakerSensorDescription(
             key="longest_print",
