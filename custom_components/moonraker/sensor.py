@@ -395,6 +395,18 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 unit=PERCENTAGE,
             )
             sensors.append(desc)
+        elif obj == "gcode_move":
+            desc = MoonrakerSensorDescription(
+                key="speed_factor",
+                name="Speed factor",
+                value_fn=lambda sensor: round(
+                    sensor.coordinator.data["status"]["gcode_move"]["speed_factor"] * 100, 2
+                ),
+                subscriptions=[("gcode_move", "speed_factor")],
+                icon="mdi:speedometer",
+                unit=PERCENTAGE,
+            )
+            sensors.append(desc)
 
     coordinator.load_sensor_data(sensors)
     await coordinator.async_refresh()
