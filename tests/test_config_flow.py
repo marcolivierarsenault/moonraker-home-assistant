@@ -8,6 +8,7 @@ from custom_components.moonraker.const import (
     CONF_API_KEY,
     CONF_PORT,
     CONF_PRINTER_NAME,
+    CONF_TLS,
     CONF_URL,
     DOMAIN,
 )
@@ -133,7 +134,31 @@ async def test_server_host_when_good(hass):
     assert result["data"] == {
         CONF_URL: "1.2.3.4",
         CONF_PORT: "7125",
+        CONF_TLS: False,
         CONF_API_KEY: "",
+        CONF_PRINTER_NAME: "",
+    }
+    assert result["result"]
+
+
+@pytest.mark.usefixtures("bypass_connect_client")
+async def test_server_ssl_enabled(hass):
+    """Test server host with TLS."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={CONF_URL: "1.2.3.4", CONF_TLS: True}
+    )
+
+    assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
+    assert result["title"] == DOMAIN
+    assert result["data"] == {
+        CONF_URL: "1.2.3.4",
+        CONF_PORT: "7125",
+        CONF_API_KEY: "",
+        CONF_TLS: True,
         CONF_PRINTER_NAME: "",
     }
     assert result["result"]
@@ -194,6 +219,7 @@ async def test_server_port_when_good_port(hass):
     assert result["data"] == {
         CONF_URL: "1.2.3.4",
         CONF_PORT: "7611",
+        CONF_TLS: False,
         CONF_API_KEY: "",
         CONF_PRINTER_NAME: "",
     }
@@ -216,6 +242,7 @@ async def test_server_port_when_port_empty(hass):
     assert result["data"] == {
         CONF_URL: "1.2.3.4",
         CONF_PORT: "",
+        CONF_TLS: False,
         CONF_API_KEY: "",
         CONF_PRINTER_NAME: "",
     }
@@ -281,6 +308,7 @@ async def test_server_api_key_when_good(hass):
     assert result["data"] == {
         CONF_URL: "1.2.3.4",
         CONF_PORT: "7125",
+        CONF_TLS: False,
         CONF_API_KEY: "A7ylD3EuPWWxGlsshlCIJjzRBNbQzlre",
         CONF_PRINTER_NAME: "",
     }
@@ -306,6 +334,7 @@ async def test_server_api_key_when_empty(hass):
     assert result["data"] == {
         CONF_URL: "1.2.3.4",
         CONF_PORT: "7125",
+        CONF_TLS: False,
         CONF_API_KEY: "",
         CONF_PRINTER_NAME: "",
     }
@@ -343,6 +372,7 @@ async def test_printer_name_when_good(hass):
     assert result["data"] == {
         CONF_URL: "1.2.3.4",
         CONF_PORT: "7125",
+        CONF_TLS: False,
         CONF_API_KEY: "",
         CONF_PRINTER_NAME: "example name",
     }
