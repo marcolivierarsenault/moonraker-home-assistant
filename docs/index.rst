@@ -33,6 +33,7 @@ This software seems to have issues working on **FLSUN Speeder Pad** and **Sonic 
 
    install
    dashboard
+   connection
 
 .. toctree::
    :caption: Usage
