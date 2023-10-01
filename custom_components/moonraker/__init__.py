@@ -19,6 +19,7 @@ from .const import (
     CONF_API_KEY,
     CONF_PORT,
     CONF_PRINTER_NAME,
+    CONF_TLS,
     CONF_URL,
     DOMAIN,
     HOSTNAME,
@@ -60,13 +61,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     url = entry.data.get(CONF_URL)
     port = entry.data.get(CONF_PORT)
+    tls = entry.data.get(CONF_TLS)
     api_key = entry.data.get(CONF_API_KEY)
     printer_name = (
         entry.data.get(CONF_PRINTER_NAME) if custom_name is None else custom_name
     )
 
     api = MoonrakerApiClient(
-        url, async_get_clientsession(hass, verify_ssl=False), port=port, api_key=api_key
+        url,
+        async_get_clientsession(hass, verify_ssl=False),
+        port=port,
+        api_key=api_key,
+        tls=tls,
     )
 
     try:

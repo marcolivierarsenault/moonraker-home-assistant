@@ -8,7 +8,15 @@ from homeassistant.util import network, slugify
 import voluptuous as vol
 
 from .api import MoonrakerApiClient
-from .const import CONF_API_KEY, CONF_PORT, CONF_PRINTER_NAME, CONF_URL, DOMAIN, TIMEOUT
+from .const import (
+    CONF_API_KEY,
+    CONF_PORT,
+    CONF_PRINTER_NAME,
+    CONF_TLS,
+    CONF_URL,
+    DOMAIN,
+    TIMEOUT,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,7 +53,10 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 return await self._show_config_form(user_input)
 
             if not await self._test_connection(
-                user_input[CONF_URL], user_input[CONF_PORT], user_input[CONF_API_KEY]
+                user_input[CONF_URL],
+                user_input[CONF_PORT],
+                user_input[CONF_API_KEY],
+                user_input[CONF_TLS],
             ):
                 self._errors[CONF_URL] = "printer_connection_error"
                 return await self._show_config_form(user_input)
@@ -57,6 +68,7 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         # Provide defaults for form
         user_input[CONF_URL] = "192.168.1.123"
         user_input[CONF_PORT] = "7125"
+        user_input[CONF_TLS] = False
         user_input[CONF_API_KEY] = ""
         user_input[CONF_PRINTER_NAME] = ""
 
@@ -72,6 +84,7 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 {
                     vol.Required(CONF_URL, default=user_input[CONF_URL]): str,
                     vol.Optional(CONF_PORT, default=user_input[CONF_PORT]): str,
+                    vol.Optional(CONF_TLS, default=user_input[CONF_TLS]): bool,
                     vol.Optional(CONF_API_KEY, default=user_input[CONF_API_KEY]): str,
                     vol.Optional(
                         CONF_PRINTER_NAME, default=user_input[CONF_PRINTER_NAME]
@@ -104,12 +117,13 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         return True
 
-    async def _test_connection(self, host, port, api_key):
+    async def _test_connection(self, host, port, api_key, tls):
         api = MoonrakerApiClient(
             host,
             async_get_clientsession(self.hass, verify_ssl=False),
             port=port,
             api_key=api_key,
+            tls=tls,
         )
 
         try:

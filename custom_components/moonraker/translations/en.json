@@ -6,6 +6,7 @@
         "data": {
           "url": "Host",
           "port": "Port",
+          "tls": "Uses TLS",
           "api_key": "API Key (Optional)",
           "printer_name": "Printer's Name (Defaults to the hostname)"
         }
