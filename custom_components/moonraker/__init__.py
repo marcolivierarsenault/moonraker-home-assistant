@@ -206,6 +206,11 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         try:
             # Keep last since this can fail but, we still want the other data
             path = gcode["thumbnails"][len(gcode["thumbnails"]) - 1]["relative_path"]
+            thumbnailSize = 0
+            for t in gcode["thumbnails"]:
+                if t["size"] > thumbnailSize:
+                    thumbnailSize = t["size"]
+                    path = t["relative_path"]
 
             return_gcode["thumbnails_path"] = os.path.join(dirname, path)
             return return_gcode
