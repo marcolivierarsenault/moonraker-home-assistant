@@ -29,6 +29,7 @@ async def test_setup_unload_and_reload_entry(hass):
     # Create a mock entry so we don't have to go through config flow
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
 
     assert await async_setup_entry(hass, config_entry)
     assert DOMAIN in hass.data and config_entry.entry_id in hass.data[DOMAIN]
@@ -56,6 +57,7 @@ async def test_setup_unload_and_reload_entry_with_name(hass):
     config_entry = MockConfigEntry(
         domain=DOMAIN, data=MOCK_CONFIG_WITH_NAME, entry_id="test"
     )
+    config_entry.add_to_hass(hass)
 
     assert await async_setup_entry(hass, config_entry)
     assert DOMAIN in hass.data and config_entry.entry_id in hass.data[DOMAIN]
@@ -80,6 +82,7 @@ async def test_async_send_data_exception(hass):
     """Test async_post_exception"""
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
 
     with patch(
@@ -101,6 +104,7 @@ async def test_setup_entry_exception(hass):
         side_effect=Exception,
     ):
         config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
 
         with pytest.raises(ConfigEntryNotReady):
             assert await async_setup_entry(hass, config_entry)
@@ -121,6 +125,7 @@ async def test_failed_first_refresh(hass):
         side_effect=load_data,
     ):
         config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
 
         with pytest.raises(ConfigEntryNotReady):
             assert await async_setup_entry(hass, config_entry)

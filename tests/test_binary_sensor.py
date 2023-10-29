@@ -28,6 +28,7 @@ async def test_runout_filament_sensor_missing(hass, get_data, get_printer_object
     )
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
@@ -39,6 +40,7 @@ async def test_runout_filament_sensor_missing(hass, get_data, get_printer_object
 
 async def test_runout_filament_sensor(hass):
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
@@ -48,6 +50,7 @@ async def test_runout_filament_sensor(hass):
 
 async def test_multiple_runout_filament_sensor(hass):
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
@@ -64,6 +67,7 @@ async def test_runout_filament_sensor_off(hass, get_data):
     ] = False
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
