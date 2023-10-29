@@ -28,6 +28,7 @@ async def test_camera_services(hass, caplog):
     """Test camera services"""
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
@@ -47,6 +48,7 @@ async def test_camera_services_full_path(hass, get_camera_info, caplog):
         "snapshot_url"
     ] = "http://1.2.3.4/webcam/?action=2snapshot"
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
@@ -68,6 +70,7 @@ async def test_two_cameras_services(hass, get_camera_info):
     )
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
@@ -87,6 +90,7 @@ async def test_two_cameras_same_name_services(hass, get_camera_info):
     )
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
@@ -100,6 +104,7 @@ async def test_setup_thumbnail_camera(hass, get_data):
     get_data["status"]["print_stats"]["filename"] = "CE3E3V2_picture_frame_holder.gcode"
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
@@ -117,6 +122,7 @@ async def test_thumbnail_camera_image(
     get_data["status"]["print_stats"]["filename"] = "CE3E3V2_picture_frame_holder.gcode"
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
@@ -134,6 +140,7 @@ async def test_thumbnail_camera_from_img_to_none(hass):
     """Test thumbnail camera from img to none"""
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
@@ -146,6 +153,7 @@ async def test_thumbnail_no_thumbnail(hass, get_data):
     get_data["status"]["print_stats"]["filename"] = ""
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
@@ -160,6 +168,7 @@ async def test_thumbnail_not_printing(hass, aioclient_mock, get_data):
     get_data["status"]["print_stats"]["state"] = PRINTSTATES.STANDBY.value
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
@@ -183,6 +192,7 @@ async def test_thumbnail_no_thumbnail_after_update(
     get_data["status"]["print_stats"]["filename"] = "CE3E3V2_picture_frame_holder.gcode"
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
@@ -218,6 +228,7 @@ async def test_thumbnail_data_failing(
         return_value={**get_data, **get_printer_info, **get_camera_info},
     ):
         config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
         assert await async_setup_entry(hass, config_entry)
         await hass.async_block_till_done()
 
@@ -235,6 +246,7 @@ async def test_thumbnail_on_subfolder(hass, get_data, aioclient_mock):
     ] = "subfolder/CE3E3V2_picture_frame_holder.gcode"
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 

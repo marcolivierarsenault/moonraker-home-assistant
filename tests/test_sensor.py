@@ -44,6 +44,7 @@ async def test_sensor_services_update(hass, get_data):
     # Create a mock entry so we don't have to go through config flow
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
@@ -112,6 +113,7 @@ async def test_sensors(
     value,
 ):
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
@@ -141,6 +143,7 @@ async def test_sensors_not_printing(
 ):
     get_data["status"]["print_stats"]["state"] = PRINTSTATES.STANDBY.value
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
@@ -152,6 +155,7 @@ async def test_opt_sensor_missing(hass, get_data, get_printer_objects_list):
     get_printer_objects_list["objects"].remove("temperature_sensor mcu_temp")
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
@@ -161,6 +165,7 @@ async def test_opt_sensor_missing(hass, get_data, get_printer_objects_list):
 
 async def test_eta(hass):
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
@@ -176,6 +181,7 @@ async def test_eta(hass):
 
 async def test_slicer_time_left(hass, get_data):
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
@@ -195,6 +201,7 @@ async def test_eta_no_current_data(hass, get_data):
     get_data["status"]["print_stats"]["print_duration"] = 0
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
@@ -239,6 +246,7 @@ async def test_no_history_data(
         },
     ):
         config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
         assert await async_setup_entry(hass, config_entry)
         await hass.async_block_till_done()
 
@@ -251,6 +259,7 @@ async def test_double_sensor_data(hass, get_data, get_printer_objects_list):
     get_data["status"]["heater_fan controller_fan"] = {"speed": 0.1234}
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
@@ -274,6 +283,7 @@ async def test_no_fan_sensor(hass, get_data, get_printer_objects_list):
     get_printer_objects_list["objects"].remove("fan")
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
@@ -285,6 +295,7 @@ async def test_rounding_fan(hass, get_data):
     get_data["status"]["fan"]["speed"] = 0.33333333333
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
