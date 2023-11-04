@@ -37,7 +37,7 @@ async def async_setup_optional_binary_sensors(coordinator, entry, async_add_enti
     for obj in object_list["objects"]:
         split_obj = obj.split()
 
-        if split_obj[0] == "filament_switch_sensor":
+        if split_obj[0] in ["filament_switch_sensor", "filament_motion_sensor"]:
             desc = MoonrakerBinarySensorDescription(
                 key=f"{split_obj[0]}_{split_obj[1]}",
                 sensor_name=obj,
