@@ -5,5 +5,5 @@ Pillow==10.1.0
 pre-commit==3.5.0
 sphinx==7.2.6
 colorlog==6.7.0
-urllib3==2.0.7
+urllib3==2.1.0
 furo==2023.9.10
