@@ -400,7 +400,9 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 key="speed_factor",
                 name="Speed factor",
                 value_fn=lambda sensor: round(
-                    sensor.coordinator.data["status"]["gcode_move"]["speed_factor"] * 100, 2
+                    sensor.coordinator.data["status"]["gcode_move"]["speed_factor"]
+                    * 100,
+                    2,
                 ),
                 subscriptions=[("gcode_move", "speed_factor")],
                 icon="mdi:speedometer",

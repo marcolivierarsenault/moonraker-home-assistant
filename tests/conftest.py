@@ -140,7 +140,7 @@ def get_data_fixture():
             },
             "gcode_move": {
                 "speed_factor": 2.0,
-            }
+            },
         },
         "printer.info": {
             "result": {
