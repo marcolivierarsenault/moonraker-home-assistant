@@ -22,9 +22,7 @@ def bypass_connect_client_fixture():
 # test number
 @pytest.mark.parametrize(
     "number",
-    [
-        ("mainsail_output_pin_pwm"),
-    ],
+    [("mainsail_output_pin_pwm"), ("mainsail_output_pin_CAPITALIZED")],
 )
 async def test_number_set_value(hass, number, get_default_api_response):
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")

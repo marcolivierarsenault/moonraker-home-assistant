@@ -44,7 +44,7 @@ async def async_setup_output_pin(coordinator, entry, async_add_entities):
         if "output_pin" not in obj:
             continue
 
-        if not settings["status"]["configfile"]["settings"][obj]["pwm"]:
+        if not settings["status"]["configfile"]["settings"][obj.lower()]["pwm"]:
             continue
 
         desc = MoonrakerNumberSensorDescription(
