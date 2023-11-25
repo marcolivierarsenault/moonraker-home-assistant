@@ -138,6 +138,9 @@ def get_data_fixture():
             "output_pin pwm": {
                 "value": 0.5,
             },
+            "gcode_move": {
+                "speed_factor": 2.0,
+            },
         },
         "printer.info": {
             "result": {
