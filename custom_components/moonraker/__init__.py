@@ -124,9 +124,11 @@ async def _gcode_file_detail_updater(coordinator):
     data = await coordinator._async_fetch_data(
         METHODS.PRINTER_OBJECTS_QUERY, coordinator.query_obj
     )
-    return await coordinator._async_get_gcode_file_detail(
-        data["status"]["print_stats"]["filename"]
-    )
+    filename = ""
+    if "status" in data:
+        filename = data["status"]["print_stats"]["filename"]
+
+    return await coordinator._async_get_gcode_file_detail(filename)
 
 
 class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
