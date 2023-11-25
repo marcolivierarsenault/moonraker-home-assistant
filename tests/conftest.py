@@ -51,6 +51,9 @@ def get_data_fixture():
                     "output_pin pwm": {
                         "pwm": True,
                     },
+                    "output_pin capitalized": {
+                        "pwm": True,
+                    },
                 },
             },
             "print_stats": {
@@ -137,6 +140,9 @@ def get_data_fixture():
             },
             "output_pin pwm": {
                 "value": 0.5,
+            },
+            "output_pin CAPITALIZED": {
+                "value": 1.0,
             },
             "gcode_move": {
                 "speed_factor": 2.0,
@@ -270,6 +276,7 @@ def get_printer_objects_list_fixture():
             "filament_switch_sensor filament_sensor_2",
             "output_pin digital",
             "output_pin pwm",
+            "output_pin CAPITALIZED",
             "fan_generic nevermore_fan",
         ]
     }
