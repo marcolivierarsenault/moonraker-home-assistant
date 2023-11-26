@@ -114,6 +114,21 @@ async def test_setup_thumbnail_camera(hass, get_data):
     assert entry is not None
 
 
+async def test_hardcoded_camera(hass, get_default_api_response):
+    """Test hardcoded camera"""
+    get_default_api_response["webcams"] = []
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    assert await async_setup_entry(hass, config_entry)
+    await hass.async_block_till_done()
+
+    entity_registry = er.async_get(hass)
+    entry = entity_registry.async_get("camera.mainsail_webcam")
+
+    assert entry is not None
+
+
 async def test_thumbnail_camera_image(
     hass, aioclient_mock, get_data, _moonraker_default_mock
 ):
