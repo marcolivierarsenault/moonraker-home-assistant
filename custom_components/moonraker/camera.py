@@ -50,13 +50,10 @@ async def async_setup_entry(
         _LOGGER.info("Could not add any cameras from the API list")
 
     if camera_cnt == 0:
-        try:
-            _LOGGER.info("No Camera in the list, trying hardcoded")
-            async_add_entities(
-                [MoonrakerCamera(config_entry, coordinator, hardcoded_camera, 0)]
-            )
-        except Exception:
-            _LOGGER.info("Could not add hardcoded camera")
+        _LOGGER.info("No Camera in the list, trying hardcoded")
+        async_add_entities(
+            [MoonrakerCamera(config_entry, coordinator, hardcoded_camera, 0)]
+        )
 
     async_add_entities(
         [
