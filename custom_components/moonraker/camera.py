@@ -15,6 +15,19 @@ from .const import CONF_URL, DOMAIN, METHODS, PRINTSTATES
 
 _LOGGER = logging.getLogger(__name__)
 
+hardcoded_camera = {
+    "name": "webcam",
+    "location": "printer",
+    "service": "mjpegstreamer-adaptive",
+    "target_fps": "15",
+    "stream_url": "/webcam/?action=stream",
+    "snapshot_url": "/webcam/?action=snapshot",
+    "flip_horizontal": False,
+    "flip_vertical": False,
+    "rotation": 0,
+    "source": "database",
+}
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -24,11 +37,22 @@ async def async_setup_entry(
     """Set up the available Moonraker camera."""
     coordinator = hass.data[DOMAIN][config_entry.entry_id]
 
-    cameras = await coordinator.async_fetch_data(METHODS.SERVER_WEBCAMS_LIST)
+    camera_cnt = 0
 
-    for camera_id, camera in enumerate(cameras["webcams"]):
+    try:
+        cameras = await coordinator.async_fetch_data(METHODS.SERVER_WEBCAMS_LIST)
+        for camera_id, camera in enumerate(cameras["webcams"]):
+            async_add_entities(
+                [MoonrakerCamera(config_entry, coordinator, camera, camera_id)]
+            )
+            camera_cnt += 1
+    except Exception:
+        _LOGGER.info("Could not add any cameras from the API list")
+
+    if camera_cnt == 0:
+        _LOGGER.info("No Camera in the list, trying hardcoded")
         async_add_entities(
-            [MoonrakerCamera(config_entry, coordinator, camera, camera_id)]
+            [MoonrakerCamera(config_entry, coordinator, hardcoded_camera, 0)]
         )
 
     async_add_entities(
