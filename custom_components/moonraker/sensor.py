@@ -517,13 +517,20 @@ def calculate_pct_job(data) -> float:
     print_expected_duration = data["estimated_time"]
     filament_used = data["status"]["print_stats"]["filament_used"]
     expected_filament = data["filament_total"]
-    if print_expected_duration == 0 or expected_filament == 0:
+    devider = 0
+
+    if print_expected_duration != 0:
+        time_pct = data["status"]["display_status"]["progress"]
+        devider += 1
+
+    if expected_filament != 0:
+        filament_pct = 1.0 * filament_used / expected_filament
+        devider += 1
+
+    if devider == 0:
         return 0
 
-    time_pct = data["status"]["display_status"]["progress"]
-    filament_pct = 1.0 * filament_used / expected_filament
-
-    return (time_pct + filament_pct) / 2
+    return (time_pct + filament_pct) / devider
 
 
 def calculate_eta(data):
