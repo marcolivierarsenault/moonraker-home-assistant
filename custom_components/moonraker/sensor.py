@@ -518,6 +518,8 @@ def calculate_pct_job(data) -> float:
     filament_used = data["status"]["print_stats"]["filament_used"]
     expected_filament = data["filament_total"]
     devider = 0
+    time_pct = 0
+    filament_pct = 0
 
     if print_expected_duration != 0:
         time_pct = data["status"]["display_status"]["progress"]
