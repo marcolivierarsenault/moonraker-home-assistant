@@ -217,11 +217,17 @@ async def test_calculate_pct_job(data_for_calculate_pct):
 
 async def test_calculate_pct_job_no_time(data_for_calculate_pct):
     data_for_calculate_pct["estimated_time"] = 0
-    assert calculate_pct_job(data_for_calculate_pct) == 0
+    assert calculate_pct_job(data_for_calculate_pct) == 0.5
 
 
 async def test_calculate_pct_job_no_filament(data_for_calculate_pct):
     data_for_calculate_pct["filament_total"] = 0
+    assert calculate_pct_job(data_for_calculate_pct) == 0.6
+
+
+async def test_calculate_pct_job_no_filament_no_time(data_for_calculate_pct):
+    data_for_calculate_pct["filament_total"] = 0
+    data_for_calculate_pct["estimated_time"] = 0
     assert calculate_pct_job(data_for_calculate_pct) == 0
 
 
