@@ -20,7 +20,7 @@ jobs:
           ignore: brands
 
       - name: Hassfest validation
-        uses: "marcolivierarsenault/actions/hassfest@master"
+        uses: "home-assistant/actions/hassfest@master"
 
   style:
     runs-on: "ubuntu-latest"
