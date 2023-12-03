@@ -41,6 +41,7 @@ class METHODS(Enum):
     MACHINE_DEVICE_POWER_DEVICES = "machine.device_power.devices"
     MACHINE_DEVICE_POWER_GET_DEVICE = "machine.device_power.get_device"
     MACHINE_DEVICE_POWER_POST_DEVICE = "machine.device_power.post_device"
+    MACHINE_UPDATE_REFRESH = "machine.update.refresh"
     PRINTER_EMERGENCY_STOP = "printer.emergency_stop"
     PRINTER_INFO = "printer.info"
     PRINTER_GCODE_HELP = "printer.gcode.help"

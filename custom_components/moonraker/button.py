@@ -85,6 +85,14 @@ BUTTONS: tuple[MoonrakerButtonDescription, ...] = [
         ),
         icon="mdi:restart",
     ),
+    MoonrakerButtonDescription(
+        key="machine_update_refresh",
+        name="Machine Update Refresh",
+        press_fn=lambda button: button.coordinator.async_send_data(
+            METHODS.MACHINE_UPDATE_REFRESH
+        ),
+        icon="mdi:refresh",
+    ),
 ]
 
 
