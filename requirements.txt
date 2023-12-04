@@ -4,6 +4,6 @@ aiohttp_cors==0.7.0
 Pillow==10.1.0
 pre-commit==3.5.0
 sphinx==7.2.6
-colorlog==6.7.0
+colorlog==6.8.0
 urllib3==2.1.0
 furo==2023.9.10
