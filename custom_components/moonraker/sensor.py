@@ -328,6 +328,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     await async_setup_basic_sensor(coordinator, entry, async_add_entities)
     await async_setup_optional_sensors(coordinator, entry, async_add_entities)
     await async_setup_history_sensors(coordinator, entry, async_add_entities)
+    await async_setup_machine_update_sensors(coordinator, entry, async_add_entities)
 
 
 async def async_setup_basic_sensor(coordinator, entry, async_add_entities):
@@ -472,6 +473,56 @@ async def async_setup_history_sensors(coordinator, entry, async_add_entities):
         ),
     ]
 
+    coordinator.load_sensor_data(sensors)
+    await coordinator.async_refresh()
+    async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
+
+
+async def _machine_update_updater(coordinator):
+    return {
+        "machine_update": await coordinator.async_fetch_data(
+            METHODS.MACHINE_UPDATE_STATUS
+        )
+    }
+
+
+async def async_setup_machine_update_sensors(coordinator, entry, async_add_entities):
+    machine_status = await coordinator.async_fetch_data(METHODS.MACHINE_UPDATE_STATUS)
+    if machine_status.get("error"):
+        return
+
+    coordinator.add_data_updater(_machine_update_updater)
+    sensors = [
+        MoonrakerSensorDescription(
+            key="machine_update_system",
+            name="Machine Update System",
+            value_fn=lambda sensor: f"{sensor.coordinator.data['machine_update']['version_info']['system']['package_count']} packages can be upgraded",
+            subscriptions=[],
+            icon="mdi:update",
+        )
+    ]
+
+    for version_info in machine_status["version_info"]:
+        if version_info == "system":
+            continue
+
+        sensors.append(
+            MoonrakerSensorDescription(
+                key=f"machine_update_{version_info}",
+                name=f"{version_info.title()}",
+                status_key=version_info,
+                value_fn=lambda sensor: (lambda v, rv: f"{v} > {rv}" if v != rv else v)(
+                    sensor.coordinator.data["machine_update"]["version_info"][
+                        sensor.status_key
+                    ]["version"],
+                    sensor.coordinator.data["machine_update"]["version_info"][
+                        sensor.status_key
+                    ]["remote_version"],
+                ),
+                subscriptions=[],
+                icon="mdi:update",
+            )
+        )
     coordinator.load_sensor_data(sensors)
     await coordinator.async_refresh()
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
