@@ -340,6 +340,18 @@ def get_power_devices_fixture():
     }
 
 
+@pytest.fixture(name="get_machine_update_status")
+def get_machine_update_status_fixture():
+    """Get Machine Update Status fixture"""
+    return {
+        "version_info": {
+            "system": {"package_count": 8},
+            "crownest": {"version": "v4.0.4-6", "remote_version": "v4.1.1-1"},
+            "mainsail": {"version": "v2.8.0", "remote_version": "v2.8.0"},
+        },
+    }
+
+
 @pytest.fixture(name="get_default_api_response")
 def get_default_api_response_fixure(
     get_data,
@@ -349,6 +361,7 @@ def get_default_api_response_fixure(
     get_camera_info,
     get_gcode_help,
     get_power_devices,
+    get_machine_update_status,
 ):
     """Get all the default fixture returned by moonraker."""
     return {
@@ -359,6 +372,7 @@ def get_default_api_response_fixure(
         **get_camera_info,
         **get_gcode_help,
         **get_power_devices,
+        **get_machine_update_status,
     }
 
 

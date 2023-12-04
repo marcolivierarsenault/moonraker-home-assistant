@@ -108,6 +108,9 @@ async def test_sensor_services_update(hass, get_data):
         ("mainsail_slicer_print_duration_estimate", "8232.0"),
         ("mainsail_object_height", "62.6"),
         ("mainsail_speed_factor", "200.0"),
+        ("mainsail_machine_update_system", "8 packages can be upgraded"),
+        ("mainsail_crownest", "v4.0.4-6 > v4.1.1-1"),
+        ("mainsail_mainsail", "v2.8.0"),
     ],
 )
 async def test_sensors(
