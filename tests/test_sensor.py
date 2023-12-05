@@ -338,6 +338,35 @@ async def test_current_layer_calculated():
     assert calculate_current_layer(data) == 42
 
 
+async def test_current_layer_calculated_layer_height_0():
+    data = {
+        "status": {
+            "print_stats": {
+                "state": PRINTSTATES.PRINTING.value,
+                "filename": "TheUniverse.gcode",
+            },
+            "toolhead": {"position": [0, 0, 8.4]},
+        },
+        "first_layer_height": 0.2,
+        "layer_height": 0,
+    }
+    assert calculate_current_layer(data) == 0
+
+
+async def test_current_layer_calculate_missing_layer_height():
+    data = {
+        "status": {
+            "print_stats": {
+                "state": PRINTSTATES.PRINTING.value,
+                "filename": "TheUniverse.gcode",
+            },
+            "toolhead": {"position": [0, 0, 8.4]},
+        },
+        "first_layer_height": 0.2,
+    }
+    assert calculate_current_layer(data) == 0
+
+
 async def test_current_layer_calculated_partial_info():
     data = {
         "status": {
