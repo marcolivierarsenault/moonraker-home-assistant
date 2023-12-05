@@ -67,6 +67,7 @@ async def async_setup_update_binary_sensors(coordinator, entry, async_add_entiti
         subscriptions=[("status", "update_available")],
         icon="mdi:update",
         device_class=BinarySensorDeviceClass.UPDATE,
+        entity_registry_enabled_default=False,
     )
 
     coordinator.load_sensor_data([desc])
