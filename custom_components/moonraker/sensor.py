@@ -499,6 +499,7 @@ async def async_setup_machine_update_sensors(coordinator, entry, async_add_entit
             value_fn=lambda sensor: f"{sensor.coordinator.data['machine_update']['version_info']['system']['package_count']} packages can be upgraded",
             subscriptions=[],
             icon="mdi:update",
+            entity_registry_enabled_default=False,
         )
     ]
 
@@ -509,7 +510,7 @@ async def async_setup_machine_update_sensors(coordinator, entry, async_add_entit
         sensors.append(
             MoonrakerSensorDescription(
                 key=f"machine_update_{version_info}",
-                name=f"{version_info.title()}",
+                name=f"Version {version_info.title()}",
                 status_key=version_info,
                 value_fn=lambda sensor: (lambda v, rv: f"{v} > {rv}" if v != rv else v)(
                     sensor.coordinator.data["machine_update"]["version_info"][
@@ -521,6 +522,7 @@ async def async_setup_machine_update_sensors(coordinator, entry, async_add_entit
                 ),
                 subscriptions=[],
                 icon="mdi:update",
+                entity_registry_enabled_default=False,
             )
         )
     coordinator.load_sensor_data(sensors)
