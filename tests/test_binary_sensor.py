@@ -77,3 +77,47 @@ async def test_runout_filament_sensor_off(hass, get_data):
 
     state = hass.states.get("binary_sensor.mainsail_filament_sensor_1")
     assert state.state == "off"
+
+
+async def test_update_available(hass):
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    assert await async_setup_entry(hass, config_entry)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("binary_sensor.mainsail_update_available")
+    assert state.state == "on"
+
+
+async def test_update_available_system(hass, get_machine_update_status):
+    get_machine_update_status["version_info"]["crownest"]["version"] = "v4.1.1-1"
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    assert await async_setup_entry(hass, config_entry)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("binary_sensor.mainsail_update_available")
+    assert state.state == "on"
+
+
+async def test_update_available_component(hass, get_machine_update_status):
+    get_machine_update_status["version_info"]["system"]["package_count"] = 0
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    assert await async_setup_entry(hass, config_entry)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("binary_sensor.mainsail_update_available")
+    assert state.state == "on"
+
+
+async def test_update_available_no_update(hass, get_machine_update_status):
+    get_machine_update_status["version_info"]["system"]["package_count"] = 0
+    get_machine_update_status["version_info"]["crownest"]["version"] = "v4.1.1-1"
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    assert await async_setup_entry(hass, config_entry)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("binary_sensor.mainsail_update_available")
+    assert state.state == "off"
