@@ -571,6 +571,9 @@ def calculate_current_layer(data):
     ):
         return data["status"]["print_stats"]["info"]["current_layer"]
 
+    if "layer_height" not in data or data["layer_height"] <= 0:
+        return 0
+
     # layer = (current_z - first_layer_height) / layer_height + 1
     return (
         int(
