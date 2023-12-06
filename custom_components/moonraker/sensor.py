@@ -506,7 +506,6 @@ async def async_setup_machine_update_sensors(coordinator, entry, async_add_entit
     for version_info in machine_status["version_info"]:
         if version_info == "system":
             continue
-
         sensors.append(
             MoonrakerSensorDescription(
                 key=f"machine_update_{version_info}",
