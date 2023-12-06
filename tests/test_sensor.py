@@ -130,6 +130,8 @@ async def test_sensors(
     "sensor, value",
     [
         ("mainsail_machine_update_system", "8 packages can be upgraded"),
+        ("mainsail_version_crownest", "v4.0.4-6 > v4.1.1-1"),
+        ("mainsail_version_mainsail", "v2.8.0"),
     ],
 )
 async def test_disabled_sensors(
