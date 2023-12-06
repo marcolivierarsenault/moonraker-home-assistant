@@ -1,6 +1,7 @@
 """Binary_sensor Tests."""
 from unittest.mock import patch
 
+from homeassistant.helpers import entity_registry as er
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -85,6 +86,21 @@ async def test_update_available(hass):
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
+    entity_registry = er.async_get(hass)
+    entity = entity_registry.async_get("binary_sensor.mainsail_update_available")
+    assert entity
+    assert entity.disabled
+    entity_registry.async_update_entity(
+        "binary_sensor.mainsail_update_available",
+        disabled_by=None,
+    )
+    await hass.config_entries.async_reload(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    entity = entity_registry.async_get("binary_sensor.mainsail_update_available")
+    assert entity
+    assert not entity.disabled
+
     state = hass.states.get("binary_sensor.mainsail_update_available")
     assert state.state == "on"
 
@@ -95,6 +111,21 @@ async def test_update_available_system(hass, get_machine_update_status):
     config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
+
+    entity_registry = er.async_get(hass)
+    entity = entity_registry.async_get("binary_sensor.mainsail_update_available")
+    assert entity
+    assert entity.disabled
+    entity_registry.async_update_entity(
+        "binary_sensor.mainsail_update_available",
+        disabled_by=None,
+    )
+    await hass.config_entries.async_reload(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    entity = entity_registry.async_get("binary_sensor.mainsail_update_available")
+    assert entity
+    assert not entity.disabled
 
     state = hass.states.get("binary_sensor.mainsail_update_available")
     assert state.state == "on"
@@ -107,6 +138,21 @@ async def test_update_available_component(hass, get_machine_update_status):
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
 
+    entity_registry = er.async_get(hass)
+    entity = entity_registry.async_get("binary_sensor.mainsail_update_available")
+    assert entity
+    assert entity.disabled
+    entity_registry.async_update_entity(
+        "binary_sensor.mainsail_update_available",
+        disabled_by=None,
+    )
+    await hass.config_entries.async_reload(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    entity = entity_registry.async_get("binary_sensor.mainsail_update_available")
+    assert entity
+    assert not entity.disabled
+
     state = hass.states.get("binary_sensor.mainsail_update_available")
     assert state.state == "on"
 
@@ -118,6 +164,22 @@ async def test_update_available_no_update(hass, get_machine_update_status):
     config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
     await hass.async_block_till_done()
+
+    entity_registry = er.async_get(hass)
+    entity = entity_registry.async_get("binary_sensor.mainsail_update_available")
+    assert entity
+    assert entity.disabled
+    entity_registry.async_update_entity(
+        "binary_sensor.mainsail_update_available",
+        disabled_by=None,
+    )
+
+    await hass.config_entries.async_reload(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    entity = entity_registry.async_get("binary_sensor.mainsail_update_available")
+    assert entity
+    assert not entity.disabled
 
     state = hass.states.get("binary_sensor.mainsail_update_available")
     assert state.state == "off"

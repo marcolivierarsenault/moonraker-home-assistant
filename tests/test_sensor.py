@@ -2,6 +2,7 @@
 import datetime as dt
 from unittest.mock import patch
 
+from homeassistant.helpers import entity_registry as er
 import pytest
 from homeassistant.helpers.entity_registry import async_get as get_entity_registry
 from pytest_homeassistant_custom_component.common import (
@@ -108,9 +109,6 @@ async def test_sensor_services_update(hass, get_data):
         ("mainsail_slicer_print_duration_estimate", "8232.0"),
         ("mainsail_object_height", "62.6"),
         ("mainsail_speed_factor", "200.0"),
-        ("mainsail_machine_update_system", "8 packages can be upgraded"),
-        ("mainsail_crownest", "v4.0.4-6 > v4.1.1-1"),
-        ("mainsail_mainsail", "v2.8.0"),
     ],
 )
 async def test_sensors(
@@ -125,6 +123,42 @@ async def test_sensors(
     await hass.async_block_till_done()
 
     assert hass.states.get(f"sensor.{sensor}").state == value
+
+
+# test all sensors
+@pytest.mark.parametrize(
+    "sensor, value",
+    [
+        ("mainsail_machine_update_system", "8 packages can be upgraded"),
+    ],
+)
+async def test_disabled_sensors(
+    hass,
+    sensor,
+    value,
+):
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    assert await async_setup_entry(hass, config_entry)
+    await hass.async_block_till_done()
+
+    entity_registry = er.async_get(hass)
+    entity = entity_registry.async_get(f"sensor.{sensor}")
+    assert entity
+    assert entity.disabled
+    entity_registry.async_update_entity(
+        f"sensor.{sensor}",
+        disabled_by=None,
+    )
+    await hass.config_entries.async_reload(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    entity = entity_registry.async_get(f"sensor.{sensor}")
+    assert entity
+    assert not entity.disabled
+
+    state = hass.states.get(f"sensor.{sensor}")
+    assert state.state == value
 
 
 # test sensor affected by not printing state
