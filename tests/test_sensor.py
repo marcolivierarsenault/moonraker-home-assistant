@@ -2,8 +2,8 @@
 import datetime as dt
 from unittest.mock import patch
 
-from homeassistant.helpers.entity_registry import async_get as get_entity_registry
 import pytest
+from homeassistant.helpers.entity_registry import async_get as get_entity_registry
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_fire_time_changed,
@@ -28,7 +28,7 @@ def bypass_connect_client_fixture():
 
 @pytest.fixture(name="data_for_calculate_pct")
 def data_for_calculate_pct_fixture():
-    """data_for_calculate_pct"""
+    """data_for_calculate_pct."""
     return {
         "estimated_time": 10,
         "status": {
@@ -63,7 +63,9 @@ async def test_sensor_services_update(hass, get_data):
     assert hass.states.get("sensor.mainsail_bed_target").state == "100.0"
 
 
-# test all sensors
+"""test all sensors"""
+
+
 @pytest.mark.parametrize(
     "sensor, value",
     [
@@ -113,6 +115,7 @@ async def test_sensors(
     sensor,
     value,
 ):
+    """test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
@@ -142,6 +145,7 @@ async def test_sensors_not_printing(
     value,
     get_data,
 ):
+    """test."""
     get_data["status"]["print_stats"]["state"] = PRINTSTATES.STANDBY.value
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
@@ -152,6 +156,7 @@ async def test_sensors_not_printing(
 
 
 async def test_opt_sensor_missing(hass, get_data, get_printer_objects_list):
+    """test."""
     get_data["status"].pop("temperature_sensor mcu_temp", None)
     get_printer_objects_list["objects"].remove("temperature_sensor mcu_temp")
 
@@ -165,6 +170,7 @@ async def test_opt_sensor_missing(hass, get_data, get_printer_objects_list):
 
 
 async def test_eta(hass):
+    """test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
@@ -181,6 +187,7 @@ async def test_eta(hass):
 
 
 async def test_slicer_time_left(hass, get_data):
+    """test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
@@ -199,6 +206,7 @@ async def test_slicer_time_left(hass, get_data):
 
 
 async def test_eta_no_current_data(hass, get_data):
+    """test."""
     get_data["status"]["print_stats"]["print_duration"] = 0
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
@@ -212,20 +220,25 @@ async def test_eta_no_current_data(hass, get_data):
 
 
 async def test_calculate_pct_job(data_for_calculate_pct):
+    """test."""
     assert calculate_pct_job(data_for_calculate_pct) == 0.55
 
 
 async def test_calculate_pct_job_no_time(data_for_calculate_pct):
+    """test."""
     data_for_calculate_pct["estimated_time"] = 0
     assert calculate_pct_job(data_for_calculate_pct) == 0.5
 
 
 async def test_calculate_pct_job_no_filament(data_for_calculate_pct):
+    """test."""
     data_for_calculate_pct["filament_total"] = 0
     assert calculate_pct_job(data_for_calculate_pct) == 0.6
 
 
 async def test_calculate_pct_job_no_filament_no_time(data_for_calculate_pct):
+    """test_calculate_pct_job_no_filament_no_time."""
+
     data_for_calculate_pct["filament_total"] = 0
     data_for_calculate_pct["estimated_time"] = 0
     assert calculate_pct_job(data_for_calculate_pct) == 0
@@ -239,6 +252,8 @@ async def test_no_history_data(
     get_camera_info,
     get_gcode_help,
 ):
+    """Test no history."""
+
     get_history = {"error": "method not found"}
 
     with patch(
@@ -262,6 +277,7 @@ async def test_no_history_data(
 
 
 async def test_double_sensor_data(hass, get_data, get_printer_objects_list):
+    """test."""
     get_printer_objects_list["objects"].append("heater_fan controller_fan")
     get_data["status"]["heater_fan controller_fan"] = {"speed": 0.1234}
 
@@ -286,6 +302,7 @@ async def test_double_sensor_data(hass, get_data, get_printer_objects_list):
 
 
 async def test_no_fan_sensor(hass, get_data, get_printer_objects_list):
+    """test."""
     get_data["status"].pop("fan")
     get_printer_objects_list["objects"].remove("fan")
 
@@ -299,6 +316,7 @@ async def test_no_fan_sensor(hass, get_data, get_printer_objects_list):
 
 
 async def test_rounding_fan(hass, get_data):
+    """test."""
     get_data["status"]["fan"]["speed"] = 0.33333333333
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
@@ -311,6 +329,7 @@ async def test_rounding_fan(hass, get_data):
 
 
 async def test_current_layer_in_info():
+    """test."""
     data = {
         "status": {
             "print_stats": {
@@ -324,6 +343,7 @@ async def test_current_layer_in_info():
 
 
 async def test_current_layer_calculated():
+    """test."""
     data = {
         "status": {
             "print_stats": {
@@ -339,6 +359,7 @@ async def test_current_layer_calculated():
 
 
 async def test_current_layer_calculated_layer_height_0():
+    """test."""
     data = {
         "status": {
             "print_stats": {
@@ -354,6 +375,7 @@ async def test_current_layer_calculated_layer_height_0():
 
 
 async def test_current_layer_calculate_missing_layer_height():
+    """test."""
     data = {
         "status": {
             "print_stats": {
@@ -368,6 +390,7 @@ async def test_current_layer_calculate_missing_layer_height():
 
 
 async def test_current_layer_calculated_partial_info():
+    """test."""
     data = {
         "status": {
             "print_stats": {

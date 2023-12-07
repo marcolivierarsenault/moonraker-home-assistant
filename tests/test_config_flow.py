@@ -1,8 +1,8 @@
 """Test moonraker config flow."""
 from unittest.mock import patch
 
-from homeassistant import config_entries, data_entry_flow
 import pytest
+from homeassistant import config_entries, data_entry_flow
 
 from custom_components.moonraker.const import (
     CONF_API_KEY,
@@ -25,7 +25,7 @@ def bypass_connect_client_fixture():
 
 @pytest.fixture(name="error_connect_client")
 def error_connect_client_fixture():
-    """Throw error when trying to connect"""
+    """Throw error when trying to connect."""
     with patch("custom_components.moonraker.MoonrakerApiClient.start"):
         raise Exception
 
@@ -78,7 +78,7 @@ async def test_tmp_failing_config_flow(hass):
 
 @pytest.mark.usefixtures("bypass_connect_client")
 async def test_server_host_with_protocol(hass):
-    """Test server host when it has protocol"""
+    """Test server host when it has protocol."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
@@ -228,7 +228,7 @@ async def test_server_port_when_good_port(hass):
 
 @pytest.mark.usefixtures("bypass_connect_client")
 async def test_server_port_when_port_empty(hass):
-    """Test server port is left empty"""
+    """Test server port is left empty."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
@@ -250,7 +250,7 @@ async def test_server_port_when_port_empty(hass):
 
 @pytest.mark.usefixtures("bypass_connect_client")
 async def test_server_api_key_weird_char(hass):
-    """Test api key when contains weird characters"""
+    """Test api key when contains weird characters."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
@@ -263,7 +263,7 @@ async def test_server_api_key_weird_char(hass):
 
 @pytest.mark.usefixtures("bypass_connect_client")
 async def test_server_api_key_too_short(hass):
-    """Test api key when it's too short"""
+    """Test api key when it's too short."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
@@ -276,7 +276,7 @@ async def test_server_api_key_too_short(hass):
 
 @pytest.mark.usefixtures("bypass_connect_client")
 async def test_server_api_key_too_long(hass):
-    """Test api key when it's too long"""
+    """Test api key when it's too long."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
@@ -290,7 +290,7 @@ async def test_server_api_key_too_long(hass):
 
 @pytest.mark.usefixtures("bypass_connect_client")
 async def test_server_api_key_when_good(hass):
-    """Test api key when it's good"""
+    """Test api key when it's good."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
@@ -317,7 +317,7 @@ async def test_server_api_key_when_good(hass):
 
 @pytest.mark.usefixtures("bypass_connect_client")
 async def test_server_api_key_when_empty(hass):
-    """Test api key when it's empty"""
+    """Test api key when it's empty."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )

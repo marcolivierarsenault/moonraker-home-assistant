@@ -1,7 +1,8 @@
 """Switch platform for Moonraker integration."""
 from dataclasses import dataclass
 
-from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
+from homeassistant.components.switch import (SwitchEntity,
+                                             SwitchEntityDescription)
 
 from .const import DOMAIN, METHODS, OBJ
 from .entity import BaseMoonrakerEntity
@@ -33,7 +34,7 @@ async def _power_device_updater(coordinator):
 
 
 async def async_setup_output_pin(coordinator, entry, async_add_entities):
-    """Setup optional binary sensor platform."""
+    """Set optional binary sensor platform."""
 
     object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
 
@@ -67,7 +68,7 @@ async def async_setup_output_pin(coordinator, entry, async_add_entities):
 
 
 async def async_setup_power_device(coordinator, entry, async_add_entities):
-    """Setup optional binary sensor platform."""
+    """Set optional binary sensor platform."""
 
     power_devices = await coordinator.async_fetch_data(
         METHODS.MACHINE_DEVICE_POWER_DEVICES
@@ -145,6 +146,7 @@ class MoonrakerDigitalOutputPin(MoonrakerSwitchSensor):
     """Moonraker power device switch class."""
 
     def __init__(self, coordinator, entry, description) -> None:
+        """Init."""
         super().__init__(coordinator, entry, description)
         self.pin = description.sensor_name.replace("output_pin ", "")
 

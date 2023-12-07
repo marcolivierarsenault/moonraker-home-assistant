@@ -1,13 +1,10 @@
-""" Switch Tests"""
+"""Switch Tests."""
 from unittest.mock import patch
 
-from homeassistant.components.switch import (
-    DOMAIN as SWITCH_DOMAIN,
-    SERVICE_TURN_OFF,
-    SERVICE_TURN_ON,
-)
-from homeassistant.const import ATTR_ENTITY_ID
 import pytest
+from homeassistant.components.switch import DOMAIN as SWITCH_DOMAIN
+from homeassistant.components.switch import SERVICE_TURN_OFF, SERVICE_TURN_ON
+from homeassistant.const import ATTR_ENTITY_ID
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.moonraker import async_setup_entry
@@ -33,6 +30,7 @@ def bypass_connect_client_fixture():
     ],
 )
 async def test_switch_turn_on(hass, switch, switch_type, get_default_api_response):
+    """test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
@@ -74,6 +72,7 @@ async def test_switch_turn_on(hass, switch, switch_type, get_default_api_respons
     ],
 )
 async def test_switch_turn_off(hass, switch, switch_type, get_default_api_response):
+    """test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)

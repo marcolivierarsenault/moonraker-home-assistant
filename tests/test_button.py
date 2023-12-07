@@ -1,10 +1,11 @@
-""" Button Tests"""
+"""Button Tests."""
 from unittest.mock import patch
 
-from homeassistant.components.button import DOMAIN as BUTTON_DOMAIN, SERVICE_PRESS
+import pytest
+from homeassistant.components.button import DOMAIN as BUTTON_DOMAIN
+from homeassistant.components.button import SERVICE_PRESS
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.helpers import entity_registry as er
-import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.moonraker import async_setup_entry
@@ -34,6 +35,7 @@ def bypass_connect_client_fixture():
     ],
 )
 async def test_buttons(hass, button, method):
+    """test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
@@ -54,6 +56,7 @@ async def test_buttons(hass, button, method):
 
 
 async def test_gcode_macro(hass):
+    """test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
@@ -76,6 +79,7 @@ async def test_gcode_macro(hass):
 
 
 async def test_disabled_buttons(hass):
+    """test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)

@@ -2,7 +2,8 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
+from homeassistant.components.button import (ButtonEntity,
+                                             ButtonEntityDescription)
 
 from .const import DOMAIN, METHODS
 from .entity import BaseMoonrakerEntity
@@ -88,19 +89,19 @@ BUTTONS: tuple[MoonrakerButtonDescription, ...] = [
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Setup sensor platform."""
+    """Set sensor platform."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
     await async_setup_basic_buttons(coordinator, entry, async_add_entities)
     await async_setup_macros(coordinator, entry, async_add_entities)
 
 
 async def async_setup_basic_buttons(coordinator, entry, async_add_entities):
-    """Setup optional button platform."""
+    """Set optional button platform."""
     async_add_entities([MoonrakerButton(coordinator, entry, desc) for desc in BUTTONS])
 
 
 async def async_setup_macros(coordinator, entry, async_add_entities):
-    """Setup optional button platform."""
+    """Set optional button platform."""
     cmds = await coordinator.async_fetch_data(METHODS.PRINTER_GCODE_HELP)
 
     macros = []
@@ -128,6 +129,7 @@ class MoonrakerButton(BaseMoonrakerEntity, ButtonEntity):
     """MoonrakerSensor Sensor class."""
 
     def __init__(self, coordinator, entry, description):
+        """Intit."""
         super().__init__(coordinator, entry)
         self.coordinator = coordinator
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"

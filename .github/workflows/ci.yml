@@ -22,19 +22,24 @@ jobs:
       - name: Hassfest validation
         uses: "home-assistant/actions/hassfest@master"
 
-  style:
+  ruff:
+    name: "Ruff"
     runs-on: "ubuntu-latest"
-    name: Check style formatting
     steps:
-      - uses: "actions/checkout@v4"
-      - uses: "actions/setup-python@v4"
-      - uses: isort/isort-action@v1.1.0
-      - uses: jpetrucciani/black-check@master
+      - name: "Checkout the repository"
+        uses: "actions/checkout@v4.1.0"
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v4.7.1
         with:
-          python-version: "3.x"
-      - run: python3 -m pip install flake8
-      - run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-      - run: flake8 . --count --max-complexity=15 --max-line-length=127 --statistics
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: "Install requirements"
+        run: python3 -m pip install -r requirements.txt
+
+      - name: "Run"
+        run: python3 -m ruff check .
 
   tests:
     runs-on: "ubuntu-latest"

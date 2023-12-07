@@ -10,7 +10,7 @@ PYTEST_PLUGINS = "pytest_homeassistant_custom_component"
 # Remove to enable selective use of this fixture
 @pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(enable_custom_integrations):
-    """Auto enable custom integrations"""
+    """Auto enable custom integrations."""
     del enable_custom_integrations
     yield
 
@@ -18,6 +18,7 @@ def auto_enable_custom_integrations(enable_custom_integrations):
 @pytest.fixture(autouse=True)
 def expected_lingering_timers() -> bool:
     """Temporary ability to bypass test failures.
+
     Parametrize to True to bypass the pytest failure.
     @pytest.mark.parametrize("expected_lingering_timers", [True])
     This should be removed when all lingering timers have been cleaned up.
@@ -39,7 +40,7 @@ def skip_notifications_fixture():
 
 @pytest.fixture(name="get_data")
 def get_data_fixture():
-    """Get data Fixture"""
+    """Get data Fixture."""
     return {
         "eventtime": 128684.342831779,
         "status": {
@@ -206,7 +207,7 @@ def get_data_fixture():
 
 @pytest.fixture(name="get_printer_info")
 def get_printer_info_fixture():
-    """Get printer info fixture"""
+    """Get printer info fixture."""
     return {
         "state": "ready",
         "state_message": "Printer is ready",
@@ -222,7 +223,7 @@ def get_printer_info_fixture():
 
 @pytest.fixture(name="get_gcode_help")
 def get_gcode_help_fixture():
-    """Get gcode help fixture"""
+    """Get gcode help fixture."""
     return {
         "SET_PAUSE_NEXT_LAYER": "Enable a pause if the next layer is reached",
         "SET_PAUSE_AT_LAYER": "Enable/disable a pause if a given layer number is reached",
@@ -236,7 +237,7 @@ def get_gcode_help_fixture():
 
 @pytest.fixture(name="get_printer_objects_list")
 def get_printer_objects_list_fixture():
-    """Get printer objects list fixture"""
+    """Get printer objects list fixture."""
     return {
         "objects": [
             "webhooks",
@@ -284,7 +285,7 @@ def get_printer_objects_list_fixture():
 
 @pytest.fixture(name="get_camera_info")
 def get_camera_info_fixture():
-    """Get camera info fixture"""
+    """Get camera info fixture."""
     return {
         "webcams": [
             {
@@ -305,7 +306,7 @@ def get_camera_info_fixture():
 
 @pytest.fixture(name="get_history")
 def get_history_fixture():
-    """Get history fixture"""
+    """Get history fixture."""
     return {
         "job_totals": {
             "total_jobs": 3,
@@ -320,7 +321,7 @@ def get_history_fixture():
 
 @pytest.fixture(name="get_power_devices")
 def get_power_devices_fixture():
-    """Get power devices fixture"""
+    """Get power devices fixture."""
     return {
         "devices": [
             {
@@ -349,7 +350,7 @@ def get_default_api_response_fixure(
     get_gcode_help,
     get_power_devices,
 ):
-    """Get all the default fixture returned by moonraker"""
+    """Get all the default fixture returned by moonraker."""
     return {
         **get_data,
         **get_printer_info,
@@ -363,6 +364,7 @@ def get_default_api_response_fixure(
 
 @pytest.fixture(name="_moonraker_default_mock", autouse=True)
 def get_moonraker_default_mock(get_default_api_response):
+    """Return mock for moonraker API."""
     with patch(
         "moonraker_api.MoonrakerClient.call_method",
         return_value=get_default_api_response,

@@ -4,11 +4,12 @@ from moonraker_api import MoonrakerClient, MoonrakerListener
 
 
 class MoonrakerApiClient(MoonrakerListener):
-    """Moonraker communication API"""
+    """Moonraker communication API."""
 
     def __init__(
         self, url, session, port: int = 7125, api_key: str = None, tls: bool = False
     ):
+        """Init."""
         self.running = False
         if api_key == "":
             api_key = None
