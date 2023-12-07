@@ -1,9 +1,9 @@
 """Test moonraker setup process."""
 from unittest.mock import patch
 
+import pytest
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.update_coordinator import UpdateFailed
-import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.moonraker import (
@@ -79,7 +79,7 @@ async def test_setup_unload_and_reload_entry_with_name(hass):
 
 
 async def test_async_send_data_exception(hass):
-    """Test async_post_exception"""
+    """Test async_post_exception."""
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
@@ -89,10 +89,9 @@ async def test_async_send_data_exception(hass):
         "moonraker_api.MoonrakerClient.call_method",
         side_effect=UpdateFailed,
         return_value={"result": "error"},
-    ):
-        with pytest.raises(UpdateFailed):
-            coordinator = hass.data[DOMAIN][config_entry.entry_id]
-            assert await coordinator.async_send_data(METHODS.PRINTER_EMERGENCY_STOP)
+    ), pytest.raises(UpdateFailed):
+        coordinator = hass.data[DOMAIN][config_entry.entry_id]
+        assert await coordinator.async_send_data(METHODS.PRINTER_EMERGENCY_STOP)
 
     assert await async_unload_entry(hass, config_entry)
 
@@ -111,7 +110,7 @@ async def test_setup_entry_exception(hass):
 
 
 def load_data(endpoint, *args, **kwargs):
-    """Load data"""
+    """Load data."""
     if endpoint == "printer.info":
         return {"hostname": "mainsail"}
 

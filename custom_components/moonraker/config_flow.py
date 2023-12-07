@@ -2,21 +2,14 @@
 import logging
 
 import async_timeout
+import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import network, slugify
-import voluptuous as vol
 
 from .api import MoonrakerApiClient
-from .const import (
-    CONF_API_KEY,
-    CONF_PORT,
-    CONF_PRINTER_NAME,
-    CONF_TLS,
-    CONF_URL,
-    DOMAIN,
-    TIMEOUT,
-)
+from .const import (CONF_API_KEY, CONF_PORT, CONF_PRINTER_NAME, CONF_TLS,
+                    CONF_URL, DOMAIN, TIMEOUT)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -98,13 +91,13 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return network.is_host_valid(host)
 
     async def _test_port(self, port):
-        if not port == "":
+        if port != "":
             if not port.isdigit() or int(port) > 65535 or int(port) <= 1:
                 return False
         return True
 
     async def _test_api_key(self, api_key):
-        if not api_key == "":
+        if api_key != "":
             if not api_key.isalnum() or len(api_key) != 32:
                 return False
         return True

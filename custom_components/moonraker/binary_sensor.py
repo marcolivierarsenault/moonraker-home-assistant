@@ -3,10 +3,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from homeassistant.components.binary_sensor import (
-    BinarySensorDeviceClass,
-    BinarySensorEntity,
-    BinarySensorEntityDescription,
-)
+    BinarySensorDeviceClass, BinarySensorEntity, BinarySensorEntityDescription)
 
 from .const import DOMAIN, METHODS
 from .entity import BaseMoonrakerEntity
@@ -30,7 +27,7 @@ async def async_setup_entry(hass, entry, async_add_devices):
 
 
 async def async_setup_optional_binary_sensors(coordinator, entry, async_add_entities):
-    """Setup optional binary sensor platform."""
+    """Set optional binary sensor platform."""
 
     sensors = []
     object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
@@ -80,4 +77,5 @@ class MoonrakerBinarySensor(BaseMoonrakerEntity, BinarySensorEntity):
 
     @property
     def is_on(self) -> bool:
+        """Return state."""
         return self.is_on_fn(self)

@@ -1,12 +1,10 @@
 """Number platform for Moonraker integration."""
-from dataclasses import dataclass
 import logging
+from dataclasses import dataclass
 
-from homeassistant.components.number import (
-    NumberEntity,
-    NumberEntityDescription,
-    NumberMode,
-)
+from homeassistant.components.number import (NumberEntity,
+                                             NumberEntityDescription,
+                                             NumberMode)
 from homeassistant.core import callback
 
 from .const import DOMAIN, METHODS, OBJ
@@ -30,7 +28,7 @@ async def async_setup_entry(hass, entry, async_add_devices):
 
 
 async def async_setup_output_pin(coordinator, entry, async_add_entities):
-    """Setup optional binary sensor platform."""
+    """Set optional binary sensor platform."""
 
     object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
 
@@ -90,6 +88,7 @@ class MoonrakerPWMOutputPin(BaseMoonrakerEntity, NumberEntity):
         self._attr_icon = description.icon
 
     async def async_set_native_value(self, value: float) -> None:
+        """Set native Value."""
         await self.coordinator.async_send_data(
             METHODS.PRINTER_GCODE_SCRIPT,
             {"script": f"SET_PIN PIN={self.pin} VALUE={round(value/100, 2)}"},

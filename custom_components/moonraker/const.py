@@ -63,7 +63,7 @@ class ExtendedEnum(Enum):
     @classmethod
     def list(cls):
         """Return a list of all enum values."""
-        return list(map(lambda c: c.value, cls))
+        return [c.value for c in cls]
 
 
 class PRINTSTATES(ExtendedEnum):

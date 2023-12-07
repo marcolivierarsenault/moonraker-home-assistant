@@ -97,7 +97,7 @@ class PreviewCamera(Camera):
     _attr_is_streaming = False
 
     def __init__(self, config_entry, coordinator, session) -> None:
-        """Initialize as a subclass of Camera for the Thumbnail Preview"""
+        """Initialize as a subclass of Camera for the Thumbnail Preview."""
 
         super().__init__()
         self._attr_device_info = DeviceInfo(
@@ -114,7 +114,7 @@ class PreviewCamera(Camera):
     async def async_camera_image(
         self, width: int | None = None, height: int | None = None
     ) -> bytes | None:
-        """Return current camera image"""
+        """Return current camera image."""
         if (
             self.coordinator.data["status"]["print_stats"]["state"]
             != PRINTSTATES.PRINTING.value

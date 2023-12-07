@@ -1,11 +1,11 @@
-"""test moonraker camera"""
+"""test moonraker camera."""
 import datetime as dt
 from unittest.mock import patch
 
-from PIL import Image
+import pytest
 from homeassistant.components import camera
 from homeassistant.helpers import entity_registry as er
-import pytest
+from PIL import Image
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_fire_time_changed,
@@ -25,7 +25,7 @@ def bypass_connect_client_fixture():
 
 
 async def test_camera_services(hass, caplog):
-    """Test camera services"""
+    """Test camera services."""
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
@@ -40,7 +40,7 @@ async def test_camera_services(hass, caplog):
 
 
 async def test_camera_services_full_path(hass, get_camera_info, caplog):
-    """Test camera services"""
+    """Test camera services."""
     get_camera_info["webcams"][0][
         "stream_url"
     ] = "http://1.2.3.4/webcam/?action=2stream"
@@ -60,7 +60,7 @@ async def test_camera_services_full_path(hass, get_camera_info, caplog):
 
 
 async def test_two_cameras_services(hass, get_camera_info):
-    """Test cameras Services"""
+    """Test cameras Services."""
     get_camera_info["webcams"].append(
         {
             "name": "webcam2",
@@ -80,7 +80,7 @@ async def test_two_cameras_services(hass, get_camera_info):
 
 
 async def test_two_cameras_same_name_services(hass, get_camera_info):
-    """Test two cameras same name"""
+    """Test two cameras same name."""
     get_camera_info["webcams"].append(
         {
             "name": "webcam",
@@ -100,7 +100,7 @@ async def test_two_cameras_same_name_services(hass, get_camera_info):
 
 
 async def test_setup_thumbnail_camera(hass, get_data):
-    """Test setup thumbnail camera"""
+    """Test setup thumbnail camera."""
     get_data["status"]["print_stats"]["filename"] = "CE3E3V2_picture_frame_holder.gcode"
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
@@ -115,7 +115,7 @@ async def test_setup_thumbnail_camera(hass, get_data):
 
 
 async def test_hardcoded_camera_empty_list(hass, get_default_api_response):
-    """Test hardcoded camera"""
+    """Test hardcoded camera."""
     get_default_api_response["webcams"] = []
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
@@ -130,7 +130,7 @@ async def test_hardcoded_camera_empty_list(hass, get_default_api_response):
 
 
 async def test_hardcoded_camera_API_error(hass, get_default_api_response):
-    """Test hardcoded camera"""
+    """Test hardcoded camera."""
     get_default_api_response["webcams"] = None
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
@@ -147,7 +147,7 @@ async def test_hardcoded_camera_API_error(hass, get_default_api_response):
 async def test_thumbnail_camera_image(
     hass, aioclient_mock, get_data, _moonraker_default_mock
 ):
-    """Test thumbnail camera image"""
+    """Test thumbnail camera image."""
 
     get_data["status"]["print_stats"]["filename"] = "CE3E3V2_picture_frame_holder.gcode"
 
@@ -167,7 +167,7 @@ async def test_thumbnail_camera_image(
 
 
 async def test_thumbnail_camera_from_img_to_none(hass):
-    """Test thumbnail camera from img to none"""
+    """Test thumbnail camera from img to none."""
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
@@ -179,7 +179,7 @@ async def test_thumbnail_camera_from_img_to_none(hass):
 
 
 async def test_thumbnail_no_thumbnail(hass, get_data):
-    """Test setup thumbnail camera"""
+    """Test setup thumbnail camera."""
     get_data["status"]["print_stats"]["filename"] = ""
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
@@ -194,7 +194,7 @@ async def test_thumbnail_no_thumbnail(hass, get_data):
 
 
 async def test_thumbnail_not_printing(hass, aioclient_mock, get_data):
-    """Test setup thumbnail camera"""
+    """Test setup thumbnail camera."""
     get_data["status"]["print_stats"]["state"] = PRINTSTATES.STANDBY.value
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
@@ -217,7 +217,7 @@ async def test_thumbnail_no_thumbnail_after_update(
     aioclient_mock,
     get_data,
 ):
-    """Test setup thumbnail camera"""
+    """Test setup thumbnail camera."""
 
     get_data["status"]["print_stats"]["filename"] = "CE3E3V2_picture_frame_holder.gcode"
 
@@ -249,7 +249,7 @@ async def test_thumbnail_no_thumbnail_after_update(
 async def test_thumbnail_data_failing(
     hass, get_data, get_printer_info, get_camera_info
 ):
-    """Test setup thumbnail camera"""
+    """Test setup thumbnail camera."""
 
     get_data["status"]["print_stats"]["filename"] = "CE3E3V2_picture_frame_holder.gcode"
     del get_data["thumbnails"]
@@ -269,7 +269,7 @@ async def test_thumbnail_data_failing(
 
 
 async def test_thumbnail_on_subfolder(hass, get_data, aioclient_mock):
-    """Test thumbnail on subfolder"""
+    """Test thumbnail on subfolder."""
 
     get_data["status"]["print_stats"][
         "filename"

@@ -8,15 +8,13 @@
       "extensions": [
         "ms-python.python",
         "github.vscode-pull-request-github",
-        "ms-python.black-formatter",
-        "ms-python.flake8",
-        "ms-python.isort",
+        "charliermarsh.ruff",
         "ms-python.vscode-pylance",
         "ryanluker.vscode-coverage-gutters"
       ],
       "settings": {
         "[python]": {
-          "editor.defaultFormatter": "ms-python.black-formatter"
+          "editor.defaultFormatter": "charliermarsh.ruff"
         },
         "files.eol": "\n",
         "editor.tabSize": 4,
