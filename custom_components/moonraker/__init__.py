@@ -2,6 +2,7 @@
 import asyncio
 import logging
 import os.path
+import uuid
 from datetime import timedelta
 
 import async_timeout
@@ -224,8 +225,9 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
     async def _async_fetch_data(
         self, query_path: METHODS, query_object, quiet: bool = False
     ):
-        _LOGGER.debug(f"fetching data from: {query_path.value}")
-        _LOGGER.debug(f"fetching object: {query_object}")
+        myuuid = str(uuid.uuid4())
+        _LOGGER.debug(f"fetching data, uuid: {myuuid}, from: {query_path.value}")
+        _LOGGER.debug(f"fetching, uuid: {myuuid}, object: {query_object}")
         if not self.moonraker.client.is_connected:
             _LOGGER.warning("connection to moonraker down, restarting")
             await self.moonraker.start()
@@ -237,7 +239,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
                     query_path.value, **query_object
                 )
             if not quiet:
-                _LOGGER.debug(f"Query Result: {result}")
+                _LOGGER.debug(f"Query Result, uuid: {myuuid}: {result}")
             return result
         except Exception as exception:
             raise UpdateFailed() from exception
