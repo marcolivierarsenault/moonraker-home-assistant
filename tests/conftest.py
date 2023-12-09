@@ -342,7 +342,7 @@ def get_power_devices_fixture():
 
 @pytest.fixture(name="get_machine_update_status")
 def get_machine_update_status_fixture():
-    """Get Machine Update Status fixture"""
+    """Get Machine Update Status fixture."""
     return {
         "version_info": {
             "system": {"package_count": 8},

@@ -3,7 +3,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from homeassistant.components.binary_sensor import (
-    BinarySensorDeviceClass, BinarySensorEntity, BinarySensorEntityDescription)
+    BinarySensorDeviceClass,
+    BinarySensorEntity,
+    BinarySensorEntityDescription,
+)
 
 from .const import DOMAIN, METHODS
 from .entity import BaseMoonrakerEntity
@@ -57,7 +60,7 @@ async def async_setup_optional_binary_sensors(coordinator, entry, async_add_enti
 
 
 async def async_setup_update_binary_sensors(coordinator, entry, async_add_entities):
-    """Setup Machine Update binary sensor"""
+    """Set Machine Update binary sensor."""
 
     desc = MoonrakerBinarySensorDescription(
         key="update_available",

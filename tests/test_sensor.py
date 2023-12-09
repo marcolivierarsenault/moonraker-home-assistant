@@ -139,6 +139,7 @@ async def test_disabled_sensors(
     sensor,
     value,
 ):
+    """Test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
