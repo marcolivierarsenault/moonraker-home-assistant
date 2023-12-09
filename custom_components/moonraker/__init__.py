@@ -10,13 +10,22 @@ from homeassistant.core import Config, HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.update_coordinator import (DataUpdateCoordinator,
-                                                      UpdateFailed)
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import MoonrakerApiClient
-from .const import (CONF_API_KEY, CONF_PORT, CONF_PRINTER_NAME, CONF_TLS,
-                    CONF_URL, DOMAIN, HOSTNAME, METHODS, OBJ, PLATFORMS,
-                    TIMEOUT)
+from .const import (
+    CONF_API_KEY,
+    CONF_PORT,
+    CONF_PRINTER_NAME,
+    CONF_TLS,
+    CONF_URL,
+    DOMAIN,
+    HOSTNAME,
+    METHODS,
+    OBJ,
+    PLATFORMS,
+    TIMEOUT,
+)
 from .sensor import SENSORS
 
 SCAN_INTERVAL = timedelta(seconds=30)
@@ -215,6 +224,8 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
     async def _async_fetch_data(
         self, query_path: METHODS, query_object, quiet: bool = False
     ):
+        _LOGGER.debug(f"fetching data from: {query_path.value}")
+        _LOGGER.debug(f"fetching object: {query_object}")
         if not self.moonraker.client.is_connected:
             _LOGGER.warning("connection to moonraker down, restarting")
             await self.moonraker.start()
@@ -226,7 +237,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
                     query_path.value, **query_object
                 )
             if not quiet:
-                _LOGGER.debug(result)
+                _LOGGER.debug(f"Query Result: {result}")
             return result
         except Exception as exception:
             raise UpdateFailed() from exception
