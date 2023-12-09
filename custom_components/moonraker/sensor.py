@@ -4,11 +4,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
-from homeassistant.components.sensor import (SensorDeviceClass, SensorEntity,
-                                             SensorEntityDescription,
-                                             SensorStateClass)
-from homeassistant.const import (PERCENTAGE, UnitOfLength, UnitOfTemperature,
-                                 UnitOfTime)
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorEntityDescription,
+    SensorStateClass,
+)
+from homeassistant.const import PERCENTAGE, UnitOfLength, UnitOfTemperature, UnitOfTime
 from homeassistant.core import callback
 
 from .const import DOMAIN, METHODS, PRINTERSTATES, PRINTSTATES
@@ -487,6 +489,7 @@ async def _machine_update_updater(coordinator):
 
 
 async def async_setup_machine_update_sensors(coordinator, entry, async_add_entities):
+    """Test update available."""
     machine_status = await coordinator.async_fetch_data(METHODS.MACHINE_UPDATE_STATUS)
     if machine_status.get("error"):
         return
