@@ -493,7 +493,6 @@ async def async_setup_machine_update_sensors(coordinator, entry, async_add_entit
     machine_status = await coordinator.async_fetch_data(METHODS.MACHINE_UPDATE_STATUS)
     if machine_status.get("error"):
         return
-
     coordinator.add_data_updater(_machine_update_updater)
     sensors = []
 
@@ -509,7 +508,10 @@ async def async_setup_machine_update_sensors(coordinator, entry, async_add_entit
                     entity_registry_enabled_default=False,
                 )
             )
-        else:
+        elif (
+            "version" in machine_status["version_info"][version_info]
+            and "remote_version" in machine_status["version_info"][version_info]
+        ):
             sensors.append(
                 MoonrakerSensorDescription(
                     key=f"machine_update_{version_info}",
