@@ -115,27 +115,40 @@ class PreviewCamera(Camera):
         self, width: int | None = None, height: int | None = None
     ) -> bytes | None:
         """Return current camera image."""
+        _LOGGER.debug("Trying to get thumbnail ")
         if (
             self.coordinator.data["status"]["print_stats"]["state"]
             != PRINTSTATES.PRINTING.value
         ):
+            _LOGGER.debug("Not printing, no thumbnail")
             return None
 
         del width, height
 
         new_path = self.coordinator.data["thumbnails_path"]
+        _LOGGER.debug(f"Thumbnail new_path: {new_path}")
         if self._current_path == new_path and self._current_pic is not None:
+            _LOGGER.debug("no change in thumbnail, returning cached")
             return self._current_pic
 
         if new_path == "" or new_path is None:
             self._current_pic = None
             self._current_path = ""
+            _LOGGER.debug("Empty path, no thumbnail")
             return None
+
+        _LOGGER.debug(
+            f"Fetching new thumbnail: http://{self.url}/server/files/gcodes/{new_path}"
+        )
         response = await self._session.get(
             f"http://{self.url}/server/files/gcodes/{new_path}"
         )
 
         self._current_path = new_path
         self._current_pic = await response.read()
+
+        _LOGGER.debug(
+            f"Size of thumbnail: {self._current_pic.width} x {self._current_pic.height}"
+        )
 
         return self._current_pic
