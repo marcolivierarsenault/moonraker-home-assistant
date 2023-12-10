@@ -458,3 +458,20 @@ async def test_update_no_system_update(hass, get_machine_update_status):
     entity_registry = er.async_get(hass)
     entity = entity_registry.async_get("sensor.mainsail_machine_update_system")
     assert entity is None
+
+
+async def test_update_no_info_item(hass, get_machine_update_status):
+    """Test update available."""
+    get_machine_update_status["version_info"]["mainsail"] = {}
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    assert await async_setup_entry(hass, config_entry)
+    await hass.async_block_till_done()
+
+    entity_registry = er.async_get(hass)
+    entity = entity_registry.async_get("sensor.mainsail_version_mainsail")
+    assert entity is None
+
+    entity = entity_registry.async_get("sensor.mainsail_machine_update_system")
+    assert entity is not None
