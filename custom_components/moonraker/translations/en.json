@@ -19,5 +19,16 @@
       "printer_name_error": "Invalid printer name.",
       "printer_connection_error": "Failed to connect."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "camera_stream_url": "Camera Stream URL",
+          "camera_snapshot_url": "Camera Snapshot URL"
+        },
+        "title": "Configuration Camera"
+      }
+    }
   }
 }
