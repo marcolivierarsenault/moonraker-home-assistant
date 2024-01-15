@@ -3,17 +3,21 @@ from unittest.mock import patch
 
 import pytest
 from homeassistant import config_entries, data_entry_flow
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.moonraker import async_setup_entry
 from custom_components.moonraker.const import (
     CONF_API_KEY,
     CONF_PORT,
     CONF_PRINTER_NAME,
     CONF_TLS,
     CONF_URL,
+    CONF_OPTION_CAMERA_SNAPSHOT,
+    CONF_OPTION_CAMERA_STREAM,
     DOMAIN,
 )
 
-from .const import MOCK_CONFIG
+from .const import MOCK_CONFIG, MOCK_OPTIONS
 
 
 @pytest.fixture(name="bypass_connect_client")
@@ -395,3 +399,28 @@ async def test_bad_connection_config_flow(hass):
     )
 
     assert result["errors"] == {CONF_URL: "printer_connection_error"}
+
+
+@pytest.mark.usefixtures("bypass_connect_client")
+async def test_option_config_camera_services(hass):
+    """Test a config flow with camera services."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    assert await async_setup_entry(hass, config_entry)
+    await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init("test")
+    await hass.async_block_till_done()
+
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_OPTION_CAMERA_STREAM: MOCK_OPTIONS[CONF_OPTION_CAMERA_STREAM],
+            CONF_OPTION_CAMERA_SNAPSHOT: MOCK_OPTIONS[CONF_OPTION_CAMERA_SNAPSHOT],
+        },
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY

@@ -57,17 +57,17 @@ async def async_setup_entry(
             hardcoded_camera["snapshot_url"] = config_entry.options.get(
                 CONF_OPTION_CAMERA_SNAPSHOT
             )
-        async_add_entities(
-            [MoonrakerCamera(config_entry, coordinator, hardcoded_camera, 100)]
-        )
-        camera_cnt += 1
-
-        cameras = await coordinator.async_fetch_data(METHODS.SERVER_WEBCAMS_LIST)
-        for camera_id, camera in enumerate(cameras["webcams"]):
             async_add_entities(
-                [MoonrakerCamera(config_entry, coordinator, camera, camera_id)]
+                [MoonrakerCamera(config_entry, coordinator, hardcoded_camera, 100)]
             )
             camera_cnt += 1
+        else:
+            cameras = await coordinator.async_fetch_data(METHODS.SERVER_WEBCAMS_LIST)
+            for camera_id, camera in enumerate(cameras["webcams"]):
+                async_add_entities(
+                    [MoonrakerCamera(config_entry, coordinator, camera, camera_id)]
+                )
+                camera_cnt += 1
     except Exception:
         _LOGGER.info("Could not add any cameras from the API list")
 
