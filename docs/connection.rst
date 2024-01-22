@@ -33,3 +33,9 @@ Connection properties can be defined as follows:
 
 Note: Encrypted connections must be configured in Moonraker API or by using a
 reverse proxy to connect to Moonraker API.
+
+
+Camera Manual Configuration
+-------------------------------------
+
+Camera URL can be manually defined more details in the :ref:`camera_config`

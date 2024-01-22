@@ -11,7 +11,14 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_URL, DOMAIN, METHODS, PRINTSTATES
+from .const import (
+    CONF_URL,
+    CONF_OPTION_CAMERA_STREAM,
+    CONF_OPTION_CAMERA_SNAPSHOT,
+    DOMAIN,
+    METHODS,
+    PRINTSTATES,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,12 +47,27 @@ async def async_setup_entry(
     camera_cnt = 0
 
     try:
-        cameras = await coordinator.async_fetch_data(METHODS.SERVER_WEBCAMS_LIST)
-        for camera_id, camera in enumerate(cameras["webcams"]):
+        if (
+            config_entry.options.get(CONF_OPTION_CAMERA_STREAM) is not None
+            and config_entry.options.get(CONF_OPTION_CAMERA_STREAM) != ""
+        ):
+            hardcoded_camera["stream_url"] = config_entry.options.get(
+                CONF_OPTION_CAMERA_STREAM
+            )
+            hardcoded_camera["snapshot_url"] = config_entry.options.get(
+                CONF_OPTION_CAMERA_SNAPSHOT
+            )
             async_add_entities(
-                [MoonrakerCamera(config_entry, coordinator, camera, camera_id)]
+                [MoonrakerCamera(config_entry, coordinator, hardcoded_camera, 100)]
             )
             camera_cnt += 1
+        else:
+            cameras = await coordinator.async_fetch_data(METHODS.SERVER_WEBCAMS_LIST)
+            for camera_id, camera in enumerate(cameras["webcams"]):
+                async_add_entities(
+                    [MoonrakerCamera(config_entry, coordinator, camera, camera_id)]
+                )
+                camera_cnt += 1
     except Exception:
         _LOGGER.info("Could not add any cameras from the API list")
 

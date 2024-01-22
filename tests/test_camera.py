@@ -14,7 +14,7 @@ from pytest_homeassistant_custom_component.common import (
 from custom_components.moonraker import async_setup_entry
 from custom_components.moonraker.const import DOMAIN, PRINTSTATES
 
-from .const import MOCK_CONFIG
+from .const import MOCK_CONFIG, MOCK_OPTIONS
 
 
 @pytest.fixture(name="bypass_connect_client", autouse=True)
@@ -286,3 +286,20 @@ async def test_thumbnail_on_subfolder(hass, get_data, aioclient_mock):
 
     await camera.async_get_image(hass, "camera.mainsail_thumbnail")
     await camera.async_get_image(hass, "camera.mainsail_thumbnail")
+
+
+async def test_option_config_camera_services(hass, caplog):
+    """Test camera services."""
+
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, options=MOCK_OPTIONS, entry_id="test"
+    )
+    config_entry.add_to_hass(hass)
+    assert await async_setup_entry(hass, config_entry)
+    await hass.async_block_till_done()
+
+    entity_registry = er.async_get(hass)
+    entry = entity_registry.async_get("camera.mainsail_webcam")
+
+    assert entry is not None
+    assert "Connecting to camera: http://1.2.3.4/stream" in caplog.text
