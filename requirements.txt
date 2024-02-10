@@ -6,5 +6,5 @@ pre-commit==3.6.0
 sphinx==7.2.6
 colorlog==6.8.2
 urllib3==2.1.0
-furo==2023.9.10
+furo==2024.1.29
 ruff==0.1.14
