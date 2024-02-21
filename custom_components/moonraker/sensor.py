@@ -275,6 +275,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         ),
         subscriptions=[("print_stats", "info", "total_layer")],
         icon="mdi:layers-triple",
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     MoonrakerSensorDescription(
         key="current_layer",
