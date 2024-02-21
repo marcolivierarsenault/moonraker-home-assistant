@@ -234,7 +234,6 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         subscriptions=[("print_stats", "filament_used")],
         icon="mdi:tape-measure",
         unit=UnitOfLength.METERS,
-        state_class=SensorStateClass.TOTAL,
     ),
     MoonrakerSensorDescription(
         key="progress",
