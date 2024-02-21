@@ -86,6 +86,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         subscriptions=[("extruder", "temperature")],
         icon="mdi:printer-3d-nozzle-heat",
         unit=UnitOfTemperature.CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     MoonrakerSensorDescription(
         key="extruder_target",
@@ -116,6 +117,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         subscriptions=[("heater_bed", "temperature")],
         icon="mdi:radiator",
         unit=UnitOfTemperature.CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
     ),
     MoonrakerSensorDescription(
         key="filename",
