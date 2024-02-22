@@ -462,7 +462,6 @@ async def async_setup_history_sensors(coordinator, entry, async_add_entities):
             ),
             subscriptions=[],
             icon="mdi:clock-outline",
-            state_class=SensorStateClass.TOTAL_INCREASING,
         ),
         MoonrakerSensorDescription(
             key="total_filament_used",
