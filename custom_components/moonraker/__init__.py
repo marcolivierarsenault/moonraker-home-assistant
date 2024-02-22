@@ -187,22 +187,22 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             METHODS.SERVER_FILES_METADATA, query_object
         )
         return_gcode["estimated_time"] = (
-            gcode["estimated_time"] if "estimated_time" in gcode else 0
+            gcode.get("estimated_time", 0)
         )
         return_gcode["object_height"] = (
-            gcode["object_height"] if "object_height" in gcode else 0
+            gcode.get("object_height", 0)
         )
         return_gcode["filament_total"] = (
-            gcode["filament_total"] if "filament_total" in gcode else 0
+            gcode.get("filament_total", 0)
         )
         return_gcode["layer_count"] = (
-            gcode["layer_count"] if "layer_count" in gcode else 0
+            gcode.get("layer_count", 0)
         )
         return_gcode["layer_height"] = (
-            gcode["layer_height"] if "layer_height" in gcode else 0
+            gcode.get("layer_height", 0)
         )
         return_gcode["first_layer_height"] = (
-            gcode["first_layer_height"] if "first_layer_height" in gcode else 0
+            gcode.get("first_layer_height", 0)
         )
 
         try:
