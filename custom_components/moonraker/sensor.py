@@ -11,10 +11,10 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import PERCENTAGE, UnitOfLength, UnitOfTemperature, UnitOfTime
+from homeassistant.const import PERCENTAGE, UnitOfLength, UnitOfPressure, UnitOfTemperature, UnitOfTime
 from homeassistant.core import callback
 
-from .const import DOMAIN, METHODS, PRINTERSTATES, PRINTSTATES
+from .const import OBJ, DOMAIN, METHODS, PRINTERSTATES, PRINTSTATES
 from .entity import BaseMoonrakerEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -110,7 +110,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     ),
     MoonrakerSensorDescription(
         key="print_projected_total_duration",
-        name="print Projected Total Duration",
+        name="Print Projected Total Duration",
         value_fn=lambda sensor: sensor.empty_result_when_not_printing(
             round(
                 sensor.coordinator.data["status"]["print_stats"]["print_duration"]
@@ -339,7 +339,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
             desc = MoonrakerSensorDescription(
                 key=f"{split_obj[0]}_{split_obj[1]}",
                 status_key=obj,
-                name=split_obj[1].replace("_", " ").title(),
+                name=split_obj[1].replace("_", " ").title() + " Temperature",
                 value_fn=lambda sensor: sensor.coordinator.data["status"][
                     sensor.status_key
                 ]["temperature"],
@@ -349,6 +349,59 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 state_class=SensorStateClass.MEASUREMENT,
             )
             sensors.append(desc)
+
+            if split_obj[0] == "bme280":
+                query_obj = {OBJ: {obj: None}}
+                result = await coordinator.async_fetch_data(
+                    METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
+                )
+
+                if "pressure" in result["status"][obj].keys():
+                    desc = MoonrakerSensorDescription(
+                        key=f"{split_obj[0]}_{split_obj[1]}_pressure",
+                        status_key=obj,
+                        name=split_obj[1].replace("_", " ").title() + " Pressure",
+                        value_fn=lambda sensor: sensor.coordinator.data["status"][
+                            sensor.status_key
+                        ]["pressure"],
+                        subscriptions=[(obj, "pressure")],
+                        icon="mdi:gauge",
+                        unit=UnitOfPressure.HPA,
+                        state_class=SensorStateClass.MEASUREMENT,
+                    )
+                    sensors.append(desc)
+
+                if "humidity" in result["status"][obj].keys():
+                    desc = MoonrakerSensorDescription(
+                        key=f"{split_obj[0]}_{split_obj[1]}_humidity",
+                        status_key=obj,
+                        name=split_obj[1].replace("_", " ").title() + " Humidity",
+                        value_fn=lambda sensor: sensor.coordinator.data["status"][
+                            sensor.status_key
+                        ]["humidity"],
+                        subscriptions=[(obj, "humidity")],
+                        icon="mdi:water-percent",
+                        unit=PERCENTAGE,
+                        state_class=SensorStateClass.MEASUREMENT,
+                    )
+                    sensors.append(desc)
+
+                if "gas" in result["status"][obj].keys():
+                    desc = MoonrakerSensorDescription(
+                        key=f"{split_obj[0]}_{split_obj[1]}_gas",
+                        status_key=obj,
+                        name=split_obj[1].replace("_", " ").title() + " Gas",
+                        value_fn=lambda sensor: sensor.coordinator.data["status"][
+                            sensor.status_key
+                        ]["gas"],
+                        subscriptions=[(obj, "gas")],
+                        icon="mdi:eye",
+                        unit=None,
+                        state_class=SensorStateClass.MEASUREMENT,
+                    )
+                    sensors.append(desc)
+
+
         elif split_obj[0] in fan_keys:
             desc = MoonrakerSensorDescription(
                 key=f"{split_obj[0]}_{split_obj[1]}",
