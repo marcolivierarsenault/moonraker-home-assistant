@@ -356,7 +356,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                     METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
                 )
 
-                if "pressure" in result["status"][obj].keys():
+                if "pressure" in result["status"][obj]:
                     desc = MoonrakerSensorDescription(
                         key=f"{split_obj[0]}_{split_obj[1]}_pressure",
                         status_key=obj,
@@ -371,7 +371,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                     )
                     sensors.append(desc)
 
-                if "humidity" in result["status"][obj].keys():
+                if "humidity" in result["status"][obj]:
                     desc = MoonrakerSensorDescription(
                         key=f"{split_obj[0]}_{split_obj[1]}_humidity",
                         status_key=obj,
@@ -386,7 +386,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                     )
                     sensors.append(desc)
 
-                if "gas" in result["status"][obj].keys():
+                if "gas" in result["status"][obj]:
                     desc = MoonrakerSensorDescription(
                         key=f"{split_obj[0]}_{split_obj[1]}_gas",
                         status_key=obj,
