@@ -10,12 +10,14 @@
         "github.vscode-pull-request-github",
         "charliermarsh.ruff",
         "ms-python.vscode-pylance",
-        "ryanluker.vscode-coverage-gutters"
+        "ryanluker.vscode-coverage-gutters",
+        "esbenp.prettier-vscode"
       ],
       "settings": {
         "[python]": {
           "editor.defaultFormatter": "charliermarsh.ruff"
         },
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
         "files.eol": "\n",
         "editor.tabSize": 4,
         "python.pythonPath": "/usr/bin/python3",
