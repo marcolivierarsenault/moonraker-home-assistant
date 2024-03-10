@@ -339,7 +339,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
             desc = MoonrakerSensorDescription(
                 key=f"{split_obj[0]}_{split_obj[1]}",
                 status_key=obj,
-                name=split_obj[1].replace("_", " ").title() + " Temperature",
+                name=split_obj[1].removesuffix("_temp").replace("_", " ").title() + " Temp",
                 value_fn=lambda sensor: sensor.coordinator.data["status"][
                     sensor.status_key
                 ]["temperature"],
