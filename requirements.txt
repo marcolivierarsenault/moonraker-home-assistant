@@ -7,4 +7,4 @@ sphinx==7.2.6
 colorlog==6.8.2
 urllib3==2.2.1
 furo==2024.1.29
-ruff==0.3.0
+ruff==0.3.2
