@@ -354,6 +354,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
     temperature_keys = [
         "temperature_sensor",
         "temperature_fan",
+        "tmc2240",
         "bme280",
         "htu21d",
         "lm75",

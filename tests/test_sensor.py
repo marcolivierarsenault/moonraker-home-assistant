@@ -91,6 +91,7 @@ async def test_sensor_services_update(hass, get_data):
         ("mainsail_extruder_power", "66"),
         ("mainsail_fan_speed", "51.23"),
         ("mainsail_fan_temp", "32.43"),
+        ("mainsail_tmc2240_stepper_x_temp", "32.43"),
         ("mainsail_bme280_temp", "32.43"),
         ("mainsail_htu21d_temp", "32.43"),
         ("mainsail_lm75_temp", "32.43"),
