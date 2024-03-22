@@ -106,6 +106,9 @@ def get_data_fixture():
             "bme280 bme280_temp": {
                 "temperature": 32.43,
             },
+            "tmc2240 tmc2240_stepper_x_temp": {
+                "temperature": 32.43,
+            },
             "htu21d htu21d_temp": {
                 "temperature": 32.43,
             },
@@ -269,6 +272,7 @@ def get_printer_objects_list_fixture():
             "temperature_fan fan_temp",
             "temperature_host host_temp",
             "bme280 bme280_temp",
+            "tmc2240 tmc2240_stepper_x_temp",
             "htu21d htu21d_temp",
             "lm75 lm75_temp",
             "heater_fan heater_fan",
