@@ -1,10 +1,10 @@
-pytest-homeassistant-custom-component==0.13.68
+pytest-homeassistant-custom-component==0.13.108
 moonraker-api==2.0.5
 aiohttp_cors==0.7.0
 Pillow==10.2.0
 pre-commit==3.6.2
 sphinx==7.2.6
 colorlog==6.8.2
-urllib3==2.2.1
 furo==2024.1.29
 ruff==0.3.0
+ha-ffmpeg==3.2.0
