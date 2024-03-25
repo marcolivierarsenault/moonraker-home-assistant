@@ -156,6 +156,8 @@ Optional Sensors
 -  For every optional temperature object available in
    [``temperature_sensor``, ``temperature_fan``, ``bme280``, ``htu21d``, ``lm75``]
    we will create a sensor showing sensor temperature.
+- For every ``heater_generic`` object we will create sensors showing the
+   temperature, the target and the power.
 
 
 Optional Temperature Sensor

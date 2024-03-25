@@ -1,4 +1,5 @@
 """Test moonraker sensor."""
+
 import datetime as dt
 from unittest.mock import patch
 
@@ -110,6 +111,9 @@ async def test_sensor_services_update(hass, get_data):
         ("mainsail_slicer_print_duration_estimate", "8232.0"),
         ("mainsail_object_height", "62.6"),
         ("mainsail_speed_factor", "200.0"),
+        ("mainsail_my_super_heater_temperature", "32.43"),
+        ("mainsail_my_super_heater_target", "32.0"),
+        ("mainsail_my_super_heater_power", "12"),
     ],
 )
 async def test_sensors(
