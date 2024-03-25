@@ -76,6 +76,8 @@ async def test_sensor_services_update(hass, get_data):
         ("mainsail_bed_temperature", "60.01"),
         ("mainsail_extruder_target", "205.0"),
         ("mainsail_extruder_temperature", "205.02"),
+        ("mainsail_extruder1_target", "220.0"),
+        ("mainsail_extruder1_temperature", "220.01"),
         ("mainsail_progress", "90"),
         ("mainsail_printer_state", "ready"),
         ("mainsail_filename", "CE3E3V2_picture_frame_holder.gcode"),

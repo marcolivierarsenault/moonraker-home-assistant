@@ -87,6 +87,14 @@ def get_data_fixture():
                 "pressure_advance": 0.325,
                 "smooth_time": 0.04,
             },
+            "extruder1": {
+                "temperature": 220.01,
+                "target": 220.0,
+                "power": 0.6667108063925052,
+                "can_extrude": True,
+                "pressure_advance": 0.325,
+                "smooth_time": 0.04,
+            },
             "heater_bed": {
                 "temperature": 60.01,
                 "target": 60.0,
@@ -277,6 +285,7 @@ def get_printer_objects_list_fixture():
             "manual_probe",
             "toolhead",
             "extruder",
+            "extruder1",
             "temperature_fan fan_temp",
             "temperature_host host_temp",
             "bme280 bme280_temp",
