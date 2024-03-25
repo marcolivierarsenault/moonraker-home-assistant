@@ -1,4 +1,5 @@
 """Sensor platform for Moonraker integration."""
+
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -421,6 +422,48 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 subscriptions=[("gcode_move", "speed_factor")],
                 icon="mdi:speedometer",
                 unit=PERCENTAGE,
+            )
+            sensors.append(desc)
+        elif split_obj[0] == "heater_generic":
+            desc = MoonrakerSensorDescription(
+                key=f"{split_obj[0]}_{split_obj[1]}_power",
+                status_key=obj,
+                name=f"{split_obj[1].replace("_", " ")} Power".title(),
+                value_fn=lambda sensor: int(
+                    sensor.coordinator.data["status"][sensor.status_key]["power"] * 100
+                ),
+                subscriptions=[(obj, "power")],
+                icon="mdi:flash",
+                unit=PERCENTAGE,
+                state_class=SensorStateClass.MEASUREMENT,
+            )
+            sensors.append(desc)
+
+            desc = MoonrakerSensorDescription(
+                key=f"{split_obj[0]}_{split_obj[1]}_temperature",
+                status_key=obj,
+                name=f"{split_obj[1].replace('_',' ')} Temperature".title(),
+                value_fn=lambda sensor: sensor.coordinator.data["status"][
+                    sensor.status_key
+                ]["temperature"],
+                subscriptions=[(obj, "temperature")],
+                icon="mdi:thermometer",
+                unit=UnitOfTemperature.CELSIUS,
+                state_class=SensorStateClass.MEASUREMENT,
+            )
+            sensors.append(desc)
+
+            desc = MoonrakerSensorDescription(
+                key=f"{split_obj[0]}_{split_obj[1]}_target",
+                status_key=obj,
+                name=f"{split_obj[1].replace('_',' ')} Target".title(),
+                value_fn=lambda sensor: sensor.coordinator.data["status"][
+                    sensor.status_key
+                ]["target"],
+                subscriptions=[(obj, "target")],
+                icon="mdi:radiator",
+                unit=UnitOfTemperature.CELSIUS,
+                state_class=SensorStateClass.MEASUREMENT,
             )
             sensors.append(desc)
 
