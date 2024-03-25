@@ -1,4 +1,5 @@
 """Global fixtures for integration_blueprint integration."""
+
 from unittest.mock import patch
 
 import pytest
@@ -32,8 +33,9 @@ def expected_lingering_timers() -> bool:
 @pytest.fixture(name="skip_notifications", autouse=True)
 def skip_notifications_fixture():
     """Skip notification calls."""
-    with patch("homeassistant.components.persistent_notification.async_create"), patch(
-        "homeassistant.components.persistent_notification.async_dismiss"
+    with (
+        patch("homeassistant.components.persistent_notification.async_create"),
+        patch("homeassistant.components.persistent_notification.async_dismiss"),
     ):
         yield
 
@@ -89,6 +91,11 @@ def get_data_fixture():
                 "temperature": 60.01,
                 "target": 60.0,
                 "power": 0.26053745272533363,
+            },
+            "heater_generic my_super_heater": {
+                "temperature": 32.43,
+                "target": 32.0,
+                "power": 0.1234,
             },
             "temperature_sensor mcu_temp": {
                 "temperature": 32.43,
@@ -257,6 +264,7 @@ def get_printer_objects_list_fixture():
             "idle_timeout",
             "heaters",
             "heater_bed",
+            "heater_generic my_super_heater",
             "fan",
             "probe",
             "bed_mesh",
