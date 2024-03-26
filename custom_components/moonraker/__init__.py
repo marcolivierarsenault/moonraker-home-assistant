@@ -76,8 +76,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     )
 
     try:
-        await api.start()
+
         async with async_timeout.timeout(TIMEOUT):
+            await api.start()
             printer_info = await api.client.call_method("printer.info")
             _LOGGER.debug(printer_info)
 
@@ -89,6 +90,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             hass.config_entries.async_update_entry(entry, title=api_device_name)
 
     except Exception as exc:
+        _LOGGER.warning("Cannot configure moonraker instance")
         raise ConfigEntryNotReady(f"Error connecting to {url}:{port}") from exc
 
     coordinator = MoonrakerDataUpdateCoordinator(
