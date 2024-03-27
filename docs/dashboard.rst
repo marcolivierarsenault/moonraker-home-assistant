@@ -23,7 +23,7 @@ Here is the yaml code to generate this lovely dashboard.
         alignment: center
         title_tap_action:
           action: url
-          url_path: http://crealityv3ke.internal/
+          url_path: http://moonraker.local/
       - square: false
         type: grid
         cards:
