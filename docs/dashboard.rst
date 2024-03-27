@@ -21,9 +21,9 @@ Here is the yaml code to generate this lovely dashboard.
         title: Moonraker – {{ states('sensor.moonraker_current_display_message') }}
         subtitle: "{{ states('sensor.moonraker_filename') }}"
         alignment: center
-        title_tap_action: null
-        action: url
-        url_path: http://crealityv3ke.internal/
+        title_tap_action:
+          action: url
+          url_path: http://crealityv3ke.internal/
       - square: false
         type: grid
         cards:
@@ -109,7 +109,6 @@ Here is the yaml code to generate this lovely dashboard.
             yaxis:
               - opposite: true
                 decimals: 0
-                apex_config: null
                 tickAmount: 2
         all_series_config:
           stroke_width: 2
@@ -147,7 +146,6 @@ Here is the yaml code to generate this lovely dashboard.
             yaxis:
               - opposite: true
                 decimals: 0
-                apex_config: null
                 tickAmount: 2
         all_series_config:
           stroke_width: 2
