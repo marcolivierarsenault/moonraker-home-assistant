@@ -17,169 +17,168 @@ Here is the yaml code to generate this lovely dashboard.
 .. code-block:: yaml
 
     cards:
-    - type: custom:mushroom-title-card
+      - type: custom:mushroom-title-card
         title: Moonraker – {{ states('sensor.moonraker_current_display_message') }}
-        subtitle: '{{ states(''sensor.moonraker_filename'') }}'
+        subtitle: "{{ states('sensor.moonraker_filename') }}"
         alignment: center
         title_tap_action:
-        action: url
-        url_path: http://moonraker.local/
-    - square: false
+          action: url
+          url_path: http://moonraker.local/
+      - square: false
         type: grid
         cards:
-        - type: tile
+          - type: tile
             entity: sensor.moonraker_current_print_state
             name: Status
             show_entity_picture: false
             vertical: false
             color: primary
-        - type: tile
+          - type: tile
             entity: sensor.moonraker_print_duration
             name: Elapsed
             color: accent
-        - type: tile
+          - type: tile
             entity: sensor.moonraker_print_eta
             name: Completion
             color: green
             show_entity_picture: false
             vertical: false
         columns: 3
-    - type: custom:bar-card
+      - type: custom:bar-card
         entity: sensor.moonraker_progress
         name: Print Progress...
         icon: mdi:clock-end
         color: green
         positions:
-        indicator: inside
-        name: inside
-    - square: false
+          indicator: inside
+          name: inside
+      - square: false
         type: grid
         columns: 4
         cards:
-        - type: custom:button-card
+          - type: custom:button-card
             entity: button.moonraker_pause_print
             color_type: icon
             tap_action:
-            action: toggle
-            name: Pause
-        - type: custom:button-card
+              action: toggle
+              name: Pause
+          - type: custom:button-card
             entity: button.moonraker_resume_print
             color_type: icon
             tap_action:
-            action: toggle
-            name: Resume
-        - type: custom:button-card
+              action: toggle
+              name: Resume
+          - type: custom:button-card
             entity: button.moonraker_cancel_print
             color_type: icon
             tap_action:
-            action: toggle
-            name: Cancel
+              action: toggle
+              name: Cancel
             lock:
-            enabled: false
+              enabled: false
             confirmation:
-            text: This will CANCEL the print. Are you sure?
-        - type: custom:button-card
+              text: This will CANCEL the print. Are you sure?
+          - type: custom:button-card
             entity: button.moonraker_emergency_stop
             color_type: icon
             color: red
             tap_action:
-            action: toggle
-            name: Emergency
+              action: toggle
+              name: Emergency
             lock:
-            enabled: false
+              enabled: false
             confirmation:
-            text: This will REBOOT the printer. Are you sure?
-    - type: custom:apexcharts-card
+              text: This will REBOOT the printer. Are you sure?
+      - type: custom:apexcharts-card
         graph_span: 1h
         header:
-        show: true
-        title: Printer Temperatures
-        show_states: true
-        colorize_states: true
+          show: true
+          title: Printer Temperatures
+          show_states: true
+          colorize_states: true
         apex_config:
-        chart:
+          chart:
             height: 200px
-        legend:
+          legend:
             show: false
-        grid:
+          grid:
             xaxis:
-            lines:
+              lines:
                 show: true
-            borderColor: '#555'
-        yaxis:
-        - opposite: true
-            decimals: 0
-            apex_config:
-            tickAmount: 2
+              borderColor: "#555"
+            yaxis:
+              - opposite: true
+                decimals: 0
+                tickAmount: 2
         all_series_config:
-        stroke_width: 2
-        float_precision: 0
-        show:
+          stroke_width: 2
+          float_precision: 0
+          show:
             name_in_header: true
         series:
-        - entity: sensor.moonraker_extruder_temperature
+          - entity: sensor.moonraker_extruder_temperature
             name: Hotend
-        - entity: sensor.moonraker_bed_temperature
+          - entity: sensor.moonraker_bed_temperature
             name: Bed
-        - entity: sensor.moonraker_raspberry_pi
+          - entity: sensor.moonraker_raspberry_pi
             name: RPi3
-        - entity: sensor.moonraker_mcu
+          - entity: sensor.moonraker_mcu
             name: Octopus
-        - entity: sensor.atc_3d_temperature
+          - entity: sensor.atc_3d_temperature
             name: Chamber
-    - type: custom:apexcharts-card
+      - type: custom:apexcharts-card
         graph_span: 1h
         header:
-        show: true
-        title: Fan Speeds
-        show_states: true
-        colorize_states: true
+          show: true
+          title: Fan Speeds
+          show_states: true
+          colorize_states: true
         apex_config:
-        chart:
+          chart:
             height: 200px
-        legend:
+          legend:
             show: false
-        grid:
+          grid:
             xaxis:
-            lines:
+              lines:
                 show: true
-            borderColor: '#555'
-        yaxis:
-        - opposite: true
-            decimals: 0
-            apex_config:
-            tickAmount: 2
+              borderColor: "#555"
+            yaxis:
+              - opposite: true
+                decimals: 0
+                tickAmount: 2
         all_series_config:
-        stroke_width: 2
-        show:
+          stroke_width: 2
+          show:
             name_in_header: true
         series:
-        - entity: sensor.moonraker_hotend_fan
+          - entity: sensor.moonraker_hotend_fan
             name: Hotend
-        - entity: sensor.moonraker_fan_speed
+          - entity: sensor.moonraker_fan_speed
             name: Parts
-        - entity: sensor.moonraker_controller_fan_front
+          - entity: sensor.moonraker_controller_fan_front
             name: Skirt Front
-        - entity: sensor.moonraker_controller_fan_rear
+          - entity: sensor.moonraker_controller_fan_rear
             name: Skirt Rear
-    - type: conditional
+      - type: conditional
         conditions:
-        - entity: sensor.moonraker_current_print_state
+          - entity: sensor.moonraker_current_print_state
             state_not: unavailable
         card:
-        type: picture-entity
-        entity: camera.moonraker_cam
-        camera_view: live
-        show_name: false
-        show_state: false
-        aspect_ratio: 4x3
-    - type: conditional
+          type: picture-entity
+          entity: camera.moonraker_cam
+          camera_view: live
+          show_name: false
+          show_state: false
+          aspect_ratio: 4x3
+      - type: conditional
         conditions:
-        - entity: sensor.moonraker_current_print_state
+          - entity: sensor.moonraker_current_print_state
             state_not: unavailable
         card:
-        type: picture-entity
-        entity: camera.moonraker_thumbnail
-        camera_view: auto
-        show_name: false
-        show_state: false
+          type: picture-entity
+          entity: camera.moonraker_thumbnail
+          camera_view: auto
+          show_name: false
+          show_state: false
+
