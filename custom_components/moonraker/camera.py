@@ -148,7 +148,6 @@ class PreviewCamera(Camera):
         del width, height
 
         new_path = self.coordinator.data["thumbnails_path"]
-        new_path = new_path.replace(" ", "%20")
 
         _LOGGER.debug(f"Thumbnail new_path: {new_path}")
         if self._current_path == new_path and self._current_pic is not None:
@@ -160,6 +159,8 @@ class PreviewCamera(Camera):
             self._current_path = ""
             _LOGGER.debug("Empty path, no thumbnail")
             return None
+
+        new_path = new_path.replace(" ", "%20")
 
         _LOGGER.debug(
             f"Fetching new thumbnail: http://{self.url}/server/files/gcodes/{new_path}"
