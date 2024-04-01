@@ -148,6 +148,8 @@ class PreviewCamera(Camera):
         del width, height
 
         new_path = self.coordinator.data["thumbnails_path"]
+        new_path = new_path.replace(" ", "%20")
+
         _LOGGER.debug(f"Thumbnail new_path: {new_path}")
         if self._current_path == new_path and self._current_pic is not None:
             _LOGGER.debug("no change in thumbnail, returning cached")
@@ -168,9 +170,5 @@ class PreviewCamera(Camera):
 
         self._current_path = new_path
         self._current_pic = await response.read()
-
-        _LOGGER.debug(
-            f"Size of thumbnail: {self._current_pic.width} x {self._current_pic.height}"
-        )
 
         return self._current_pic
