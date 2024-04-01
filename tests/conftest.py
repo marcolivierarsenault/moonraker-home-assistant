@@ -120,6 +120,9 @@ def get_data_fixture():
             },
             "bme280 bme280_temp": {
                 "temperature": 32.43,
+                "pressure": 988.1478719193026,
+                "humidity": 26.783619296566297,
+                "gas": 36351.74625591767,
             },
             "tmc2240 tmc2240_stepper_x_temp": {
                 "temperature": 32.43,
