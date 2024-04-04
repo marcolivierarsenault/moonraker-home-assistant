@@ -13,6 +13,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
     CONF_URL,
+    CONF_PORT,
     CONF_OPTION_CAMERA_STREAM,
     CONF_OPTION_CAMERA_SNAPSHOT,
     DOMAIN,
@@ -100,7 +101,7 @@ class MoonrakerCamera(MjpegCamera):
         if camera["stream_url"].startswith("http"):
             self.url = ""
         else:
-            self.url = f"http://{config_entry.data.get(CONF_URL)}"
+            self.url = f"http://{config_entry.data.get(CONF_URL)}:{config_entry.data.get(CONF_PORT)}"
 
         _LOGGER.info(f"Connecting to camera: {self.url}{camera['stream_url']}")
 
@@ -125,7 +126,7 @@ class PreviewCamera(Camera):
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, config_entry.entry_id)}
         )
-        self.url = config_entry.data.get(CONF_URL)
+        self.url = f"http://{config_entry.data.get(CONF_URL)}:{config_entry.data.get(CONF_PORT)}"
         self.coordinator = coordinator
         self._attr_name = f"{coordinator.api_device_name} Thumbnail"
         self._attr_unique_id = f"{config_entry.entry_id}_thumbnail"
@@ -160,10 +161,10 @@ class PreviewCamera(Camera):
             return None
 
         _LOGGER.debug(
-            f"Fetching new thumbnail: http://{self.url}/server/files/gcodes/{new_path}"
+            f"Fetching new thumbnail: {self.url}/server/files/gcodes/{new_path}"
         )
         response = await self._session.get(
-            f"http://{self.url}/server/files/gcodes/{new_path}"
+            f"{self.url}/server/files/gcodes/{new_path}"
         )
 
         self._current_path = new_path
