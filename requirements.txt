@@ -6,5 +6,5 @@ pre-commit==3.7.0
 sphinx==7.2.6
 colorlog==6.8.2
 furo==2024.1.29
-ruff==0.3.4
+ruff==0.3.5
 ha-ffmpeg==3.2.0
