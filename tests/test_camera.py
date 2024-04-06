@@ -288,6 +288,25 @@ async def test_thumbnail_on_subfolder(hass, get_data, aioclient_mock):
     await camera.async_get_image(hass, "camera.mainsail_thumbnail")
 
 
+async def test_thumbnail_space_in_path(hass, get_data, aioclient_mock):
+    """Test thumbnail with space in URL."""
+
+    get_data["thumbnails"][1][
+        "relative_path"
+    ] = ".thumbs/CE3E3V2_picture frame_holder-32x32.png"
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    assert await async_setup_entry(hass, config_entry)
+    await hass.async_block_till_done()
+
+    test_path = "http://1.2.3.4/server/files/gcodes/.thumbs/CE3E3V2_picture%20frame_holder-32x32.png"
+
+    aioclient_mock.get(test_path, content=Image.new("RGB", (30, 30)))
+
+    await camera.async_get_image(hass, "camera.mainsail_thumbnail")
+
+
 async def test_option_config_camera_services(hass, caplog):
     """Test camera services."""
 
