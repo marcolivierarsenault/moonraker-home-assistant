@@ -11,7 +11,8 @@
         "charliermarsh.ruff",
         "ms-python.vscode-pylance",
         "ryanluker.vscode-coverage-gutters",
-        "esbenp.prettier-vscode"
+        "esbenp.prettier-vscode",
+        "ms-vscode.live-server"
       ],
       "settings": {
         "[python]": {
