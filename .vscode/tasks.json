@@ -22,7 +22,7 @@
     {
       "label": "Generate Documentation",
       "type": "shell",
-      "command": "sphinx-build -a docs docs/_build && echo http://127.0.0.1:3000/docs/_build/index.html",
+      "command": "sphinx-build -W -E docs docs/_build && echo http://127.0.0.1:3000/docs/_build/index.html",
       "problemMatcher": []
     }
   ]

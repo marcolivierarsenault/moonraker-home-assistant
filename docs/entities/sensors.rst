@@ -32,16 +32,13 @@ Sensors that are added on integration startup.
     - Display Message, sent via SET_DISPLAY_TEXT MSG=<message>
     - From Moonraker API (display_status, message)
   * - Extruder Temperature
-    - Extruder Temperature
-    - Multiple extruders are supported
+    - Extruder Temperature (Multiple extruders are supported)
     - From Moonraker API (extruder, temperature)
   * - Extruder Temperature Target
-    - Extruder Temperature Target
-    - Multiple extruders are supported
+    - Extruder Temperature Target (Multiple extruders are supported)
     - From Moonraker API (extruder, target)
   * - Extruder Power
-    - Extruder current power consumption (in %). 100% = Max, 0% = close
-    - Multiple extruders are supported
+    - Extruder current power consumption (in %). 100% = Max, 0% = close (Multiple extruders are supported)
     - From Moonraker API (extruder, power)
   * - Bed Temperature
     - Bed Temperature
