@@ -32,7 +32,7 @@ This software seems to have issues working on **FLSUN Speeder Pad** and **Sonic 
    :hidden:
 
    install
-   dashboard
+   dashboards
    connection
 
 .. toctree::
@@ -48,6 +48,7 @@ This software seems to have issues working on **FLSUN Speeder Pad** and **Sonic 
    :caption: Support
    :hidden:
 
+   support/connection
    support/logs
    support/latest
    support/reload
