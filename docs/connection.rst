@@ -35,6 +35,13 @@ Note: Encrypted connections must be configured in Moonraker API or by using a
 reverse proxy to connect to Moonraker API.
 
 
+Polling Rate Configuration
+-------------------------------------
+
+It is possible to change the default polling rate value (30 sec) of the integration.
+
+In the integration configuration, you can set the polling rate manually.
+
 Camera Manual Configuration
 -------------------------------------
 

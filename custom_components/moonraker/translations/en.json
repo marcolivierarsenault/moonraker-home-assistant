@@ -24,10 +24,11 @@
     "step": {
       "init": {
         "data": {
+          "polling_rate": "Integration polling rate (s)",
           "camera_stream_url": "Camera Stream URL",
           "camera_snapshot_url": "Camera Snapshot URL"
         },
-        "title": "Configuration Camera"
+        "title": "Configuration"
       }
     }
   }
