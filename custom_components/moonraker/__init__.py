@@ -74,6 +74,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     if entry.options.get(CONF_OPTION_POLLING_RATE) is not None:
         SCAN_INTERVAL = timedelta(seconds=entry.options.get(CONF_OPTION_POLLING_RATE))
+    else:
+        SCAN_INTERVAL = timedelta(seconds=30)
 
     api = MoonrakerApiClient(
         url,
