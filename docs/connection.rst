@@ -42,6 +42,10 @@ It is possible to change the default polling rate value (30 sec) of the integrat
 
 In the integration configuration, you can set the polling rate manually.
 
+*Too small value may overload your Home Assisant setup and your Moonraker setup.*
+
+*This will setting affects the polling frequency whether or not the printer is printing.*
+
 Camera Manual Configuration
 -------------------------------------
 
