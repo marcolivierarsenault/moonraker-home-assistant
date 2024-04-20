@@ -35,7 +35,7 @@ def bypass_connect_client_fixture():
     ],
 )
 async def test_buttons(hass, button, method):
-    """test."""
+    """Test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
@@ -56,7 +56,7 @@ async def test_buttons(hass, button, method):
 
 
 async def test_gcode_macro(hass):
-    """test."""
+    """Test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
@@ -79,7 +79,7 @@ async def test_gcode_macro(hass):
 
 
 async def test_disabled_buttons(hass):
-    """test."""
+    """Test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)

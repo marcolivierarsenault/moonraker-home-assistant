@@ -26,7 +26,7 @@ def bypass_connect_client_fixture():
     [("mainsail_output_pin_pwm"), ("mainsail_output_pin_CAPITALIZED")],
 )
 async def test_number_set_value(hass, number, get_default_api_response):
-    """test."""
+    """Test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)

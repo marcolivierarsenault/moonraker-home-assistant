@@ -19,7 +19,7 @@ def bypass_connect_client_fixture():
 
 
 async def test_runout_filament_sensor_missing(hass, get_data, get_printer_objects_list):
-    """test."""
+    """Test."""
     get_data["status"].pop("filament_switch_sensor filament_sensor_1", None)
     get_data["status"].pop("filament_switch_sensor filament_sensor_2", None)
     get_printer_objects_list["objects"].remove(
@@ -41,7 +41,7 @@ async def test_runout_filament_sensor_missing(hass, get_data, get_printer_object
 
 
 async def test_runout_filament_sensor(hass):
-    """test."""
+    """Test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
@@ -52,7 +52,7 @@ async def test_runout_filament_sensor(hass):
 
 
 async def test_multiple_runout_filament_sensor(hass):
-    """test."""
+    """Test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
     assert await async_setup_entry(hass, config_entry)
@@ -66,7 +66,7 @@ async def test_multiple_runout_filament_sensor(hass):
 
 
 async def test_runout_filament_sensor_off(hass, get_data):
-    """test."""
+    """Test."""
     get_data["status"]["filament_switch_sensor filament_sensor_1"][
         "filament_detected"
     ] = False
