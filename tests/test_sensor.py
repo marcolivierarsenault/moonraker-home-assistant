@@ -216,18 +216,6 @@ async def test_opt_sensor_missing(hass, get_data, get_printer_objects_list):
     assert state is None
 
 
-async def test_missing_heater_bed(hass, get_data):
-    """Test."""
-    get_data["status"]["heater_bed"]["target"] = None
-
-    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
-    config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
-    await hass.async_block_till_done()
-
-    assert hass.states.get("sensor.mainsail_bed_target").state == "0.0"
-
-
 async def test_eta(hass):
     """Test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
