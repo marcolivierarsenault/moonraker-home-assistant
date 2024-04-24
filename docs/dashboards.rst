@@ -630,6 +630,37 @@ Here is the yaml code to generate this lovely dashboard.
 
 
 
+.. collapse:: Automation for when printing is finished - also sends a notification via the mobile app. I've set it to be 98% completion as sometimes it doesn't fire at 99 or 100% if it is a quick print.
+
+  .. code-block:: yaml
+
+    alias: Printer finished
+    description: ""
+    trigger:
+      - platform: state
+        entity_id:
+          - sensor.3dprinter_progress
+        to: "98"
+    condition: []
+    action:
+      - service: input_text.set_value
+        data:
+          value: "{{ states.sensor.3dprinter_filament_used.state_with_unit }}"
+        target:
+          entity_id: input_text.job_filament
+      - service: notify.mobile_app
+        data:
+          message: TTS
+          title: Printing complete
+          data:
+            tts_text: Print job is complete
+      - service: notify.mobile_app
+        data:
+          title: 🖨 Printer finished
+          message: Printer job has finished
+          data: {}
+    mode: single
+
 .. collapse:: Optional automation to reload the automation when you turn on the printer or it finishes printing:
 
   .. code-block:: yaml
