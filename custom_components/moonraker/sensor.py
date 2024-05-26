@@ -551,11 +551,13 @@ async def async_setup_history_sensors(coordinator, entry, async_add_entities):
         MoonrakerSensorDescription(
             key="total_print_time",
             name="Totals Print Time",
-            value_fn=lambda sensor: convert_time(
-                sensor.coordinator.data["history"]["job_totals"]["total_print_time"]
-            ),
+            value_fn=lambda sensor: sensor.coordinator.data["history"]["job_totals"][
+                "total_print_time"
+            ],
             subscriptions=[],
             icon="mdi:clock-outline",
+            device_class=SensorDeviceClass.DURATION,
+            unit=UnitOfTime.SECONDS,
         ),
         MoonrakerSensorDescription(
             key="total_filament_used",
@@ -573,11 +575,13 @@ async def async_setup_history_sensors(coordinator, entry, async_add_entities):
         MoonrakerSensorDescription(
             key="longest_print",
             name="Longest Print",
-            value_fn=lambda sensor: convert_time(
-                sensor.coordinator.data["history"]["job_totals"]["longest_print"]
-            ),
+            value_fn=lambda sensor: sensor.coordinator.data["history"]["job_totals"][
+                "longest_print"
+            ],
             subscriptions=[],
             icon="mdi:clock-outline",
+            device_class=SensorDeviceClass.DURATION,
+            unit=UnitOfTime.SECONDS,
         ),
     ]
 
