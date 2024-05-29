@@ -280,6 +280,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     await async_setup_basic_sensor(coordinator, entry, async_add_entities)
     await async_setup_optional_sensors(coordinator, entry, async_add_entities)
     await async_setup_history_sensors(coordinator, entry, async_add_entities)
+    await async_setup_queue_sensors(coordinator, entry, async_add_entities)
     await async_setup_machine_update_sensors(coordinator, entry, async_add_entities)
 
 
@@ -579,6 +580,43 @@ async def async_setup_history_sensors(coordinator, entry, async_add_entities):
     await coordinator.async_refresh()
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
 
+async def _queue_updater(coordinator):
+    return {
+        "queue": await coordinator.async_fetch_data(METHODS.SERVER_JOB_QUEUE_STATUS)
+    }
+
+async def async_setup_queue_sensors(coordinator, entry, async_add_entities):
+    queue = await coordinator.async_fetch_data(METHODS.SERVER_JOB_QUEUE_STATUS)
+    if queue.get("error"):
+        return
+
+    coordinator.add_data_updater(_queue_updater)
+
+    sensors = [
+        MoonrakerSensorDescription(
+            key="queue_state",
+            name="Queue State",
+            value_fn=lambda sensor: sensor.coordinator.data["queue"][
+                "queue_state"
+            ],
+            subscriptions=[("queue_state")],
+        ),
+        MoonrakerSensorDescription(
+            key="queue_count",
+            name="Jobs in queue",
+            value_fn=lambda sensor: len(sensor.coordinator.data["queue"][
+                "queued_jobs"
+            ]),
+            subscriptions=[("queued_jobs")],
+            icon="mdi:numeric",
+            unit="Jobs",
+            state_class=SensorStateClass.MEASUREMENT,
+        )
+    ]
+
+    coordinator.load_sensor_data(sensors)
+    await coordinator.async_refresh()
+    async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
 
 async def _machine_update_updater(coordinator):
     return {
