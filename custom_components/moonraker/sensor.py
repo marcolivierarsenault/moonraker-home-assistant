@@ -586,6 +586,7 @@ async def _queue_updater(coordinator):
     }
 
 async def async_setup_queue_sensors(coordinator, entry, async_add_entities):
+    """Job queue sensors."""
     queue = await coordinator.async_fetch_data(METHODS.SERVER_JOB_QUEUE_STATUS)
     if queue.get("error"):
         return
