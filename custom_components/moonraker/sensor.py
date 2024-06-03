@@ -280,8 +280,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
     await async_setup_basic_sensor(coordinator, entry, async_add_entities)
     await async_setup_optional_sensors(coordinator, entry, async_add_entities)
     await async_setup_history_sensors(coordinator, entry, async_add_entities)
-    await async_setup_queue_sensors(coordinator, entry, async_add_entities)
     await async_setup_machine_update_sensors(coordinator, entry, async_add_entities)
+    await async_setup_queue_sensors(coordinator, entry, async_add_entities)
 
 
 async def async_setup_basic_sensor(coordinator, entry, async_add_entities):
