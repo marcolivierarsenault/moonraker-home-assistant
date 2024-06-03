@@ -424,7 +424,10 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 status_key=obj,
                 name=f"{split_obj[1].replace('_', ' ')} Power".title(),
                 value_fn=lambda sensor: int(
-                    sensor.coordinator.data["status"][sensor.status_key]["power"] * 100
+                    (
+                        sensor.coordinator.data["status"][sensor.status_key]["power"]
+                        or 0.0
+                    ) * 100
                 ),
                 subscriptions=[(obj, "power")],
                 icon="mdi:flash",
@@ -503,7 +506,10 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 status_key=obj,
                 name=f"{base_name} Power".title(),
                 value_fn=lambda sensor: int(
-                    sensor.coordinator.data["status"][sensor.status_key]["power"] * 100
+                    (
+                        sensor.coordinator.data["status"][sensor.status_key]["power"]
+                        or 0.0
+                    ) * 100
                 ),
                 subscriptions=[(obj, "power")],
                 icon="mdi:flash",
