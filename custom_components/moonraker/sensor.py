@@ -278,6 +278,15 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         icon="mdi:cpu-64-bit",
         state_class=SensorStateClass.MEASUREMENT,
     ),
+    MoonrakerSensorDescription(
+        key="memused",
+        name="Memory Used",
+        value_fn=lambda sensor: calculate_memory_used(sensor.coordinator.data) or 0.0,
+        subscriptions=[("system_stats", "memavail")],
+        icon="mdi:memory",
+        state_class=SensorStateClass.MEASUREMENT,
+        unit=PERCENTAGE,
+    ),
 ]
 
 
@@ -291,8 +300,17 @@ async def async_setup_entry(hass, entry, async_add_entities):
     await async_setup_machine_update_sensors(coordinator, entry, async_add_entities)
 
 
+async def _machine_system_info_updater(coordinator):
+    return {
+        "system_info": (await coordinator.async_fetch_data(
+            METHODS.MACHINE_SYSTEM_INFO
+        ))["system_info"]
+    }
+
+
 async def async_setup_basic_sensor(coordinator, entry, async_add_entities):
     """Set basic sensor platform."""
+    coordinator.add_data_updater(_machine_system_info_updater)
     coordinator.load_sensor_data(SENSORS)
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in SENSORS])
 
@@ -795,3 +813,13 @@ def convert_time(time_s):
     return (
         f"{round(time_s // 3600)}h {round(time_s % 3600 // 60)}m {round(time_s % 60)}s"
     )
+
+
+def calculate_memory_used(data):
+    if "system_info" not in data:
+        return None
+
+    total_memory = data["system_info"]["cpu_info"]["total_memory"]
+    memory_used = total_memory - data["status"]["system_stats"]["memavail"]
+    percent_mem_used = memory_used / total_memory * 100
+    return round(percent_mem_used, 2)
