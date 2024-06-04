@@ -270,6 +270,14 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         device_class=SensorDeviceClass.DISTANCE,
         unit=UnitOfLength.MILLIMETERS,
     ),
+    MoonrakerSensorDescription(
+        key="sysload",
+        name="System Load",
+        value_fn=lambda sensor: sensor.coordinator.data["status"]["system_stats"]["load"],
+        subscriptions=[("system_stats", "load")],
+        icon="mdi:cpu-64-bit",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
 ]
 
 
