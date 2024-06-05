@@ -273,8 +273,8 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="sysload",
         name="System Load",
-        value_fn=lambda sensor: sensor.coordinator.data["status"]["system_stats"]["load"],
-        subscriptions=[("system_stats", "load")],
+        value_fn=lambda sensor: sensor.coordinator.data["status"]["system_stats"]["sysload"],
+        subscriptions=[("system_stats", "sysload")],
         icon="mdi:cpu-64-bit",
         state_class=SensorStateClass.MEASUREMENT,
     ),
@@ -403,7 +403,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
         elif split_obj[0] == "mcu":
             if len(split_obj) > 1:
                 key = f"{split_obj[0]}_{split_obj[1]}"
-                name = split_obj[1].replace("_", " ").title()
+                name = obj.replace("_", " ").title()
             else:
                 key = split_obj[0]
                 name = split_obj[0].title()
@@ -416,6 +416,9 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                         + 3 * sensor.coordinator.data["status"][sensor.status_key]["last_stats"]["mcu_task_stddev"]
                     ) / 0.0025 * 100,
                 subscriptions=[(obj, "last_stats")],
+                icon="mdi:cpu-64-bit",
+                state_class=SensorStateClass.MEASUREMENT,
+                unit=PERCENTAGE,
             )
             sensors.append(desc)
             desc = MoonrakerSensorDescription(
@@ -424,7 +427,10 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 name=f"{name} Awake",
                 value_fn=lambda sensor: sensor.coordinator.data["status"][sensor.status_key]["last_stats"]["mcu_awake"]
                     / 5 * 100,
+                icon="mdi:cpu-64-bit",
                 subscriptions=[(obj, "last_stats")],
+                state_class=SensorStateClass.MEASUREMENT,
+                unit=PERCENTAGE,
             )
             sensors.append(desc)
         elif split_obj[0] in fan_keys:
