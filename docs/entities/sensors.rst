@@ -97,6 +97,12 @@ Sensors that are added on integration startup.
   * - Total Layer
     - Total number of layer in the current print.
     - From Moonraker API (print_stats, info, total_layer). Make sure your Slicer include it. `Details <https://github.com/marcolivierarsenault/moonraker-home-assistant/issues/112#issuecomment-1505664692>`__
+  * - Queue State
+    - State of the print job queue.
+    - From Moonraker API (ready, loading, starting, paused). `Details <https://moonraker.readthedocs.io/en/latest/web_api/#retrieve-the-job-queue-status>`__
+  * - Jobs in queue
+    - Number of print jobs in the job queue.
+    - From Moonraker API (queued_jobs)
 
 
 History Sensors
