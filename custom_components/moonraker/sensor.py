@@ -822,6 +822,8 @@ def convert_time(time_s):
 
 
 def calculate_memory_used(data):
+    """Calculate memory used."""
+
     if "system_info" not in data:
         return None
 
