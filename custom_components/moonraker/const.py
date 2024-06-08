@@ -59,6 +59,7 @@ class METHODS(Enum):
     PRINTER_FIRMWARE_RESTART = "printer.firmware_restart"
     SERVER_FILES_METADATA = "server.files.metadata"
     SERVER_HISTORY_TOTALS = "server.history.totals"
+    SERVER_JOB_QUEUE_STATUS = "server.job_queue.status"
     SERVER_RESTART = "server.restart"
     SERVER_WEBCAMS_LIST = "server.webcams.list"
 
