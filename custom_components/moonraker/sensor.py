@@ -273,7 +273,9 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
     MoonrakerSensorDescription(
         key="sysload",
         name="System Load",
-        value_fn=lambda sensor: sensor.coordinator.data["status"]["system_stats"]["sysload"],
+        value_fn=lambda sensor: round(
+            sensor.coordinator.data["status"]["system_stats"]["sysload"], 2
+        ),
         subscriptions=[("system_stats", "sysload")],
         icon="mdi:cpu-64-bit",
         state_class=SensorStateClass.MEASUREMENT,
@@ -303,9 +305,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 async def _machine_system_info_updater(coordinator):
     return {
-        "system_info": (await coordinator.async_fetch_data(
-            METHODS.MACHINE_SYSTEM_INFO
-        ))["system_info"]
+        "system_info": (
+            await coordinator.async_fetch_data(METHODS.MACHINE_SYSTEM_INFO)
+        )["system_info"]
     }
 
 
@@ -413,9 +415,16 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 status_key=obj,
                 name=f"{name} Load",
                 value_fn=lambda sensor: (
-                        sensor.coordinator.data["status"][sensor.status_key]["last_stats"]["mcu_task_avg"]
-                        + 3 * sensor.coordinator.data["status"][sensor.status_key]["last_stats"]["mcu_task_stddev"]
-                    ) / 0.0025 * 100,
+                    sensor.coordinator.data["status"][sensor.status_key]["last_stats"][
+                        "mcu_task_avg"
+                    ]
+                    + 3
+                    * sensor.coordinator.data["status"][sensor.status_key][
+                        "last_stats"
+                    ]["mcu_task_stddev"]
+                )
+                / 0.0025
+                * 100,
                 subscriptions=[(obj, "last_stats")],
                 icon="mdi:cpu-64-bit",
                 state_class=SensorStateClass.MEASUREMENT,
@@ -426,8 +435,11 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 key=f"{key}_awake",
                 status_key=obj,
                 name=f"{name} Awake",
-                value_fn=lambda sensor: sensor.coordinator.data["status"][sensor.status_key]["last_stats"]["mcu_awake"]
-                    / 5 * 100,
+                value_fn=lambda sensor: sensor.coordinator.data["status"][
+                    sensor.status_key
+                ]["last_stats"]["mcu_awake"]
+                / 5
+                * 100,
                 icon="mdi:cpu-64-bit",
                 subscriptions=[(obj, "last_stats")],
                 state_class=SensorStateClass.MEASUREMENT,
@@ -485,7 +497,8 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                     (
                         sensor.coordinator.data["status"][sensor.status_key]["power"]
                         or 0.0
-                    ) * 100
+                    )
+                    * 100
                 ),
                 subscriptions=[(obj, "power")],
                 icon="mdi:flash",
@@ -567,7 +580,8 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                     (
                         sensor.coordinator.data["status"][sensor.status_key]["power"]
                         or 0.0
-                    ) * 100
+                    )
+                    * 100
                 ),
                 subscriptions=[(obj, "power")],
                 icon="mdi:flash",
@@ -644,10 +658,12 @@ async def async_setup_history_sensors(coordinator, entry, async_add_entities):
     await coordinator.async_refresh()
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
 
+
 async def _queue_updater(coordinator):
     return {
         "queue": await coordinator.async_fetch_data(METHODS.SERVER_JOB_QUEUE_STATUS)
     }
+
 
 async def async_setup_queue_sensors(coordinator, entry, async_add_entities):
     """Job queue sensors."""
@@ -661,27 +677,26 @@ async def async_setup_queue_sensors(coordinator, entry, async_add_entities):
         MoonrakerSensorDescription(
             key="queue_state",
             name="Queue State",
-            value_fn=lambda sensor: sensor.coordinator.data["queue"][
-                "queue_state"
-            ],
+            value_fn=lambda sensor: sensor.coordinator.data["queue"]["queue_state"],
             subscriptions=[("queue_state")],
         ),
         MoonrakerSensorDescription(
             key="queue_count",
             name="Jobs in queue",
-            value_fn=lambda sensor: len(sensor.coordinator.data["queue"][
-                "queued_jobs"
-            ]),
+            value_fn=lambda sensor: len(
+                sensor.coordinator.data["queue"]["queued_jobs"]
+            ),
             subscriptions=[("queued_jobs")],
             icon="mdi:numeric",
             unit="Jobs",
             state_class=SensorStateClass.MEASUREMENT,
-        )
+        ),
     ]
 
     coordinator.load_sensor_data(sensors)
     await coordinator.async_refresh()
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
+
 
 async def _machine_update_updater(coordinator):
     return {
