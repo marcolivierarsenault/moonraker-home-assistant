@@ -1,4 +1,5 @@
 """Switch Tests."""
+
 from unittest.mock import patch
 
 import pytest
@@ -7,7 +8,6 @@ from homeassistant.components.switch import SERVICE_TURN_OFF, SERVICE_TURN_ON
 from homeassistant.const import ATTR_ENTITY_ID
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.moonraker import async_setup_entry
 from custom_components.moonraker.const import DOMAIN, METHODS
 
 from .const import MOCK_CONFIG
@@ -33,7 +33,7 @@ async def test_switch_turn_on(hass, switch, switch_type, get_default_api_respons
     """Test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     with patch(
@@ -75,7 +75,7 @@ async def test_switch_turn_off(hass, switch, switch_type, get_default_api_respon
     """Test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     with patch(

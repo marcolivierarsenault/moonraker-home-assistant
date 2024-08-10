@@ -1,11 +1,11 @@
 """Test moonraker config flow."""
+
 from unittest.mock import patch
 
 import pytest
 from homeassistant import config_entries, data_entry_flow
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.moonraker import async_setup_entry
 from custom_components.moonraker.const import (
     CONF_API_KEY,
     CONF_PORT,
@@ -406,7 +406,7 @@ async def test_option_config_camera_services(hass):
     """Test a config flow with camera services."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     result = await hass.config_entries.options.async_init("test")

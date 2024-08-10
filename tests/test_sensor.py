@@ -11,7 +11,6 @@ from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
 )
 
-from custom_components.moonraker import async_setup_entry
 from custom_components.moonraker.const import DOMAIN, PRINTSTATES
 from custom_components.moonraker.sensor import (
     calculate_current_layer,
@@ -47,7 +46,7 @@ async def test_sensor_services_update(hass, get_data):
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     state = hass.states.get("sensor.mainsail_bed_target")
@@ -126,7 +125,7 @@ async def test_sensors(
     """Test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     assert hass.states.get(f"sensor.{sensor}").state == value
@@ -149,7 +148,7 @@ async def test_disabled_sensors(
     """Test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     entity_registry = er.async_get(hass)
@@ -196,7 +195,7 @@ async def test_sensors_not_printing(
     get_data["status"]["print_stats"]["state"] = PRINTSTATES.STANDBY.value
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     assert hass.states.get(f"sensor.{sensor_not_printing}").state == value
@@ -209,7 +208,7 @@ async def test_opt_sensor_missing(hass, get_data, get_printer_objects_list):
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     state = hass.states.get("sensor.mainsail_mcu_temp")
@@ -220,7 +219,7 @@ async def test_eta(hass):
     """Test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     state = hass.states.get("sensor.mainsail_print_eta")
@@ -237,7 +236,7 @@ async def test_slicer_time_left(hass, get_data):
     """Test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     state = hass.states.get("sensor.mainsail_slicer_print_time_left_estimate")
@@ -258,7 +257,7 @@ async def test_eta_no_current_data(hass, get_data):
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     state = hass.states.get("sensor.mainsail_print_eta")
@@ -316,7 +315,7 @@ async def test_no_history_data(
     ):
         config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
         config_entry.add_to_hass(hass)
-        assert await async_setup_entry(hass, config_entry)
+        await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
     state = hass.states.get("sensor.mainsail_totals_jobs")
@@ -330,7 +329,7 @@ async def test_double_sensor_data(hass, get_data, get_printer_objects_list):
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     registry = get_entity_registry(hass)
@@ -355,7 +354,7 @@ async def test_no_fan_sensor(hass, get_data, get_printer_objects_list):
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     state = hass.states.get("sensor.mainsail_fan")
@@ -368,7 +367,7 @@ async def test_rounding_fan(hass, get_data):
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     state = hass.states.get("sensor.mainsail_fan_speed")
@@ -459,7 +458,7 @@ async def test_update_no_system_update(hass, get_machine_update_status):
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     entity_registry = er.async_get(hass)
@@ -473,7 +472,7 @@ async def test_update_no_info_item(hass, get_machine_update_status):
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     entity_registry = er.async_get(hass)
