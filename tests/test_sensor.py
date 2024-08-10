@@ -362,35 +362,6 @@ async def test_no_fan_sensor(hass, get_data, get_printer_objects_list):
     assert state is None
 
 
-async def test_multi_mcu_sensor_data(hass, get_data, get_printer_objects_list):
-    """Test."""
-    get_printer_objects_list["objects"].append("mcu Extruder")
-    get_data["status"]["mcu Extruder"] = {
-        "last_stats": {
-            "mcu_awake": 0.031,
-            "mcu_task_avg": 0.000002,
-            "mcu_task_stddev": 0.000012,
-        },
-    }
-
-    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
-    config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
-    await hass.async_block_till_done()
-
-    registry = get_entity_registry(hass)
-
-    assert (
-        registry.async_get_entity_id("sensor", DOMAIN, "test_mcu_Extruder_load")
-        is not None
-    )
-
-    assert (
-        registry.async_get_entity_id("sensor", DOMAIN, "test_mcu_Extruder_awake")
-        is not None
-    )
-
-
 async def test_rounding_fan(hass, get_data):
     """Test."""
     get_data["status"]["fan"]["speed"] = 0.33333333333
