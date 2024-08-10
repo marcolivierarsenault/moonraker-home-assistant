@@ -1,4 +1,5 @@
 """Test moonraker setup process."""
+
 from unittest.mock import patch
 
 import pytest
@@ -31,7 +32,7 @@ async def test_setup_unload_and_reload_entry(hass):
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
 
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     assert DOMAIN in hass.data and config_entry.entry_id in hass.data[DOMAIN]
     assert isinstance(
         hass.data[DOMAIN][config_entry.entry_id], MoonrakerDataUpdateCoordinator
@@ -59,7 +60,7 @@ async def test_setup_unload_and_reload_entry_with_name(hass):
     )
     config_entry.add_to_hass(hass)
 
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     assert DOMAIN in hass.data and config_entry.entry_id in hass.data[DOMAIN]
     assert isinstance(
         hass.data[DOMAIN][config_entry.entry_id], MoonrakerDataUpdateCoordinator
@@ -83,13 +84,16 @@ async def test_async_send_data_exception(hass):
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
 
-    with patch(
-        "moonraker_api.MoonrakerClient.call_method",
-        side_effect=UpdateFailed,
-        return_value={"result": "error"},
-    ), pytest.raises(UpdateFailed):
+    with (
+        patch(
+            "moonraker_api.MoonrakerClient.call_method",
+            side_effect=UpdateFailed,
+            return_value={"result": "error"},
+        ),
+        pytest.raises(UpdateFailed),
+    ):
         coordinator = hass.data[DOMAIN][config_entry.entry_id]
         assert await coordinator.async_send_data(METHODS.PRINTER_EMERGENCY_STOP)
 

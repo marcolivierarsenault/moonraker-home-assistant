@@ -1,11 +1,11 @@
 """Binary_sensor Tests."""
+
 from unittest.mock import patch
 
 from homeassistant.helpers import entity_registry as er
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.moonraker import async_setup_entry
 from custom_components.moonraker.const import DOMAIN
 
 from .const import MOCK_CONFIG
@@ -31,7 +31,8 @@ async def test_runout_filament_sensor_missing(hass, get_data, get_printer_object
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     state = hass.states.get("binary_sensor.mainsail_filament_sensor_1")
@@ -44,7 +45,7 @@ async def test_runout_filament_sensor(hass):
     """Test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     state = hass.states.get("binary_sensor.mainsail_filament_sensor_1")
@@ -55,7 +56,7 @@ async def test_multiple_runout_filament_sensor(hass):
     """Test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     state = hass.states.get("binary_sensor.mainsail_filament_sensor_1")
@@ -73,7 +74,7 @@ async def test_runout_filament_sensor_off(hass, get_data):
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     state = hass.states.get("binary_sensor.mainsail_filament_sensor_1")
@@ -84,7 +85,7 @@ async def test_update_available(hass):
     """Test update available."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     entity_registry = er.async_get(hass)
@@ -111,7 +112,7 @@ async def test_update_available_system(hass, get_machine_update_status):
     get_machine_update_status["version_info"]["crownest"]["version"] = "v4.1.1-1"
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     entity_registry = er.async_get(hass)
@@ -138,7 +139,7 @@ async def test_update_available_component(hass, get_machine_update_status):
     get_machine_update_status["version_info"]["system"]["package_count"] = 0
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     entity_registry = er.async_get(hass)
@@ -166,7 +167,7 @@ async def test_update_available_no_update(hass, get_machine_update_status):
     get_machine_update_status["version_info"]["crownest"]["version"] = "v4.1.1-1"
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     entity_registry = er.async_get(hass)

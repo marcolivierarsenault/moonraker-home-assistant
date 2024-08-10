@@ -1,4 +1,5 @@
 """test moonraker camera."""
+
 import datetime as dt
 from unittest.mock import patch
 
@@ -11,7 +12,6 @@ from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
 )
 
-from custom_components.moonraker import async_setup_entry
 from custom_components.moonraker.const import DOMAIN, PRINTSTATES
 
 from .const import MOCK_CONFIG, MOCK_OPTIONS
@@ -29,7 +29,7 @@ async def test_camera_services(hass, caplog):
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     entity_registry = er.async_get(hass)
@@ -49,7 +49,7 @@ async def test_camera_services_full_path(hass, get_camera_info, caplog):
     ] = "http://1.2.3.4/webcam/?action=2snapshot"
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     entity_registry = er.async_get(hass)
@@ -71,7 +71,7 @@ async def test_two_cameras_services(hass, get_camera_info):
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     entity_registry = er.async_get(hass)
@@ -91,7 +91,7 @@ async def test_two_cameras_same_name_services(hass, get_camera_info):
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     entity_registry = er.async_get(hass)
@@ -105,7 +105,7 @@ async def test_setup_thumbnail_camera(hass, get_data):
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     entity_registry = er.async_get(hass)
@@ -120,7 +120,7 @@ async def test_hardcoded_camera_empty_list(hass, get_default_api_response):
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     entity_registry = er.async_get(hass)
@@ -135,7 +135,7 @@ async def test_hardcoded_camera_API_error(hass, get_default_api_response):
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     entity_registry = er.async_get(hass)
@@ -153,7 +153,7 @@ async def test_thumbnail_camera_image(
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     test_path = (
@@ -171,7 +171,7 @@ async def test_thumbnail_camera_from_img_to_none(hass):
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     with pytest.raises(Exception):
@@ -184,7 +184,7 @@ async def test_thumbnail_no_thumbnail(hass, get_data):
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     entity_registry = er.async_get(hass)
@@ -199,7 +199,7 @@ async def test_thumbnail_not_printing(hass, aioclient_mock, get_data):
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     test_path = (
@@ -223,7 +223,7 @@ async def test_thumbnail_no_thumbnail_after_update(
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     test_path = (
@@ -259,7 +259,7 @@ async def test_thumbnail_data_failing(
     ):
         config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
         config_entry.add_to_hass(hass)
-        assert await async_setup_entry(hass, config_entry)
+        await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
 
     entity_registry = er.async_get(hass)
@@ -277,7 +277,7 @@ async def test_thumbnail_on_subfolder(hass, get_data, aioclient_mock):
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     test_path = "http://1.2.3.4/server/files/gcodes/subfolder/.thumbs/CE3E3V2_picture_frame_holder.png"
@@ -297,7 +297,7 @@ async def test_thumbnail_space_in_path(hass, get_data, aioclient_mock):
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     test_path = "http://1.2.3.4/server/files/gcodes/.thumbs/CE3E3V2_picture%20frame_holder-32x32.png"
@@ -314,7 +314,7 @@ async def test_option_config_camera_services(hass, caplog):
         domain=DOMAIN, data=MOCK_CONFIG, options=MOCK_OPTIONS, entry_id="test"
     )
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     entity_registry = er.async_get(hass)
