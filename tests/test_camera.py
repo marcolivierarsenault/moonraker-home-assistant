@@ -36,7 +36,9 @@ async def test_camera_services(hass, caplog):
     entry = entity_registry.async_get("camera.mainsail_webcam")
 
     assert entry is not None
-    assert "Connecting to camera: http://1.2.3.4/webcam/?action=stream" in caplog.text
+    assert (
+        "Connecting to camera: http://1.2.3.4:80/webcam/?action=stream" in caplog.text
+    )
 
 
 async def test_camera_services_full_path(hass, get_camera_info, caplog):
