@@ -7,6 +7,6 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/marcolivierarsenault/moonraker-home-assistant/issues",
   "loggers": ["moonraker"],
-  "requirements": ["moonraker-api==2.0.5"],
+  "requirements": ["moonraker-api==2.0.6"],
   "version": "1.2.3"
 }
