@@ -14,6 +14,12 @@ Manual Configuration
 
 It is possible to manually configure the Stream and Snapshot URL for the camera. This will bypass the automatic configuration.
 
+Configuring your camera allows you to either configure a custom URL or use the default configuration but to enforce a different port.
+
+If you configure a custom URL (for the Stream or the Snapshot), the integration will not attempt to connect to the Moonraker API to retrieve the camera URL, this will also ignore the custom port configuration. So use one or the other.
+
+Similarly to the camera, the thumbnail port can be configured.
+
 |config|
 
 .. |cam_image| image:: https://raw.githubusercontent.com/marcolivierarsenault/moonraker-home-assistant/main/assets/camera.png
