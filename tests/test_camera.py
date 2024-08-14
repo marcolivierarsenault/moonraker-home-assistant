@@ -15,6 +15,12 @@ from pytest_homeassistant_custom_component.common import (
 from custom_components.moonraker.const import DOMAIN, PRINTSTATES
 
 from .const import MOCK_CONFIG, MOCK_OPTIONS
+from custom_components.moonraker.const import (
+    CONF_OPTION_CAMERA_STREAM,
+    CONF_OPTION_CAMERA_SNAPSHOT,
+    CONF_OPTION_CAMERA_PORT,
+    CONF_OPTION_THUMBNAIL_PORT,
+)
 
 
 @pytest.fixture(name="bypass_connect_client", autouse=True)
@@ -312,8 +318,13 @@ async def test_thumbnail_space_in_path(hass, get_data, aioclient_mock):
 async def test_option_config_camera_services(hass, caplog):
     """Test camera services."""
 
+    custom_options = {
+        key: MOCK_OPTIONS[key]
+        for key in [CONF_OPTION_CAMERA_STREAM, CONF_OPTION_CAMERA_SNAPSHOT]
+    }
+
     config_entry = MockConfigEntry(
-        domain=DOMAIN, data=MOCK_CONFIG, options=MOCK_OPTIONS, entry_id="test"
+        domain=DOMAIN, data=MOCK_CONFIG, options=custom_options, entry_id="test"
     )
     config_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(config_entry.entry_id)
@@ -324,3 +335,73 @@ async def test_option_config_camera_services(hass, caplog):
 
     assert entry is not None
     assert "Connecting to camera: http://1.2.3.4/stream" in caplog.text
+
+
+async def test_option_config_camera_port(hass, caplog):
+    """Test camera services."""
+
+    custom_options = {key: MOCK_OPTIONS[key] for key in [CONF_OPTION_CAMERA_PORT]}
+
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, options=custom_options, entry_id="test"
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    entity_registry = er.async_get(hass)
+    entry = entity_registry.async_get("camera.mainsail_webcam")
+
+    assert entry is not None
+    assert (
+        "Connecting to camera: http://1.2.3.4:1234/webcam/?action=stream" in caplog.text
+    )
+
+
+async def test_option_config_bypass_custom_port(hass, caplog):
+    """Test camera services."""
+
+    custom_options = {
+        key: MOCK_OPTIONS[key]
+        for key in [
+            CONF_OPTION_CAMERA_PORT,
+            CONF_OPTION_CAMERA_STREAM,
+            CONF_OPTION_CAMERA_SNAPSHOT,
+        ]
+    }
+
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, options=custom_options, entry_id="test"
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    entity_registry = er.async_get(hass)
+    entry = entity_registry.async_get("camera.mainsail_webcam")
+
+    assert entry is not None
+    assert "Connecting to camera: http://1.2.3.4/stream" in caplog.text
+
+
+async def test_option_config_thumbnail_port(hass, aioclient_mock, get_data):
+    """Test camera services."""
+
+    custom_options = {key: MOCK_OPTIONS[key] for key in [CONF_OPTION_THUMBNAIL_PORT]}
+
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, options=custom_options, entry_id="test"
+    )
+
+    get_data["status"]["print_stats"]["filename"] = "CE3E3V2_picture_frame_holder.gcode"
+
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    test_path = "http://1.2.3.4:5678/server/files/gcodes/.thumbs/CE3E3V2_picture_frame_holder.png"
+
+    aioclient_mock.get(test_path, content=Image.new("RGB", (30, 30)))
+
+    await camera.async_get_image(hass, "camera.mainsail_thumbnail")
+    await camera.async_get_image(hass, "camera.mainsail_thumbnail")
