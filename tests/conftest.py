@@ -46,6 +46,11 @@ def get_data_fixture():
     return {
         "eventtime": 128684.342831779,
         "status": {
+            "system_stats": {
+                "sysload": 0.244140625,
+                "cputime": 384.86964173,
+                "memavail": 1291812,
+            },
             "configfile": {
                 "settings": {
                     "output_pin digital": {
@@ -168,6 +173,13 @@ def get_data_fixture():
             },
             "gcode_move": {
                 "speed_factor": 2.0,
+            },
+            "mcu": {
+                "last_stats": {
+                    "mcu_awake": 0.031,
+                    "mcu_task_avg": 0.000002,
+                    "mcu_task_stddev": 0.000012,
+                },
             },
         },
         "printer.info": {
@@ -376,6 +388,26 @@ def get_machine_update_status_fixture():
     }
 
 
+@pytest.fixture(name="get_machine_system_info")
+def get_machine_system_info_fixture():
+    """Get Machine Update Status fixture."""
+    return {
+        "system_info": {
+            "cpu_info": {
+                "cpu_count": 4,
+                "bits": "64bit",
+                "processor": "aarch64",
+                "cpu_desc": "",
+                "serial_number": "10000000e2e0a55f",
+                "hardware_desc": "",
+                "model": "Raspberry Pi Compute Module 4 Rev 1.1",
+                "total_memory": 1891256,
+                "memory_units": "kB",
+            },
+        }
+    }
+
+
 @pytest.fixture(name="get_default_api_response")
 def get_default_api_response_fixure(
     get_data,
@@ -386,6 +418,7 @@ def get_default_api_response_fixure(
     get_gcode_help,
     get_power_devices,
     get_machine_update_status,
+    get_machine_system_info,
 ):
     """Get all the default fixture returned by moonraker."""
     return {
@@ -397,6 +430,7 @@ def get_default_api_response_fixure(
         **get_gcode_help,
         **get_power_devices,
         **get_machine_update_status,
+        **get_machine_system_info,
     }
 
 
