@@ -415,16 +415,21 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 status_key=obj,
                 name=f"{name} Load",
                 value_fn=lambda sensor: (
-                    sensor.coordinator.data["status"][sensor.status_key]["last_stats"][
-                        "mcu_task_avg"
-                    ]
-                    + 3
-                    * sensor.coordinator.data["status"][sensor.status_key][
-                        "last_stats"
-                    ]["mcu_task_stddev"]
+                    (
+                        sensor.coordinator.data["status"][sensor.status_key][
+                            "last_stats"
+                        ]["mcu_task_avg"]
+                        + 3
+                        * sensor.coordinator.data["status"][sensor.status_key][
+                            "last_stats"
+                        ]["mcu_task_stddev"]
+                    )
+                    / 0.0025
+                    * 100
                 )
-                / 0.0025
-                * 100,
+                if sensor.coordinator.data["status"][sensor.status_key]["last_stats"]
+                is not None
+                else 0,
                 subscriptions=[(obj, "last_stats")],
                 icon="mdi:cpu-64-bit",
                 state_class=SensorStateClass.MEASUREMENT,
@@ -435,11 +440,16 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 key=f"{key}_awake",
                 status_key=obj,
                 name=f"{name} Awake",
-                value_fn=lambda sensor: sensor.coordinator.data["status"][
-                    sensor.status_key
-                ]["last_stats"]["mcu_awake"]
-                / 5
-                * 100,
+                value_fn=lambda sensor: (
+                    sensor.coordinator.data["status"][sensor.status_key]["last_stats"][
+                        "mcu_awake"
+                    ]
+                    / 5
+                    * 100
+                )
+                if sensor.coordinator.data["status"][sensor.status_key]["last_stats"]
+                is not None
+                else 0,
                 icon="mdi:cpu-64-bit",
                 subscriptions=[(obj, "last_stats")],
                 state_class=SensorStateClass.MEASUREMENT,

@@ -374,7 +374,7 @@ async def test_multi_mcu_sensor_data(hass, get_data, get_printer_objects_list):
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    assert await async_setup_entry(hass, config_entry)
+    await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
     registry = get_entity_registry(hass)
