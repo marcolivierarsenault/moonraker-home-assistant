@@ -20,6 +20,12 @@ from custom_components.moonraker.const import (
 from .const import MOCK_CONFIG, MOCK_OPTIONS
 
 
+@pytest.fixture(name="bypass_connection_test", autouse=True)
+def bypass_connection_test_fixture(skip_connection_check):
+    """Skip calls to get data from API."""
+    yield
+
+
 @pytest.fixture(name="bypass_connect_client")
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""

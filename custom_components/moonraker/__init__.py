@@ -57,8 +57,8 @@ def get_user_name(hass: HomeAssistant, entry: ConfigEntry):
 
 def is_open(ip, port):
     """Check if port is open."""
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((ip, int(port)))
         s.shutdown(2)
         return True
