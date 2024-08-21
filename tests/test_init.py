@@ -3,7 +3,7 @@
 from unittest.mock import patch
 
 import pytest
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import PlatformNotReady
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -109,7 +109,7 @@ async def test_setup_entry_exception(hass):
         config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
         config_entry.add_to_hass(hass)
 
-        with pytest.raises(ConfigEntryNotReady):
+        with pytest.raises(PlatformNotReady):
             assert await async_setup_entry(hass, config_entry)
 
 
@@ -130,5 +130,5 @@ async def test_failed_first_refresh(hass):
         config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
         config_entry.add_to_hass(hass)
 
-        with pytest.raises(ConfigEntryNotReady):
+        with pytest.raises(PlatformNotReady):
             assert await async_setup_entry(hass, config_entry)
