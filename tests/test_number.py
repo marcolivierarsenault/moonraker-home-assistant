@@ -20,12 +20,6 @@ def bypass_connect_client_fixture():
         yield
 
 
-@pytest.fixture(name="bypass_connection_test", autouse=True)
-def bypass_connection_test_fixture(skip_connection_check):
-    """Skip calls to get data from API."""
-    yield
-
-
 # test number
 @pytest.mark.parametrize(
     "number",

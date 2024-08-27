@@ -442,12 +442,3 @@ def get_moonraker_default_mock(get_default_api_response):
         return_value=get_default_api_response,
     ):
         yield
-
-
-@pytest.fixture(name="skip_connection_check")
-def skip_connection_check_fixture():
-    """Skip skip_connection_check ."""
-    with (
-        patch("custom_components.moonraker.is_open"),
-    ):
-        yield
