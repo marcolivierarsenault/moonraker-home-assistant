@@ -18,12 +18,6 @@ def bypass_connect_client_fixture():
         yield
 
 
-@pytest.fixture(name="bypass_connection_test", autouse=True)
-def bypass_connection_test_fixture(skip_connection_check):
-    """Skip calls to get data from API."""
-    yield
-
-
 async def test_runout_filament_sensor_missing(hass, get_data, get_printer_objects_list):
     """Test."""
     get_data["status"].pop("filament_switch_sensor filament_sensor_1", None)

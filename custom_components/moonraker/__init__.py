@@ -5,12 +5,11 @@ import logging
 import os.path
 import uuid
 from datetime import timedelta
-import socket
 
 import async_timeout
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Config, HomeAssistant
-from homeassistant.exceptions import PlatformNotReady
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -55,17 +54,6 @@ def get_user_name(hass: HomeAssistant, entry: ConfigEntry):
     return device_entries[0].name_by_user
 
 
-def is_open(ip, port):
-    """Check if port is open."""
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((ip, int(port)))
-        s.shutdown(2)
-        return True
-    except Exception:
-        return False
-
-
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Set up this integration using UI."""
 
@@ -99,24 +87,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     try:
         async with async_timeout.timeout(TIMEOUT):
-            if is_open(url, port):
-                await api.start()
-                printer_info = await api.client.call_method("printer.info")
-                _LOGGER.debug(printer_info)
+            await api.start()
+            printer_info = await api.client.call_method("printer.info")
+            _LOGGER.debug(printer_info)
 
-                if printer_name == "":
-                    api_device_name = printer_info[HOSTNAME]
-                else:
-                    api_device_name = printer_name
-
-                hass.config_entries.async_update_entry(entry, title=api_device_name)
+            if printer_name == "":
+                api_device_name = printer_info[HOSTNAME]
             else:
-                _LOGGER.warning("Cannot connect to moonraker instance")
-                raise PlatformNotReady(f"Error connecting to {url}:{port}")
+                api_device_name = printer_name
 
-    except Exception:
+            hass.config_entries.async_update_entry(entry, title=api_device_name)
+
+    except Exception as exc:
         _LOGGER.warning("Cannot configure moonraker instance")
-        raise PlatformNotReady(f"Error connecting to {url}:{port}")
+        raise ConfigEntryNotReady(f"Error connecting to {url}:{port}") from exc
 
     coordinator = MoonrakerDataUpdateCoordinator(
         hass, client=api, config_entry=entry, api_device_name=api_device_name
@@ -125,7 +109,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     await coordinator.async_refresh()
 
     if not coordinator.last_update_success:
-        raise PlatformNotReady
+        raise ConfigEntryNotReady
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
     for platform in PLATFORMS:

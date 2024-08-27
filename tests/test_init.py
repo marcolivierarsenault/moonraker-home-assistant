@@ -3,7 +3,7 @@
 from unittest.mock import patch
 
 import pytest
-from homeassistant.exceptions import PlatformNotReady
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -25,13 +25,7 @@ def bypass_connect_client_fixture():
         yield
 
 
-@pytest.fixture(name="bypass_connection_test")
-def bypass_connection_test_fixture(skip_connection_check):
-    """Skip calls to get data from API."""
-    yield
-
-
-async def test_setup_unload_and_reload_entry(hass, bypass_connection_test):
+async def test_setup_unload_and_reload_entry(hass):
     """Test entry setup and unload."""
     # Create a mock entry so we don't have to go through config flow
 
@@ -57,7 +51,7 @@ async def test_setup_unload_and_reload_entry(hass, bypass_connection_test):
     assert config_entry.entry_id not in hass.data[DOMAIN]
 
 
-async def test_setup_unload_and_reload_entry_with_name(hass, bypass_connection_test):
+async def test_setup_unload_and_reload_entry_with_name(hass):
     """Test entry setup with name and unload."""
     # Create a mock entry so we don't have to go through config flow
 
@@ -85,7 +79,7 @@ async def test_setup_unload_and_reload_entry_with_name(hass, bypass_connection_t
     assert config_entry.entry_id not in hass.data[DOMAIN]
 
 
-async def test_async_send_data_exception(hass, bypass_connection_test):
+async def test_async_send_data_exception(hass):
     """Test async_post_exception."""
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
@@ -106,7 +100,7 @@ async def test_async_send_data_exception(hass, bypass_connection_test):
     assert await async_unload_entry(hass, config_entry)
 
 
-async def test_setup_entry_exception(hass, bypass_connection_test):
+async def test_setup_entry_exception(hass):
     """Test ConfigEntryNotReady when API raises an exception during entry setup."""
     with patch(
         "moonraker_api.MoonrakerClient.call_method",
@@ -115,7 +109,7 @@ async def test_setup_entry_exception(hass, bypass_connection_test):
         config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
         config_entry.add_to_hass(hass)
 
-        with pytest.raises(PlatformNotReady):
+        with pytest.raises(ConfigEntryNotReady):
             assert await async_setup_entry(hass, config_entry)
 
 
@@ -127,7 +121,7 @@ def load_data(endpoint, *args, **kwargs):
     raise Exception
 
 
-async def test_failed_first_refresh(hass, bypass_connection_test):
+async def test_failed_first_refresh(hass):
     """Test ConfigEntryNotReady when API raises an exception during entry setup."""
     with patch(
         "moonraker_api.MoonrakerClient.call_method",
@@ -136,24 +130,5 @@ async def test_failed_first_refresh(hass, bypass_connection_test):
         config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
         config_entry.add_to_hass(hass)
 
-        with pytest.raises(PlatformNotReady):
-            assert await async_setup_entry(hass, config_entry)
-
-
-async def test_is_on(hass):
-    """Test connection is working."""
-    with patch("socket.socket"):
-        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
-        config_entry.add_to_hass(hass)
-        await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
-
-
-async def test_is_off(hass):
-    """Test connection is working."""
-    with patch("socket.socket", side_effect=Exception("mocked error")):
-        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
-        config_entry.add_to_hass(hass)
-
-        with pytest.raises(PlatformNotReady):
+        with pytest.raises(ConfigEntryNotReady):
             assert await async_setup_entry(hass, config_entry)
