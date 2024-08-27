@@ -27,6 +27,12 @@ def bypass_connect_client_fixture():
         yield
 
 
+@pytest.fixture(name="bypass_connection_test", autouse=True)
+def bypass_connection_test_fixture(skip_connection_check):
+    """Skip calls to get data from API."""
+    yield
+
+
 @pytest.fixture(name="data_for_calculate_pct")
 def data_for_calculate_pct_fixture():
     """data_for_calculate_pct."""
