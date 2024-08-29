@@ -71,7 +71,7 @@ def get_data_fixture():
                 "filament_used": 5000.00,
                 "state": "printing",
                 "message": "",
-                "info": {"total_layer": None, "current_layer": None},
+                "info": {"total_layer": 33, "current_layer": 22},
             },
             "toolhead": {
                 "homed_axes": "xyz",

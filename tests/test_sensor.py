@@ -105,7 +105,7 @@ async def test_sensor_services_update(hass, get_data):
         ("mainsail_totals_filament_used", "11.62"),
         ("mainsail_longest_print", "3h 9m 9s"),
         ("mainsail_total_layer", "313"),
-        ("mainsail_current_layer", "51"),
+        ("mainsail_current_layer", "22"),
         ("mainsail_toolhead_position_x", "23.3"),
         ("mainsail_toolhead_position_y", "22.2"),
         ("mainsail_toolhead_position_z", "10.2"),
@@ -428,18 +428,17 @@ async def test_rounding_fan(hass, get_data):
     assert state.state == "33.33"
 
 
-async def test_current_layer_in_info():
+async def test_current_layer_not_in_info(hass, get_data):
     """Test."""
-    data = {
-        "status": {
-            "print_stats": {
-                "state": PRINTSTATES.PRINTING.value,
-                "filename": "TheUniverse.gcode",
-                "info": {"current_layer": 42},
-            },
-        },
-    }
-    assert calculate_current_layer(data) == 42
+    get_data["status"]["print_stats"]["info"].pop("current_layer")
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_current_layer")
+    assert state.state == "51"
 
 
 async def test_current_layer_calculated():
