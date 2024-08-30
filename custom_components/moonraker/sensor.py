@@ -215,6 +215,8 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
             sensor.coordinator.data["status"]["print_stats"]["info"]["total_layer"]
             if "total_layer" in sensor.coordinator.data["status"]["print_stats"]["info"]
             and sensor.coordinator.data["status"]["print_stats"]["info"]["total_layer"]
+            is not None
+            and sensor.coordinator.data["status"]["print_stats"]["info"]["total_layer"]
             > 0
             else sensor.coordinator.data["layer_count"]
         ),

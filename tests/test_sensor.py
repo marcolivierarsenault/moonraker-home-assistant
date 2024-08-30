@@ -467,6 +467,19 @@ async def test_total_layer_in_info_0(hass, get_data):
     assert state.state == "313"
 
 
+async def test_total_layer_in_info_is_none(hass, get_data):
+    """Test."""
+    get_data["status"]["print_stats"]["info"]["total_layer"] = None
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_total_layer")
+    assert state.state == "313"
+
+
 async def test_current_layer_calculated():
     """Test."""
     data = {
