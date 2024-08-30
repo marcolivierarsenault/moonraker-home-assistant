@@ -50,3 +50,19 @@ Camera Manual Configuration
 -------------------------------------
 
 Camera URL can be manually defined more details in the :ref:`camera_config`
+
+
+Unreachable Printer
+-------------------------------------
+
+If you have your printer turned off by a smart switch or the printer is not reachable, the integration will try to connect to the printer every 30 seconds.
+This is not problematic for the Home Assistant setup, but it may cause some redundent logs in the Home Assistant log file.
+
+To avoid this, you can add a filter to the logger configuration in the Home Assistant configuration file.
+
+.. code-block:: yaml
+
+  logger:
+    filters:
+      moonraker_api.websockets.websocketclient:
+        - ".*Websocket connection error: Cannot connect to host*"
