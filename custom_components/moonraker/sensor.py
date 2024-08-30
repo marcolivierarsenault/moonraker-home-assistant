@@ -212,7 +212,13 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         key="total_layer",
         name="Total Layer",
         value_fn=lambda sensor: sensor.empty_result_when_not_printing(
-            sensor.coordinator.data["layer_count"]
+            sensor.coordinator.data["status"]["print_stats"]["info"]["total_layer"]
+            if "total_layer" in sensor.coordinator.data["status"]["print_stats"]["info"]
+            and sensor.coordinator.data["status"]["print_stats"]["info"]["total_layer"]
+            is not None
+            and sensor.coordinator.data["status"]["print_stats"]["info"]["total_layer"]
+            > 0
+            else sensor.coordinator.data["layer_count"]
         ),
         subscriptions=[("print_stats", "info", "total_layer")],
         icon="mdi:layers-triple",
