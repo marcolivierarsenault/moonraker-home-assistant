@@ -33,4 +33,4 @@ Rpi? other?
 
 ## Moonraker Logs
 
-<!-- Please attach Home Assistant Logs -->
+<!-- Please attach Home Assistant Logs. To get at copy of your log, please look at https://moonraker-home-assistant.readthedocs.io/en/stable/support/logs.html#get-a-copy-of-your-ha-logs -->
