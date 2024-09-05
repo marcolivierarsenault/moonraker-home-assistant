@@ -213,7 +213,9 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         name="Total Layer",
         value_fn=lambda sensor: sensor.empty_result_when_not_printing(
             sensor.coordinator.data["status"]["print_stats"]["info"]["total_layer"]
-            if "total_layer" in sensor.coordinator.data["status"]["print_stats"]["info"]
+            if sensor.coordinator.data["status"]["print_stats"]["info"] is not None
+            and "total_layer"
+            in sensor.coordinator.data["status"]["print_stats"]["info"]
             and sensor.coordinator.data["status"]["print_stats"]["info"]["total_layer"]
             is not None
             and sensor.coordinator.data["status"]["print_stats"]["info"]["total_layer"]
