@@ -13,7 +13,7 @@ We might ask you to confirm or update your Moonraker version
 #. Click **Update Information** (*B*)
 #. Click 3 little dots top right corner
 #. Click **Redownload** (*C*)
-#. Select a specific version or ``main`` for the latest possible code
+#. Select a specific version
 #. Click **Download**
 #. Restart **HACS** (``HA Main Menu`` -> ``Developer Tools`` -> ``Restart``)
 
