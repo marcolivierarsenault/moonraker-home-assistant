@@ -10,5 +10,3 @@ sudo apt-get install -y libturbojpeg0 ffmpeg
 
 python3 -m pip install --requirement requirements.txt
 
-
-pre-commit install
