@@ -4,9 +4,18 @@ set -e
 
 cd "$(dirname "$0")/.."
 
+# Install go2rtc
+
+HA_GO2RTC_VERSION=$(curl --silent -qI https://github.com/AlexxIT/go2rtc/releases/latest | awk -F '/' '/^location/ {print  substr($NF, 1, length($NF)-1)}')
+echo "https://github.com/AlexxIT/go2rtc/releases/download/${HA_GO2RTC_VERSION}/go2rtc_linux_amd64"
+sudo curl -o  /bin/go2rtc -fL "https://github.com/AlexxIT/go2rtc/releases/download/${HA_GO2RTC_VERSION}/go2rtc_linux_amd64"
+sudo chmod +x /bin/go2rtc
+
 sudo apt-get update
-sudo apt-get install -y libturbojpeg0 ffmpeg
+pip install --upgrade pip
+sudo apt-get upgrade -y
 
 
 python3 -m pip install --requirement requirements.txt
 
+sudo apt-get install -y libturbojpeg0 ffmpeg libpcap-dev
