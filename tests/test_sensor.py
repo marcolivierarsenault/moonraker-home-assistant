@@ -71,6 +71,7 @@ async def test_sensor_services_update(hass, get_data):
     "sensor, value",
     [
         ("mainsail_mcu_temp", "32.43"),
+        ("mainsail_eddy_temp", "32.43"),
         ("mainsail_bed_target", "60.0"),
         ("mainsail_bed_temperature", "60.01"),
         ("mainsail_extruder_target", "205.0"),
@@ -212,6 +213,20 @@ async def test_opt_sensor_missing(hass, get_data, get_printer_objects_list):
     await hass.async_block_till_done()
 
     state = hass.states.get("sensor.mainsail_mcu_temp")
+    assert state is None
+
+
+async def test_opt_probe_missing(hass, get_data, get_printer_objects_list):
+    """Test."""
+    get_data["status"].pop("temperature_probe eddy_temp", None)
+    get_printer_objects_list["objects"].remove("temperature_probe eddy_temp")
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_eddy_temp")
     assert state is None
 
 
