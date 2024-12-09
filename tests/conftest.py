@@ -120,6 +120,9 @@ def get_data_fixture():
                 "speed": 0.1234,
                 "rpm": 4500,
             },
+            "temperature_probe eddy_temp": {
+                "temperature": 32.43,
+            },
             "temperature_host host_temp": {
                 "temperature": 32.43,
             },
@@ -293,6 +296,7 @@ def get_printer_objects_list_fixture():
             "bed_mesh",
             "screws_tilt_adjust",
             "temperature_sensor mcu_temp",
+            "temperature_probe eddy_temp",
             "stepper_enable",
             "motion_report",
             "query_endstops",
