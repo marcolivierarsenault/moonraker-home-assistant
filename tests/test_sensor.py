@@ -601,3 +601,20 @@ async def test_update_no_info_item(hass, get_machine_update_status):
 
     entity = entity_registry.async_get("sensor.mainsail_machine_update_system")
     assert entity is not None
+
+
+async def test_optional_sensor_is_none(hass, get_data):
+    """Test."""
+    get_data["status"]["temperature_sensor mcu_temp"]["temperature"] = None
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    entity_registry = er.async_get(hass)
+    entity = entity_registry.async_get("sensor.mainsail_mcu_temp")
+    assert entity is not None
+
+    state = hass.states.get("sensor.mainsail_mcu_temp")
+    assert state.state == "unknown"
