@@ -62,6 +62,12 @@ def get_data_fixture():
                     "output_pin capitalized": {
                         "pwm": True,
                     },
+                    "led chamber": {
+                        "white_pin": "PA1",
+                    },
+                    "neopixel camera": {
+                        "pin": "PA2",
+                    },
                 },
             },
             "print_stats": {
@@ -173,6 +179,12 @@ def get_data_fixture():
             },
             "output_pin CAPITALIZED": {
                 "value": 1.0,
+            },
+            "led chamber": {
+                "color_data": [[0.0, 0.0, 0.0, 0.5]],
+            },
+            "neopixel CAMERA": {
+                "color_data": [[1.0, 0.5, 0.0, 0.0]],
             },
             "gcode_move": {
                 "speed_factor": 2.0,
@@ -318,6 +330,8 @@ def get_printer_objects_list_fixture():
             "output_pin digital",
             "output_pin pwm",
             "output_pin CAPITALIZED",
+            "led chamber",
+            "neopixel CAMERA",
             "fan_generic nevermore_fan",
         ]
     }

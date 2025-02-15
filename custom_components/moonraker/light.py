@@ -73,7 +73,7 @@ async def async_setup_light(coordinator, entry, async_add_entities):
             elif "red_pin" in conf and "green_pin" in conf and "blue_pin" in conf:
                 color_mode = ColorMode.RGB
         elif led_type == "neopixel" or led_type == "pca9632":
-            if "W" in conf["color_order"]:
+            if "color_order" in conf and "W" in conf["color_order"]:
                 color_mode = ColorMode.RGBW
             else:
                 color_mode = ColorMode.RGB
