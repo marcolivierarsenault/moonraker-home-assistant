@@ -18,6 +18,7 @@ PLATFORMS = [
     Platform.BINARY_SENSOR,
     Platform.SWITCH,
     Platform.NUMBER,
+    Platform.LIGHT,
 ]
 
 CONF_API_KEY = "api_key"
@@ -56,6 +57,7 @@ class METHODS(Enum):
     PRINTER_GCODE_SCRIPT = "printer.gcode.script"
     PRINTER_OBJECTS_LIST = "printer.objects.list"
     PRINTER_OBJECTS_QUERY = "printer.objects.query"
+    PRINTER_OBJECTS_SUBSCRIBE = "printer.objects.subscribe"
     PRINTER_PRINT_CANCEL = "printer.print.cancel"
     PRINTER_PRINT_PAUSE = "printer.print.pause"
     PRINTER_PRINT_RESUME = "printer.print.resume"
