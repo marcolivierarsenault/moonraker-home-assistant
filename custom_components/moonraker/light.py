@@ -123,7 +123,7 @@ class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
         self._attr_icon = description.icon
         self._attr_color_mode = description.color_mode
         self._attr_supported_color_modes = {description.color_mode}
-        self._set_attributes()
+        self._set_attributes_from_coordinator()
 
     async def async_turn_on(
         self,
@@ -165,17 +165,18 @@ class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
             METHODS.PRINTER_GCODE_SCRIPT,
             {"script": f"SET_LED LED=\"{self.led_name}\" RED={f_r} GREEN={f_g} BLUE={f_b} WHITE={f_w} SYNC=0 TRANSMIT=1"},
         )
-        self._attr_brightness = w
-        self._attr_rgb_color = (r, g, b)
         self._attr_rgbw_color = (r, g, b, w)
         self.async_write_ha_state()
 
-    def _set_attributes(self) -> None:
+    def _set_attributes_from_coordinator(self) -> None:
         color_data = self.coordinator.data["status"][self.sensor_name]["color_data"][0]
         r = color.value_to_brightness((1, 100), color_data[0] * 100)
         g = color.value_to_brightness((1, 100), color_data[1] * 100)
         b = color.value_to_brightness((1, 100), color_data[2] * 100)
         w = color.value_to_brightness((1, 100), color_data[3] * 100)
+        self._set_attributes(r, g, b, w)
+
+    def _set_attributes(self, r: int, g: int, b: int, w: int) -> None:
         self._attr_is_on = r > 0 or g > 0 or b > 0 or w > 0
         self._attr_brightness = w
         self._attr_rgb_color = (r, g, b)
@@ -184,5 +185,5 @@ class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        self._set_attributes()
+        self._set_attributes_from_coordinator()
         self.async_write_ha_state()
