@@ -125,18 +125,9 @@ class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
         brightness: int = None,
         color_temp: int = None,
         rgb_color=None,
-        xy_color=None,
-        hs_color=None,
-        effect: str = None,
-        transition: float = None,
         **kwargs,
     ) -> None:
         """Turn on the light."""
-        if xy_color:
-            rgb_color = color.color_xy_to_RGB(*xy_color)
-        elif hs_color:
-            rgb_color = color.color_hs_to_RGB(*hs_color)
-
         if rgb_color:
             await self._set_rgbw(*rgb_color, 0)
         else:
@@ -150,10 +141,10 @@ class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
 
     async def _set_rgbw(self, r: int, g: int, b: int, w: int) -> None:
         """Set native Value."""
-        f_r = color.brightness_to_value((1, 100), r) / 100
-        f_g = color.brightness_to_value((1, 100), g) / 100
-        f_b = color.brightness_to_value((1, 100), b) / 100
-        f_w = color.brightness_to_value((1, 100), w) / 100
+        f_r = round(color.brightness_to_value((1, 100), r) / 100, 2)
+        f_g = round(color.brightness_to_value((1, 100), g) / 100, 2)
+        f_b = round(color.brightness_to_value((1, 100), b) / 100, 2)
+        f_w = round(color.brightness_to_value((1, 100), w) / 100, 2)
         await self.coordinator.async_send_data(
             METHODS.PRINTER_GCODE_SCRIPT,
             {"script": f"SET_LED LED=\"{self.led_name}\" RED={f_r} GREEN={f_g} BLUE={f_b} WHITE={f_w} SYNC=0 TRANSMIT=1"},

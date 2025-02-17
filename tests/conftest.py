@@ -64,16 +64,32 @@ def get_data_fixture():
                     },
                     "led chamber": {
                         "white_pin": "PA1",
+                        "red_pin": "PA2",
+                        "blue_pin": "PA3",
+                        "green_pin": "PA4",
                     },
                     "neopixel camera": {
-                        "pin": "PA2",
+                        "pin": "PA5",
+                        "color_order": "RGBW",
                     },
                     "dotstar strip": {
-                        "pin": "PA3",
+                        "pin": "PA6",
                     },
                     "pca9533 leds": {
-                        "pin": "PA4",
-                    }
+                        "pin": "PA7",
+                    },
+                    "led ignored_no_pins": {},
+                    "led brightness_only": {
+                        "white_pin": "PA8",
+                    },
+                    "neopixel rgb_only": {
+                        "pin": "PA9",
+                    },
+                    "led generic_rgb": {
+                        "red_pin": "PA10",
+                        "blue_pin": "PA11",
+                        "green_pin": "PA12",
+                    },
                 },
             },
             "print_stats": {
@@ -196,6 +212,18 @@ def get_data_fixture():
                 "color_data": [[1.0, 0.5, 0.0, 0.0]],
             },
             "pca9533 leds": {
+                "color_data": [[1.0, 0.5, 0.0, 0.0]],
+            },
+            "led ignored_no_pins": {
+                "color_data": [[1.0, 0.5, 0.0, 0.0]],
+            },
+            "led brightness_only": {
+                "color_data": [[1.0, 0.5, 0.0, 0.0]],
+            },
+            "neopixel rgb_only": {
+                "color_data": [[1.0, 0.5, 0.0, 0.0]],
+            },
+            "led generic_rgb": {
                 "color_data": [[1.0, 0.5, 0.0, 0.0]],
             },
             "gcode_move": {
@@ -346,6 +374,10 @@ def get_printer_objects_list_fixture():
             "neopixel CAMERA",
             "dotstar strip",
             "pca9533 leds",
+            "led ignored_no_pins",
+            "led brightness_only",
+            "neopixel rgb_only",
+            "led generic_rgb",
             "fan_generic nevermore_fan",
         ]
     }
