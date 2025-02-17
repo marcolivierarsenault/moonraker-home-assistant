@@ -68,6 +68,12 @@ def get_data_fixture():
                     "neopixel camera": {
                         "pin": "PA2",
                     },
+                    "dotstar strip": {
+                        "pin": "PA3",
+                    },
+                    "pca9533 leds": {
+                        "pin": "PA4",
+                    }
                 },
             },
             "print_stats": {
@@ -184,6 +190,12 @@ def get_data_fixture():
                 "color_data": [[0.0, 0.0, 0.0, 0.5]],
             },
             "neopixel CAMERA": {
+                "color_data": [[1.0, 0.5, 0.0, 0.0]],
+            },
+            "dotstar strip": {
+                "color_data": [[1.0, 0.5, 0.0, 0.0]],
+            },
+            "pca9533 leds": {
                 "color_data": [[1.0, 0.5, 0.0, 0.0]],
             },
             "gcode_move": {
@@ -332,6 +344,8 @@ def get_printer_objects_list_fixture():
             "output_pin CAPITALIZED",
             "led chamber",
             "neopixel CAMERA",
+            "dotstar strip",
+            "pca9533 leds",
             "fan_generic nevermore_fan",
         ]
     }

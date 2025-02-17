@@ -29,11 +29,6 @@ async def async_setup_entry(hass, entry, async_add_devices):
     await async_setup_light(coordinator, entry, async_add_devices)
 
 
-async def _light_objects_updater(coordinator):
-    return await coordinator._async_fetch_data(
-        METHODS.PRINTER_OBJECTS_QUERY, coordinator.query_obj
-    )
-
 async def async_setup_light(coordinator, entry, async_add_entities):
     """Set optional light platform."""
 
@@ -136,14 +131,11 @@ class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
         transition: float = None,
         **kwargs,
     ) -> None:
+        """Turn on the light."""
         if xy_color:
             rgb_color = color.color_xy_to_RGB(*xy_color)
         elif hs_color:
             rgb_color = color.color_hs_to_RGB(*hs_color)
-
-        if brightness == 0:
-            await self.async_turn_off()
-            return
 
         if rgb_color:
             await self._set_rgbw(*rgb_color, 0)
@@ -153,6 +145,7 @@ class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
             await self._set_rgbw(brightness, brightness, brightness, brightness)
 
     async def async_turn_off(self, **kwargs) -> None:
+        """Turn off the light."""
         await self._set_rgbw(0, 0, 0, 0)
 
     async def _set_rgbw(self, r: int, g: int, b: int, w: int) -> None:
