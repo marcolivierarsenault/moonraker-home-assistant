@@ -41,6 +41,9 @@ A series of buttons are available by default. They are:
   * - Printer Switch
     - Power On/Off the printer.
     - From Moonraker API (*machine.device_power.devices*)
+  * - Reset Totals
+    - Reset moonraker statistics. Button is disabled by default.
+    - From Moonraker API (*server.history.reset_totals*)
 
 Macros
 ---------------------------------
