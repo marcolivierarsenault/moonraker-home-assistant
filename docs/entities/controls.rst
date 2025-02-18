@@ -15,7 +15,7 @@ A series of buttons are available by default. They are:
     - Description
     - Definition
   * - Emergency Stop
-    - Complete and imediate stop of the printer.
+    - Complete and immediate stop of the printer.
     - From Moonraker API (*printer.emergency_stop*)
   * - Pause Print
     - Pause the current print.
@@ -76,7 +76,7 @@ A series of switches are available by default. They are:
 Default Numbers
 ---------------------------------
 
-A series of Numbers are available by default as slidder. They are:
+A series of Numbers are available by default as slider. They are:
 
 .. list-table:: Default Numbers
   :header-rows: 1
@@ -86,4 +86,19 @@ A series of Numbers are available by default as slidder. They are:
     - Definition
   * - Output pin pwm
     - Set a pwm output pin to a value.
+    - From Moonraker API (*printer.gcode.script*)
+
+Default LEDs
+---------------------------------
+
+A series of LEDs are available by default as a light control. They are:
+
+.. list-table:: Default LEDs
+  :header-rows: 1
+
+  * - LED Name
+    - Description
+    - Definition
+  * - <type> <name> e.g. neopixel strip
+    - Set a light to a given brightness or rgb value.
     - From Moonraker API (*printer.gcode.script*)
