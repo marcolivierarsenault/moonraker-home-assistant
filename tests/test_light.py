@@ -23,7 +23,7 @@ def bypass_connect_client_fixture():
 # test light on
 @pytest.mark.parametrize(
     "light",
-    [("mainsail_led_chamber"), ("mainsail_neopixel_CAMERA")],
+    [("mainsail_led_chamber")],
 )
 async def test_light_turn_on(hass, light, get_default_api_response):
     """Test."""
@@ -33,8 +33,8 @@ async def test_light_turn_on(hass, light, get_default_api_response):
     await hass.async_block_till_done()
 
     with patch(
-            "moonraker_api.MoonrakerClient.call_method",
-            return_value={**get_default_api_response},
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={**get_default_api_response},
     ) as mock_api:
         await hass.services.async_call(
             LIGHT_DOMAIN,
@@ -48,7 +48,39 @@ async def test_light_turn_on(hass, light, get_default_api_response):
 
         mock_api.assert_any_call(
             METHODS.PRINTER_GCODE_SCRIPT.value,
-            script=f"SET_LED LED=\"{light.split('_')[2]}\" RED=1.0 GREEN=1.0 BLUE=1.0 WHITE=1.0 SYNC=0 TRANSMIT=1",
+            script=f'SET_LED LED="{light.split("_")[2]}" RED=0.0 GREEN=0.0 BLUE=0.0 WHITE=1.0 SYNC=0 TRANSMIT=1',
+        )
+
+
+# test dim
+@pytest.mark.parametrize(
+    "light",
+    [("mainsail_neopixel_CAMERA")],
+)
+async def test_light_dim(hass, light, get_default_api_response):
+    """Test."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={**get_default_api_response},
+    ) as mock_api:
+        await hass.services.async_call(
+            LIGHT_DOMAIN,
+            SERVICE_TURN_ON,
+            {
+                ATTR_ENTITY_ID: f"light.{light}",
+                "brightness": 128,
+            },
+            blocking=True,
+        )
+
+        mock_api.assert_any_call(
+            METHODS.PRINTER_GCODE_SCRIPT.value,
+            script=f'SET_LED LED="{light.split("_")[2]}" RED=0.5 GREEN=0.25 BLUE=0.0 WHITE=0.0 SYNC=0 TRANSMIT=1',
         )
 
 
@@ -65,8 +97,8 @@ async def test_light_turn_on_default(hass, light, get_default_api_response):
     await hass.async_block_till_done()
 
     with patch(
-            "moonraker_api.MoonrakerClient.call_method",
-            return_value={**get_default_api_response},
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={**get_default_api_response},
     ) as mock_api:
         await hass.services.async_call(
             LIGHT_DOMAIN,
@@ -79,7 +111,7 @@ async def test_light_turn_on_default(hass, light, get_default_api_response):
 
         mock_api.assert_any_call(
             METHODS.PRINTER_GCODE_SCRIPT.value,
-            script=f"SET_LED LED=\"{light.split('_')[2]}\" RED=1.0 GREEN=1.0 BLUE=1.0 WHITE=1.0 SYNC=0 TRANSMIT=1",
+            script=f'SET_LED LED="{light.split("_")[2]}" RED=1.0 GREEN=1.0 BLUE=1.0 WHITE=1.0 SYNC=0 TRANSMIT=1',
         )
 
 
@@ -96,8 +128,8 @@ async def test_light_turn_on_rgb(hass, light, get_default_api_response):
     await hass.async_block_till_done()
 
     with patch(
-            "moonraker_api.MoonrakerClient.call_method",
-            return_value={**get_default_api_response},
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={**get_default_api_response},
     ) as mock_api:
         await hass.services.async_call(
             LIGHT_DOMAIN,
@@ -111,7 +143,7 @@ async def test_light_turn_on_rgb(hass, light, get_default_api_response):
 
         mock_api.assert_any_call(
             METHODS.PRINTER_GCODE_SCRIPT.value,
-            script=f"SET_LED LED=\"{light.split('_')[2]}\" RED=1.0 GREEN=0.0 BLUE=0.5 WHITE=0.0 SYNC=0 TRANSMIT=1",
+            script=f'SET_LED LED="{light.split("_")[2]}" RED=1.0 GREEN=0.0 BLUE=0.5 WHITE=0.0 SYNC=0 TRANSMIT=1',
         )
 
 
@@ -128,8 +160,8 @@ async def test_light_turn_off(hass, light, get_default_api_response):
     await hass.async_block_till_done()
 
     with patch(
-            "moonraker_api.MoonrakerClient.call_method",
-            return_value={**get_default_api_response},
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={**get_default_api_response},
     ) as mock_api:
         await hass.services.async_call(
             LIGHT_DOMAIN,
@@ -142,5 +174,5 @@ async def test_light_turn_off(hass, light, get_default_api_response):
 
         mock_api.assert_any_call(
             METHODS.PRINTER_GCODE_SCRIPT.value,
-            script=f"SET_LED LED=\"{light.split('_')[2]}\" RED=0.0 GREEN=0.0 BLUE=0.0 WHITE=0.0 SYNC=0 TRANSMIT=1",
+            script=f'SET_LED LED="{light.split("_")[2]}" RED=0.0 GREEN=0.0 BLUE=0.0 WHITE=0.0 SYNC=0 TRANSMIT=1',
         )
