@@ -48,10 +48,6 @@ You have issue with the integration, you want new sensors? Please open an Issue.
 ![camera](https://raw.githubusercontent.com/marcolivierarsenault/moonraker-home-assistant/main/assets/camera.png)
 ![thumbnial](https://raw.githubusercontent.com/marcolivierarsenault/moonraker-home-assistant/main/assets/thumbnail.png)
 
-# Slack Workspace
-
-Join our [Slack Workspace](https://join.slack.com/t/moonraker-ha/shared_invite/zt-22adxor52-MV~zqgFeKCmW8yb0bb2q0Q) for more Sync conversations
-
 # Special thanks
 
 Special thanks to [Clifford Roche](https://github.com/cmroche) who built [moonraker-api](https://github.com/cmroche/moonraker-api) which it the conector library we are using for this integration. 🚀

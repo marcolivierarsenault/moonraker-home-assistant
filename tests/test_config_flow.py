@@ -3,7 +3,8 @@
 from unittest.mock import patch
 
 import pytest
-from homeassistant import config_entries, data_entry_flow
+from homeassistant import config_entries
+from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.moonraker.const import (
@@ -43,7 +44,7 @@ async def test_successful_config_flow(hass):
     )
 
     # Check that the config flow shows the user form as the first step
-    assert result["type"] == data_entry_flow.RESULT_TYPE_FORM
+    assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "user"
 
     result = await hass.config_entries.flow.async_configure(
@@ -52,7 +53,7 @@ async def test_successful_config_flow(hass):
 
     # Check that the config flow is complete and a new entry is created with
     # the input data
-    assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
+    assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["title"] == DOMAIN
     assert result["data"] == MOCK_CONFIG
     assert result["result"]
@@ -65,7 +66,7 @@ async def test_tmp_failing_config_flow(hass):
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
 
-    assert result["type"] == data_entry_flow.RESULT_TYPE_FORM
+    assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "user"
 
     with patch(
@@ -76,7 +77,7 @@ async def test_tmp_failing_config_flow(hass):
             result["flow_id"], user_input=MOCK_CONFIG
         )
 
-    assert result["type"] == data_entry_flow.RESULT_TYPE_FORM
+    assert result["type"] == FlowResultType.FORM
     assert result["errors"] == {CONF_URL: "printer_connection_error"}
 
 
@@ -133,7 +134,7 @@ async def test_server_host_when_good(hass):
         result["flow_id"], user_input={CONF_URL: "1.2.3.4"}
     )
 
-    assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
+    assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["title"] == DOMAIN
     assert result["data"] == {
         CONF_URL: "1.2.3.4",
@@ -156,7 +157,7 @@ async def test_server_ssl_enabled(hass):
         result["flow_id"], user_input={CONF_URL: "1.2.3.4", CONF_TLS: True}
     )
 
-    assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
+    assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["title"] == DOMAIN
     assert result["data"] == {
         CONF_URL: "1.2.3.4",
@@ -218,7 +219,7 @@ async def test_server_port_when_good_port(hass):
         result["flow_id"], user_input={CONF_URL: "1.2.3.4", CONF_PORT: "7611"}
     )
 
-    assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
+    assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["title"] == DOMAIN
     assert result["data"] == {
         CONF_URL: "1.2.3.4",
@@ -241,7 +242,7 @@ async def test_server_port_when_port_empty(hass):
         result["flow_id"], user_input={CONF_URL: "1.2.3.4", CONF_PORT: ""}
     )
 
-    assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
+    assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["title"] == DOMAIN
     assert result["data"] == {
         CONF_URL: "1.2.3.4",
@@ -307,7 +308,7 @@ async def test_server_api_key_when_good(hass):
         },
     )
 
-    assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
+    assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["title"] == "moonraker"
     assert result["data"] == {
         CONF_URL: "1.2.3.4",
@@ -333,7 +334,7 @@ async def test_server_api_key_when_empty(hass):
         },
     )
 
-    assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
+    assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["title"] == "moonraker"
     assert result["data"] == {
         CONF_URL: "1.2.3.4",
@@ -371,7 +372,7 @@ async def test_printer_name_when_good(hass):
         user_input={CONF_URL: "1.2.3.4", CONF_PRINTER_NAME: "example name"},
     )
 
-    assert result["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
+    assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["title"] == "moonraker"
     assert result["data"] == {
         CONF_URL: "1.2.3.4",
@@ -391,7 +392,7 @@ async def test_bad_connection_config_flow(hass):
     )
 
     # Check that the config flow shows the user form as the first step
-    assert result["type"] == data_entry_flow.RESULT_TYPE_FORM
+    assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "user"
 
     result = await hass.config_entries.flow.async_configure(
@@ -412,7 +413,7 @@ async def test_option_config_camera_services(hass):
     result = await hass.config_entries.options.async_init("test")
     await hass.async_block_till_done()
 
-    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    assert result["type"] == FlowResultType.FORM
 
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
@@ -423,4 +424,4 @@ async def test_option_config_camera_services(hass):
     )
     await hass.async_block_till_done()
 
-    assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
+    assert result["type"] == FlowResultType.CREATE_ENTRY
