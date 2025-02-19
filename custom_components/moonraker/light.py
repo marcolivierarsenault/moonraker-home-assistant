@@ -129,14 +129,14 @@ class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
         **kwargs,
     ) -> None:
         """Turn on the light."""
-        self._attr_is_on = True
         if rgb_color:
             await self._set_rgbw(*rgb_color, 0)
         else:
-            if brightness is None:
+            if brightness is None or not self._attr_is_on:
                 brightness = 255
+                self._attr_is_on = True
                 await self._set_rgbw(brightness, brightness, brightness, brightness)
-            else:
+            elif self._attr_is_on:
                 color_data = self.coordinator.data["status"][self.sensor_name][
                     "color_data"
                 ][0]
