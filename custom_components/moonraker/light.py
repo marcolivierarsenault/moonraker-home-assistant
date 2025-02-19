@@ -140,7 +140,6 @@ class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
                 color_data = self.coordinator.data["status"][self.sensor_name][
                     "color_data"
                 ][0]
-                color_data[0]
                 multiplier = brightness / (
                     max(color_data[0], color_data[1], color_data[2], color_data[3])
                     * 255
