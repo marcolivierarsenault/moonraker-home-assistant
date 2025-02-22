@@ -224,7 +224,7 @@ def get_data_fixture():
                 "color_data": [[1.0, 0.5, 0.0, 0.0]],
             },
             "led generic_rgb": {
-                "color_data": [[1.0, 0.5, 0.0, 0.0]],
+                "color_data": [[1.0, 0.5, 1.0, 0.0]],
             },
             "gcode_move": {
                 "speed_factor": 2.0,
