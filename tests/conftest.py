@@ -179,7 +179,7 @@ def get_data_fixture():
             },
             "heater_fan heater_fan": {
                 "speed": 0.5123,
-                "rpm": 3000,
+                "rpm": None,
             },
             "controller_fan controller_fan": {
                 "speed": 0.5123,
