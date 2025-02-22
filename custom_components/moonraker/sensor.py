@@ -103,13 +103,14 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
                 else 0,
                 2,
             )
+            / 3600
         ),
         subscriptions=[
             ("print_stats", "total_duration"),
             ("display_status", "progress"),
         ],
         icon="mdi:timer",
-        unit=UnitOfTime.SECONDS,
+        unit=UnitOfTime.HOURS,
         device_class=SensorDeviceClass.DURATION,
     ),
     MoonrakerSensorDescription(
@@ -126,13 +127,14 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
                 - sensor.coordinator.data["status"]["print_stats"]["print_duration"],
                 2,
             )
+            / 3600
         ),
         subscriptions=[
             ("print_stats", "print_duration"),
             ("display_status", "progress"),
         ],
         icon="mdi:timer",
-        unit=UnitOfTime.SECONDS,
+        unit=UnitOfTime.HOURS,
         device_class=SensorDeviceClass.DURATION,
     ),
     MoonrakerSensorDescription(
@@ -150,24 +152,30 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         key="slicer_print_duration_estimate",
         name="Slicer Print Duration Estimate",
         value_fn=lambda sensor: sensor.empty_result_when_not_printing(
-            sensor.coordinator.data["estimated_time"]
+            sensor.coordinator.data["estimated_time"] / 3600
         ),
         subscriptions=[],
         icon="mdi:timer",
         device_class=SensorDeviceClass.DURATION,
-        unit=UnitOfTime.SECONDS,
+        unit=UnitOfTime.HOURS,
     ),
     MoonrakerSensorDescription(
         key="slicer_print_time_left_estimate",
         name="Slicer Print Time Left Estimate",
         value_fn=lambda sensor: sensor.empty_result_when_not_printing(
-            sensor.coordinator.data["estimated_time"]
-            - sensor.coordinator.data["status"]["print_stats"]["print_duration"]
+            round(
+                (
+                    sensor.coordinator.data["estimated_time"]
+                    - sensor.coordinator.data["status"]["print_stats"]["print_duration"]
+                )
+                / 3600,
+                2,
+            )
         ),
         subscriptions=[("print_stats", "print_duration")],
         icon="mdi:timer",
         device_class=SensorDeviceClass.DURATION,
-        unit=UnitOfTime.SECONDS,
+        unit=UnitOfTime.HOURS,
     ),
     MoonrakerSensorDescription(
         key="print_duration",
@@ -539,7 +547,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
             desc = MoonrakerSensorDescription(
                 key=f"{split_obj[0]}_{split_obj[1]}_temperature",
                 status_key=obj,
-                name=f"{split_obj[1].replace('_',' ')} Temperature".title(),
+                name=f"{split_obj[1].replace('_', ' ')} Temperature".title(),
                 value_fn=lambda sensor: (
                     round(
                         sensor.coordinator.data["status"][sensor.status_key][
@@ -563,7 +571,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
             desc = MoonrakerSensorDescription(
                 key=f"{split_obj[0]}_{split_obj[1]}_target",
                 status_key=obj,
-                name=f"{split_obj[1].replace('_',' ')} Target".title(),
+                name=f"{split_obj[1].replace('_', ' ')} Target".title(),
                 value_fn=lambda sensor: sensor.coordinator.data["status"][
                     sensor.status_key
                 ]["target"],

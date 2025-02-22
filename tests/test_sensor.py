@@ -85,8 +85,8 @@ async def test_sensor_services_update(hass, get_data):
         ("mainsail_printer_message", "Printer is ready"),
         ("mainsail_current_print_state", "printing"),
         ("mainsail_current_print_message", ""),
-        ("mainsail_print_projected_total_duration", "9197.46"),
-        ("mainsail_print_time_left", "1182.94"),
+        ("mainsail_print_projected_total_duration", "2.55485"),
+        ("mainsail_print_time_left", "0.328594444444444"),
         ("mainsail_print_duration", "133.58"),
         ("mainsail_filament_used", "5.0"),
         ("mainsail_progress", "90"),
@@ -110,7 +110,7 @@ async def test_sensor_services_update(hass, get_data):
         ("mainsail_toolhead_position_x", "23.3"),
         ("mainsail_toolhead_position_y", "22.2"),
         ("mainsail_toolhead_position_z", "10.2"),
-        ("mainsail_slicer_print_duration_estimate", "8232.0"),
+        ("mainsail_slicer_print_duration_estimate", "2.28666666666667"),
         ("mainsail_object_height", "62.6"),
         ("mainsail_speed_factor", "200.0"),
         ("mainsail_my_super_heater_temperature", "32.43"),
@@ -258,9 +258,12 @@ async def test_slicer_time_left(hass, get_data):
 
     target = str(
         round(
-            get_data["estimated_time"]
-            - get_data["status"]["print_stats"]["print_duration"],
-            12,
+            (
+                get_data["estimated_time"]
+                - get_data["status"]["print_stats"]["print_duration"]
+            )
+            / 3600,
+            2,
         )
     )
     assert state.state == target
