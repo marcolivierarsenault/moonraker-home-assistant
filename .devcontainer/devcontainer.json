@@ -1,6 +1,16 @@
 {
   "name": "moonraker-home-assistant",
   "image": "mcr.microsoft.com/devcontainers/python:dev-3.13-bookworm",
+  "mounts": [
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached"
+  ],
+  "features": {
+    "ghcr.io/devcontainers/features/sshd:1": {},
+    "rust": "latest"
+  },
+  "remoteEnv": {
+    "SSH_AUTH_SOCK": "/ssh-agent"
+  },
   "postCreateCommand": "scripts/setup",
   "forwardPorts": [8123],
   "customizations": {
@@ -36,8 +46,5 @@
       }
     }
   },
-  "remoteUser": "vscode",
-  "features": {
-    "rust": "latest"
-  }
+  "remoteUser": "vscode"
 }
