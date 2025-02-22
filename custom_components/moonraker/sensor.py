@@ -494,10 +494,12 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
             desc = MoonrakerSensorDescription(
                 key=f"{split_obj[0]}_{split_obj[1]}_rpm",
                 status_key=obj,
-                name=f"{split_obj[1].replace('_', ' ').title()}_rpm",
-                value_fn=lambda sensor: sensor.coordinator.data["status"][
-                    sensor.status_key
-                ]["rpm"],
+                name=f"{split_obj[1].replace('_', ' ').title()} RPM",
+                value_fn=lambda sensor: int(
+                    sensor.coordinator.data["status"]["fan"]["rpm"]
+                )
+                if sensor.coordinator.data["status"]["fan"]["rpm"] is not None
+                else None,
                 subscriptions=[(obj, "rpm")],
                 icon="mdi:fan",
                 unit=REVOLUTIONS_PER_MINUTE,
@@ -519,8 +521,12 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
             sensors.append(desc)
             desc = MoonrakerSensorDescription(
                 key="fan_rpm",
-                name="Fan rpm",
-                value_fn=lambda sensor: sensor.coordinator.data["status"]["fan"]["rpm"],
+                name="Fan RPM",
+                value_fn=lambda sensor: int(
+                    sensor.coordinator.data["status"]["fan"]["rpm"]
+                )
+                if sensor.coordinator.data["status"]["fan"]["rpm"] is not None
+                else None,
                 subscriptions=[("fan", "rpm")],
                 icon="mdi:fan",
                 unit=REVOLUTIONS_PER_MINUTE,

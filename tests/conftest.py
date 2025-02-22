@@ -146,7 +146,7 @@ def get_data_fixture():
             },
             "fan_generic nevermore_fan": {
                 "speed": 0.1234,
-                "rpm": 4500,
+                "rpm": 4500.23231,
             },
             "temperature_probe eddy_temp": {
                 "temperature": 32.43,
@@ -175,7 +175,7 @@ def get_data_fixture():
             },
             "fan": {
                 "speed": 0.5123,
-                "rpm": 3000,
+                "rpm": 3000.12321,
             },
             "heater_fan heater_fan": {
                 "speed": 0.5123,
@@ -183,7 +183,7 @@ def get_data_fixture():
             },
             "controller_fan controller_fan": {
                 "speed": 0.5123,
-                "rpm": 3000,
+                "rpm": 3000.32123,
             },
             "filament_switch_sensor filament_sensor_1": {
                 "filament_detected": True,
