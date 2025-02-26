@@ -504,9 +504,10 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 status_key=obj,
                 name=f"{split_obj[1].replace('_', ' ').title()} RPM",
                 value_fn=lambda sensor: int(
-                    sensor.coordinator.data["status"]["fan"]["rpm"]
+                    sensor.coordinator.data["status"][sensor.status_key]["rpm"]
                 )
-                if sensor.coordinator.data["status"]["fan"]["rpm"] is not None
+                if sensor.coordinator.data["status"][sensor.status_key]["rpm"]
+                is not None
                 else None,
                 subscriptions=[(obj, "rpm")],
                 icon="mdi:fan",

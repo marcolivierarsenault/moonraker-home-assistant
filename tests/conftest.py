@@ -183,7 +183,7 @@ def get_data_fixture():
             },
             "controller_fan controller_fan": {
                 "speed": 0.5123,
-                "rpm": 3000.32123,
+                "rpm": 5000.32123,
             },
             "filament_switch_sensor filament_sensor_1": {
                 "filament_detected": True,
