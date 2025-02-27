@@ -68,6 +68,7 @@ class METHODS(Enum):
     SERVER_JOB_QUEUE_STATUS = "server.job_queue.status"
     SERVER_RESTART = "server.restart"
     SERVER_WEBCAMS_LIST = "server.webcams.list"
+    SERVER_SPOOLMAN_ID = "server.spoolman.status"
 
 
 class ExtendedEnum(Enum):
