@@ -290,6 +290,8 @@ def get_data_fixture():
         "print_start_time": 1675396166.8472495,
         "job_id": "000059",
         "filename": "CE3E3V2_picture_frame_holder.gcode",
+        "queued_jobs": [],
+        "queue_state": "paused",
     }
 
 
