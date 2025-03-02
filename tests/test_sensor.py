@@ -606,14 +606,21 @@ async def test_update_no_info_item(hass, get_machine_update_status):
     assert entity is not None
 
 
-async def test_optional_sensor_is_none(hass, get_data):
+async def test_optional_sensor_is_none(hass, get_default_api_response):
     """Test."""
-    get_data["status"]["temperature_sensor mcu_temp"]["temperature"] = None
+    get_default_api_response["status"]["temperature_sensor mcu_temp"][
+        "temperature"
+    ] = None
+    del get_default_api_response["queued_jobs"]
 
-    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
-    config_entry.add_to_hass(hass)
-    await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={**get_default_api_response},
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
 
     entity_registry = er.async_get(hass)
     entity = entity_registry.async_get("sensor.mainsail_mcu_temp")
@@ -621,3 +628,9 @@ async def test_optional_sensor_is_none(hass, get_data):
 
     state = hass.states.get("sensor.mainsail_mcu_temp")
     assert state.state == "unknown"
+
+    entity = entity_registry.async_get("sensor.mainsail_queue_state")
+    assert entity is None
+
+    entity = entity_registry.async_get("sensor.mainsail_jobs_in_queue")
+    assert entity is None
