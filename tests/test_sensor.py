@@ -100,7 +100,6 @@ async def test_sensor_services_update(hass, get_data):
         ("mainsail_htu21d_temp", "32.43"),
         ("mainsail_lm75_temp", "32.43"),
         ("mainsail_heater_fan", "51.23"),
-        ("mainsail_heater_fan_rpm", "unknown"),
         ("mainsail_controller_fan", "51.23"),
         ("mainsail_controller_fan_rpm", "5000"),
         ("mainsail_nevermore_fan", "12.34"),
@@ -391,10 +390,10 @@ async def test_no_fan_rpm(hass, get_data, get_printer_objects_list):
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
-    assert hass.states.get("sensor.mainsail_fan_rpm").state == "unknown"
+    assert hass.states.get("sensor.mainsail_fan") is None
 
     # Already None in the data
-    assert hass.states.get("sensor.mainsail_heater_fan_rpm").state == "unknown"
+    assert hass.states.get("sensor.mainsail_heater_fan_rpm") is None
 
 
 async def test_multi_mcu_sensor_data(hass, get_data, get_printer_objects_list):
