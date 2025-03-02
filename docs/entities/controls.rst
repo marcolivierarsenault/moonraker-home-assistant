@@ -105,3 +105,21 @@ A series of LEDs are available by default as a light control. They are:
   * - <type> <name> e.g. neopixel strip
     - Set a light to a given brightness or rgb value.
     - From Moonraker API (*printer.gcode.script*)
+
+
+Action (Serivce Call)
+---------------------------------
+
+List of actions available to send command to the printer.
+
+
+.. list-table:: Actions
+  :header-rows: 1
+
+  * - Action
+    - Description
+    - Parameters
+  * - G-code
+    - G-code command to send to the printer. *(You can send one command at a time)*
+    - | **Target**: (DEVICE) Moonraker device to send the command to.
+      | **G-Code**: Select the GCode command you want to send

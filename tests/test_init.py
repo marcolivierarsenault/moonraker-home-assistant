@@ -132,3 +132,30 @@ async def test_failed_first_refresh(hass):
 
         with pytest.raises(ConfigEntryNotReady):
             assert await async_setup_entry(hass, config_entry)
+
+
+async def test_set_custom_gcode_service(hass):
+    """Test custom GCode Services."""
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    device_id = list(hass.data["device_registry"].devices.keys())
+
+    # Test that the function call works in its entirety.
+    with patch("moonraker_api.MoonrakerClient.call_method") as mock_sensors:
+        await hass.services.async_call(
+            DOMAIN,
+            "send_gcode",
+            {
+                "device_id": device_id,
+                "gcode": "STATUS",
+            },
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+        mock_sensors.assert_called_once_with(
+            METHODS.PRINTER_GCODE_SCRIPT.value, script="STATUS"
+        )
