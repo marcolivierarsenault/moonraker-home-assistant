@@ -20,6 +20,18 @@ def bypass_connect_client_fixture():
         yield
 
 
+async def test_targets(hass):
+    """Test."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("number.mainsail_bed_target").state == "60.0"
+    assert hass.states.get("number.mainsail_extruder_target").state == "205.0"
+    assert hass.states.get("number.mainsail_extruder1_target").state == "220.0"
+
+
 # test number
 @pytest.mark.parametrize(
     "number",

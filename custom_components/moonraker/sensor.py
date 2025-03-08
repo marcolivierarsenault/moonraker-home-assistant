@@ -614,21 +614,6 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
             sensors.append(desc)
 
             desc = MoonrakerSensorDescription(
-                key=f"{obj}_target",
-                status_key=obj,
-                name=f"{base_name} Target".title(),
-                value_fn=lambda sensor: float(
-                    sensor.coordinator.data["status"][sensor.status_key]["target"]
-                    or 0.0
-                ),
-                subscriptions=[(obj, "target")],
-                icon=icon,
-                unit=UnitOfTemperature.CELSIUS,
-                state_class=SensorStateClass.MEASUREMENT,
-            )
-            sensors.append(desc)
-
-            desc = MoonrakerSensorDescription(
                 key=f"{obj}_power",
                 status_key=obj,
                 name=f"{base_name} Power".title(),
