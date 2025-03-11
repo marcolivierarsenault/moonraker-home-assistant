@@ -40,6 +40,7 @@ DEFAULT_VALUES = [
     ("mainsail_bed_power", "26"),
     ("mainsail_extruder_power", "66"),
     ("mainsail_fan_speed", "51.23"),
+    ("mainsail_fan_rpm", "3000"),
     ("mainsail_fan_temp", "32.43"),
     ("mainsail_tmc2240_stepper_x_temp", "32.43"),
     ("mainsail_bme280_temp", "32.43"),
@@ -47,6 +48,7 @@ DEFAULT_VALUES = [
     ("mainsail_lm75_temp", "32.43"),
     ("mainsail_heater_fan", "51.23"),
     ("mainsail_controller_fan", "51.23"),
+    ("mainsail_controller_fan_rpm", "5000"),
     ("mainsail_nevermore_fan", "12.34"),
     ("mainsail_totals_print_time", "3h 9m 9s"),
     ("mainsail_totals_jobs", "3"),
@@ -335,7 +337,7 @@ async def test_no_history_data(
 async def test_double_sensor_data(hass, get_data, get_printer_objects_list):
     """Test."""
     get_printer_objects_list["objects"].append("heater_fan controller_fan")
-    get_data["status"]["heater_fan controller_fan"] = {"speed": 0.1234}
+    get_data["status"]["heater_fan controller_fan"] = {"speed": 0.1234, "rpm": 3000}
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
@@ -369,6 +371,21 @@ async def test_no_fan_sensor(hass, get_data, get_printer_objects_list):
 
     state = hass.states.get("sensor.mainsail_fan")
     assert state is None
+
+
+async def test_no_fan_rpm(hass, get_data, get_printer_objects_list):
+    """Test."""
+    get_data["status"]["fan"]["rpm"] = None
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.mainsail_fan") is None
+
+    # Already None in the data
+    assert hass.states.get("sensor.mainsail_heater_fan_rpm") is None
 
 
 async def test_multi_mcu_sensor_data(hass, get_data, get_printer_objects_list):
