@@ -22,11 +22,8 @@ from .const import MOCK_CONFIG
 DEFAULT_VALUES = [
     ("mainsail_mcu_temp", "32.43"),
     ("mainsail_eddy_temp", "32.43"),
-    ("mainsail_bed_target", "60.0"),
     ("mainsail_bed_temperature", "60.01"),
-    ("mainsail_extruder_target", "205.0"),
     ("mainsail_extruder_temperature", "205.02"),
-    ("mainsail_extruder1_target", "220.0"),
     ("mainsail_extruder1_temperature", "220.01"),
     ("mainsail_progress", "90"),
     ("mainsail_printer_state", "ready"),
@@ -100,11 +97,11 @@ async def test_sensor_services_update(hass, get_data):
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
-    state = hass.states.get("sensor.mainsail_bed_target")
+    state = hass.states.get("sensor.mainsail_bed_temperature")
 
-    assert state.state == "60.0"
+    assert state.state == "60.01"
 
-    get_data["status"]["heater_bed"]["target"] = 100.0
+    get_data["status"]["heater_bed"]["temperature"] = 100.0
 
     async_fire_time_changed(
         hass,
@@ -112,7 +109,7 @@ async def test_sensor_services_update(hass, get_data):
     )
     await hass.async_block_till_done()
 
-    assert hass.states.get("sensor.mainsail_bed_target").state == "100.0"
+    assert hass.states.get("sensor.mainsail_bed_temperature").state == "100.0"
 
 
 """test all sensors"""
