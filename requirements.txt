@@ -1,11 +1,11 @@
-pytest-homeassistant-custom-component==0.13.215
+pytest-homeassistant-custom-component==0.13.222
 moonraker-api==2.0.6
 aiohttp_cors==0.7.0
 pre-commit==4.1.0
-sphinx==8.2.1
+sphinx==8.2.3
 colorlog==6.9.0
 furo==2024.8.6
-ruff==0.9.7
+ruff==0.9.10
 ha-ffmpeg==3.2.2
-sphinx-toolbox==3.8.3
+sphinx-toolbox==3.9.0
 bump2version==1.0.1

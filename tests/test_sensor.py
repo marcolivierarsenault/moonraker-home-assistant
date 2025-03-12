@@ -19,6 +19,54 @@ from custom_components.moonraker.sensor import (
 
 from .const import MOCK_CONFIG
 
+DEFAULT_VALUES = [
+    ("mainsail_mcu_temp", "32.43"),
+    ("mainsail_eddy_temp", "32.43"),
+    ("mainsail_bed_temperature", "60.01"),
+    ("mainsail_extruder_temperature", "205.02"),
+    ("mainsail_extruder1_temperature", "220.01"),
+    ("mainsail_progress", "90"),
+    ("mainsail_printer_state", "ready"),
+    ("mainsail_filename", "CE3E3V2_picture_frame_holder.gcode"),
+    ("mainsail_current_display_message", "Custom Message"),
+    ("mainsail_printer_message", "Printer is ready"),
+    ("mainsail_current_print_state", "printing"),
+    ("mainsail_current_print_message", ""),
+    ("mainsail_print_projected_total_duration", "2.55485"),
+    ("mainsail_print_time_left", "0.328594444444444"),
+    ("mainsail_print_duration", "133.58"),
+    ("mainsail_filament_used", "5.0"),
+    ("mainsail_progress", "90"),
+    ("mainsail_bed_power", "26"),
+    ("mainsail_extruder_power", "66"),
+    ("mainsail_fan_speed", "51.23"),
+    ("mainsail_fan_rpm", "3000"),
+    ("mainsail_fan_temp", "32.43"),
+    ("mainsail_tmc2240_stepper_x_temp", "32.43"),
+    ("mainsail_bme280_temp", "32.43"),
+    ("mainsail_htu21d_temp", "32.43"),
+    ("mainsail_lm75_temp", "32.43"),
+    ("mainsail_heater_fan", "51.23"),
+    ("mainsail_controller_fan", "51.23"),
+    ("mainsail_controller_fan_rpm", "5000"),
+    ("mainsail_nevermore_fan", "12.34"),
+    ("mainsail_totals_print_time", "3h 9m 9s"),
+    ("mainsail_totals_jobs", "3"),
+    ("mainsail_totals_filament_used", "11.62"),
+    ("mainsail_longest_print", "3h 9m 9s"),
+    ("mainsail_total_layer", "33"),
+    ("mainsail_current_layer", "22"),
+    ("mainsail_toolhead_position_x", "23.3"),
+    ("mainsail_toolhead_position_y", "22.2"),
+    ("mainsail_toolhead_position_z", "10.2"),
+    ("mainsail_slicer_print_duration_estimate", "2.28666666666667"),
+    ("mainsail_object_height", "62.6"),
+    ("mainsail_speed_factor", "200.0"),
+    ("mainsail_my_super_heater_temperature", "32.43"),
+    ("mainsail_my_super_heater_target", "32.0"),
+    ("mainsail_my_super_heater_power", "12"),
+]
+
 
 @pytest.fixture(name="bypass_connect_client", autouse=True)
 def bypass_connect_client_fixture():
@@ -49,11 +97,11 @@ async def test_sensor_services_update(hass, get_data):
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
-    state = hass.states.get("sensor.mainsail_bed_target")
+    state = hass.states.get("sensor.mainsail_bed_temperature")
 
-    assert state.state == "60.0"
+    assert state.state == "60.01"
 
-    get_data["status"]["heater_bed"]["target"] = 100.0
+    get_data["status"]["heater_bed"]["temperature"] = 100.0
 
     async_fire_time_changed(
         hass,
@@ -61,75 +109,21 @@ async def test_sensor_services_update(hass, get_data):
     )
     await hass.async_block_till_done()
 
-    assert hass.states.get("sensor.mainsail_bed_target").state == "100.0"
+    assert hass.states.get("sensor.mainsail_bed_temperature").state == "100.0"
 
 
 """test all sensors"""
 
 
-@pytest.mark.parametrize(
-    "sensor, value",
-    [
-        ("mainsail_mcu_temp", "32.43"),
-        ("mainsail_eddy_temp", "32.43"),
-        ("mainsail_bed_target", "60.0"),
-        ("mainsail_bed_temperature", "60.01"),
-        ("mainsail_extruder_target", "205.0"),
-        ("mainsail_extruder_temperature", "205.02"),
-        ("mainsail_extruder1_target", "220.0"),
-        ("mainsail_extruder1_temperature", "220.01"),
-        ("mainsail_progress", "90"),
-        ("mainsail_printer_state", "ready"),
-        ("mainsail_filename", "CE3E3V2_picture_frame_holder.gcode"),
-        ("mainsail_current_display_message", "Custom Message"),
-        ("mainsail_printer_message", "Printer is ready"),
-        ("mainsail_current_print_state", "printing"),
-        ("mainsail_current_print_message", ""),
-        ("mainsail_print_projected_total_duration", "2.55485"),
-        ("mainsail_print_time_left", "0.328594444444444"),
-        ("mainsail_print_duration", "133.58"),
-        ("mainsail_filament_used", "5.0"),
-        ("mainsail_progress", "90"),
-        ("mainsail_bed_power", "26"),
-        ("mainsail_extruder_power", "66"),
-        ("mainsail_fan_speed", "51.23"),
-        ("mainsail_fan_temp", "32.43"),
-        ("mainsail_tmc2240_stepper_x_temp", "32.43"),
-        ("mainsail_bme280_temp", "32.43"),
-        ("mainsail_htu21d_temp", "32.43"),
-        ("mainsail_lm75_temp", "32.43"),
-        ("mainsail_heater_fan", "51.23"),
-        ("mainsail_controller_fan", "51.23"),
-        ("mainsail_nevermore_fan", "12.34"),
-        ("mainsail_totals_print_time", "3h 9m 9s"),
-        ("mainsail_totals_jobs", "3"),
-        ("mainsail_totals_filament_used", "11.62"),
-        ("mainsail_longest_print", "3h 9m 9s"),
-        ("mainsail_total_layer", "33"),
-        ("mainsail_current_layer", "22"),
-        ("mainsail_toolhead_position_x", "23.3"),
-        ("mainsail_toolhead_position_y", "22.2"),
-        ("mainsail_toolhead_position_z", "10.2"),
-        ("mainsail_slicer_print_duration_estimate", "2.28666666666667"),
-        ("mainsail_object_height", "62.6"),
-        ("mainsail_speed_factor", "200.0"),
-        ("mainsail_my_super_heater_temperature", "32.43"),
-        ("mainsail_my_super_heater_target", "32.0"),
-        ("mainsail_my_super_heater_power", "12"),
-    ],
-)
-async def test_sensors(
-    hass,
-    sensor,
-    value,
-):
+async def test_sensors(hass):
     """Test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
-    assert hass.states.get(f"sensor.{sensor}").state == value
+    for sensor, value in DEFAULT_VALUES:
+        assert hass.states.get(f"sensor.{sensor}").state == value
 
 
 # test all sensors
@@ -343,7 +337,7 @@ async def test_no_history_data(
 async def test_double_sensor_data(hass, get_data, get_printer_objects_list):
     """Test."""
     get_printer_objects_list["objects"].append("heater_fan controller_fan")
-    get_data["status"]["heater_fan controller_fan"] = {"speed": 0.1234}
+    get_data["status"]["heater_fan controller_fan"] = {"speed": 0.1234, "rpm": 3000}
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
@@ -377,6 +371,21 @@ async def test_no_fan_sensor(hass, get_data, get_printer_objects_list):
 
     state = hass.states.get("sensor.mainsail_fan")
     assert state is None
+
+
+async def test_no_fan_rpm(hass, get_data, get_printer_objects_list):
+    """Test."""
+    get_data["status"]["fan"]["rpm"] = None
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.mainsail_fan") is None
+
+    # Already None in the data
+    assert hass.states.get("sensor.mainsail_heater_fan_rpm") is None
 
 
 async def test_multi_mcu_sensor_data(hass, get_data, get_printer_objects_list):

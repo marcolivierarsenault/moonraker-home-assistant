@@ -66,3 +66,31 @@ To avoid this, you can add a filter to the logger configuration in the Home Assi
     filters:
       moonraker_api.websockets.websocketclient:
         - ".*Websocket connection error: Cannot connect to host*"
+
+Change IP/Hostname of your printer
+-------------------------------------
+
+If you want to change the IP/Hostname of your printer, you can do it by either deleting the integration and adding it again or by changing the IP/Hostname in the integration configuration or by manually changing the value in your Home Assistant configuration file.
+
+Go in `whateverConfigFolderYouHave/.storage/core.config_entries` and you should see a JSON entry with the printer IP/Hostname.
+
+.. code-block:: JSON
+
+  {"created_at":"2024-08-10T11:58:41.082494+00:00",
+  "data":{"api_key":"","port":"7125","printer_name":"","tls":false,"url":"192.168.x.xx"},
+  "disabled_by":null,
+  "discovery_keys":{},
+  "domain":"moonraker",
+  "entry_id":"01J4Y2FDDTP0TKYYJX3RWYG79F",
+  "minor_version":1,
+  "modified_at":"2024-08-10T11:58:41.093068+00:00",
+  "options":{},
+  "pref_disable_new_entities":false,
+  "pref_disable_polling":false,
+  "source":"user",
+  "title":"mainsail",
+  "unique_id":null,
+  "version":1
+  },
+
+Change the IP/Hostname in the `url` field and restart Home Assistant.
