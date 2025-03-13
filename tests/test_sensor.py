@@ -302,6 +302,13 @@ async def test_calculate_pct_job_no_filament_no_time(data_for_calculate_pct):
     assert calculate_pct_job(data_for_calculate_pct) == 0
 
 
+async def test_calculate_pct_job_None_progress(data_for_calculate_pct):
+    """Test."""
+
+    data_for_calculate_pct["status"]["display_status"]["progress"] = None
+    assert calculate_pct_job(data_for_calculate_pct) == 0.5
+
+
 async def test_no_history_data(
     hass,
     get_data,
