@@ -890,7 +890,10 @@ def calculate_pct_job(data) -> float:
 
     if print_expected_duration != 0:
         time_pct = data["status"]["display_status"]["progress"]
-        divider += 1
+        if time_pct is not None:
+            divider += 1
+        else:
+            time_pct = 0
 
     if expected_filament != 0:
         filament_pct = 1.0 * filament_used / expected_filament
