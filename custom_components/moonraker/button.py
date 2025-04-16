@@ -1,9 +1,9 @@
 """Button platform for Moonraker integration."""
+
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from homeassistant.components.button import (ButtonEntity,
-                                             ButtonEntityDescription)
+from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
 
 from .const import DOMAIN, METHODS
 from .entity import BaseMoonrakerEntity
@@ -108,7 +108,7 @@ BUTTONS: tuple[MoonrakerButtonDescription, ...] = [
         press_fn=lambda button: button.coordinator.async_send_data(
             METHODS.SERVER_JOB_QUEUE_START
         ),
-        icon="mdi:play-circle",
+        icon="mdi:playlist-play",
     ),
 ]
 
