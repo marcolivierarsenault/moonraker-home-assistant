@@ -102,6 +102,14 @@ BUTTONS: tuple[MoonrakerButtonDescription, ...] = [
         ),
         icon="mdi:history",
     ),
+    MoonrakerButtonDescription(
+        key="start_print_from_queue",
+        name="Start Print from Queue",
+        press_fn=lambda button: button.coordinator.async_send_data(
+            METHODS.SERVER_JOB_QUEUE_START
+        ),
+        icon="mdi:play-circle",
+    ),
 ]
 
 

@@ -66,6 +66,7 @@ class METHODS(Enum):
     SERVER_HISTORY_TOTALS = "server.history.totals"
     SERVER_HISTORY_RESET_TOTALS = "server.history.reset_totals"
     SERVER_JOB_QUEUE_STATUS = "server.job_queue.status"
+    SERVER_JOB_QUEUE_START = "server.job_queue.start"
     SERVER_RESTART = "server.restart"
     SERVER_WEBCAMS_LIST = "server.webcams.list"
 
