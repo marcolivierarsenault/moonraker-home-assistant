@@ -32,6 +32,7 @@ def bypass_connect_client_fixture():
         ("mainsail_resume_print", METHODS.PRINTER_PRINT_RESUME.value),
         ("mainsail_server_restart", METHODS.SERVER_RESTART.value),
         ("mainsail_cancel_print", METHODS.PRINTER_PRINT_CANCEL.value),
+        ("mainsail_start_print_from_queue", METHODS.SERVER_JOB_QUEUE_START.value),
     ],
 )
 async def test_buttons(hass, button, method):
