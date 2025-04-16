@@ -26,6 +26,9 @@ A series of buttons are available by default. They are:
   * - Cancel Print
     - Cancel current print.
     - From Moonraker API (*printer.print.cancel*)
+  * - Start Print from Queue
+    - Start the next print job in the queue.
+    - From Moonraker API (*server.job_queue.start*)
   * - Server Restart
     - Restart Klipper software.
     - From Moonraker API (*server.restart*)
