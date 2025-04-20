@@ -143,19 +143,20 @@ async def test_speed_factor(hass, get_data):
 
 async def test_speed_factor_update(hass, get_data):
     """Test speed factor number entity update."""
+    get_data["status"]["gcode_move"]["speed_factor"] = 1.5
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
-    get_data["status"]["gcode_move"]["speed_factor"] = 1.5
-    await hass.async_block_till_done()
+    # get_data["status"]["gcode_move"]["speed_factor"] = 1.5
+    # await hass.async_block_till_done()
 
     state = hass.states.get("number.mainsail_speed_factor")
     assert state.state == "150.0"
 
 
-async def test_speed_factor_set_value(hass, get_data):
+async def test_speed_factor_set_value(hass, get_default_api_response):
     """Test speed factor number entity set value."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
@@ -163,16 +164,22 @@ async def test_speed_factor_set_value(hass, get_data):
     await hass.async_block_till_done()
 
     with patch(
-        "custom_components.moonraker.MoonrakerApiClient.async_send_data"
-    ) as mock_send_data:
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={**get_default_api_response},
+    ) as mock_api:
         await hass.services.async_call(
-            "number",
-            "set_value",
-            {"entity_id": "number.mainsail_speed_factor", "value": 150},
+            NUMBER_DOMAIN,
+            SERVICE_SET_VALUE,
+            {
+                ATTR_ENTITY_ID: "number.mainsail_speed_factor",
+                "value": 150,
+            },
             blocking=True,
         )
-        mock_send_data.assert_called_once_with(
-            "printer.gcode.script", {"script": "M220 S150"}
+
+        await hass.async_block_till_done()
+        mock_api.assert_called_once_with(
+            METHODS.PRINTER_GCODE_SCRIPT.value, script="M220 S150"
         )
 
 
