@@ -59,7 +59,7 @@ DEFAULT_VALUES = [
     ("mainsail_toolhead_position_x", "23.3"),
     ("mainsail_toolhead_position_y", "22.2"),
     ("mainsail_toolhead_position_z", "10.2"),
-    ("mainsail_slicer_print_duration_estimate", "2.28666666666667"),
+    ("mainsail_slicer_print_duration_estimate", "2.29"),
     ("mainsail_object_height", "62.6"),
     ("mainsail_speed_factor", "200.0"),
     ("mainsail_my_super_heater_temperature", "32.43"),
@@ -299,7 +299,7 @@ async def test_calculate_pct_job_no_filament_no_time(data_for_calculate_pct):
 
     data_for_calculate_pct["filament_total"] = 0
     data_for_calculate_pct["estimated_time"] = 0
-    assert calculate_pct_job(data_for_calculate_pct) == 0
+    assert calculate_pct_job(data_for_calculate_pct) == 0.6
 
 
 async def test_no_history_data(
@@ -518,6 +518,26 @@ async def test_total_layer_in_info_is_none(hass, get_data):
 
     state = hass.states.get("sensor.mainsail_total_layer")
     assert state.state == "313"
+
+
+async def test_missing_estimated_time(hass, get_data, get_printer_info):
+    """Test."""
+    del get_data["estimated_time"]
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={**get_data, **get_printer_info},
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_slicer_print_time_left_estimate")
+    assert state.state == "0"
+
+    state2 = hass.states.get("sensor.mainsail_slicer_print_duration_estimate")
+    assert state2.state == "0"
 
 
 async def test_current_layer_calculated():
