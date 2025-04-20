@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from homeassistant.components.number import (
     NumberEntity,
     NumberEntityDescription,
+    NumberDeviceClass,
     NumberMode,
 )
 from homeassistant.core import callback
@@ -26,6 +27,7 @@ class MoonrakerNumberSensorDescription(NumberEntityDescription):
     unit: str | None = None
     update_code: str | None = None
     max_value: int | None = None
+    device_class: NumberDeviceClass | None = None
 
 
 async def async_setup_entry(hass, entry, async_add_devices):
@@ -53,6 +55,7 @@ async def async_setup_temperature_target(coordinator, entry, async_add_entities)
                 unit=UnitOfTemperature.CELSIUS,
                 update_code="M140 S",
                 max_value=130,
+                device_class=NumberDeviceClass.TEMPERATURE,
             )
             sensors.append(desc)
 
@@ -68,6 +71,7 @@ async def async_setup_temperature_target(coordinator, entry, async_add_entities)
                 unit=UnitOfTemperature.CELSIUS,
                 update_code=f"M104 T{extruder_val} S",
                 max_value=260,
+                device_class=NumberDeviceClass.TEMPERATURE,
             )
             sensors.append(desc)
 
@@ -178,6 +182,8 @@ class MoonrakerTempTarget(BaseMoonrakerEntity, NumberEntity):
         self._attr_native_max_value = description.max_value
         self._attr_has_entity_name = True
         self._attr_icon = description.icon
+        self._attr_device_class = description.device_class
+        self._attr_native_unit_of_measurement = description.unit
         self.update_string = description.update_code
 
     async def async_set_native_value(self, value: float) -> None:
