@@ -10,7 +10,7 @@ from homeassistant.components.number import (
     NumberMode,
 )
 from homeassistant.core import callback
-from homeassistant.const import UnitOfTemperature
+from homeassistant.const import UnitOfTemperature, PERCENTAGE
 
 from .const import DOMAIN, METHODS, OBJ
 from .entity import BaseMoonrakerEntity
@@ -36,6 +36,7 @@ async def async_setup_entry(hass, entry, async_add_devices):
 
     await async_setup_output_pin(coordinator, entry, async_add_devices)
     await async_setup_temperature_target(coordinator, entry, async_add_devices)
+    await async_setup_speed_factor(coordinator, entry, async_add_devices)
 
 
 async def async_setup_temperature_target(coordinator, entry, async_add_entities):
@@ -114,6 +115,29 @@ async def async_setup_output_pin(coordinator, entry, async_add_entities):
     async_add_entities(
         [MoonrakerPWMOutputPin(coordinator, entry, desc) for desc in numbers]
     )
+
+
+async def async_setup_speed_factor(coordinator, entry, async_add_entities):
+    """Set up speed factor number entity."""
+
+    object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
+    if "gcode_move" not in object_list["objects"]:
+        return
+
+    desc = MoonrakerNumberSensorDescription(
+        key="speed_factor",
+        sensor_name="gcode_move",
+        name="Speed Factor",
+        subscriptions=[("gcode_move", "speed_factor")],
+        icon="mdi:speedometer",
+        unit=PERCENTAGE,
+        update_code="M220 S",
+        max_value=200,
+    )
+
+    coordinator.load_sensor_data([desc])
+    await coordinator.async_refresh()
+    async_add_entities([MoonrakerSpeedFactor(coordinator, entry, desc)])
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -201,4 +225,44 @@ class MoonrakerTempTarget(BaseMoonrakerEntity, NumberEntity):
         self._attr_native_value = self.coordinator.data["status"][self.sensor_name][
             "target"
         ]
+        self.async_write_ha_state()
+
+
+class MoonrakerSpeedFactor(BaseMoonrakerEntity, NumberEntity):
+    """Moonraker speed factor class."""
+
+    def __init__(
+        self,
+        coordinator,
+        entry,
+        description,
+    ) -> None:
+        """Initialize the speed factor class."""
+        super().__init__(coordinator, entry)
+        self._attr_mode = NumberMode.SLIDER
+        self._attr_native_value = (
+            coordinator.data["status"][description.sensor_name]["speed_factor"] * 100
+        )
+        self.entity_description = description
+        self.sensor_name = description.sensor_name
+        self._attr_unique_id = f"{entry.entry_id}_{description.key}"
+        self._attr_name = description.name
+        self._attr_has_entity_name = True
+        self._attr_icon = description.icon
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Set native Value."""
+        await self.coordinator.async_send_data(
+            METHODS.PRINTER_GCODE_SCRIPT,
+            {"script": f"{self.entity_description.update_code}{int(value)}"},
+        )
+        self._attr_native_value = value
+        self.async_write_ha_state()
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        self._attr_native_value = (
+            self.coordinator.data["status"][self.sensor_name]["speed_factor"] * 100
+        )
         self.async_write_ha_state()
