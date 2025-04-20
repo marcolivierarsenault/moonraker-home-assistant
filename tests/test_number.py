@@ -1,4 +1,4 @@
-"""Number Tests."""
+"""Test moonraker number."""
 
 from unittest.mock import patch
 
@@ -124,3 +124,67 @@ async def test_set_target(hass, get_default_api_response):
             METHODS.PRINTER_GCODE_SCRIPT.value,
             script="M140 S70.0",
         )
+
+
+async def test_speed_factor(hass, get_data):
+    """Test speed factor number entity."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("number.mainsail_speed_factor")
+    assert state.state == "200.0"
+    assert state.attributes["unit_of_measurement"] == "%"
+    assert state.attributes["icon"] == "mdi:speedometer"
+    assert state.attributes["mode"] == "slider"
+    assert state.attributes["max"] == 200.0
+
+
+async def test_speed_factor_update(hass, get_data):
+    """Test speed factor number entity update."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    get_data["status"]["gcode_move"]["speed_factor"] = 1.5
+    await hass.async_block_till_done()
+
+    state = hass.states.get("number.mainsail_speed_factor")
+    assert state.state == "150.0"
+
+
+async def test_speed_factor_set_value(hass, get_data):
+    """Test speed factor number entity set value."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    with patch(
+        "custom_components.moonraker.MoonrakerApiClient.async_send_data"
+    ) as mock_send_data:
+        await hass.services.async_call(
+            "number",
+            "set_value",
+            {"entity_id": "number.mainsail_speed_factor", "value": 150},
+            blocking=True,
+        )
+        mock_send_data.assert_called_once_with(
+            "printer.gcode.script", {"script": "M220 S150"}
+        )
+
+
+async def test_speed_factor_missing(hass, get_data, get_printer_objects_list):
+    """Test speed factor number entity when gcode_move is missing."""
+    get_printer_objects_list["objects"].remove("gcode_move")
+    get_data["status"].pop("gcode_move", None)
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("number.mainsail_speed_factor")
+    assert state is None
