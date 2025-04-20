@@ -179,7 +179,7 @@ async def test_speed_factor_set_value(hass, get_default_api_response):
 
         await hass.async_block_till_done()
         mock_api.assert_called_once_with(
-            METHODS.PRINTER_GCODE_SCRIPT.value, script="M220 S150"
+            METHODS.PRINTER_GCODE_SCRIPT.value, script="M220 S150.0"
         )
 
 

@@ -221,7 +221,7 @@ class MoonrakerNumber(BaseMoonrakerEntity, NumberEntity):
         """Set native Value."""
         await self.coordinator.async_send_data(
             METHODS.PRINTER_GCODE_SCRIPT,
-            {"script": f"{self.update_string}{int(value)}"},
+            {"script": f"{self.update_string}{value}"},
         )
         self._attr_native_value = value
         self.async_write_ha_state()
