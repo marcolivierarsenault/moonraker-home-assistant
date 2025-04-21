@@ -39,7 +39,6 @@ DEFAULT_VALUES = [
     ("mainsail_progress", "90"),
     ("mainsail_bed_power", "26"),
     ("mainsail_extruder_power", "66"),
-    ("mainsail_fan_speed", "51.23"),
     ("mainsail_fan_rpm", "3000"),
     ("mainsail_fan_temp", "32.43"),
     ("mainsail_tmc2240_stepper_x_temp", "32.43"),
@@ -368,7 +367,7 @@ async def test_no_fan_sensor(hass, get_data, get_printer_objects_list):
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
-    state = hass.states.get("sensor.mainsail_fan")
+    state = hass.states.get("sensor.mainsail_fan_rpm")
     assert state is None
 
 
@@ -381,7 +380,7 @@ async def test_no_fan_rpm(hass, get_data, get_printer_objects_list):
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
-    assert hass.states.get("sensor.mainsail_fan") is None
+    assert hass.states.get("sensor.mainsail_fan_rpm") is None
 
     # Already None in the data
     assert hass.states.get("sensor.mainsail_heater_fan_rpm") is None
@@ -439,19 +438,6 @@ async def test_multi_mcu_sensor_missing_data(hass, get_data, get_printer_objects
         registry.async_get_entity_id("sensor", DOMAIN, "test_mcu_Extruder_awake")
         is not None
     )
-
-
-async def test_rounding_fan(hass, get_data):
-    """Test."""
-    get_data["status"]["fan"]["speed"] = 0.33333333333
-
-    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
-    config_entry.add_to_hass(hass)
-    await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
-
-    state = hass.states.get("sensor.mainsail_fan_speed")
-    assert state.state == "33.33"
 
 
 async def test_current_layer_not_in_info(hass, get_data):
