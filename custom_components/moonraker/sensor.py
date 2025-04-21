@@ -556,20 +556,6 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                     state_class=SensorStateClass.MEASUREMENT,
                 )
                 sensors.append(desc)
-        elif obj == "gcode_move":
-            desc = MoonrakerSensorDescription(
-                key="speed_factor",
-                name="Speed factor",
-                value_fn=lambda sensor: round(
-                    sensor.coordinator.data["status"]["gcode_move"]["speed_factor"]
-                    * 100,
-                    2,
-                ),
-                subscriptions=[("gcode_move", "speed_factor")],
-                icon="mdi:speedometer",
-                unit=PERCENTAGE,
-            )
-            sensors.append(desc)
         elif split_obj[0] == "heater_generic":
             desc = MoonrakerSensorDescription(
                 key=f"{split_obj[0]}_{split_obj[1]}_power",
