@@ -195,3 +195,71 @@ async def test_speed_factor_missing(hass, get_data, get_printer_objects_list):
 
     state = hass.states.get("number.mainsail_speed_factor")
     assert state is None
+
+
+async def test_fan_speed(hass, get_data):
+    """Test fan speed number entity."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("number.mainsail_fan_speed")
+    assert state.state == "51.23"
+    assert state.attributes["unit_of_measurement"] == "%"
+    assert state.attributes["icon"] == "mdi:fan"
+    assert state.attributes["mode"] == "slider"
+    assert state.attributes["max"] == 100.0
+
+
+async def test_fan_speed_update(hass, get_data):
+    """Test fan speed number entity update."""
+    get_data["status"]["fan"]["speed"] = 0.75
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("number.mainsail_fan_speed")
+    assert state.state == "75.0"
+
+
+async def test_fan_speed_set_value(hass, get_default_api_response):
+    """Test fan speed number entity set value."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={**get_default_api_response},
+    ) as mock_api:
+        await hass.services.async_call(
+            NUMBER_DOMAIN,
+            SERVICE_SET_VALUE,
+            {
+                ATTR_ENTITY_ID: "number.mainsail_fan_speed",
+                "value": 50,
+            },
+            blocking=True,
+        )
+
+        await hass.async_block_till_done()
+        mock_api.assert_called_once_with(
+            METHODS.PRINTER_GCODE_SCRIPT.value, script="M106 S127"
+        )
+
+
+async def test_fan_speed_missing(hass, get_data, get_printer_objects_list):
+    """Test fan speed number entity when fan is missing."""
+    get_printer_objects_list["objects"].remove("fan")
+    get_data["status"].pop("fan", None)
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("number.mainsail_fan_speed")
+    assert state is None

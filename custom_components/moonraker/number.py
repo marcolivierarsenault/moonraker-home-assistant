@@ -38,6 +38,7 @@ async def async_setup_entry(hass, entry, async_add_devices):
     await async_setup_output_pin(coordinator, entry, async_add_devices)
     await async_setup_temperature_target(coordinator, entry, async_add_devices)
     await async_setup_speed_factor(coordinator, entry, async_add_devices)
+    await async_setup_fan_speed(coordinator, entry, async_add_devices)
 
 
 async def async_setup_temperature_target(coordinator, entry, async_add_entities):
@@ -144,6 +145,31 @@ async def async_setup_speed_factor(coordinator, entry, async_add_entities):
     async_add_entities([MoonrakerNumber(coordinator, entry, desc, value_multiplier=100.0)])
 
 
+async def async_setup_fan_speed(coordinator, entry, async_add_entities):
+    """Set up fan speed number entity."""
+
+    object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
+    if "fan" not in object_list["objects"]:
+        return
+
+    desc = MoonrakerNumberSensorDescription(
+        key="fan_speed",
+        sensor_name="fan",
+        name="Fan Speed",
+        status_key="speed",
+        subscriptions=[("fan", "speed")],
+        icon="mdi:fan",
+        unit=PERCENTAGE,
+        update_code="M106 S",
+        max_value=100,
+    )
+
+    coordinator.load_sensor_data([desc])
+    await coordinator.async_refresh()
+    async_add_entities([MoonrakerFanSpeed(coordinator, entry, desc, value_multiplier=100.0)])
+
+
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -233,4 +259,19 @@ class MoonrakerNumber(BaseMoonrakerEntity, NumberEntity):
             self.coordinator.data["status"][self.sensor_name][self.entity_description.status_key]
             * self.value_multiplier
         )
+        self.async_write_ha_state()
+
+
+class MoonrakerFanSpeed(MoonrakerNumber):
+    """Moonraker fan speed number class."""
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Set native Value."""
+        # Apply the multiplier before sending to printer
+        adjusted_value = 255 * (value / 100)
+        await self.coordinator.async_send_data(
+            METHODS.PRINTER_GCODE_SCRIPT,
+            {"script": f"{self.update_string}{int(adjusted_value)}"},
+        )
+        self._attr_native_value = value
         self.async_write_ha_state()
