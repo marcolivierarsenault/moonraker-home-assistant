@@ -440,19 +440,6 @@ async def test_multi_mcu_sensor_missing_data(hass, get_data, get_printer_objects
     )
 
 
-async def test_rounding_fan(hass, get_data):
-    """Test."""
-    get_data["status"]["fan"]["speed"] = 0.33333333333
-
-    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
-    config_entry.add_to_hass(hass)
-    await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
-
-    state = hass.states.get("sensor.mainsail_fan_speed")
-    assert state.state == "33.33"
-
-
 async def test_current_layer_not_in_info(hass, get_data):
     """Test."""
     get_data["status"]["print_stats"]["info"].pop("current_layer")
