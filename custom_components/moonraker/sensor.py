@@ -153,7 +153,10 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         key="slicer_print_duration_estimate",
         name="Slicer Print Duration Estimate",
         value_fn=lambda sensor: sensor.empty_result_when_not_printing(
-            sensor.coordinator.data["estimated_time"] / 3600
+            round(
+                sensor.coordinator.data["estimated_time"] / 3600,
+                2,
+            ) if sensor.coordinator.data["estimated_time"] > 0 else 0
         ),
         subscriptions=[],
         icon="mdi:timer",
@@ -171,7 +174,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
                 )
                 / 3600,
                 2,
-            )
+            ) if sensor.coordinator.data["estimated_time"] > 0 else 0
         ),
         subscriptions=[("print_stats", "print_duration")],
         icon="mdi:timer",
@@ -870,7 +873,7 @@ def calculate_pct_job(data) -> float:
         divider += 1
 
     if divider == 0:
-        return 0
+        return data["status"]["display_status"]["progress"]
 
     return (time_pct + filament_pct) / divider
 
