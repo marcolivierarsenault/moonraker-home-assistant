@@ -6,5 +6,5 @@ colorlog==6.9.0
 furo==2024.8.6
 ruff==0.11.7
 ha-ffmpeg==3.2.2
-sphinx-toolbox==3.9.0
+sphinx-toolbox==4.0.0
 bump2version==1.0.1
