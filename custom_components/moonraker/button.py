@@ -3,6 +3,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 
+
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
 
 from .const import DOMAIN, METHODS
@@ -118,6 +119,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = hass.data[DOMAIN][entry.entry_id]
     await async_setup_basic_buttons(coordinator, entry, async_add_entities)
     await async_setup_macros(coordinator, entry, async_add_entities)
+    await async_setup_services(coordinator, entry, async_add_entities)
 
 
 async def async_setup_basic_buttons(coordinator, entry, async_add_entities):
@@ -148,6 +150,56 @@ async def async_setup_macros(coordinator, entry, async_add_entities):
         )
 
     async_add_entities([MoonrakerButton(coordinator, entry, desc) for desc in macros])
+
+
+async def async_setup_services(coordinator, entry, async_add_entities):
+    """Create Start, Stop, and Restart buttons for all allowed services."""
+    system_info = await coordinator.async_fetch_data(METHODS.MACHINE_SYSTEM_INFO)
+    available_services = system_info["system_info"].get("available_services", [])
+
+    service_buttons = []
+
+    for service in available_services:
+        # Stop button
+        service_buttons.append(
+            MoonrakerButtonDescription(
+                key=f"stop_{service.lower()}",
+                name=f"Stop {service}",
+                press_fn=lambda button, svc=service: button.coordinator.async_send_data(
+                    METHODS.MACHINE_SERVICES_STOP, {"service": svc}
+                ),
+                icon="mdi:stop-circle-outline",
+                entity_registry_enabled_default=True,
+            )
+        )
+
+        # Start button
+        service_buttons.append(
+            MoonrakerButtonDescription(
+                key=f"start_{service.lower()}",
+                name=f"Start {service}",
+                press_fn=lambda button, svc=service: button.coordinator.async_send_data(
+                    METHODS.MACHINE_SERVICES_START, {"service": svc}
+                ),
+                icon="mdi:play-circle-outline",
+                entity_registry_enabled_default=True,
+            )
+        )
+
+        # Restart button
+        service_buttons.append(
+            MoonrakerButtonDescription(
+                key=f"restart_{service.lower()}",
+                name=f"Restart {service}",
+                press_fn=lambda button, svc=service: button.coordinator.async_send_data(
+                    METHODS.MACHINE_SERVICES_RESTART, {"service": svc}
+                ),
+                icon="mdi:restart",
+                entity_registry_enabled_default=True,
+            )
+        )
+
+    async_add_entities([MoonrakerButton(coordinator, entry, desc) for desc in service_buttons])
 
 
 class MoonrakerButton(BaseMoonrakerEntity, ButtonEntity):
