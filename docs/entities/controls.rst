@@ -60,6 +60,22 @@ You can enable a specific macro by enabling it's entity in HomeAssistant configu
 
    Current limitation, we cannot change any parameters for those macros.
 
+Services
+---------------------------------
+
+Each service listed in Moonraker's ``available_services`` is exposed as a set of control buttons in Home Assistant:
+**Start**, **Stop**, and **Restart**.
+
+These buttons allow you to manage services such as ``klipper``, ``moonraker``, ``crowsnest``, and others directly from the Home Assistant interface.
+
+All service control buttons are enabled by default.
+You can disable or re-enable them through the Home Assistant entity settings, like any other entity.
+
+.. note::
+
+   The service state (e.g., running, stopped, or failed) is not currently used to filter or disable buttons.
+   All services returned by Moonraker will have all three control buttons created regardless of their current status.
+
 
 Default Switches
 ---------------------------------
