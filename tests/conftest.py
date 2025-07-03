@@ -324,6 +324,119 @@ def get_gcode_help_fixture():
         "END_PRINT": "G-Code macro",
     }
 
+@pytest.fixture(name="get_system_info")
+def get_system_info_fixture():
+    """Get system info fixture."""
+    return {
+    "system_info": {
+        "provider": "systemd_dbus",
+        "cpu_info": {
+            "cpu_count": 4,
+            "bits": "32bit",
+            "processor": "armv7l",
+            "cpu_desc": "ARMv7 Processor rev 4 (v7l)",
+            "serial_number": "b898bdb4",
+            "hardware_desc": "BCM2835",
+            "model": "Raspberry Pi 3 Model B Rev 1.2",
+            "total_memory": 945364,
+            "memory_units": "kB"
+        },
+        "sd_info": {
+            "manufacturer_id": "03",
+            "manufacturer": "Sandisk",
+            "oem_id": "5344",
+            "product_name": "SU32G",
+            "product_revision": "8.0",
+            "serial_number": "46ba46",
+            "manufacturer_date": "4/2018",
+            "capacity": "29.7 GiB",
+            "total_bytes": 31914983424
+        },
+        "distribution": {
+            "name": "Raspbian GNU/Linux 10 (buster)",
+            "id": "raspbian",
+            "version": "10",
+            "version_parts": {
+                "major": "10",
+                "minor": "",
+                "build_number": ""
+            },
+            "like": "debian",
+            "codename": "buster"
+        },
+        "available_services": [
+            "klipper",
+            "klipper_mcu",
+            "moonraker"
+        ],
+        "instance_ids": {
+            "moonraker": "moonraker",
+            "klipper": "klipper"
+        },
+        "service_state": {
+            "klipper": {
+                "active_state": "active",
+                "sub_state": "running"
+            },
+            "klipper_mcu": {
+                "active_state": "active",
+                "sub_state": "running"
+            },
+            "moonraker": {
+                "active_state": "active",
+                "sub_state": "running"
+            }
+        },
+        "virtualization": {
+            "virt_type": "none",
+            "virt_identifier": "none"
+        },
+        "python": {
+            "version": [
+                3,
+                9,
+                2,
+                "final",
+                0
+            ],
+            "version_string": "3.9.2 (default, Feb 28 2021, 17:03:44)  [GCC 10.2.1 20210110]"
+        },
+        "network": {
+            "wlan0": {
+                "mac_address": "<redacted_mac>",
+                "ip_addresses": [
+                    {
+                        "family": "ipv4",
+                        "address": "192.168.1.127",
+                        "is_link_local": "false"
+                    },
+                    {
+                        "family": "ipv6",
+                        "address": "<redacted_ipv6>",
+                        "is_link_local": "false"
+                    },
+                    {
+                        "family": "ipv6",
+                        "address": "fe80::<redacted>",
+                        "is_link_local": "true"
+                    }
+                ]
+            }
+        },
+        "canbus": {
+            "can0": {
+                "tx_queue_len": 128,
+                "bitrate": 500000,
+                "driver": "mcp251x"
+            },
+            "can1": {
+                "tx_queue_len": 128,
+                "bitrate": 500000,
+                "driver": "gs_usb"
+            }
+        }
+    }
+}
 
 @pytest.fixture(name="get_printer_objects_list")
 def get_printer_objects_list_fixture():
@@ -485,6 +598,7 @@ def get_default_api_response_fixure(
     get_power_devices,
     get_machine_update_status,
     get_machine_system_info,
+    get_system_info,
 ):
     """Get all the default fixture returned by moonraker."""
     return {
@@ -497,6 +611,7 @@ def get_default_api_response_fixure(
         **get_power_devices,
         **get_machine_update_status,
         **get_machine_system_info,
+        **get_system_info,
     }
 
 

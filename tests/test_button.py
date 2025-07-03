@@ -78,6 +78,27 @@ async def test_gcode_macro(hass):
             METHODS.PRINTER_GCODE_SCRIPT.value, script="START_PRINT"
         )
 
+async def test_services(hass):
+    """Test."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    with patch("moonraker_api.MoonrakerClient.call_method") as mock_api:
+        await hass.services.async_call(
+            BUTTON_DOMAIN,
+            SERVICE_PRESS,
+            {
+                ATTR_ENTITY_ID: "button.mainsail_stop_klipper",  
+            },
+            blocking=True,
+        )
+
+        await hass.async_block_till_done()
+        mock_api.assert_called_once_with(
+            METHODS.MACHINE_SERVICES_STOP.value, service="klipper"
+        )
 
 async def test_disabled_buttons(hass):
     """Test."""
