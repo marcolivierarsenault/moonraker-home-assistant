@@ -78,6 +78,7 @@ async def test_gcode_macro(hass):
             METHODS.PRINTER_GCODE_SCRIPT.value, script="START_PRINT"
         )
 
+
 async def test_services(hass):
     """Test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
@@ -90,7 +91,7 @@ async def test_services(hass):
             BUTTON_DOMAIN,
             SERVICE_PRESS,
             {
-                ATTR_ENTITY_ID: "button.mainsail_stop_klipper",  
+                ATTR_ENTITY_ID: "button.mainsail_stop_klipper",
             },
             blocking=True,
         )
@@ -99,6 +100,7 @@ async def test_services(hass):
         mock_api.assert_called_once_with(
             METHODS.MACHINE_SERVICES_STOP.value, service="klipper"
         )
+
 
 async def test_disabled_buttons(hass):
     """Test."""
