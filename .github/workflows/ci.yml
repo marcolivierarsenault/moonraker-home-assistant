@@ -6,6 +6,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     runs-on: "ubuntu-latest"
@@ -44,6 +47,8 @@ jobs:
   tests:
     runs-on: "ubuntu-latest"
     name: Run tests
+    permissions:
+      contents: write
     steps:
       - name: Check out code from GitHub
         uses: "actions/checkout@v4"
