@@ -182,7 +182,7 @@ async def async_setup_services(coordinator, entry, async_add_entities):
                     METHODS.MACHINE_SERVICES_START, {"service": svc}
                 ),
                 icon="mdi:play-circle-outline",
-                entity_registry_enabled_default=True,
+                entity_registry_visible_default=False,
             )
         )
 
