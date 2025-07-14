@@ -195,7 +195,7 @@ async def async_setup_services(coordinator, entry, async_add_entities):
                     METHODS.MACHINE_SERVICES_RESTART, {"service": svc}
                 ),
                 icon="mdi:restart",
-                entity_registry_enabled_default=True,
+                entity_registry_visible_default=False,
             )
         )
 
