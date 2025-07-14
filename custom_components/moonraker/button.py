@@ -169,7 +169,7 @@ async def async_setup_services(coordinator, entry, async_add_entities):
                     METHODS.MACHINE_SERVICES_STOP, {"service": svc}
                 ),
                 icon="mdi:stop-circle-outline",
-                entity_registry_enabled_default=True,
+                entity_registry_visible_default=False,
             )
         )
 
