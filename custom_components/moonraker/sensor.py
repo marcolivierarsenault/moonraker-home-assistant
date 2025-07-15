@@ -109,6 +109,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         subscriptions=[
             ("print_stats", "total_duration"),
             ("display_status", "progress"),
+            ("virtual_sdcard", "progress"),
         ],
         icon="mdi:timer",
         unit=UnitOfTime.HOURS,
@@ -133,6 +134,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         subscriptions=[
             ("print_stats", "print_duration"),
             ("display_status", "progress"),
+            ("virtual_sdcard", "progress"),
         ],
         icon="mdi:timer",
         unit=UnitOfTime.HOURS,
@@ -145,6 +147,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         subscriptions=[
             ("print_stats", "print_duration"),
             ("display_status", "progress"),
+            ("virtual_sdcard", "progress"),
         ],
         icon="mdi:timer",
         device_class=SensorDeviceClass.TIMESTAMP,
@@ -214,9 +217,16 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         key="progress",
         name="Progress",
         value_fn=lambda sensor: sensor.empty_result_when_not_printing(
-            int(sensor.coordinator.data["status"]["display_status"]["progress"] * 100)
+            int(
+                (sensor.coordinator.data["status"]["display_status"]["progress"] or
+                 sensor.coordinator.data["status"]["virtual_sdcard"]["progress"])
+                * 100
+            )
         ),
-        subscriptions=[("display_status", "progress")],
+        subscriptions=[
+            ("display_status", "progress"),
+            ("virtual_sdcard", "progress"),
+        ],
         icon="mdi:percent",
         unit=PERCENTAGE,
     ),
@@ -294,7 +304,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         key="sysload",
         name="System Load",
         value_fn=lambda sensor: round(
-            sensor.coordinator.data["status"]["system_stats"]["sysload"], 2
+            sensor.coordinator.data["status"]["system_stats"]["sysload"] or 0, 2
         ),
         subscriptions=[("system_stats", "sysload")],
         icon="mdi:cpu-64-bit",
@@ -863,9 +873,10 @@ def calculate_pct_job(data) -> float:
     divider = 0
     time_pct = 0
     filament_pct = 0
+    progress = data["status"]["display_status"]["progress"] or data["status"]["virtual_sdcard"]["progress"]
 
-    if print_expected_duration != 0:
-        time_pct = data["status"]["display_status"]["progress"]
+    if print_expected_duration != 0 and progress is not None:
+        time_pct = progress
         divider += 1
 
     if expected_filament != 0:
@@ -873,7 +884,7 @@ def calculate_pct_job(data) -> float:
         divider += 1
 
     if divider == 0:
-        return data["status"]["display_status"]["progress"]
+        return progress
 
     return (time_pct + filament_pct) / divider
 
@@ -941,7 +952,7 @@ def convert_time(time_s):
 def calculate_memory_used(data):
     """Calculate memory used."""
 
-    if "system_info" not in data:
+    if "system_info" not in data or data["status"]["system_stats"]["memavail"] is None:
         return None
 
     total_memory = data["system_info"]["cpu_info"]["total_memory"]
