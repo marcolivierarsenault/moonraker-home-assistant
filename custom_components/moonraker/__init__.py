@@ -29,6 +29,7 @@ from .const import (
     OBJ,
     PLATFORMS,
     TIMEOUT,
+    PRINTSTATES,
 )
 from .sensor import SENSORS
 
@@ -194,6 +195,18 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
 
         for updater in self.updaters:
             data.update(await updater(self))
+
+        # --- Dynamic polling logic ---
+        prev_state = getattr(self, "_last_print_state", None)
+        current_state = data.get("status", {}).get("print_stats", {}).get("state")
+        if current_state != prev_state:
+            if current_state == PRINTSTATES.PRINTING.value:
+                self.update_interval = timedelta(seconds=2)
+            else:
+                self.update_interval = timedelta(seconds=30)
+            self._schedule_refresh()
+        self._last_print_state = current_state
+        # --- end dynamic polling logic ---
 
         return data
 
