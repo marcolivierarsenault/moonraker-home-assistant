@@ -75,16 +75,14 @@ async def async_setup_temperature_target(coordinator, entry, async_add_entities)
                 icon="mdi:printer-3d-nozzle-heat",
                 unit=UnitOfTemperature.CELSIUS,
                 update_code=f"M104 T{extruder_val} S",
-                max_value=260,
+                max_value=350,
                 device_class=NumberDeviceClass.TEMPERATURE,
             )
             sensors.append(desc)
 
     coordinator.load_sensor_data(sensors)
     await coordinator.async_refresh()
-    async_add_entities(
-        [MoonrakerNumber(coordinator, entry, desc) for desc in sensors]
-    )
+    async_add_entities([MoonrakerNumber(coordinator, entry, desc) for desc in sensors])
 
 
 async def async_setup_output_pin(coordinator, entry, async_add_entities):
@@ -142,7 +140,9 @@ async def async_setup_speed_factor(coordinator, entry, async_add_entities):
 
     coordinator.load_sensor_data([desc])
     await coordinator.async_refresh()
-    async_add_entities([MoonrakerNumber(coordinator, entry, desc, value_multiplier=100.0)])
+    async_add_entities(
+        [MoonrakerNumber(coordinator, entry, desc, value_multiplier=100.0)]
+    )
 
 
 async def async_setup_fan_speed(coordinator, entry, async_add_entities):
@@ -166,8 +166,9 @@ async def async_setup_fan_speed(coordinator, entry, async_add_entities):
 
     coordinator.load_sensor_data([desc])
     await coordinator.async_refresh()
-    async_add_entities([MoonrakerFanSpeed(coordinator, entry, desc, value_multiplier=100.0)])
-
+    async_add_entities(
+        [MoonrakerFanSpeed(coordinator, entry, desc, value_multiplier=100.0)]
+    )
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -256,7 +257,9 @@ class MoonrakerNumber(BaseMoonrakerEntity, NumberEntity):
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
         self._attr_native_value = (
-            self.coordinator.data["status"][self.sensor_name][self.entity_description.status_key]
+            self.coordinator.data["status"][self.sensor_name][
+                self.entity_description.status_key
+            ]
             * self.value_multiplier
         )
         self.async_write_ha_state()
