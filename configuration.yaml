@@ -16,4 +16,4 @@ tts:
 logger:
   default: warning
   logs:
-    custom_components.moonraker: debug
+    custom_components.moonraker: info
