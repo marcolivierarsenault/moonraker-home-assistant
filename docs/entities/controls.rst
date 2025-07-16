@@ -47,6 +47,18 @@ A series of buttons are available by default. They are:
   * - Reset Totals
     - Reset moonraker statistics. Button is disabled by default.
     - From Moonraker API (*server.history.reset_totals*)
+  * - Home X Axis
+    - Home the X axis only.
+    - From Moonraker API (*printer.gcode.script*, G-code: G28 X)
+  * - Home Y Axis
+    - Home the Y axis only.
+    - From Moonraker API (*printer.gcode.script*, G-code: G28 Y)
+  * - Home Z Axis
+    - Home the Z axis only.
+    - From Moonraker API (*printer.gcode.script*, G-code: G28 Z)
+  * - Home All Axes
+    - Home all axes (X, Y, Z).
+    - From Moonraker API (*printer.gcode.script*, G-code: G28)
 
 Macros
 ---------------------------------

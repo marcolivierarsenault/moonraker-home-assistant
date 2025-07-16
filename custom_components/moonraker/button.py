@@ -111,6 +111,42 @@ BUTTONS: tuple[MoonrakerButtonDescription, ...] = [
         ),
         icon="mdi:playlist-play",
     ),
+    MoonrakerButtonDescription(
+        key="home_x_axis",
+        name="Home X Axis",
+        press_fn=lambda button: button.coordinator.async_send_data(
+            METHODS.PRINTER_GCODE_SCRIPT, {"script": "G28 X"}
+        ),
+        icon="mdi:axis-x-arrow",
+        entity_registry_enabled_default=True,
+    ),
+    MoonrakerButtonDescription(
+        key="home_y_axis",
+        name="Home Y Axis",
+        press_fn=lambda button: button.coordinator.async_send_data(
+            METHODS.PRINTER_GCODE_SCRIPT, {"script": "G28 Y"}
+        ),
+        icon="mdi:axis-y-arrow",
+        entity_registry_enabled_default=True,
+    ),
+    MoonrakerButtonDescription(
+        key="home_z_axis",
+        name="Home Z Axis",
+        press_fn=lambda button: button.coordinator.async_send_data(
+            METHODS.PRINTER_GCODE_SCRIPT, {"script": "G28 Z"}
+        ),
+        icon="mdi:axis-z-arrow",
+        entity_registry_enabled_default=True,
+    ),
+    MoonrakerButtonDescription(
+        key="home_all_axes",
+        name="Home All Axes",
+        press_fn=lambda button: button.coordinator.async_send_data(
+            METHODS.PRINTER_GCODE_SCRIPT, {"script": "G28"}
+        ),
+        icon="mdi:axis-arrow",
+        entity_registry_enabled_default=True,
+    ),
 ]
 
 
@@ -199,7 +235,9 @@ async def async_setup_services(coordinator, entry, async_add_entities):
             )
         )
 
-    async_add_entities([MoonrakerButton(coordinator, entry, desc) for desc in service_buttons])
+    async_add_entities(
+        [MoonrakerButton(coordinator, entry, desc) for desc in service_buttons]
+    )
 
 
 class MoonrakerButton(BaseMoonrakerEntity, ButtonEntity):

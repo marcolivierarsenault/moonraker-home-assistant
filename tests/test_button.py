@@ -3,8 +3,7 @@
 from unittest.mock import patch
 
 import pytest
-from homeassistant.components.button import DOMAIN as BUTTON_DOMAIN
-from homeassistant.components.button import SERVICE_PRESS
+from homeassistant.components.button.const import DOMAIN as BUTTON_DOMAIN, SERVICE_PRESS
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -117,3 +116,35 @@ async def test_disabled_buttons(hass):
     entity = entity_registry.async_get("button.mainsail_macro_set_pause_next_layer")
     assert entity
     assert entity.disabled
+
+
+@pytest.mark.parametrize(
+    "button, gcode",
+    [
+        ("mainsail_home_x_axis", "G28 X"),
+        ("mainsail_home_y_axis", "G28 Y"),
+        ("mainsail_home_z_axis", "G28 Z"),
+        ("mainsail_home_all_axes", "G28"),
+    ],
+)
+async def test_home_axis_buttons(hass, button, gcode):
+    """Test home axis buttons send correct G-code."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    with patch("moonraker_api.MoonrakerClient.call_method") as mock_api:
+        await hass.services.async_call(
+            BUTTON_DOMAIN,
+            SERVICE_PRESS,
+            {
+                ATTR_ENTITY_ID: f"button.{button}",
+            },
+            blocking=True,
+        )
+
+        await hass.async_block_till_done()
+        mock_api.assert_called_once_with(
+            METHODS.PRINTER_GCODE_SCRIPT.value, script=gcode
+        )
