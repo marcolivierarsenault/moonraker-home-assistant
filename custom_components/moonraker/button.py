@@ -10,7 +10,7 @@ from .const import DOMAIN, METHODS
 from .entity import BaseMoonrakerEntity
 
 
-@dataclass
+@dataclass(frozen=True)
 class MoonrakerButtonDescription(ButtonEntityDescription):
     """Class describing Mookraker button entities."""
 
@@ -21,7 +21,7 @@ class MoonrakerButtonDescription(ButtonEntityDescription):
     device_class: str | None = None
 
 
-BUTTONS: tuple[MoonrakerButtonDescription, ...] = [
+BUTTONS: tuple[MoonrakerButtonDescription, ...] = (
     MoonrakerButtonDescription(
         key="emergency_stop",
         name="Emergency Stop",
@@ -147,7 +147,7 @@ BUTTONS: tuple[MoonrakerButtonDescription, ...] = [
         icon="mdi:axis-arrow",
         entity_registry_enabled_default=True,
     ),
-]
+)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
