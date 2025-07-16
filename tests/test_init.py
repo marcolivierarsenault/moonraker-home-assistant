@@ -1,8 +1,10 @@
 """Test moonraker setup process."""
 
-from unittest.mock import patch
-
 import pytest
+from unittest.mock import patch
+from datetime import timedelta
+from custom_components.moonraker.const import PRINTSTATES
+
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -159,3 +161,69 @@ async def test_set_custom_gcode_service(hass):
         mock_sensors.assert_called_once_with(
             METHODS.PRINTER_GCODE_SCRIPT.value, script="STATUS"
         )
+
+
+@pytest.mark.asyncio
+async def test_polling_interval_changes_on_print_state(hass, get_data):
+    """Test polling interval changes based on print state transitions."""
+    from custom_components.moonraker.const import DOMAIN
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from .const import MOCK_CONFIG
+
+    # Set initial state to standby
+    get_data["status"]["print_stats"]["state"] = PRINTSTATES.STANDBY.value
+
+    # Setup coordinator
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, entry_id="test_polling"
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+
+    # Default should be 30 seconds
+    assert coordinator.update_interval == timedelta(seconds=30)
+
+    with patch.object(coordinator, "_schedule_refresh") as mock_refresh:
+        # Simulate a state change to printing
+        get_data["status"]["print_stats"]["state"] = PRINTSTATES.PRINTING.value
+        await coordinator._async_update_data()
+        assert coordinator.update_interval == timedelta(seconds=2)
+        assert mock_refresh.called
+
+        mock_refresh.reset_mock()
+
+        # Simulate a state change back to standby
+        get_data["status"]["print_stats"]["state"] = PRINTSTATES.STANDBY.value
+        await coordinator._async_update_data()
+        assert coordinator.update_interval == timedelta(seconds=30)
+        assert mock_refresh.called
+
+        mock_refresh.reset_mock()
+
+        # Simulate no state change (still standby)
+        await coordinator._async_update_data()
+        # Should not call _schedule_refresh again
+        assert not mock_refresh.called
+
+
+@pytest.mark.asyncio
+async def test_polling_interval_no_change_on_same_state(hass, get_data):
+    """Test polling interval does not change or reschedule if state is unchanged."""
+    from custom_components.moonraker.const import DOMAIN
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from .const import MOCK_CONFIG
+
+    get_data["status"]["print_stats"]["state"] = PRINTSTATES.STANDBY.value
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, entry_id="test_polling2"
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+
+    with patch.object(coordinator, "_schedule_refresh") as mock_refresh:
+        # Call update with the same state
+        await coordinator._async_update_data()
+        assert not mock_refresh.called
+        assert coordinator.update_interval == timedelta(seconds=30)
