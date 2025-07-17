@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 from homeassistant.components.number import DOMAIN as NUMBER_DOMAIN
-from homeassistant.components.number import SERVICE_SET_VALUE
+from homeassistant.components.number.const import SERVICE_SET_VALUE
 from homeassistant.const import ATTR_ENTITY_ID
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
