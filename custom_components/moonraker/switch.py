@@ -1,14 +1,15 @@
 """Switch platform for Moonraker integration."""
+
 from dataclasses import dataclass
 
-from homeassistant.components.switch import (SwitchEntity,
-                                             SwitchEntityDescription)
+from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
 
 from .const import DOMAIN, METHODS, OBJ
 from .entity import BaseMoonrakerEntity
+from custom_components.moonraker.__init__ import MoonrakerDataUpdateCoordinator
 
 
-@dataclass
+@dataclass(frozen=True)
 class MoonrakerSwitchSensorDescription(SwitchEntityDescription):
     """Class describing Mookraker binary_sensor entities."""
 
@@ -113,6 +114,7 @@ class MoonrakerSwitchSensor(BaseMoonrakerEntity, SwitchEntity):
         self._attr_name = description.name
         self._attr_has_entity_name = True
         self._attr_icon = description.icon
+        self.coordinator: MoonrakerDataUpdateCoordinator = coordinator
 
 
 class MoonrakerPowerDeviceSwitchSensor(MoonrakerSwitchSensor):
@@ -121,11 +123,13 @@ class MoonrakerPowerDeviceSwitchSensor(MoonrakerSwitchSensor):
     @property
     def is_on(self) -> bool:
         """Return true if the switch is on."""
+        current_state = False
         for device in self.coordinator.data["power_devices"]["devices"]:
             if device["device"] == self.sensor_name:
-                return device["status"] == "on"
+                current_state = device["status"] == "on"
+        return current_state
 
-    async def async_turn_on(self, **_: any) -> None:
+    async def async_turn_on(self, **kwargs) -> None:
         """Turn on the switch."""
         await self.coordinator.async_send_data(
             METHODS.MACHINE_DEVICE_POWER_POST_DEVICE,
@@ -133,7 +137,7 @@ class MoonrakerPowerDeviceSwitchSensor(MoonrakerSwitchSensor):
         )
         await self.coordinator.async_refresh()
 
-    async def async_turn_off(self, **_: any) -> None:
+    async def async_turn_off(self, **kwargs) -> None:
         """Turn off the switch."""
         await self.coordinator.async_send_data(
             METHODS.MACHINE_DEVICE_POWER_POST_DEVICE,
@@ -155,7 +159,7 @@ class MoonrakerDigitalOutputPin(MoonrakerSwitchSensor):
         """Return true if the switch is on."""
         return self.coordinator.data["status"][self.sensor_name]["value"] == 1
 
-    async def async_turn_on(self, **_: any) -> None:
+    async def async_turn_on(self, **kwargs) -> None:
         """Turn on the switch."""
         await self.coordinator.async_send_data(
             METHODS.PRINTER_GCODE_SCRIPT,
@@ -163,7 +167,7 @@ class MoonrakerDigitalOutputPin(MoonrakerSwitchSensor):
         )
         await self.coordinator.async_refresh()
 
-    async def async_turn_off(self, **_: any) -> None:
+    async def async_turn_off(self, **kwargs) -> None:
         """Turn off the switch."""
         await self.coordinator.async_send_data(
             METHODS.PRINTER_GCODE_SCRIPT,

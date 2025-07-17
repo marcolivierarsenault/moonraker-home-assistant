@@ -1,4 +1,5 @@
 """Binary sensors platform for Moonraker integration."""
+
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -12,7 +13,7 @@ from .const import DOMAIN, METHODS
 from .entity import BaseMoonrakerEntity
 
 
-@dataclass
+@dataclass(frozen=True)
 class MoonrakerBinarySensorDescription(BinarySensorEntityDescription):
     """Class describing Mookraker binary_sensor entities."""
 
