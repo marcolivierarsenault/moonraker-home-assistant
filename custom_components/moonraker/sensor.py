@@ -27,11 +27,11 @@ from .entity import BaseMoonrakerEntity
 _LOGGER = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(frozen=True)
 class MoonrakerSensorDescription(SensorEntityDescription):
     """Class describing Mookraker sensor entities."""
 
-    value_fn: Callable | None = None
+    value_fn: Callable = lambda sensor: None
     sensor_name: str | None = None
     status_key: str | None = None
     icon: str | None = None
@@ -40,7 +40,7 @@ class MoonrakerSensorDescription(SensorEntityDescription):
     subscriptions: list | None = None
 
 
-SENSORS: tuple[MoonrakerSensorDescription, ...] = [
+SENSORS: tuple[MoonrakerSensorDescription, ...] = (
     MoonrakerSensorDescription(
         key="state",
         name="Printer State",
@@ -159,7 +159,9 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
             round(
                 sensor.coordinator.data["estimated_time"] / 3600,
                 2,
-            ) if sensor.coordinator.data["estimated_time"] > 0 else 0
+            )
+            if sensor.coordinator.data["estimated_time"] > 0
+            else 0
         ),
         subscriptions=[],
         icon="mdi:timer",
@@ -177,7 +179,9 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
                 )
                 / 3600,
                 2,
-            ) if sensor.coordinator.data["estimated_time"] > 0 else 0
+            )
+            if sensor.coordinator.data["estimated_time"] > 0
+            else 0
         ),
         subscriptions=[("print_stats", "print_duration")],
         icon="mdi:timer",
@@ -218,8 +222,10 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         name="Progress",
         value_fn=lambda sensor: sensor.empty_result_when_not_printing(
             int(
-                (sensor.coordinator.data["status"]["display_status"]["progress"] or
-                 sensor.coordinator.data["status"]["virtual_sdcard"]["progress"])
+                (
+                    sensor.coordinator.data["status"]["display_status"]["progress"]
+                    or sensor.coordinator.data["status"]["virtual_sdcard"]["progress"]
+                )
                 * 100
             )
         ),
@@ -319,7 +325,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = [
         state_class=SensorStateClass.MEASUREMENT,
         unit=PERCENTAGE,
     ),
-]
+)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -841,7 +847,7 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
         self._attr_name = description.name
         self._attr_has_entity_name = True
-        self.entity_description = description
+        self.entity_description: MoonrakerSensorDescription = description
         self._attr_native_value = description.value_fn(self)
         self._attr_icon = description.icon
         self._attr_native_unit_of_measurement = description.unit
@@ -873,7 +879,10 @@ def calculate_pct_job(data) -> float:
     divider = 0
     time_pct = 0
     filament_pct = 0
-    progress = data["status"]["display_status"]["progress"] or data["status"]["virtual_sdcard"]["progress"]
+    progress = (
+        data["status"]["display_status"]["progress"]
+        or data["status"]["virtual_sdcard"]["progress"]
+    )
 
     if print_expected_duration != 0 and progress is not None:
         time_pct = progress

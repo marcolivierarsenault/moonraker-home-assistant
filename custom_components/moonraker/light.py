@@ -3,19 +3,17 @@
 import logging
 from dataclasses import dataclass
 
-from homeassistant.components.light import (
-    LightEntity,
-    LightEntityDescription,
-    ColorMode,
-)
+from homeassistant.components.light import LightEntity, LightEntityDescription
+from homeassistant.components.light.const import ColorMode
 from homeassistant.core import callback
 from homeassistant.util import color
 
 from .const import DOMAIN, METHODS, OBJ
 from .entity import BaseMoonrakerEntity
+from custom_components.moonraker.__init__ import MoonrakerDataUpdateCoordinator
 
 
-@dataclass
+@dataclass(frozen=True)
 class MoonrakerLightSensorDescription(LightEntityDescription):
     """Class describing Mookraker light entities."""
 
@@ -120,17 +118,18 @@ class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
         self._attr_color_mode = description.color_mode
         self._attr_supported_color_modes = {description.color_mode}
         self._set_attributes_from_coordinator()
+        self.coordinator: MoonrakerDataUpdateCoordinator = coordinator
 
     async def async_turn_on(
         self,
-        brightness: int = None,
-        color_temp: int = None,
+        brightness: int | None = None,
+        color_temp: int | None = None,
         rgb_color=None,
         **kwargs,
     ) -> None:
         """Turn on the light."""
         if rgb_color:
-            await self._set_rgbw(*rgb_color, 0)
+            await self._set_rgbw(rgb_color[0], rgb_color[1], rgb_color[2], 0)
         else:
             if brightness is None or not self._attr_is_on:
                 brightness = 255

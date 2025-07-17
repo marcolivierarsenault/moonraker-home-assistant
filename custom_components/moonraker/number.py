@@ -14,14 +14,14 @@ from homeassistant.const import UnitOfTemperature, PERCENTAGE
 
 from .const import DOMAIN, METHODS, OBJ
 from .entity import BaseMoonrakerEntity
+from custom_components.moonraker.__init__ import MoonrakerDataUpdateCoordinator
 
 
-@dataclass
+@dataclass(frozen=True)
 class MoonrakerNumberSensorDescription(NumberEntityDescription):
     """Class describing Mookraker number entities."""
 
     sensor_name: str | None = None
-    icon: str | None = None
     subscriptions: list | None = None
     icon: str | None = None
     unit: str | None = None
@@ -190,12 +190,13 @@ class MoonrakerPWMOutputPin(BaseMoonrakerEntity, NumberEntity):
         self._attr_native_value = (
             coordinator.data["status"][description.sensor_name]["value"] * 100
         )
-        self.entity_description = description
+        self.entity_description: MoonrakerNumberSensorDescription = description
         self.sensor_name = description.sensor_name
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
         self._attr_name = description.name
         self._attr_has_entity_name = True
         self._attr_icon = description.icon
+        self.coordinator: MoonrakerDataUpdateCoordinator = coordinator
 
     async def async_set_native_value(self, value: float) -> None:
         """Set native Value."""
@@ -232,7 +233,7 @@ class MoonrakerNumber(BaseMoonrakerEntity, NumberEntity):
             coordinator.data["status"][description.sensor_name][description.status_key]
             * value_multiplier
         )
-        self.entity_description = description
+        self.entity_description: MoonrakerNumberSensorDescription = description
         self.sensor_name = description.sensor_name
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
         self._attr_name = description.name
@@ -243,6 +244,7 @@ class MoonrakerNumber(BaseMoonrakerEntity, NumberEntity):
         self._attr_native_unit_of_measurement = description.unit
         self.update_string = description.update_code
         self.value_multiplier = value_multiplier
+        self.coordinator: MoonrakerDataUpdateCoordinator = coordinator
 
     async def async_set_native_value(self, value: float) -> None:
         """Set native Value."""

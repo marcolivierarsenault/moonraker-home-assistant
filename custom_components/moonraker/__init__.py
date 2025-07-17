@@ -5,6 +5,7 @@ import logging
 import os.path
 import uuid
 from datetime import timedelta
+from typing import Any
 
 import async_timeout
 from homeassistant.config_entries import ConfigEntry
@@ -67,17 +68,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     custom_name = get_user_name(hass, entry)
 
     url = entry.data.get(CONF_URL)
-    port = entry.data.get(CONF_PORT)
-    tls = entry.data.get(CONF_TLS)
-    api_key = entry.data.get(CONF_API_KEY)
+    port = entry.data.get(CONF_PORT, 7125)
+    tls = entry.data.get(CONF_TLS, False)
+    api_key = entry.data.get(CONF_API_KEY, "")
     printer_name = (
         entry.data.get(CONF_PRINTER_NAME) if custom_name is None else custom_name
     )
 
-    if entry.options.get(CONF_OPTION_POLLING_RATE) is not None:
-        SCAN_INTERVAL = timedelta(seconds=entry.options.get(CONF_OPTION_POLLING_RATE))
-    else:
-        SCAN_INTERVAL = timedelta(seconds=30)
+    SCAN_INTERVAL = timedelta(seconds=entry.options.get(CONF_OPTION_POLLING_RATE, 30))
 
     api = MoonrakerApiClient(
         url,
@@ -93,7 +91,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             printer_info = await api.client.call_method("printer.info")
             _LOGGER.debug(printer_info)
 
-            if printer_name == "":
+            if printer_name == "" or printer_name is None:
                 api_device_name = printer_info[HOSTNAME]
             else:
                 api_device_name = printer_name
@@ -128,7 +126,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         dev_reg = dr.async_get(hass)
 
         device = dev_reg.async_get(device_id)
-        entry_id = device.primary_config_entry
+        entry_id = device.primary_config_entry if device is not None else -1
         await hass.data[DOMAIN][entry_id].async_send_data(
             METHODS.PRINTER_GCODE_SCRIPT,
             {"script": gcode},
@@ -289,13 +287,16 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             raise UpdateFailed() from exception
 
     async def async_fetch_data(
-        self, query_path: METHODS, query_obj: dict[str:any] = None, quiet: bool = False
+        self,
+        query_path: METHODS,
+        query_obj: dict[str, Any] | None = None,
+        quiet: bool = False,
     ):
         """Fetch data from moonraker."""
         return await self._async_fetch_data(query_path, query_obj, quiet=quiet)
 
     async def async_send_data(
-        self, query_path: METHODS, query_obj: dict[str:any] = None
+        self, query_path: METHODS, query_obj: dict[str, Any] | None = None
     ):
         """Send data to moonraker."""
         return await self._async_send_data(query_path, query_obj)
