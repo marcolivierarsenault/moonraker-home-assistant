@@ -3,7 +3,7 @@ moonraker-api==2.0.6
 pre-commit==4.2.0
 sphinx==8.2.3
 colorlog==6.9.0
-furo==2024.8.6
+furo==2025.7.19
 ruff==0.12.4
 ha-ffmpeg==3.2.2
 sphinx-toolbox==4.0.0
