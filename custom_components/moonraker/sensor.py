@@ -13,6 +13,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import (
     PERCENTAGE,
+    UnitOfInformation,
     UnitOfLength,
     UnitOfPressure,
     UnitOfTemperature,
@@ -501,6 +502,44 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 subscriptions=[(obj, "last_stats")],
                 state_class=SensorStateClass.MEASUREMENT,
                 unit=PERCENTAGE,
+            )
+            sensors.append(desc)
+            desc = MoonrakerSensorDescription(
+                key=f"{key}_bytes_retransmit",
+                status_key=obj,
+                name=f"{name} Bytes Retransmit",
+                value_fn=lambda sensor, stat="bytes_retransmit": (
+                    (
+                        sensor.coordinator.data["status"]
+                        .get(sensor.status_key, {})
+                        .get("last_stats")
+                        or {}
+                    ).get(stat, 0)
+                ),
+                subscriptions=[(obj, "last_stats")],
+                device_class=SensorDeviceClass.DATA_SIZE,
+                unit=UnitOfInformation.BYTES,
+                entity_registry_enabled_default=False,
+                state_class=SensorStateClass.TOTAL_INCREASING,
+            )
+            sensors.append(desc)
+            desc = MoonrakerSensorDescription(
+                key=f"{key}_bytes_invalid",
+                status_key=obj,
+                name=f"{name} Bytes Invalid",
+                value_fn=lambda sensor, stat="bytes_invalid": (
+                    (
+                        sensor.coordinator.data["status"]
+                        .get(sensor.status_key, {})
+                        .get("last_stats")
+                        or {}
+                    ).get(stat, 0)
+                ),
+                subscriptions=[(obj, "last_stats")],
+                device_class=SensorDeviceClass.DATA_SIZE,
+                unit=UnitOfInformation.BYTES,
+                entity_registry_enabled_default=False,
+                state_class=SensorStateClass.TOTAL_INCREASING,
             )
             sensors.append(desc)
         elif split_obj[0] in fan_keys:

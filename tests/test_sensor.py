@@ -63,6 +63,8 @@ DEFAULT_VALUES = [
     ("mainsail_my_super_heater_temperature", "32.43"),
     ("mainsail_my_super_heater_target", "32.0"),
     ("mainsail_my_super_heater_power", "12"),
+    ("mainsail_mcu_bytes_retransmit", "64"),
+    ("mainsail_mcu_bytes_invalid", "128"),
 ]
 
 
@@ -394,6 +396,8 @@ async def test_multi_mcu_sensor_data(hass, get_data, get_printer_objects_list):
             "mcu_awake": 0.031,
             "mcu_task_avg": 0.000002,
             "mcu_task_stddev": 0.000012,
+            "bytes_invalid": 5,
+            "bytes_retransmit": 3,
         },
     }
 
@@ -411,6 +415,20 @@ async def test_multi_mcu_sensor_data(hass, get_data, get_printer_objects_list):
 
     assert (
         registry.async_get_entity_id("sensor", DOMAIN, "test_mcu_Extruder_awake")
+        is not None
+    )
+
+    assert (
+        registry.async_get_entity_id(
+            "sensor", DOMAIN, "test_mcu_Extruder_bytes_retransmit"
+        )
+        is not None
+    )
+
+    assert (
+        registry.async_get_entity_id(
+            "sensor", DOMAIN, "test_mcu_Extruder_bytes_invalid"
+        )
         is not None
     )
 
@@ -436,6 +454,20 @@ async def test_multi_mcu_sensor_missing_data(hass, get_data, get_printer_objects
 
     assert (
         registry.async_get_entity_id("sensor", DOMAIN, "test_mcu_Extruder_awake")
+        is not None
+    )
+
+    assert (
+        registry.async_get_entity_id(
+            "sensor", DOMAIN, "test_mcu_Extruder_bytes_retransmit"
+        )
+        is not None
+    )
+
+    assert (
+        registry.async_get_entity_id(
+            "sensor", DOMAIN, "test_mcu_Extruder_bytes_invalid"
+        )
         is not None
     )
 

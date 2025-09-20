@@ -234,6 +234,8 @@ def get_data_fixture():
                     "mcu_awake": 0.031,
                     "mcu_task_avg": 0.000002,
                     "mcu_task_stddev": 0.000012,
+                    "bytes_invalid": 128,
+                    "bytes_retransmit": 64,
                 },
             },
         },
