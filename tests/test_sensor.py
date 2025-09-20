@@ -63,8 +63,6 @@ DEFAULT_VALUES = [
     ("mainsail_my_super_heater_temperature", "32.43"),
     ("mainsail_my_super_heater_target", "32.0"),
     ("mainsail_my_super_heater_power", "12"),
-    ("mainsail_mcu_bytes_retransmit", "64"),
-    ("mainsail_mcu_bytes_invalid", "128"),
 ]
 
 
@@ -133,6 +131,8 @@ async def test_sensors(hass):
         ("mainsail_machine_update_system", "8 packages can be upgraded"),
         ("mainsail_version_crownest", "v4.0.4-6 > v4.1.1-1"),
         ("mainsail_version_mainsail", "v2.8.0"),
+        ("mainsail_mcu_bytes_retransmit", "64"),
+        ("mainsail_mcu_bytes_invalid", "128"),
     ],
 )
 async def test_disabled_sensors(
