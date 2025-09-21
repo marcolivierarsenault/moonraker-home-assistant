@@ -300,6 +300,46 @@ async def test_calculate_pct_job_no_filament_no_time(data_for_calculate_pct):
     assert calculate_pct_job(data_for_calculate_pct) == 0.6
 
 
+async def test_progress_prefers_display_value(hass, get_data):
+    """Ensure display progress of zero does not fall back to virtual progress."""
+
+    get_data["status"]["display_status"]["progress"] = 0.0
+    get_data["status"]["virtual_sdcard"]["progress"] = 0.42
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_progress")
+    assert state.state == "0"
+
+
+async def test_progress_falls_back_to_virtual_when_display_missing(hass, get_data):
+    """Ensure progress falls back when the display value is unavailable."""
+
+    get_data["status"]["display_status"]["progress"] = None
+    get_data["status"]["virtual_sdcard"]["progress"] = 0.38
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_progress")
+    assert state.state == "38"
+
+
+async def test_calculate_pct_job_ignores_filament_outliers(data_for_calculate_pct):
+    """Large filament discrepancies should not skew the percentage."""
+
+    data_for_calculate_pct["status"]["display_status"]["progress"] = 0.1
+    data_for_calculate_pct["status"]["print_stats"]["filament_used"] = 1.8
+    data_for_calculate_pct["filament_total"] = 2
+
+    assert calculate_pct_job(data_for_calculate_pct) == 0.1
+
+
 async def test_no_history_data(
     hass,
     get_data,
