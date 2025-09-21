@@ -15,6 +15,8 @@ from custom_components.moonraker.const import DOMAIN, PRINTSTATES
 from custom_components.moonraker.sensor import (
     calculate_current_layer,
     calculate_pct_job,
+    _get_progress_value,
+    _get_progress_percent,
 )
 
 from .const import MOCK_CONFIG
@@ -338,6 +340,25 @@ async def test_calculate_pct_job_ignores_filament_outliers(data_for_calculate_pc
     data_for_calculate_pct["filament_total"] = 2
 
     assert calculate_pct_job(data_for_calculate_pct) == 0.1
+
+
+async def test_get_progress_value_handles_bad_inputs():
+    """Validate guard clauses in progress helper."""
+
+    assert _get_progress_value(None) is None
+    assert _get_progress_value({"status": "invalid"}) is None
+    assert (
+        _get_progress_value(
+            {"status": {"display_status": None, "virtual_sdcard": "invalid"}}
+        )
+        is None
+    )
+
+
+async def test_get_progress_percent_defaults_to_zero():
+    """Percent helper falls back to zero when progress is missing."""
+
+    assert _get_progress_percent({"status": {}}) == 0
 
 
 async def test_no_history_data(
