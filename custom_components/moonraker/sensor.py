@@ -221,7 +221,17 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
         key="progress",
         name="Progress",
         value_fn=lambda sensor: sensor.empty_result_when_not_printing(
-            _get_progress_percent(sensor.coordinator.data)
+            int(
+                max(0.0, min(
+                    calculate_pct_job(
+                        sensor.coordinator.data,
+                        include_filament=False,
+                    )
+                    or 0.0,
+                    1.0,
+                ))
+                * 100
+            )
         ),
         subscriptions=[
             ("display_status", "progress"),
@@ -860,58 +870,44 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
         ):
             return "" if isinstance(value, str) else 0.0
         return value
-
-
-def _get_progress_value(data) -> float | None:
-    """Return the progress reported by Moonraker.
-
-    Prefer the display status value to mirror the printer UI. If the display
-    value is missing, fall back to the virtual SD card progress.
-    """
-
-    if not isinstance(data, dict):
-        return None
-
-    status = data.get("status")
-    if not isinstance(status, dict):
-        return None
-
-    display_status = status.get("display_status")
-    if isinstance(display_status, dict):
-        display_progress = display_status.get("progress")
-        if display_progress is not None:
-            return display_progress
-
-    virtual_sdcard = status.get("virtual_sdcard")
-    if isinstance(virtual_sdcard, dict):
-        return virtual_sdcard.get("progress")
-
-    return None
-
-
-def _get_progress_percent(data) -> int:
-    """Return the current progress as an integer percentage."""
-
-    progress_value = _get_progress_value(data)
-    if progress_value is None:
-        return 0
-
-    clamped_progress = max(0.0, min(progress_value, 1.0))
-    return int(clamped_progress * 100)
-
-
-def calculate_pct_job(data) -> float:
+def calculate_pct_job(data, include_filament: bool = True) -> float | None:
     """Get a pct estimate of the job based on a mix of progress value and fillament used.
 
     This strategy is inline with Mainsail estimate.
     """
+
+    if not isinstance(data, dict):
+        return 0.0
+
+    status = data.get("status")
+    if not isinstance(status, dict):
+        return 0.0
+
+    display_status = status.get("display_status")
+    display_progress = None
+    if isinstance(display_status, dict):
+        display_progress = display_status.get("progress")
+
+    progress = display_progress
+    if progress is None:
+        virtual_sdcard = status.get("virtual_sdcard")
+        if isinstance(virtual_sdcard, dict):
+            progress = virtual_sdcard.get("progress")
+
+    if progress is None:
+        progress = 0.0
+
+    progress = max(0.0, min(progress, 1.0))
+
+    if include_filament is False:
+        return progress
+
     print_expected_duration = data["estimated_time"]
-    filament_used = data["status"]["print_stats"]["filament_used"]
+    filament_used = status["print_stats"]["filament_used"]
     expected_filament = data["filament_total"]
     divider = 0
     time_pct = 0
     filament_pct = 0
-    progress = _get_progress_value(data)
 
     if print_expected_duration != 0 and progress is not None:
         time_pct = progress
@@ -920,7 +916,7 @@ def calculate_pct_job(data) -> float:
     if expected_filament != 0:
         filament_pct = 1.0 * filament_used / expected_filament
         filament_pct = max(0.0, min(filament_pct, 1.0))
-        if progress is None or abs(filament_pct - progress) <= 0.2:
+        if abs(filament_pct - progress) <= 0.2:
             divider += 1
         else:
             filament_pct = 0

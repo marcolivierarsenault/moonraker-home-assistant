@@ -15,8 +15,6 @@ from custom_components.moonraker.const import DOMAIN, PRINTSTATES
 from custom_components.moonraker.sensor import (
     calculate_current_layer,
     calculate_pct_job,
-    _get_progress_value,
-    _get_progress_percent,
 )
 
 from .const import MOCK_CONFIG
@@ -83,6 +81,7 @@ def data_for_calculate_pct_fixture():
         "status": {
             "print_stats": {"print_duration": 6, "filament_used": 1},
             "display_status": {"progress": 0.60},
+            "virtual_sdcard": {"progress": 0.60},
         },
         "filament_total": 2,
     }
@@ -342,23 +341,46 @@ async def test_calculate_pct_job_ignores_filament_outliers(data_for_calculate_pc
     assert calculate_pct_job(data_for_calculate_pct) == 0.1
 
 
-async def test_get_progress_value_handles_bad_inputs():
-    """Validate guard clauses in progress helper."""
+async def test_calculate_pct_job_without_status():
+    """Ensure calculate_pct_job gracefully handles missing status."""
 
-    assert _get_progress_value(None) is None
-    assert _get_progress_value({"status": "invalid"}) is None
-    assert (
-        _get_progress_value(
-            {"status": {"display_status": None, "virtual_sdcard": "invalid"}}
-        )
-        is None
-    )
+    assert calculate_pct_job({}, include_filament=False) == 0.0
 
 
-async def test_get_progress_percent_defaults_to_zero():
-    """Percent helper falls back to zero when progress is missing."""
+async def test_calculate_pct_job_with_invalid_data_type():
+    """Non-dict payloads should return 0."""
 
-    assert _get_progress_percent({"status": {}}) == 0
+    assert calculate_pct_job(None, include_filament=False) == 0.0
+
+
+async def test_calculate_pct_job_progress_only_branch(data_for_calculate_pct):
+    """When include_filament is False we should only return raw progress."""
+
+    data_for_calculate_pct["status"]["display_status"]["progress"] = 0.25
+    data_for_calculate_pct["status"]["virtual_sdcard"]["progress"] = 0.4
+    result = calculate_pct_job(data_for_calculate_pct, include_filament=False)
+    assert result == 0.25
+
+
+async def test_calculate_pct_job_uses_virtual_when_display_missing(
+    data_for_calculate_pct,
+):
+    """Fallback to virtual sdcard when display is None."""
+
+    data_for_calculate_pct["status"]["display_status"]["progress"] = None
+    data_for_calculate_pct["status"]["virtual_sdcard"]["progress"] = 0.4
+    result = calculate_pct_job(data_for_calculate_pct, include_filament=False)
+    assert result == 0.4
+
+
+async def test_calculate_pct_job_defaults_to_zero_when_no_progress(
+    data_for_calculate_pct,
+):
+    """Return zero when both display and virtual progress are missing."""
+
+    data_for_calculate_pct["status"].pop("display_status")
+    data_for_calculate_pct["status"].pop("virtual_sdcard")
+    assert calculate_pct_job(data_for_calculate_pct, include_filament=False) == 0.0
 
 
 async def test_no_history_data(
