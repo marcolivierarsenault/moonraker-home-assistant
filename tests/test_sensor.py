@@ -131,6 +131,8 @@ async def test_sensors(hass):
         ("mainsail_machine_update_system", "8 packages can be upgraded"),
         ("mainsail_version_crownest", "v4.0.4-6 > v4.1.1-1"),
         ("mainsail_version_mainsail", "v2.8.0"),
+        ("mainsail_mcu_bytes_retransmit", "64"),
+        ("mainsail_mcu_bytes_invalid", "128"),
     ],
 )
 async def test_disabled_sensors(
@@ -394,6 +396,8 @@ async def test_multi_mcu_sensor_data(hass, get_data, get_printer_objects_list):
             "mcu_awake": 0.031,
             "mcu_task_avg": 0.000002,
             "mcu_task_stddev": 0.000012,
+            "bytes_invalid": 5,
+            "bytes_retransmit": 3,
         },
     }
 
@@ -411,6 +415,20 @@ async def test_multi_mcu_sensor_data(hass, get_data, get_printer_objects_list):
 
     assert (
         registry.async_get_entity_id("sensor", DOMAIN, "test_mcu_Extruder_awake")
+        is not None
+    )
+
+    assert (
+        registry.async_get_entity_id(
+            "sensor", DOMAIN, "test_mcu_Extruder_bytes_retransmit"
+        )
+        is not None
+    )
+
+    assert (
+        registry.async_get_entity_id(
+            "sensor", DOMAIN, "test_mcu_Extruder_bytes_invalid"
+        )
         is not None
     )
 
@@ -436,6 +454,20 @@ async def test_multi_mcu_sensor_missing_data(hass, get_data, get_printer_objects
 
     assert (
         registry.async_get_entity_id("sensor", DOMAIN, "test_mcu_Extruder_awake")
+        is not None
+    )
+
+    assert (
+        registry.async_get_entity_id(
+            "sensor", DOMAIN, "test_mcu_Extruder_bytes_retransmit"
+        )
+        is not None
+    )
+
+    assert (
+        registry.async_get_entity_id(
+            "sensor", DOMAIN, "test_mcu_Extruder_bytes_invalid"
+        )
         is not None
     )
 
