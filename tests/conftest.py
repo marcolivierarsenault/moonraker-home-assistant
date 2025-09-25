@@ -173,6 +173,9 @@ def get_data_fixture():
                 "progress": 0.9078104237663283,
                 "message": "Custom Message",
             },
+            "virtual_sdcard": {
+                "progress": 0.9078104237663283,
+            },
             "fan": {
                 "speed": 0.5123,
                 "rpm": 3000.12321,

@@ -222,10 +222,14 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
         name="Progress",
         value_fn=lambda sensor: sensor.empty_result_when_not_printing(
             int(
-                (
-                    sensor.coordinator.data["status"]["display_status"]["progress"]
-                    or sensor.coordinator.data["status"]["virtual_sdcard"]["progress"]
-                )
+                max(0.0, min(
+                    calculate_pct_job(
+                        sensor.coordinator.data,
+                        include_filament=False,
+                    )
+                    or 0.0,
+                    1.0,
+                ))
                 * 100
             )
         ),
@@ -866,23 +870,44 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
         ):
             return "" if isinstance(value, str) else 0.0
         return value
-
-
-def calculate_pct_job(data) -> float:
+def calculate_pct_job(data, include_filament: bool = True) -> float | None:
     """Get a pct estimate of the job based on a mix of progress value and fillament used.
 
     This strategy is inline with Mainsail estimate.
     """
+
+    if not isinstance(data, dict):
+        return 0.0
+
+    status = data.get("status")
+    if not isinstance(status, dict):
+        return 0.0
+
+    display_status = status.get("display_status")
+    display_progress = None
+    if isinstance(display_status, dict):
+        display_progress = display_status.get("progress")
+
+    progress = display_progress
+    if progress is None:
+        virtual_sdcard = status.get("virtual_sdcard")
+        if isinstance(virtual_sdcard, dict):
+            progress = virtual_sdcard.get("progress")
+
+    if progress is None:
+        progress = 0.0
+
+    progress = max(0.0, min(progress, 1.0))
+
+    if include_filament is False:
+        return progress
+
     print_expected_duration = data["estimated_time"]
-    filament_used = data["status"]["print_stats"]["filament_used"]
+    filament_used = status["print_stats"]["filament_used"]
     expected_filament = data["filament_total"]
     divider = 0
     time_pct = 0
     filament_pct = 0
-    progress = (
-        data["status"]["display_status"]["progress"]
-        or data["status"]["virtual_sdcard"]["progress"]
-    )
 
     if print_expected_duration != 0 and progress is not None:
         time_pct = progress
@@ -890,7 +915,11 @@ def calculate_pct_job(data) -> float:
 
     if expected_filament != 0:
         filament_pct = 1.0 * filament_used / expected_filament
-        divider += 1
+        filament_pct = max(0.0, min(filament_pct, 1.0))
+        if abs(filament_pct - progress) <= 0.2:
+            divider += 1
+        else:
+            filament_pct = 0
 
     if divider == 0:
         return progress
@@ -939,16 +968,15 @@ def calculate_current_layer(data):
         return 0
 
     # layer = (current_z - first_layer_height) / layer_height + 1
-    return (
-        int(
-            round(
-                (data["status"]["toolhead"]["position"][2] - data["first_layer_height"])
-                / data["layer_height"],
-                0,
-            )
+    layer = int(
+        round(
+            (data["status"]["toolhead"]["position"][2] - data["first_layer_height"])
+            / data["layer_height"],
+            0,
         )
-        + 1
-    )
+    ) + 1
+
+    return max(0, layer)
 
 
 def convert_time(time_s):
