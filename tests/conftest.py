@@ -62,6 +62,14 @@ def get_data_fixture():
                     "output_pin capitalized": {
                         "pwm": True,
                     },
+                    "temperature_fan fan_temp": {
+                        "max_temp": 70.0,
+                        "min_temp": 10.0,
+                    },
+                    "temperature_fan fan_case": {
+                        "max_temp": 65.0,
+                        "min_temp": 5.0,
+                    },
                     "led chamber": {
                         "white_pin": "PA1",
                         "red_pin": "PA2",
@@ -143,6 +151,15 @@ def get_data_fixture():
             },
             "temperature_fan fan_temp": {
                 "temperature": 32.43,
+                "target": 35.0,
+            },
+            "temperature_fan FAN_CASE": {
+                "temperature": 34.0,
+                "target": 40.0,
+            },
+            "temperature_fan missing_config": {
+                "temperature": 28.5,
+                "target": 33.0,
             },
             "fan_generic nevermore_fan": {
                 "speed": 0.1234,
@@ -438,6 +455,8 @@ def get_printer_objects_list_fixture():
             "extruder",
             "extruder1",
             "temperature_fan fan_temp",
+            "temperature_fan FAN_CASE",
+            "temperature_fan missing_config",
             "temperature_host host_temp",
             "bme280 bme280_temp",
             "tmc2240 tmc2240_stepper_x_temp",

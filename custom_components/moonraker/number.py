@@ -26,7 +26,8 @@ class MoonrakerNumberSensorDescription(NumberEntityDescription):
     icon: str | None = None
     unit: str | None = None
     update_code: str | None = None
-    max_value: int | None = None
+    max_value: float | None = None
+    min_value: float | None = None
     device_class: NumberDeviceClass | None = None
     status_key: str | None = None
 
@@ -45,6 +46,12 @@ async def async_setup_temperature_target(coordinator, entry, async_add_entities)
     """Set optional temp target."""
 
     sensors = []
+
+    config_query = {OBJ: {"configfile": ["settings"]}}
+    config_response = await coordinator.async_fetch_data(
+        METHODS.PRINTER_OBJECTS_QUERY, config_query, quiet=True
+    )
+    config_settings = config_response["status"]["configfile"].get("settings", {})
 
     object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
     for obj in object_list["objects"]:
@@ -79,6 +86,41 @@ async def async_setup_temperature_target(coordinator, entry, async_add_entities)
                 device_class=NumberDeviceClass.TEMPERATURE,
             )
             sensors.append(desc)
+
+        elif obj.startswith("temperature_fan"):
+            object_type, _, object_name = obj.partition(" ")
+            fan_name = object_name or object_type
+            fan_key = fan_name.replace(" ", "_")
+            display_name = fan_name.replace("_", " ").title()
+
+            settings = config_settings.get(obj)
+            if settings is None:
+                lower_obj = obj.lower()
+                settings = config_settings.get(lower_obj)
+            if settings is None:
+                settings = {}
+
+            max_temp = settings.get("max_temp")
+            min_temp = settings.get("min_temp")
+
+            max_value = float(max_temp) if max_temp is not None else 100.0
+            min_value = float(min_temp) if min_temp is not None else 0.0
+
+            desc = MoonrakerNumberSensorDescription(
+                key=f"{object_type}_{fan_key}_target_control",
+                sensor_name=obj,
+                name=f"{display_name} Target",
+                status_key="target",
+                subscriptions=[(obj, "target")],
+                icon="mdi:thermometer",
+                unit=UnitOfTemperature.CELSIUS,
+                update_code=f"SET_TEMPERATURE_FAN_TARGET FAN={fan_name} TARGET=",
+                max_value=max_value,
+                min_value=min_value,
+                device_class=NumberDeviceClass.TEMPERATURE,
+            )
+            sensors.append(desc)
+            coordinator.add_query_objects(obj, "target")
 
     coordinator.load_sensor_data(sensors)
     await coordinator.async_refresh()
@@ -239,7 +281,16 @@ class MoonrakerNumber(BaseMoonrakerEntity, NumberEntity):
         self._attr_name = description.name
         self._attr_has_entity_name = True
         self._attr_icon = description.icon
-        self._attr_native_max_value = description.max_value
+        self._attr_native_max_value = (
+            float(description.max_value)
+            if description.max_value is not None
+            else None
+        )
+        self._attr_native_min_value = (
+            float(description.min_value)
+            if description.min_value is not None
+            else 0.0
+        )
         self._attr_device_class = description.device_class
         self._attr_native_unit_of_measurement = description.unit
         self.update_string = description.update_code

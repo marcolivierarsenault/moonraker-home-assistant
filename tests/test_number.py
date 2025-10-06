@@ -6,10 +6,10 @@ import pytest
 from homeassistant.components.number import DOMAIN as NUMBER_DOMAIN
 from homeassistant.components.number.const import SERVICE_SET_VALUE
 from homeassistant.const import ATTR_ENTITY_ID
+from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.moonraker.const import DOMAIN, METHODS
-
+from custom_components.moonraker.const import DOMAIN, METHODS, OBJ
 from .const import MOCK_CONFIG
 
 
@@ -30,6 +30,10 @@ async def test_targets(hass):
     assert hass.states.get("number.mainsail_bed_target").state == "60.0"
     assert hass.states.get("number.mainsail_extruder_target").state == "205.0"
     assert hass.states.get("number.mainsail_extruder1_target").state == "220.0"
+    fan_target = hass.states.get("number.mainsail_fan_temp_target")
+    assert fan_target.state == "35.0"
+    assert fan_target.attributes["max"] == 70.0
+    assert fan_target.attributes["min"] == 10.0
 
 
 # test number
@@ -123,6 +127,23 @@ async def test_set_target(hass, get_default_api_response):
         mock_api.assert_called_once_with(
             METHODS.PRINTER_GCODE_SCRIPT.value,
             script="M140 S70.0",
+        )
+
+        mock_api.reset_mock()
+        await hass.services.async_call(
+            NUMBER_DOMAIN,
+            SERVICE_SET_VALUE,
+            {
+                ATTR_ENTITY_ID: "number.mainsail_fan_temp_target",
+                "value": 45,
+            },
+            blocking=True,
+        )
+
+        await hass.async_block_till_done()
+        mock_api.assert_called_once_with(
+            METHODS.PRINTER_GCODE_SCRIPT.value,
+            script="SET_TEMPERATURE_FAN_TARGET FAN=fan_temp TARGET=45.0",
         )
 
 
@@ -263,3 +284,45 @@ async def test_fan_speed_missing(hass, get_data, get_printer_objects_list):
 
     state = hass.states.get("number.mainsail_fan_speed")
     assert state is None
+
+
+async def test_temperature_fan_config_fallbacks(hass):
+    """Ensure temperature fan entities cover config fallbacks."""
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    assert "temperature_fan missing_config" in coordinator.data["status"]
+    assert "temperature_fan missing_config" in coordinator.query_obj[OBJ]
+
+    entity_registry = er.async_get(hass)
+
+    number_entries = {
+        entry.unique_id: entry.entity_id
+        for entry in entity_registry.entities.values()
+        if entry.platform == DOMAIN and entry.domain == NUMBER_DOMAIN
+    }
+    available_ids = sorted(number_entries)
+    expected_missing_unique_id = (
+        f"{config_entry.entry_id}_temperature_fan_missing_config_target_control"
+    )
+    assert expected_missing_unique_id in number_entries
+    missing_entity_id = number_entries[expected_missing_unique_id]
+    missing_state = hass.states.get(missing_entity_id)
+    assert missing_state is not None
+    assert missing_state.attributes["min"] == 0.0
+    assert missing_state.attributes["max"] == 100.0
+
+    uppercase_unique_id = (
+        f"{config_entry.entry_id}_temperature_fan_FAN_CASE_target_control"
+    )
+    uppercase_entity_id = number_entries.get(uppercase_unique_id)
+    assert uppercase_entity_id is not None, available_ids
+    uppercase_state = hass.states.get(uppercase_entity_id)
+    assert uppercase_state.attributes["min"] == 5.0
+    assert uppercase_state.attributes["max"] == 65.0
+
+    # Ensure the fallback entity remains registered for completeness
