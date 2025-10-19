@@ -888,43 +888,59 @@ def calculate_pct_job(data, include_filament: bool = True) -> float | None:
     if isinstance(display_status, dict):
         display_progress = display_status.get("progress")
 
-    progress = display_progress
-    if progress is None:
+    raw_progress = display_progress
+    if raw_progress is None:
         virtual_sdcard = status.get("virtual_sdcard")
         if isinstance(virtual_sdcard, dict):
-            progress = virtual_sdcard.get("progress")
+            raw_progress = virtual_sdcard.get("progress")
 
-    if progress is None:
-        progress = 0.0
-
-    progress = max(0.0, min(progress, 1.0))
+    progress = 0.0
+    if isinstance(raw_progress, int | float):
+        progress = max(0.0, min(float(raw_progress), 1.0))
 
     if include_filament is False:
         return progress
 
-    print_expected_duration = data["estimated_time"]
-    filament_used = status["print_stats"]["filament_used"]
-    expected_filament = data["filament_total"]
-    divider = 0
-    time_pct = 0
-    filament_pct = 0
+    print_stats = status.get("print_stats")
+    if not isinstance(print_stats, dict):
+        print_stats = {}
 
-    if print_expected_duration != 0 and progress is not None:
-        time_pct = progress
+    print_expected_duration = data.get("estimated_time", 0.0) or 0.0
+    print_duration = print_stats.get("print_duration", 0.0) or 0.0
+    filament_used = print_stats.get("filament_used")
+    expected_filament = data.get("filament_total", 0.0) or 0.0
+
+    divider = 0
+    total_pct = 0.0
+    baseline_pct = None
+
+    if print_expected_duration > 0 and print_duration > 0:
+        time_pct = min(print_duration / print_expected_duration, 1.0)
+        total_pct += time_pct
         divider += 1
+        baseline_pct = time_pct
+    elif raw_progress is not None:
+        baseline_pct = progress
 
     if expected_filament != 0:
-        filament_pct = 1.0 * filament_used / expected_filament
-        filament_pct = max(0.0, min(filament_pct, 1.0))
-        if abs(filament_pct - progress) <= 0.2:
+        try:
+            filament_ratio = float(filament_used) / expected_filament
+        except (TypeError, ValueError):
+            filament_ratio = 0.0
+
+        filament_pct = max(0.0, min(filament_ratio, 1.0))
+
+        # Only include filament data if it roughly matches the baseline progress.
+        if baseline_pct is None or abs(filament_pct - baseline_pct) <= 0.2:
+            total_pct += filament_pct
             divider += 1
-        else:
-            filament_pct = 0
+            if baseline_pct is None:
+                baseline_pct = filament_pct
 
     if divider == 0:
         return progress
 
-    return (time_pct + filament_pct) / divider
+    return total_pct / divider
 
 
 def calculate_eta(data):
