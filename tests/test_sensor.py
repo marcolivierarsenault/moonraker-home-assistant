@@ -32,8 +32,8 @@ DEFAULT_VALUES = [
     ("mainsail_printer_message", "Printer is ready"),
     ("mainsail_current_print_state", "printing"),
     ("mainsail_current_print_message", ""),
-    ("mainsail_print_projected_total_duration", "2.55485"),
-    ("mainsail_print_time_left", "0.328594444444444"),
+    ("mainsail_print_projected_total_duration", "2.46193888888889"),
+    ("mainsail_print_time_left", "0.235680555555556"),
     ("mainsail_print_duration", "133.58"),
     ("mainsail_filament_used", "5.0"),
     ("mainsail_progress", "90"),
@@ -81,6 +81,7 @@ def data_for_calculate_pct_fixture():
         "status": {
             "print_stats": {"print_duration": 6, "filament_used": 1},
             "display_status": {"progress": 0.60},
+            "virtual_sdcard": {"progress": 0.60},
         },
         "filament_total": 2,
     }
@@ -233,10 +234,10 @@ async def test_eta(hass):
 
     assert dt.datetime.strptime(state.state, "%Y-%m-%dT%H:%M:%S%z") < dt.datetime.now(
         dt.timezone.utc
-    ) + dt.timedelta(0, 1182.94 + 2)
+    ) + dt.timedelta(0, 848.45 + 2)
     assert dt.datetime.strptime(state.state, "%Y-%m-%dT%H:%M:%S%z") > dt.datetime.now(
         dt.timezone.utc
-    ) + dt.timedelta(0, 1182.94 - 2)
+    ) + dt.timedelta(0, 848.45 - 2)
 
 
 async def test_slicer_time_left(hass, get_data):
@@ -280,6 +281,15 @@ async def test_calculate_pct_job(data_for_calculate_pct):
     assert calculate_pct_job(data_for_calculate_pct) == 0.55
 
 
+async def test_calculate_pct_job_prefers_estimated_time(data_for_calculate_pct):
+    """Ensure estimated time drives the time-based contribution when available."""
+
+    data_for_calculate_pct["status"]["display_status"]["progress"] = 0.9
+    data_for_calculate_pct["status"]["virtual_sdcard"]["progress"] = 0.9
+
+    assert calculate_pct_job(data_for_calculate_pct) == 0.55
+
+
 async def test_calculate_pct_job_no_time(data_for_calculate_pct):
     """Test."""
     data_for_calculate_pct["estimated_time"] = 0
@@ -298,6 +308,138 @@ async def test_calculate_pct_job_no_filament_no_time(data_for_calculate_pct):
     data_for_calculate_pct["filament_total"] = 0
     data_for_calculate_pct["estimated_time"] = 0
     assert calculate_pct_job(data_for_calculate_pct) == 0.6
+
+
+async def test_progress_prefers_display_value(hass, get_data):
+    """Ensure display progress of zero does not fall back to virtual progress."""
+
+    get_data["status"]["display_status"]["progress"] = 0.0
+    get_data["status"]["virtual_sdcard"]["progress"] = 0.42
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_progress")
+    assert state.state == "0"
+
+
+async def test_progress_falls_back_to_virtual_when_display_missing(hass, get_data):
+    """Ensure progress falls back when the display value is unavailable."""
+
+    get_data["status"]["display_status"]["progress"] = None
+    get_data["status"]["virtual_sdcard"]["progress"] = 0.38
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_progress")
+    assert state.state == "38"
+
+
+async def test_calculate_pct_job_ignores_filament_outliers(data_for_calculate_pct):
+    """Large filament discrepancies should not skew the percentage."""
+
+    data_for_calculate_pct["status"]["display_status"]["progress"] = 0.1
+    data_for_calculate_pct["status"]["print_stats"]["filament_used"] = 1.8
+    data_for_calculate_pct["filament_total"] = 2
+
+    assert calculate_pct_job(data_for_calculate_pct) == 0.6
+
+
+async def test_calculate_pct_job_without_status():
+    """Ensure calculate_pct_job gracefully handles missing status."""
+
+    assert calculate_pct_job({}, include_filament=False) == 0.0
+
+
+async def test_calculate_pct_job_with_invalid_data_type():
+    """Non-dict payloads should return 0."""
+
+    assert calculate_pct_job(None, include_filament=False) == 0.0
+
+
+async def test_calculate_pct_job_progress_only_branch(data_for_calculate_pct):
+    """When include_filament is False we should only return raw progress."""
+
+    data_for_calculate_pct["status"]["display_status"]["progress"] = 0.25
+    data_for_calculate_pct["status"]["virtual_sdcard"]["progress"] = 0.4
+    result = calculate_pct_job(data_for_calculate_pct, include_filament=False)
+    assert result == 0.25
+
+
+async def test_calculate_pct_job_uses_virtual_when_display_missing(
+    data_for_calculate_pct,
+):
+    """Fallback to virtual sdcard when display is None."""
+
+    data_for_calculate_pct["status"]["display_status"]["progress"] = None
+    data_for_calculate_pct["status"]["virtual_sdcard"]["progress"] = 0.4
+    result = calculate_pct_job(data_for_calculate_pct, include_filament=False)
+    assert result == 0.4
+
+
+async def test_calculate_pct_job_defaults_to_zero_when_no_progress(
+    data_for_calculate_pct,
+):
+    """Return zero when both display and virtual progress are missing."""
+
+    data_for_calculate_pct["status"].pop("display_status")
+    data_for_calculate_pct["status"].pop("virtual_sdcard")
+    assert calculate_pct_job(data_for_calculate_pct, include_filament=False) == 0.0
+
+
+async def test_calculate_pct_job_handles_missing_print_stats():
+    """Missing print_stats should fall back to progress only."""
+
+    data = {
+        "estimated_time": 0,
+        "filament_total": 0,
+        "status": {
+            "display_status": {"progress": 0.25},
+            "print_stats": None,
+        },
+    }
+
+    assert calculate_pct_job(data) == 0.25
+
+
+async def test_calculate_pct_job_handles_invalid_filament_data():
+    """Guard against non-numeric filament_used values."""
+
+    data = {
+        "estimated_time": 0,
+        "filament_total": 10,
+        "status": {
+            "display_status": {"progress": 0.3},
+            "print_stats": {
+                "filament_used": "invalid",
+            },
+        },
+    }
+
+    assert calculate_pct_job(data) == 0.3
+
+
+async def test_calculate_pct_job_sets_baseline_from_filament():
+    """Filament data should seed the baseline when progress is unavailable."""
+
+    data = {
+        "estimated_time": 0,
+        "filament_total": 10,
+        "status": {
+            "display_status": {"progress": None},
+            "print_stats": {
+                "filament_used": 3,
+                "print_duration": 0,
+            },
+        },
+    }
+
+    assert calculate_pct_job(data) == 0.3
 
 
 async def test_no_history_data(

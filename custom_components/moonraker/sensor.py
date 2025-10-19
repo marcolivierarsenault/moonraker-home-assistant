@@ -222,10 +222,14 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
         name="Progress",
         value_fn=lambda sensor: sensor.empty_result_when_not_printing(
             int(
-                (
-                    sensor.coordinator.data["status"]["display_status"]["progress"]
-                    or sensor.coordinator.data["status"]["virtual_sdcard"]["progress"]
-                )
+                max(0.0, min(
+                    calculate_pct_job(
+                        sensor.coordinator.data,
+                        include_filament=False,
+                    )
+                    or 0.0,
+                    1.0,
+                ))
                 * 100
             )
         ),
@@ -866,36 +870,77 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
         ):
             return "" if isinstance(value, str) else 0.0
         return value
-
-
-def calculate_pct_job(data) -> float:
+def calculate_pct_job(data, include_filament: bool = True) -> float | None:
     """Get a pct estimate of the job based on a mix of progress value and fillament used.
 
     This strategy is inline with Mainsail estimate.
     """
-    print_expected_duration = data["estimated_time"]
-    filament_used = data["status"]["print_stats"]["filament_used"]
-    expected_filament = data["filament_total"]
-    divider = 0
-    time_pct = 0
-    filament_pct = 0
-    progress = (
-        data["status"]["display_status"]["progress"]
-        or data["status"]["virtual_sdcard"]["progress"]
-    )
 
-    if print_expected_duration != 0 and progress is not None:
-        time_pct = progress
+    if not isinstance(data, dict):
+        return 0.0
+
+    status = data.get("status")
+    if not isinstance(status, dict):
+        return 0.0
+
+    display_status = status.get("display_status")
+    display_progress = None
+    if isinstance(display_status, dict):
+        display_progress = display_status.get("progress")
+
+    raw_progress = display_progress
+    if raw_progress is None:
+        virtual_sdcard = status.get("virtual_sdcard")
+        if isinstance(virtual_sdcard, dict):
+            raw_progress = virtual_sdcard.get("progress")
+
+    progress = 0.0
+    if isinstance(raw_progress, int | float):
+        progress = max(0.0, min(float(raw_progress), 1.0))
+
+    if include_filament is False:
+        return progress
+
+    print_stats = status.get("print_stats")
+    if not isinstance(print_stats, dict):
+        print_stats = {}
+
+    print_expected_duration = data.get("estimated_time", 0.0) or 0.0
+    print_duration = print_stats.get("print_duration", 0.0) or 0.0
+    filament_used = print_stats.get("filament_used")
+    expected_filament = data.get("filament_total", 0.0) or 0.0
+
+    divider = 0
+    total_pct = 0.0
+    baseline_pct = None
+
+    if print_expected_duration > 0 and print_duration > 0:
+        time_pct = min(print_duration / print_expected_duration, 1.0)
+        total_pct += time_pct
         divider += 1
+        baseline_pct = time_pct
+    elif raw_progress is not None:
+        baseline_pct = progress
 
     if expected_filament != 0:
-        filament_pct = 1.0 * filament_used / expected_filament
-        divider += 1
+        try:
+            filament_ratio = float(filament_used) / expected_filament
+        except (TypeError, ValueError):
+            filament_ratio = 0.0
+
+        filament_pct = max(0.0, min(filament_ratio, 1.0))
+
+        # Only include filament data if it roughly matches the baseline progress.
+        if baseline_pct is None or abs(filament_pct - baseline_pct) <= 0.2:
+            total_pct += filament_pct
+            divider += 1
+            if baseline_pct is None:
+                baseline_pct = filament_pct
 
     if divider == 0:
         return progress
 
-    return (time_pct + filament_pct) / divider
+    return total_pct / divider
 
 
 def calculate_eta(data):
@@ -939,16 +984,15 @@ def calculate_current_layer(data):
         return 0
 
     # layer = (current_z - first_layer_height) / layer_height + 1
-    return (
-        int(
-            round(
-                (data["status"]["toolhead"]["position"][2] - data["first_layer_height"])
-                / data["layer_height"],
-                0,
-            )
+    layer = int(
+        round(
+            (data["status"]["toolhead"]["position"][2] - data["first_layer_height"])
+            / data["layer_height"],
+            0,
         )
-        + 1
-    )
+    ) + 1
+
+    return max(0, layer)
 
 
 def convert_time(time_s):
