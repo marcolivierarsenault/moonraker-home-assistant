@@ -190,6 +190,10 @@ def get_data_fixture():
                 "progress": 0.9078104237663283,
                 "message": "Custom Message",
             },
+            "idle_timeout": {
+                "state": "Ready",
+                "printing_time": 0.0,
+            },
             "fan": {
                 "speed": 0.5123,
                 "rpm": 3000.12321,
