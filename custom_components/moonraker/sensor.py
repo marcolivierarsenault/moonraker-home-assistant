@@ -76,6 +76,16 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
         subscriptions=[("print_stats", "message")],
     ),
     MoonrakerSensorDescription(
+        key="idle_timeout_state",
+        name="Idle Timeout State",
+        value_fn=lambda sensor: sensor.coordinator.data["status"].get(
+            "idle_timeout", {}
+        ).get("state"),
+        device_class=SensorDeviceClass.ENUM,
+        options=["Printing", "Ready", "Idle"],
+        subscriptions=[("idle_timeout", "state")],
+    ),
+    MoonrakerSensorDescription(
         key="display_message",
         name="Current Display Message",
         value_fn=lambda sensor: sensor.coordinator.data["status"]["display_status"][
