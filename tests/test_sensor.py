@@ -28,6 +28,7 @@ DEFAULT_VALUES = [
     ("mainsail_progress", "90"),
     ("mainsail_print_speed", "123.46"),
     ("mainsail_printer_state", "ready"),
+    ("mainsail_idle_timeout_state", "Ready"),
     ("mainsail_filename", "CE3E3V2_picture_frame_holder.gcode"),
     ("mainsail_current_display_message", "Custom Message"),
     ("mainsail_printer_message", "Printer is ready"),
