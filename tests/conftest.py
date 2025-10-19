@@ -111,7 +111,7 @@ def get_data_fixture():
             },
             "toolhead": {
                 "homed_axes": "xyz",
-                "print_time": 0.0,
+                "print_time": 120.0,
                 "estimated_print_time": 0.0,
                 "extruder": "extruder",
                 "position": [23.30234, 22.20234, 10.20234, 234.2],
@@ -119,6 +119,11 @@ def get_data_fixture():
                 "max_accel": 3000.0,
                 "max_accel_to_decel": 1500.0,
                 "square_corner_velocity": 5.0,
+            },
+            "motion_report": {
+                "live_position": [23.30234, 22.20234, 10.20234, 234.2],
+                "live_velocity": 123.456,
+                "live_extruder_velocity": 12.0,
             },
             "extruder": {
                 "temperature": 205.02,
@@ -248,6 +253,7 @@ def get_data_fixture():
                 "color_data": [[1.0, 0.5, 1.0, 0.0]],
             },
             "gcode_move": {
+                "speed": 123.456,
                 "speed_factor": 2.0,
             },
             "mcu": {

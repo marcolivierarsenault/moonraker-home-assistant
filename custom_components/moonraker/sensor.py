@@ -247,6 +247,15 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
         unit=PERCENTAGE,
     ),
     MoonrakerSensorDescription(
+        key="print_speed",
+        name="Print Speed",
+        value_fn=lambda sensor: calculate_print_speed(sensor.coordinator.data),
+        subscriptions=[("gcode_move", "speed"), ("motion_report", "live_velocity")],
+        icon="mdi:speedometer",
+        unit="mm/s",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    MoonrakerSensorDescription(
         key="total_layer",
         name="Total Layer",
         value_fn=lambda sensor: sensor.empty_result_when_not_printing(
@@ -876,6 +885,26 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
         ):
             return "" if isinstance(value, str) else 0.0
         return value
+
+
+def calculate_print_speed(data):
+    """Calculate the current print speed in mm/s."""
+
+    state = data["status"]["print_stats"]["state"]
+    if state != PRINTSTATES.PRINTING.value:
+        return 0.0
+
+    motion_report = data["status"].get("motion_report", {})
+    live_velocity = motion_report.get("live_velocity")
+    if live_velocity is not None:
+        return 0.0 if live_velocity <= 0 else round(live_velocity, 2)
+
+    gcode_move = data["status"].get("gcode_move", {})
+    speed = gcode_move.get("speed")
+    if speed is None:
+        return None
+
+    return 0.0 if speed <= 0 else round(speed, 2)
 
 
 def calculate_pct_job(data) -> float:

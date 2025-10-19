@@ -26,6 +26,7 @@ DEFAULT_VALUES = [
     ("mainsail_extruder_temperature", "205.02"),
     ("mainsail_extruder1_temperature", "220.01"),
     ("mainsail_progress", "90"),
+    ("mainsail_print_speed", "123.46"),
     ("mainsail_printer_state", "ready"),
     ("mainsail_idle_timeout_state", "Ready"),
     ("mainsail_filename", "CE3E3V2_picture_frame_holder.gcode"),
@@ -175,6 +176,7 @@ async def test_disabled_sensors(
         ("mainsail_print_time_left", "0.0"),
         ("mainsail_print_projected_total_duration", "0.0"),
         ("mainsail_progress", "0.0"),
+        ("mainsail_print_speed", "0.0"),
         ("mainsail_total_layer", "0.0"),
         ("mainsail_current_layer", "0"),
     ],
@@ -193,6 +195,50 @@ async def test_sensors_not_printing(
     await hass.async_block_till_done()
 
     assert hass.states.get(f"sensor.{sensor_not_printing}").state == value
+
+
+async def test_print_speed_missing_speed(hass, get_data):
+    """Print speed sensor reports unknown when data missing while printing."""
+
+    get_data["status"]["gcode_move"].pop("speed", None)
+    get_data["status"].pop("motion_report", None)
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_print_speed")
+    assert state.state == "unknown"
+
+
+async def test_print_speed_preheating(hass, get_data):
+    """Print speed reports 0 while heating before motion starts."""
+
+    get_data["status"]["toolhead"]["print_time"] = 0.0
+    get_data["status"]["motion_report"]["live_velocity"] = 0.0
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_print_speed")
+    assert state.state == "0.0"
+
+
+async def test_print_speed_without_motion_report(hass, get_data):
+    """Fallback to gcode_move speed when motion_report is unavailable."""
+
+    get_data["status"].pop("motion_report", None)
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_print_speed")
+    assert state.state == "123.46"
 
 
 async def test_opt_sensor_missing(hass, get_data, get_printer_objects_list):
