@@ -658,6 +658,76 @@ async def test_current_layer_zero_info_fallback():
     assert calculate_current_layer(data) == 42
 
 
+async def test_current_layer_defaults_first_layer_height():
+    """Default first layer height to layer height when missing."""
+    data = {
+        "status": {
+            "print_stats": {
+                "state": PRINTSTATES.PRINTING.value,
+                "filename": "TheUniverse.gcode",
+                "print_duration": 120,
+                "info": {},
+            },
+            "toolhead": {"position": [0, 0, 8.4]},
+        },
+        "layer_height": 0.2,
+    }
+    assert calculate_current_layer(data) == 42
+
+
+async def test_current_layer_non_numeric_position():
+    """Return 0 when Z height cannot be interpreted."""
+    data = {
+        "status": {
+            "print_stats": {
+                "state": PRINTSTATES.PRINTING.value,
+                "filename": "TheUniverse.gcode",
+                "print_duration": 120,
+                "info": {},
+            },
+            "toolhead": {"position": [0, 0, "bad-data"]},
+        },
+        "first_layer_height": 0.2,
+        "layer_height": 0.2,
+    }
+    assert calculate_current_layer(data) == 0
+
+
+async def test_current_layer_negative_progress_clamped():
+    """Clamp calculated layer at zero when Z is below first layer."""
+    data = {
+        "status": {
+            "print_stats": {
+                "state": PRINTSTATES.PRINTING.value,
+                "filename": "TheUniverse.gcode",
+                "print_duration": 120,
+                "info": {},
+            },
+            "toolhead": {"position": [0, 0, 0.1]},
+        },
+        "first_layer_height": 0.4,
+        "layer_height": 0.2,
+    }
+    assert calculate_current_layer(data) == 0
+
+
+async def test_current_layer_returns_zero_from_info_when_no_fallback():
+    """Surface the reported layer when fallback cannot compute."""
+    data = {
+        "status": {
+            "print_stats": {
+                "state": PRINTSTATES.PRINTING.value,
+                "filename": "TheUniverse.gcode",
+                "print_duration": 120,
+                "info": {"current_layer": 0},
+            },
+            "toolhead": {"position": [0, 0, 8.4]},
+        },
+        "layer_height": 0,
+    }
+    assert calculate_current_layer(data) == 0
+
+
 async def test_current_layer_preheating():
     """Ensure we report 0 while the job is still in preparation."""
     data = {

@@ -993,10 +993,9 @@ def calculate_current_layer(data):
 
             if z_height is not None:
                 progress_height = z_height - (first_layer_height or 0)
-                if progress_height >= 0:
-                    calculated_layer = int(round(progress_height / layer_height, 0)) + 1
-                    if calculated_layer < 0:
-                        calculated_layer = 0
+                calculated_layer = int(round(progress_height / layer_height, 0)) + 1
+                if calculated_layer < 0:
+                    calculated_layer = 0
 
     if current_layer is not None and current_layer > 0:
         return current_layer
