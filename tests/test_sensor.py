@@ -640,6 +640,24 @@ async def test_current_layer_calculated_partial_info():
     assert calculate_current_layer(data) == 42
 
 
+async def test_current_layer_zero_info_fallback():
+    """Ensure we fall back when current layer info is stuck at zero."""
+    data = {
+        "status": {
+            "print_stats": {
+                "state": PRINTSTATES.PRINTING.value,
+                "filename": "TheUniverse.gcode",
+                "print_duration": 120,
+                "info": {"current_layer": 0, "total_layer": 0},
+            },
+            "toolhead": {"position": [0, 0, 8.4]},
+        },
+        "first_layer_height": 0.2,
+        "layer_height": 0.2,
+    }
+    assert calculate_current_layer(data) == 42
+
+
 async def test_current_layer_preheating():
     """Ensure we report 0 while the job is still in preparation."""
     data = {
