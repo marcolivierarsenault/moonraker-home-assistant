@@ -14,6 +14,23 @@ from custom_components.moonraker.const import DOMAIN, METHODS
 from .const import MOCK_CONFIG
 
 
+async def _enable_button_entity(hass, config_entry, entity_id: str):
+    """Enable a button entity if it is disabled by default."""
+    entity_registry = er.async_get(hass)
+    entity = entity_registry.async_get(entity_id)
+    assert entity
+    if entity.disabled:
+        entity_registry.async_update_entity(entity_id, disabled_by=None)
+        await hass.config_entries.async_reload(config_entry.entry_id)
+        await hass.async_block_till_done()
+        entity = entity_registry.async_get(entity_id)
+        assert entity
+        assert not entity.disabled
+    state = hass.states.get(entity_id)
+    assert state is not None
+    return entity
+
+
 @pytest.fixture(name="bypass_connect_client", autouse=True)
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
@@ -41,13 +58,15 @@ async def test_buttons(hass, button, method):
     config_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
+    entity_id = f"button.{button}"
+    await _enable_button_entity(hass, config_entry, entity_id)
 
     with patch("moonraker_api.MoonrakerClient.call_method") as mock_api:
         await hass.services.async_call(
             BUTTON_DOMAIN,
             SERVICE_PRESS,
             {
-                ATTR_ENTITY_ID: f"button.{button}",
+                ATTR_ENTITY_ID: entity_id,
             },
             blocking=True,
         )
@@ -62,13 +81,15 @@ async def test_gcode_macro(hass):
     config_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
+    entity_id = "button.mainsail_macro_start_print"
+    await _enable_button_entity(hass, config_entry, entity_id)
 
     with patch("moonraker_api.MoonrakerClient.call_method") as mock_api:
         await hass.services.async_call(
             BUTTON_DOMAIN,
             SERVICE_PRESS,
             {
-                ATTR_ENTITY_ID: "button.mainsail_macro_start_print",
+                ATTR_ENTITY_ID: entity_id,
             },
             blocking=True,
         )
@@ -85,13 +106,15 @@ async def test_services(hass):
     config_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
+    entity_id = "button.mainsail_stop_klipper"
+    await _enable_button_entity(hass, config_entry, entity_id)
 
     with patch("moonraker_api.MoonrakerClient.call_method") as mock_api:
         await hass.services.async_call(
             BUTTON_DOMAIN,
             SERVICE_PRESS,
             {
-                ATTR_ENTITY_ID: "button.mainsail_stop_klipper",
+                ATTR_ENTITY_ID: entity_id,
             },
             blocking=True,
         )
@@ -110,13 +133,37 @@ async def test_disabled_buttons(hass):
     await hass.async_block_till_done()
 
     entity_registry = er.async_get(hass)
-    entity = entity_registry.async_get("button.mainsail_macro_end_print")
-    assert entity
-    assert not entity.disabled
+    enabled_buttons = [
+        "button.mainsail_emergency_stop",
+        "button.mainsail_pause_print",
+        "button.mainsail_resume_print",
+        "button.mainsail_cancel_print",
+        "button.mainsail_home_x_axis",
+        "button.mainsail_home_y_axis",
+        "button.mainsail_home_z_axis",
+        "button.mainsail_home_all_axes",
+    ]
+    for entity_id in enabled_buttons:
+        entity = entity_registry.async_get(entity_id)
+        assert entity
+        assert not entity.disabled
 
-    entity = entity_registry.async_get("button.mainsail_macro_set_pause_next_layer")
-    assert entity
-    assert entity.disabled
+    disabled_buttons = [
+        "button.mainsail_server_restart",
+        "button.mainsail_host_restart",
+        "button.mainsail_host_shutdown",
+        "button.mainsail_firmware_restart",
+        "button.mainsail_start_print_from_queue",
+        "button.mainsail_macro_start_print",
+        "button.mainsail_macro_end_print",
+        "button.mainsail_macro_set_pause_next_layer",
+        "button.mainsail_stop_klipper",
+    ]
+
+    for entity_id in disabled_buttons:
+        entity = entity_registry.async_get(entity_id)
+        assert entity
+        assert entity.disabled
 
 
 @pytest.mark.parametrize(
@@ -134,13 +181,15 @@ async def test_home_axis_buttons(hass, button, gcode):
     config_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
+    entity_id = f"button.{button}"
+    await _enable_button_entity(hass, config_entry, entity_id)
 
     with patch("moonraker_api.MoonrakerClient.call_method") as mock_api:
         await hass.services.async_call(
             BUTTON_DOMAIN,
             SERVICE_PRESS,
             {
-                ATTR_ENTITY_ID: f"button.{button}",
+                ATTR_ENTITY_ID: entity_id,
             },
             blocking=True,
         )
