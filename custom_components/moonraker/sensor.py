@@ -277,7 +277,10 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
         key="current_layer",
         name="Current Layer",
         value_fn=lambda sensor: calculate_current_layer(sensor.coordinator.data),
-        subscriptions=[("print_stats", "info", "current_layer")],
+        subscriptions=[
+            ("print_stats", "info", "current_layer"),
+            ("toolhead", "position"),
+        ],
         icon="mdi:layers-edit",
         state_class=SensorStateClass.MEASUREMENT,
     ),
@@ -960,38 +963,50 @@ def calculate_eta(data):
 def calculate_current_layer(data):
     """Calculate current layer."""
 
-    print_duration = data["status"]["print_stats"].get("print_duration")
+    print_stats = data["status"].get("print_stats", {})
+    print_duration = print_stats.get("print_duration")
 
     if (
-        data["status"]["print_stats"]["state"] != PRINTSTATES.PRINTING.value
-        or data["status"]["print_stats"]["filename"] == ""
+        print_stats.get("state") != PRINTSTATES.PRINTING.value
+        or print_stats.get("filename") == ""
         or print_duration is None
         or print_duration <= 0
     ):
         return 0
 
-    if (
-        "info" in data["status"]["print_stats"]
-        and data["status"]["print_stats"]["info"] is not None
-        and "current_layer" in data["status"]["print_stats"]["info"]
-        and data["status"]["print_stats"]["info"]["current_layer"] is not None
-    ):
-        return data["status"]["print_stats"]["info"]["current_layer"]
+    info = print_stats.get("info") or {}
+    current_layer = info.get("current_layer")
 
-    if "layer_height" not in data or data["layer_height"] <= 0:
-        return 0
+    calculated_layer = 0
+    layer_height = data.get("layer_height")
+    if layer_height and layer_height > 0:
+        toolhead = data["status"].get("toolhead", {})
+        position = toolhead.get("position")
+        if position and len(position) >= 3:
+            first_layer_height = data.get("first_layer_height")
+            if first_layer_height is None:
+                first_layer_height = layer_height
+            try:
+                z_height = float(position[2])
+            except (TypeError, ValueError):
+                z_height = None
 
-    # layer = (current_z - first_layer_height) / layer_height + 1
-    return (
-        int(
-            round(
-                (data["status"]["toolhead"]["position"][2] - data["first_layer_height"])
-                / data["layer_height"],
-                0,
-            )
-        )
-        + 1
-    )
+            if z_height is not None:
+                progress_height = z_height - (first_layer_height or 0)
+                calculated_layer = int(round(progress_height / layer_height, 0)) + 1
+                if calculated_layer < 0:
+                    calculated_layer = 0
+
+    if current_layer is not None and current_layer > 0:
+        return current_layer
+
+    if calculated_layer > 0:
+        return calculated_layer
+
+    if current_layer is not None:
+        return current_layer
+
+    return 0
 
 
 def convert_time(time_s):
