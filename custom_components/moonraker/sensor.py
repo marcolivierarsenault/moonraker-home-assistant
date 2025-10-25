@@ -27,6 +27,22 @@ from .entity import BaseMoonrakerEntity
 _LOGGER = logging.getLogger(__name__)
 
 
+def _get_printer_info(sensor) -> dict:
+    """Return the printer.info payload with graceful fallbacks."""
+    printer_info = sensor.coordinator.data.get("printer.info", {}) or {}
+    if (
+        isinstance(printer_info, dict)
+        and "result" in printer_info
+        and "state" not in printer_info
+        and "state_message" not in printer_info
+    ):
+        # JSON-RPC responses may wrap the payload in a "result" key.
+        result = printer_info.get("result")
+        if isinstance(result, dict):
+            printer_info = result
+    return printer_info if isinstance(printer_info, dict) else {}
+
+
 @dataclass(frozen=True)
 class MoonrakerSensorDescription(SensorEntityDescription):
     """Class describing Mookraker sensor entities."""
@@ -44,7 +60,9 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
     MoonrakerSensorDescription(
         key="state",
         name="Printer State",
-        value_fn=lambda sensor: sensor.coordinator.data["printer.info"]["state"],
+        value_fn=lambda sensor: _get_printer_info(sensor).get(
+            "state", PRINTERSTATES.SHUTDOWN.value
+        ),
         device_class=SensorDeviceClass.ENUM,
         options=PRINTERSTATES.list(),
         subscriptions=[],
@@ -52,9 +70,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
     MoonrakerSensorDescription(
         key="message",
         name="Printer Message",
-        value_fn=lambda sensor: sensor.coordinator.data["printer.info"][
-            "state_message"
-        ],
+        value_fn=lambda sensor: _get_printer_info(sensor).get("state_message", ""),
         subscriptions=[],
     ),
     MoonrakerSensorDescription(

@@ -1,7 +1,8 @@
 """Test moonraker sensor."""
 
 import datetime as dt
-from unittest.mock import patch
+from copy import deepcopy
+from unittest.mock import AsyncMock, patch
 
 from homeassistant.helpers import entity_registry as er
 import pytest
@@ -11,7 +12,7 @@ from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
 )
 
-from custom_components.moonraker.const import DOMAIN, PRINTSTATES
+from custom_components.moonraker.const import DOMAIN, PRINTSTATES, PRINTERSTATES
 from custom_components.moonraker.sensor import (
     calculate_current_layer,
     calculate_pct_job,
@@ -320,6 +321,86 @@ async def test_eta_no_current_data(hass, get_data):
     state = hass.states.get("sensor.mainsail_print_eta")
 
     assert state.state == "unknown"
+
+
+async def test_printer_state_defaults_to_shutdown(hass, get_default_api_response):
+    """Printer state falls back to shutdown when printer.info lacks state."""
+
+    api_response = deepcopy(get_default_api_response)
+    api_response.pop("state", None)
+    api_response["state_message"] = "Printer is powered off"
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        AsyncMock(return_value=api_response),
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_printer_state")
+    assert state.state == PRINTERSTATES.SHUTDOWN.value
+
+    message = hass.states.get("sensor.mainsail_printer_message")
+    assert message.state == "Printer is powered off"
+
+
+async def test_printer_message_defaults_to_empty_string(hass, get_default_api_response):
+    """Printer message uses an empty string when no state_message is provided."""
+
+    api_response = deepcopy(get_default_api_response)
+    api_response.pop("state", None)
+    api_response.pop("state_message", None)
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        AsyncMock(return_value=api_response),
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_printer_state")
+    assert state.state == PRINTERSTATES.SHUTDOWN.value
+
+    message = hass.states.get("sensor.mainsail_printer_message")
+    assert message.state == ""
+
+
+async def test_printer_info_result_wrapper(hass, get_default_api_response):
+    """Printer info data wrapped in result is handled."""
+
+    call_counts: dict[str, int] = {}
+
+    async def call_method(method, **kwargs):
+        if method == "printer.info":
+            call_counts[method] = call_counts.get(method, 0) + 1
+            if call_counts[method] == 1:
+                return get_default_api_response
+            return {
+                "result": {
+                    "state": "ready",
+                    "state_message": "Printer is ready",
+                }
+            }
+        return get_default_api_response
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        AsyncMock(side_effect=call_method),
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_printer_state")
+    assert state.state == "ready"
+
+    message = hass.states.get("sensor.mainsail_printer_message")
+    assert message.state == "Printer is ready"
 
 
 async def test_calculate_pct_job(data_for_calculate_pct):
