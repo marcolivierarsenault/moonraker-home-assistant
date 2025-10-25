@@ -63,8 +63,9 @@ DEFAULT_VALUES = [
     ("mainsail_slicer_print_duration_estimate", "2.29"),
     ("mainsail_object_height", "62.6"),
     ("mainsail_my_super_heater_temperature", "32.43"),
-    ("mainsail_my_super_heater_target", "32.0"),
     ("mainsail_my_super_heater_power", "12"),
+    ("mainsail_mixed_case_temperature", "33.21"),
+    ("mainsail_mixed_case_power", "45"),
 ]
 
 
@@ -124,6 +125,9 @@ async def test_sensors(hass):
 
     for sensor, value in DEFAULT_VALUES:
         assert hass.states.get(f"sensor.{sensor}").state == value
+
+    assert hass.states.get("sensor.mainsail_my_super_heater_target") is None
+    assert hass.states.get("sensor.mainsail_mixed_case_target") is None
 
 
 # test all sensors
