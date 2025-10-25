@@ -960,9 +960,13 @@ def calculate_eta(data):
 def calculate_current_layer(data):
     """Calculate current layer."""
 
+    print_duration = data["status"]["print_stats"].get("print_duration")
+
     if (
         data["status"]["print_stats"]["state"] != PRINTSTATES.PRINTING.value
         or data["status"]["print_stats"]["filename"] == ""
+        or print_duration is None
+        or print_duration <= 0
     ):
         return 0
 
