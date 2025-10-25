@@ -16,3 +16,5 @@ blueprints
 docs/_build
 coverage.xml
 .ruff_cache
+.ha_run.lock
+configuration.yaml

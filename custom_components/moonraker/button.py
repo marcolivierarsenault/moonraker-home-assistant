@@ -19,6 +19,7 @@ class MoonrakerButtonDescription(ButtonEntityDescription):
     icon: str | None = None
     unit: str | None = None
     device_class: str | None = None
+    entity_registry_enabled_default: bool = False
 
 
 BUTTONS: tuple[MoonrakerButtonDescription, ...] = (
@@ -29,6 +30,7 @@ BUTTONS: tuple[MoonrakerButtonDescription, ...] = (
             METHODS.PRINTER_EMERGENCY_STOP
         ),
         icon="mdi:alert-octagon-outline",
+        entity_registry_enabled_default=True,
     ),
     MoonrakerButtonDescription(
         key="pause_print",
@@ -37,6 +39,7 @@ BUTTONS: tuple[MoonrakerButtonDescription, ...] = (
             METHODS.PRINTER_PRINT_PAUSE
         ),
         icon="mdi:pause",
+        entity_registry_enabled_default=True,
     ),
     MoonrakerButtonDescription(
         key="resume_print",
@@ -45,6 +48,7 @@ BUTTONS: tuple[MoonrakerButtonDescription, ...] = (
             METHODS.PRINTER_PRINT_RESUME
         ),
         icon="mdi:play",
+        entity_registry_enabled_default=True,
     ),
     MoonrakerButtonDescription(
         key="cancel_print",
@@ -53,6 +57,7 @@ BUTTONS: tuple[MoonrakerButtonDescription, ...] = (
             METHODS.PRINTER_PRINT_CANCEL
         ),
         icon="mdi:stop",
+        entity_registry_enabled_default=True,
     ),
     MoonrakerButtonDescription(
         key="server_restart",
@@ -171,7 +176,7 @@ async def async_setup_macros(coordinator, entry, async_add_entities):
     for cmd, desc in cmds.items():
         enable_by_default = False
         if desc == "G-Code macro":
-            enable_by_default = True
+            enable_by_default = False
 
         macros.append(
             MoonrakerButtonDescription(
