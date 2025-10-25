@@ -626,20 +626,6 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 state_class=SensorStateClass.MEASUREMENT,
             )
             sensors.append(desc)
-
-            desc = MoonrakerSensorDescription(
-                key=f"{split_obj[0]}_{split_obj[1]}_target",
-                status_key=obj,
-                name=f"{split_obj[1].replace('_', ' ')} Target".title(),
-                value_fn=lambda sensor: sensor.coordinator.data["status"][
-                    sensor.status_key
-                ]["target"],
-                subscriptions=[(obj, "target")],
-                icon="mdi:radiator",
-                unit=UnitOfTemperature.CELSIUS,
-                state_class=SensorStateClass.MEASUREMENT,
-            )
-            sensors.append(desc)
         elif obj.startswith("extruder") or obj.startswith("heater_bed"):
             if obj.startswith("extruder"):
                 icon = "mdi:printer-3d-nozzle-heat"

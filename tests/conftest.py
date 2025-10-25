@@ -98,6 +98,14 @@ def get_data_fixture():
                         "blue_pin": "PA11",
                         "green_pin": "PA12",
                     },
+                    "heater_generic my_super_heater": {
+                        "max_temp": 90.0,
+                        "min_temp": 25.0,
+                    },
+                    "heater_generic mixed_case": {
+                        "max_temp": 85.0,
+                        "min_temp": 30.0,
+                    },
                 },
             },
             "print_stats": {
@@ -150,6 +158,11 @@ def get_data_fixture():
                 "temperature": 32.43,
                 "target": 32.0,
                 "power": 0.1234,
+            },
+            "heater_generic MIXED_CASE": {
+                "temperature": 33.21,
+                "target": 35.0,
+                "power": 0.4567,
             },
             "temperature_sensor mcu_temp": {
                 "temperature": 32.43,
@@ -450,6 +463,7 @@ def get_printer_objects_list_fixture():
             "heaters",
             "heater_bed",
             "heater_generic my_super_heater",
+            "heater_generic MIXED_CASE",
             "fan",
             "probe",
             "bed_mesh",

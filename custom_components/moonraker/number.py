@@ -87,6 +87,35 @@ async def async_setup_temperature_target(coordinator, entry, async_add_entities)
             )
             sensors.append(desc)
 
+        elif obj.startswith("heater_generic"):
+            _, _, heater_name = obj.partition(" ")
+            display_name = heater_name.replace("_", " ").title() if heater_name else "Heater Generic"
+
+            settings = config_settings.get(obj)
+            if settings is None:
+                settings = config_settings.get(obj.lower())
+            if settings is None:
+                settings = {}
+
+            max_temp = settings.get("max_temp")
+            min_temp = settings.get("min_temp")
+
+            desc = MoonrakerNumberSensorDescription(
+                key=f"{obj.replace(' ', '_')}_target_number",
+                sensor_name=obj,
+                name=f"{display_name} Target",
+                status_key="target",
+                subscriptions=[(obj, "target")],
+                icon="mdi:radiator",
+                unit=UnitOfTemperature.CELSIUS,
+                update_code=f"SET_HEATER_TEMPERATURE HEATER={heater_name or 'heater_generic'} TARGET=",
+                max_value=float(max_temp) if max_temp is not None else None,
+                min_value=float(min_temp) if min_temp is not None else 0.0,
+                device_class=NumberDeviceClass.TEMPERATURE,
+            )
+            sensors.append(desc)
+            coordinator.add_query_objects(obj, "target")
+
         elif obj.startswith("temperature_fan"):
             object_type, _, object_name = obj.partition(" ")
             fan_name = object_name or object_type
