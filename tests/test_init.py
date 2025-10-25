@@ -1,12 +1,15 @@
 """Test moonraker setup process."""
 
 import pytest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from datetime import timedelta
 from custom_components.moonraker.const import PRINTSTATES
 
 from homeassistant.exceptions import ConfigEntryNotReady
-from homeassistant.helpers.update_coordinator import UpdateFailed
+from homeassistant.helpers.update_coordinator import (
+    DataUpdateCoordinator,
+    UpdateFailed,
+)
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.moonraker import (
@@ -113,6 +116,33 @@ async def test_setup_entry_exception(hass):
 
         with pytest.raises(ConfigEntryNotReady):
             assert await async_setup_entry(hass, config_entry)
+
+
+async def test_coordinator_passes_config_entry_to_super(hass):
+    """Ensure the coordinator forwards the config entry to the base class."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="config")
+
+    captured: dict[str, dict] = {}
+    original_init = DataUpdateCoordinator.__init__
+
+    def wrapped_init(self, hass_param, logger, *args, **kwargs):
+        captured["kwargs"] = dict(kwargs)
+        captured["args"] = (hass_param, logger, *args)
+        return original_init(self, hass_param, logger, *args, **kwargs)
+
+    with patch(
+        "homeassistant.helpers.update_coordinator.DataUpdateCoordinator.__init__",
+        new=wrapped_init,
+    ):
+        coordinator = MoonrakerDataUpdateCoordinator(
+            hass,
+            client=MagicMock(),
+            config_entry=config_entry,
+            api_device_name="printer",
+        )
+
+    assert captured["kwargs"]["config_entry"] is config_entry
+    assert coordinator.config_entry is config_entry
 
 
 def load_data(endpoint, *args, **kwargs):

@@ -185,7 +185,13 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         self.query_obj = {OBJ: {}}
         self.load_sensor_data(SENSORS)
 
-        super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=SCAN_INTERVAL)
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=DOMAIN,
+            update_interval=SCAN_INTERVAL,
+            config_entry=config_entry,
+        )
 
     async def _async_update_data(self):
         """Update data via library."""
