@@ -15,6 +15,7 @@ from custom_components.moonraker.const import DOMAIN, PRINTSTATES
 from custom_components.moonraker.sensor import (
     calculate_current_layer,
     calculate_pct_job,
+    format_idle_timeout_state,
 )
 
 from .const import MOCK_CONFIG
@@ -141,6 +142,18 @@ async def test_idle_timeout_state_normalized(hass, get_data):
 
     state = hass.states.get("sensor.mainsail_idle_timeout_state")
     assert state.state == "Standby"
+
+
+def test_idle_timeout_state_handles_missing():
+    """format_idle_timeout_state returns None when state missing."""
+    data = {"status": {"idle_timeout": {}}}
+    assert format_idle_timeout_state(data) is None
+
+
+def test_idle_timeout_state_non_string_passthrough():
+    """format_idle_timeout_state returns non-string state unchanged."""
+    data = {"status": {"idle_timeout": {"state": 5}}}
+    assert format_idle_timeout_state(data) == 5
 
 
 # test all sensors
