@@ -130,6 +130,19 @@ async def test_sensors(hass):
     assert hass.states.get("sensor.mainsail_mixed_case_target") is None
 
 
+async def test_idle_timeout_state_normalized(hass, get_data):
+    """Idle timeout state should be title-cased regardless of source casing."""
+    get_data["status"]["idle_timeout"]["state"] = "standby"
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_idle_timeout_state")
+    assert state.state == "Standby"
+
+
 # test all sensors
 @pytest.mark.parametrize(
     "sensor, value",
