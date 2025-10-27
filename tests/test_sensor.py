@@ -25,7 +25,7 @@ DEFAULT_VALUES = [
     ("mainsail_bed_temperature", "60.01"),
     ("mainsail_extruder_temperature", "205.02"),
     ("mainsail_extruder1_temperature", "220.01"),
-    ("mainsail_progress", "90"),
+    ("mainsail_progress", "90.7810423766328"),
     ("mainsail_print_speed", "123.46"),
     ("mainsail_printer_state", "ready"),
     ("mainsail_idle_timeout_state", "Ready"),
@@ -34,14 +34,14 @@ DEFAULT_VALUES = [
     ("mainsail_printer_message", "Printer is ready"),
     ("mainsail_current_print_state", "printing"),
     ("mainsail_current_print_message", ""),
-    ("mainsail_print_projected_total_duration", "2.55485"),
-    ("mainsail_print_time_left", "0.328594444444444"),
-    ("mainsail_print_duration", "133.58"),
+    ("mainsail_print_projected_total_duration", "2.55485108570028"),
+    ("mainsail_print_time_left", "0.328593266620827"),
+    ("mainsail_print_duration", "133.575469144767"),
     ("mainsail_filament_used", "5.0"),
-    ("mainsail_progress", "90"),
-    ("mainsail_bed_power", "26"),
-    ("mainsail_extruder_power", "66"),
-    ("mainsail_fan_rpm", "3000"),
+    ("mainsail_progress", "90.7810423766328"),
+    ("mainsail_bed_power", "26.0537452725334"),
+    ("mainsail_extruder_power", "66.6710806392505"),
+    ("mainsail_fan_rpm", "3000.12321"),
     ("mainsail_fan_temp", "32.43"),
     ("mainsail_tmc2240_stepper_x_temp", "32.43"),
     ("mainsail_bme280_temp", "32.43"),
@@ -49,23 +49,23 @@ DEFAULT_VALUES = [
     ("mainsail_lm75_temp", "32.43"),
     ("mainsail_heater_fan", "51.23"),
     ("mainsail_controller_fan", "51.23"),
-    ("mainsail_controller_fan_rpm", "5000"),
+    ("mainsail_controller_fan_rpm", "5000.32123"),
     ("mainsail_nevermore_fan", "12.34"),
     ("mainsail_totals_print_time", "3h 9m 9s"),
     ("mainsail_totals_jobs", "3"),
-    ("mainsail_totals_filament_used", "11.62"),
+    ("mainsail_totals_filament_used", "11.615718840002"),
     ("mainsail_longest_print", "3h 9m 9s"),
     ("mainsail_total_layer", "33"),
     ("mainsail_current_layer", "22"),
-    ("mainsail_toolhead_position_x", "23.3"),
-    ("mainsail_toolhead_position_y", "22.2"),
-    ("mainsail_toolhead_position_z", "10.2"),
-    ("mainsail_slicer_print_duration_estimate", "2.29"),
+    ("mainsail_toolhead_position_x", "23.30234"),
+    ("mainsail_toolhead_position_y", "22.20234"),
+    ("mainsail_toolhead_position_z", "10.20234"),
+    ("mainsail_slicer_print_duration_estimate", "2.28666666666667"),
     ("mainsail_object_height", "62.6"),
     ("mainsail_my_super_heater_temperature", "32.43"),
-    ("mainsail_my_super_heater_power", "12"),
+    ("mainsail_my_super_heater_power", "12.34"),
     ("mainsail_mixed_case_temperature", "33.21"),
-    ("mainsail_mixed_case_power", "45"),
+    ("mainsail_mixed_case_power", "45.67"),
 ]
 
 
@@ -299,17 +299,10 @@ async def test_slicer_time_left(hass, get_data):
 
     state = hass.states.get("sensor.mainsail_slicer_print_time_left_estimate")
 
-    target = str(
-        round(
-            (
-                get_data["estimated_time"]
-                - get_data["status"]["print_stats"]["print_duration"]
-            )
-            / 3600,
-            2,
-        )
-    )
-    assert state.state == target
+    target = (
+        get_data["estimated_time"] - get_data["status"]["print_stats"]["print_duration"]
+    ) / 3600
+    assert state.state == f"{target:.15f}"
 
 
 async def test_eta_no_current_data(hass, get_data):
