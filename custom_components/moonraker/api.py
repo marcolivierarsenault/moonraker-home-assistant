@@ -30,7 +30,7 @@ class MoonrakerApiClient(MoonrakerListener):
     async def start(self) -> None:
         """Start the websocket connection."""
         self.running = True
-        return await self.client.connect()
+        await self.client.connect()
 
     async def stop(self) -> None:
         """Stop the websocket connection."""
