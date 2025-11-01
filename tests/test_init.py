@@ -1,11 +1,13 @@
 """Test moonraker setup process."""
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import timedelta
+from types import SimpleNamespace
 from custom_components.moonraker.const import PRINTSTATES
 
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
@@ -94,8 +96,8 @@ async def test_async_send_data_exception(hass):
     with (
         patch(
             "moonraker_api.MoonrakerClient.call_method",
+            new_callable=AsyncMock,
             side_effect=UpdateFailed,
-            return_value={"result": "error"},
         ),
         pytest.raises(UpdateFailed),
     ):
@@ -109,6 +111,7 @@ async def test_setup_entry_exception(hass):
     """Test ConfigEntryNotReady when API raises an exception during entry setup."""
     with patch(
         "moonraker_api.MoonrakerClient.call_method",
+        new_callable=AsyncMock,
         side_effect=Exception,
     ):
         config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
@@ -177,7 +180,9 @@ async def test_set_custom_gcode_service(hass):
     device_id = list(hass.data["device_registry"].devices.keys())
 
     # Test that the function call works in its entirety.
-    with patch("moonraker_api.MoonrakerClient.call_method") as mock_sensors:
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method", new_callable=AsyncMock
+    ) as mock_sensors:
         await hass.services.async_call(
             DOMAIN,
             "send_gcode",
@@ -188,9 +193,259 @@ async def test_set_custom_gcode_service(hass):
             blocking=True,
         )
         await hass.async_block_till_done()
-        mock_sensors.assert_called_once_with(
+        mock_sensors.assert_awaited_once_with(
             METHODS.PRINTER_GCODE_SCRIPT.value, script="STATUS"
         )
+
+
+async def test_send_gcode_list_payload_normalizes_script(hass):
+    """Ensure list payloads join into a single script."""
+
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, entry_id="list_payload"
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    device_ids = list(hass.data["device_registry"].devices.keys())
+    target_device_id = device_ids[0]
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method", new_callable=AsyncMock
+    ) as mock_call:
+        await hass.services.async_call(
+            DOMAIN,
+            "send_gcode",
+            {
+                "device_id": target_device_id,
+                "gcode": ["G28", "M105"],
+            },
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+    mock_call.assert_awaited_once_with(
+        METHODS.PRINTER_GCODE_SCRIPT.value, script="G28\nM105"
+    )
+    assert await async_unload_entry(hass, config_entry)
+
+
+async def test_send_gcode_empty_payload_skips_send(hass):
+    """Ensure empty payloads do not call Moonraker."""
+
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, entry_id="empty_payload"
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    device_ids = list(hass.data["device_registry"].devices.keys())
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method", new_callable=AsyncMock
+    ) as mock_call:
+        await hass.services.async_call(
+            DOMAIN,
+            "send_gcode",
+            {
+                "device_id": device_ids,
+                "gcode": ["   ", ""],
+            },
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+    assert mock_call.await_count == 0
+    assert await async_unload_entry(hass, config_entry)
+
+
+async def test_send_gcode_accepts_config_entry_id_and_deduplicates(hass):
+    """Ensure config entry IDs are accepted and deduplicated."""
+
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, entry_id="entry_fallback"
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    device_ids = list(hass.data["device_registry"].devices.keys())
+    primary_device_id = device_ids[0]
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method", new_callable=AsyncMock
+    ) as mock_call:
+        await hass.services.async_call(
+            DOMAIN,
+            "send_gcode",
+            {
+                "device_id": [primary_device_id, config_entry.entry_id],
+                "gcode": "G0",
+            },
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+    mock_call.assert_awaited_once_with(METHODS.PRINTER_GCODE_SCRIPT.value, script="G0")
+    assert await async_unload_entry(hass, config_entry)
+
+
+async def test_send_gcode_identifier_fallback(hass):
+    """Ensure identifiers populate entry IDs when config entries are missing."""
+
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, entry_id="identifier_fallback"
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    dev_reg = dr.async_get(hass)
+    original_async_get = dev_reg.async_get
+    identifier_device_id = "identifier-device"
+    identifier_device = SimpleNamespace(
+        config_entries=set(),
+        primary_config_entry=None,
+        identifiers={(DOMAIN, config_entry.entry_id)},
+    )
+
+    def async_get_override(device_id):
+        if device_id == identifier_device_id:
+            return identifier_device
+        return original_async_get(device_id)
+
+    with patch.object(dev_reg, "async_get", side_effect=async_get_override), patch(
+        "moonraker_api.MoonrakerClient.call_method", new_callable=AsyncMock
+    ) as mock_call:
+        await hass.services.async_call(
+            DOMAIN,
+            "send_gcode",
+            {
+                "device_id": [identifier_device_id],
+                "gcode": "M105",
+            },
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+    mock_call.assert_awaited_once_with(
+        METHODS.PRINTER_GCODE_SCRIPT.value, script="M105"
+    )
+    assert await async_unload_entry(hass, config_entry)
+
+
+async def test_send_gcode_skips_device_without_entries(hass):
+    """Skip devices that cannot be linked to config entries."""
+
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, entry_id="orphan_device"
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    dev_reg = dr.async_get(hass)
+    original_async_get = dev_reg.async_get
+    orphan_device_id = "orphan-device"
+    orphan_device = SimpleNamespace(
+        config_entries=set(),
+        primary_config_entry=None,
+        identifiers=set(),
+    )
+
+    def async_get_override(device_id):
+        if device_id == orphan_device_id:
+            return orphan_device
+        return original_async_get(device_id)
+
+    with patch.object(dev_reg, "async_get", side_effect=async_get_override), patch(
+        "moonraker_api.MoonrakerClient.call_method", new_callable=AsyncMock
+    ) as mock_call:
+        await hass.services.async_call(
+            DOMAIN,
+            "send_gcode",
+            {
+                "device_id": [orphan_device_id],
+                "gcode": "G90",
+            },
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+    assert mock_call.await_count == 0
+    assert await async_unload_entry(hass, config_entry)
+
+
+async def test_send_gcode_skips_unloaded_entries(hass):
+    """Skip devices whose entries are not currently loaded."""
+
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, entry_id="missing_entry"
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    dev_reg = dr.async_get(hass)
+    original_async_get = dev_reg.async_get
+    missing_device_id = "missing-device"
+    missing_device = SimpleNamespace(
+        config_entries={"ghost-entry"},
+        primary_config_entry=None,
+        identifiers=set(),
+    )
+
+    def async_get_override(device_id):
+        if device_id == missing_device_id:
+            return missing_device
+        return original_async_get(device_id)
+
+    with patch.object(dev_reg, "async_get", side_effect=async_get_override), patch(
+        "moonraker_api.MoonrakerClient.call_method", new_callable=AsyncMock
+    ) as mock_call:
+        await hass.services.async_call(
+            DOMAIN,
+            "send_gcode",
+            {
+                "device_id": [missing_device_id],
+                "gcode": "G91",
+            },
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+    assert mock_call.await_count == 0
+    assert await async_unload_entry(hass, config_entry)
+
+
+async def test_send_gcode_unknown_device_is_ignored(hass):
+    """Unknown device IDs should be ignored."""
+
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, entry_id="unknown_device"
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method", new_callable=AsyncMock
+    ) as mock_call:
+        await hass.services.async_call(
+            DOMAIN,
+            "send_gcode",
+            {
+                "device_id": "unknown-device",
+                "gcode": "M115",
+            },
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+    assert mock_call.await_count == 0
+    assert await async_unload_entry(hass, config_entry)
 
 
 @pytest.mark.asyncio
