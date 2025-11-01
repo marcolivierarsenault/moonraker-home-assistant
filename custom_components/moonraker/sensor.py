@@ -78,11 +78,9 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
     MoonrakerSensorDescription(
         key="idle_timeout_state",
         name="Idle Timeout State",
-        value_fn=lambda sensor: sensor.coordinator.data["status"].get(
-            "idle_timeout", {}
-        ).get("state"),
+        value_fn=lambda sensor: format_idle_timeout_state(sensor.coordinator.data),
         device_class=SensorDeviceClass.ENUM,
-        options=["Printing", "Ready", "Idle"],
+        options=["Printing", "Ready", "Idle", "Standby", "Paused"],
         subscriptions=[("idle_timeout", "state")],
     ),
     MoonrakerSensorDescription(
@@ -861,6 +859,19 @@ def calculate_print_speed(data):
         return None
 
     return 0.0 if speed <= 0 else round(speed, 2)
+
+
+def format_idle_timeout_state(data):
+    """Return the idle timeout state in title case when available."""
+
+    state = data["status"].get("idle_timeout", {}).get("state")
+    if state is None:
+        return None
+
+    if not isinstance(state, str):
+        return state
+
+    return state.replace("_", " ").title()
 
 
 def calculate_pct_job(data) -> float:

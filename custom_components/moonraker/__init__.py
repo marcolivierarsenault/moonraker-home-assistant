@@ -122,15 +122,75 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     async def send_gcode_service(service_call):
         """Handle the service call to send g-code."""
         gcode = service_call.data["gcode"]
-        device_id = service_call.data["device_id"][0]
+        raw_device_ids = service_call.data["device_id"]
         dev_reg = dr.async_get(hass)
 
-        device = dev_reg.async_get(device_id)
-        entry_id = device.primary_config_entry if device is not None else -1
-        await hass.data[DOMAIN][entry_id].async_send_data(
-            METHODS.PRINTER_GCODE_SCRIPT,
-            {"script": gcode},
-        )
+        if isinstance(gcode, list):
+            script = "\n".join(line for line in gcode if line)
+        else:
+            script = str(gcode)
+
+        if not script.strip():
+            _LOGGER.warning("Received empty G-code payload, skipping send")
+            return
+
+        if isinstance(raw_device_ids, str):
+            device_ids = [raw_device_ids]
+        else:
+            device_ids = list(raw_device_ids)
+
+        processed_entries: set[str] = set()
+
+        domain_entries = hass.data.get(DOMAIN, {})
+
+        for device_id in device_ids:
+            device = dev_reg.async_get(device_id)
+            entry_ids: set[str] = set()
+
+            if device is None:
+                if device_id in domain_entries:
+                    entry_ids.add(device_id)
+                else:
+                    _LOGGER.warning("Unknown Moonraker device_id %s", device_id)
+                    continue
+            else:
+                if getattr(device, "config_entries", None):
+                    entry_ids.update(device.config_entries)
+                if device.primary_config_entry:
+                    entry_ids.add(device.primary_config_entry)
+                if not entry_ids:
+                    for domain, identifier in device.identifiers:
+                        if domain == DOMAIN:
+                            entry_ids.add(identifier)
+
+            if not entry_ids:
+                _LOGGER.warning(
+                    "Moonraker device %s has no associated config entries", device_id
+                )
+                continue
+
+            for entry_id in entry_ids:
+                if entry_id not in hass.data.get(DOMAIN, {}):
+                    _LOGGER.warning(
+                        "Moonraker device %s entry %s not loaded",
+                        device_id,
+                        entry_id,
+                    )
+                    continue
+
+                if entry_id in processed_entries:
+                    continue
+
+                processed_entries.add(entry_id)
+
+                _LOGGER.debug(
+                    "Sending G-code via entry %s for device %s", entry_id, device_id
+                )
+
+                await hass.data[DOMAIN][entry_id].async_send_data(
+                    METHODS.PRINTER_GCODE_SCRIPT,
+                    {"script": script},
+                )
 
     # Register the new service
     hass.services.async_register(DOMAIN, "send_gcode", send_gcode_service)
