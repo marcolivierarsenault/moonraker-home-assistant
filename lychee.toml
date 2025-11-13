@@ -1,0 +1,39 @@
+# Lychee Configuration File (TOML format)
+# Configuration for link checking in the moonraker-home-assistant repository
+# This config applies to all Markdown files in the repository
+
+# Accept HTTP status codes (comma-separated ranges and individual codes)
+accept = "200..=299,429"
+
+# Set timeout for HTTP requests (in seconds)
+timeout = 20
+
+# Maximum number of redirects to follow
+max_redirects = 10
+
+# Exclude all private network addresses
+exclude_all_private = true
+
+# Number of concurrent requests (reduced for stability)
+max_concurrency = 32
+
+# Retry settings
+max_retries = 2
+retry_wait_time = 2
+
+# Exclude patterns (regex)
+exclude = [
+    # Local addresses
+    ".*\\.local.*",
+    "localhost",
+    "127\\.0\\.0\\.1",
+    # Exclude example/placeholder URLs that might appear in templates
+    "https://example\\.com.*",
+    "http://example\\.com.*",
+]
+
+# Check external links only
+scheme = ["https", "http"]
+
+# File extensions to check (explicitly define Markdown extensions)
+extensions = ["md"]

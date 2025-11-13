@@ -18,3 +18,5 @@ coverage.xml
 .ruff_cache
 .ha_run.lock
 configuration.yaml
+.lycheecache
+link-check-report.md
