@@ -144,6 +144,20 @@ async def test_idle_timeout_state_normalized(hass, get_data):
     assert state.state == "Standby"
 
 
+async def test_idle_timeout_state_complete(hass, get_data):
+    """Idle timeout state should accept completed prints."""
+    get_data["status"]["idle_timeout"]["state"] = "complete"
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_idle_timeout_state")
+    assert state.state == "Complete"
+    assert "Complete" in state.attributes["options"]
+
+
 def test_idle_timeout_state_handles_missing():
     """format_idle_timeout_state returns None when state missing."""
     data = {"status": {"idle_timeout": {}}}
