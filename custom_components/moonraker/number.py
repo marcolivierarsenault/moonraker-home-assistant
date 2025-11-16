@@ -2,6 +2,7 @@
 
 import logging
 from dataclasses import dataclass
+from typing import Any
 
 from homeassistant.components.number import (
     NumberEntity,
@@ -245,6 +246,18 @@ async def async_setup_fan_speed(coordinator, entry, async_add_entities):
 _LOGGER = logging.getLogger(__name__)
 
 
+def _coerce_float(value: Any) -> float | None:
+    """Coerce arbitrary values to float."""
+    if value is None:
+        return None
+    if isinstance(value, int | float):
+        return float(value)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 class MoonrakerPWMOutputPin(BaseMoonrakerEntity, NumberEntity):
     """Moonraker PWM output pin class."""
 
@@ -258,9 +271,6 @@ class MoonrakerPWMOutputPin(BaseMoonrakerEntity, NumberEntity):
         super().__init__(coordinator, entry)
         self.pin = description.sensor_name.replace("output_pin ", "")
         self._attr_mode = NumberMode.SLIDER
-        self._attr_native_value = (
-            coordinator.data["status"][description.sensor_name]["value"] * 100
-        )
         self.entity_description: MoonrakerNumberSensorDescription = description
         self.sensor_name = description.sensor_name
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
@@ -268,6 +278,7 @@ class MoonrakerPWMOutputPin(BaseMoonrakerEntity, NumberEntity):
         self._attr_has_entity_name = True
         self._attr_icon = description.icon
         self.coordinator: MoonrakerDataUpdateCoordinator = coordinator
+        self._attr_native_value = self._extract_native_value()
 
     async def async_set_native_value(self, value: float) -> None:
         """Set native Value."""
@@ -278,12 +289,18 @@ class MoonrakerPWMOutputPin(BaseMoonrakerEntity, NumberEntity):
         self._attr_native_value = value
         self.async_write_ha_state()
 
+    def _extract_native_value(self) -> float:
+        """Return the current PWM value as percentage."""
+        status = self.coordinator.data.get("status", {})
+        obj = status.get(self.sensor_name, {})
+        raw_value = obj.get("value") if isinstance(obj, dict) else None
+        coerced = _coerce_float(raw_value)
+        return coerced * 100 if coerced is not None else 0.0
+
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        self._attr_native_value = (
-            self.coordinator.data["status"][self.sensor_name]["value"] * 100
-        )
+        self._attr_native_value = self._extract_native_value()
         self.async_write_ha_state()
 
 
@@ -300,10 +317,6 @@ class MoonrakerNumber(BaseMoonrakerEntity, NumberEntity):
         """Initialize the number class."""
         super().__init__(coordinator, entry)
         self._attr_mode = NumberMode.SLIDER
-        self._attr_native_value = (
-            coordinator.data["status"][description.sensor_name][description.status_key]
-            * value_multiplier
-        )
         self.entity_description: MoonrakerNumberSensorDescription = description
         self.sensor_name = description.sensor_name
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
@@ -325,6 +338,7 @@ class MoonrakerNumber(BaseMoonrakerEntity, NumberEntity):
         self.update_string = description.update_code
         self.value_multiplier = value_multiplier
         self.coordinator: MoonrakerDataUpdateCoordinator = coordinator
+        self._attr_native_value = self._extract_native_value()
 
     async def async_set_native_value(self, value: float) -> None:
         """Set native Value."""
@@ -335,15 +349,21 @@ class MoonrakerNumber(BaseMoonrakerEntity, NumberEntity):
         self._attr_native_value = value
         self.async_write_ha_state()
 
+    def _extract_native_value(self) -> float:
+        """Return the current number value, falling back to zero when missing."""
+        status_key = self.entity_description.status_key
+        if status_key is None:
+            return 0.0
+        status = self.coordinator.data.get("status", {})
+        obj = status.get(self.sensor_name, {})
+        raw_value = obj.get(status_key) if isinstance(obj, dict) else None
+        coerced = _coerce_float(raw_value)
+        return coerced * self.value_multiplier if coerced is not None else 0.0
+
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        self._attr_native_value = (
-            self.coordinator.data["status"][self.sensor_name][
-                self.entity_description.status_key
-            ]
-            * self.value_multiplier
-        )
+        self._attr_native_value = self._extract_native_value()
         self.async_write_ha_state()
 
 
