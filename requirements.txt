@@ -1,6 +1,6 @@
 pytest-homeassistant-custom-component==0.13.296
 moonraker-api==2.0.6
-pre-commit==4.3.0
+pre-commit==4.4.0
 sphinx==8.2.3
 colorlog==6.10.1
 furo==2025.9.25
