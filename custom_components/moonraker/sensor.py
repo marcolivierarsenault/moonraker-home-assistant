@@ -80,7 +80,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
         name="Idle Timeout State",
         value_fn=lambda sensor: format_idle_timeout_state(sensor.coordinator.data),
         device_class=SensorDeviceClass.ENUM,
-        options=["Printing", "Ready", "Idle", "Standby", "Paused"],
+        options=["Printing", "Ready", "Idle", "Standby", "Paused", "Complete"],
         subscriptions=[("idle_timeout", "state")],
     ),
     MoonrakerSensorDescription(
