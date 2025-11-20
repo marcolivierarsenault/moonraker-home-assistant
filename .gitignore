@@ -20,3 +20,4 @@ coverage.xml
 configuration.yaml
 .lycheecache
 link-check-report.md
+node_modules
