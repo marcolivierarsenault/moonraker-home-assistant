@@ -28,7 +28,7 @@ This software seems to have issues working on **FLSUN Speeder Pad** and **Sonic 
 
 ## Install via HACS
 
-- The installation is done inside [HACS](https://hacs.xyz/) (Home Assistant Community Store). If you don't have HACS, you must install it before adding this integration. [Installation instructions here.](https://hacs.xyz/docs/setup/download)
+- The installation is done inside [HACS](https://hacs.xyz/) (Home Assistant Community Store). If you don't have HACS, you must install it before adding this integration. [Installation instructions here.](https://hacs.xyz/docs/use/#getting-started-with-hacs)
 - Once HACS is installed, search for `moonraker`
   - Navigate to the 'Integrations' tab in HACS, click `explore & Download` and search for the 'Moonraker' integration there. On the next screen, select "Download". Once fully downloaded, restart HomeAssistant.
 - In the sidebar, click 'Configuration', then 'Devices & Services'. Click the + icon to add "Moonraker" to your Home Assistant installation.
