@@ -11,7 +11,12 @@ from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.moonraker.const import DOMAIN, METHODS, OBJ
-from custom_components.moonraker.number import async_setup_temperature_target
+from custom_components.moonraker.number import (
+    MoonrakerNumber,
+    MoonrakerNumberSensorDescription,
+    _coerce_float,
+    async_setup_temperature_target,
+)
 from .const import MOCK_CONFIG
 
 
@@ -317,6 +322,22 @@ async def test_fan_speed_set_value(hass, get_default_api_response):
         )
 
 
+async def test_temperature_targets_handle_none(hass, get_data):
+    """Ensure number entities handle None target values gracefully."""
+    get_data["status"]["heater_bed"]["target"] = None
+    get_data["status"]["extruder"]["target"] = None
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    bed_state = hass.states.get("number.mainsail_bed_target")
+    assert bed_state.state == "0.0"
+    extruder_state = hass.states.get("number.mainsail_extruder_target")
+    assert extruder_state.state == "0.0"
+
+
 async def test_fan_speed_missing(hass, get_data, get_printer_objects_list):
     """Test fan speed number entity when fan is missing."""
     get_printer_objects_list["objects"].remove("fan")
@@ -467,3 +488,45 @@ async def test_heater_generic_number_config_fallbacks(hass):
     )
     assert coordinator.query_obj["heater_generic MIXED_CASE"] == {"target"}
     assert coordinator.query_obj["heater_generic orphan_heater"] == {"target"}
+
+
+def test_coerce_float_handles_invalid_input():
+    """_coerce_float should return None on invalid values."""
+    assert _coerce_float("not-a-number") is None
+    assert _coerce_float({"value": 1}) is None
+
+
+async def test_number_with_no_status_key_defaults_to_zero(hass):
+    """MoonrakerNumber falls back to zero when no status key is defined."""
+
+    class DummyCoordinator:
+        """Minimal coordinator for stateless number testing."""
+
+        def __init__(self):
+            self.api_device_name = "Mainsail"
+            self.data = {"status": {}}
+            self._listeners = []
+
+        async def async_send_data(self, *_args, **_kwargs):
+            return None
+
+        def async_add_listener(self, update_callback):
+            self._listeners.append(update_callback)
+            return lambda: None
+
+    coordinator = DummyCoordinator()
+    entry = SimpleNamespace(entry_id="noop")
+    desc = MoonrakerNumberSensorDescription(
+        key="stateless_control",
+        sensor_name="gcode_move",
+        name="Stateless Control",
+        status_key=None,
+        update_code="M220 S",
+    )
+
+    number = MoonrakerNumber(coordinator, entry, desc)
+    assert number.native_value == 0.0
+
+    # Even if coordinator data gains values, the missing status key keeps the value at zero
+    coordinator.data["status"]["gcode_move"] = {"speed_factor": 1.5}
+    assert number._extract_native_value() == 0.0
