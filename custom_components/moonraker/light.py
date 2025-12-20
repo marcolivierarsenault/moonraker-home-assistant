@@ -180,8 +180,12 @@ class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
             b = int(color_data[2] * 255)
             w = int(color_data[3] * 255) if len(color_data) > 3 else 0
             self._set_attributes(r, g, b, w)
-        except (KeyError, IndexError, TypeError):
-            pass
+        except (KeyError, IndexError, TypeError) as exc:
+            _LOGGER.debug(
+                "Unable to update LED '%s' attributes from coordinator data: %s",
+                self.sensor_name,
+                exc,
+            )
 
     def _set_attributes(self, r: int, g: int, b: int, w: int) -> None:
         self._attr_is_on = r > 0 or g > 0 or b > 0 or w > 0
