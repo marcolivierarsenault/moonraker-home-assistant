@@ -160,10 +160,10 @@ class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
         self._attr_brightness = max(r, g, b, w)
         self._attr_is_on = self._attr_brightness > 0
         """Set native Value."""
-        f_r = round(r / 255.0, 3)
-        f_g = round(g / 255.0, 3)
-        f_b = round(b / 255.0, 3)
-        f_w = round(w / 255.0, 3)
+        f_r = round(r / 255.0, 2)
+        f_g = round(g / 255.0, 2)
+        f_b = round(b / 255.0, 2)
+        f_w = round(w / 255.0, 2)
         await self.coordinator.async_send_data(
             METHODS.PRINTER_GCODE_SCRIPT,
             {
