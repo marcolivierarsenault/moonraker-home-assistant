@@ -116,10 +116,6 @@ class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
         self._attr_icon = description.icon
         self._attr_color_mode = description.color_mode
         self._attr_supported_color_modes = {description.color_mode}
-        self._attr_rgbw_color = (0, 0, 0, 0)
-        self._attr_rgb_color = (0, 0, 0)
-        self._attr_brightness = 0
-        self._attr_is_on = False
         self._set_attributes_from_coordinator()
         self.coordinator: MoonrakerDataUpdateCoordinator = coordinator
 
