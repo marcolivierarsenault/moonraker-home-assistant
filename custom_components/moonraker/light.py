@@ -132,7 +132,7 @@ class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
             r, g, b, w = kwargs["rgbw_color"]
         elif "rgb_color" in kwargs:
             r, g, b = kwargs["rgb_color"]
-            w = 0 if "white" not in kwargs else kwargs["white"]
+            w = kwargs.get("white", 0)
         else:
             r, g, b, w = curr_r, curr_g, curr_b, curr_w
             if r == 0 and g == 0 and b == 0 and w == 0:
