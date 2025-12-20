@@ -130,8 +130,13 @@ class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
             w = kwargs.get("white", 0)
         else:
             r, g, b, w = curr_r, curr_g, curr_b, curr_w
-            if r == 0 and g == 0 and b == 0 and w == 0:
-                r, g, b, w = 255, 255, 255, 255
+
+        if (
+            "brightness" not in kwargs
+            and "rgb_color" not in kwargs
+            and "rgbw_color" not in kwargs
+        ):
+            r, g, b, w = 255, 255, 255, 255
         if "brightness" in kwargs:
             target_brightness = kwargs["brightness"]
         else:
