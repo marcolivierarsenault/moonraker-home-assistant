@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from homeassistant.components.light import LightEntity, LightEntityDescription
 from homeassistant.components.light.const import ColorMode
 from homeassistant.core import callback
-from homeassistant.util import color
 
 from .const import DOMAIN, METHODS, OBJ
 from .entity import BaseMoonrakerEntity
