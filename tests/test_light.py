@@ -145,6 +145,71 @@ async def test_light_turn_on_rgb(hass, light, get_default_api_response):
             script=f'SET_LED LED="{light.split("_")[2]}" RED=1.0 GREEN=0.0 BLUE=0.5 WHITE=0.0 SYNC=0 TRANSMIT=1',
         )
 
+# test light on rgbw
+@pytest.mark.parametrize(
+    "light",
+    [("mainsail_led_chamber")],
+)
+async def test_light_turn_on_rgbw(hass, light, get_default_api_response):
+    """Test."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={**get_default_api_response},
+    ) as mock_api:
+        await hass.services.async_call(
+            LIGHT_DOMAIN,
+            SERVICE_TURN_ON,
+            {
+                ATTR_ENTITY_ID: f"light.{light}",
+                "rgbw_color": (255, 0, 0, 128),
+            },
+            blocking=True,
+        )
+
+        mock_api.assert_any_call(
+            METHODS.PRINTER_GCODE_SCRIPT.value,
+            script=f'SET_LED LED="{light.split("_")[2]}" RED=1.0 GREEN=0.0 BLUE=0.0 WHITE=0.5 SYNC=0 TRANSMIT=1',
+        )
+
+# test light brightness up while light values r, g, b, w all 0
+@pytest.mark.parametrize(
+    "light",
+    [("mainsail_led_chamber")],
+)
+async def test_light_turn_on_with_zero_current_state(hass, light, get_default_api_response):
+    """Test turning on with brightness when current state is 0,0,0,0."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    data = {**get_default_api_response}
+    sensor_name = f"led {light.split('_')[2]}" 
+    if "status" in data and sensor_name in data["status"]:
+        data["status"][sensor_name]["color_data"] = [[0.0, 0.0, 0.0, 0.0]]
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value=data,
+    ) as mock_api:
+        await hass.services.async_call(
+            LIGHT_DOMAIN,
+            SERVICE_TURN_ON,
+            {
+                ATTR_ENTITY_ID: f"light.{light}",
+                "brightness": 255, 
+            },
+            blocking=True,
+        )
+
+        mock_api.assert_any_call(
+            METHODS.PRINTER_GCODE_SCRIPT.value,
+            script=f'SET_LED LED="{light.split("_")[2]}" RED=0.0 GREEN=0.0 BLUE=0.0 WHITE=0.0 SYNC=0 TRANSMIT=1',
+        )
 
 # test light off
 @pytest.mark.parametrize(
@@ -175,3 +240,28 @@ async def test_light_turn_off(hass, light, get_default_api_response):
             METHODS.PRINTER_GCODE_SCRIPT.value,
             script=f'SET_LED LED="{light.split("_")[2]}" RED=0.0 GREEN=0.0 BLUE=0.0 WHITE=0.0 SYNC=0 TRANSMIT=1',
         )
+
+# test bad data
+@pytest.mark.parametrize(
+    "light",
+    [("mainsail_led_chamber")],
+)
+async def test_light_update_exception(hass, light, get_default_api_response):
+    """Test that bad API data logs an error but doesn't crash."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+
+    bad_data = {**get_default_api_response}
+    sensor_name = f"led {light.split('_')[2]}"
+    if "status" in bad_data and sensor_name in bad_data["status"]:
+        bad_data["status"][sensor_name] = {} 
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value=bad_data,
+    ):
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        state = hass.states.get(f"light.{light}")
+        assert state is not None
