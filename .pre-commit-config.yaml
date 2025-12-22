@@ -21,6 +21,6 @@ repos:
     hooks:
       - id: lychee
         name: run lychee
-        description: run lychee a fast, async, stream-based link checker written in Rust
+        description: run lychee, a fast, async, stream-based link checker written in Rust
         args: [--verbose, --no-progress, "**/*.md"]
         files: \.md$
