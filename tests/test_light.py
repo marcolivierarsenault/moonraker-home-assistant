@@ -185,23 +185,25 @@ async def test_light_turn_on_with_zero_current_state(hass, light, get_default_ap
     """Test turning on with brightness when current state is 0,0,0,0."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
-    await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
     data = {**get_default_api_response}
     sensor_name = f"led {light.split('_')[2]}"
-    if "status" in data and sensor_name in data["status"]:
-        data["status"][sensor_name]["color_data"] = [[0.0, 0.0, 0.0, 0.0]]
-
+    import copy
+    if "status" in data:
+        data["status"] = copy.deepcopy(data["status"])
+        if sensor_name in data["status"]:
+            data["status"][sensor_name]["color_data"] = [[0.0, 0.0, 0.0, 0.0]]
     with patch(
         "moonraker_api.MoonrakerClient.call_method",
         return_value=data,
     ) as mock_api:
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
         await hass.services.async_call(
             LIGHT_DOMAIN,
             SERVICE_TURN_ON,
             {
                 ATTR_ENTITY_ID: f"light.{light}",
-                "brightness": 255,
+                "brightness": 255, 
             },
             blocking=True,
         )
