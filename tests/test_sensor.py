@@ -13,6 +13,7 @@ from pytest_homeassistant_custom_component.common import (
 
 from custom_components.moonraker.const import DOMAIN, PRINTSTATES
 from custom_components.moonraker.sensor import (
+    _get_progress_value,
     calculate_current_layer,
     calculate_pct_job,
     calculate_print_progress,
@@ -385,6 +386,13 @@ async def test_calculate_pct_job_no_filament_no_time(data_for_calculate_pct):
     assert calculate_pct_job(data_for_calculate_pct) == 0.6
 
 
+async def test_calculate_pct_job_missing_progress(data_for_calculate_pct):
+    """Progress defaults to 0 when missing."""
+    data_for_calculate_pct["status"]["display_status"]["progress"] = None
+
+    assert calculate_pct_job(data_for_calculate_pct) == 0.25
+
+
 async def test_calculate_print_progress_file_relative():
     """File-relative progress should use gcode byte offsets."""
     data = {
@@ -422,6 +430,24 @@ async def test_calculate_print_progress_fallback_display_status():
     data = {"status": {"display_status": {"progress": 0.6}}}
 
     assert calculate_print_progress(data) == pytest.approx(0.6)
+
+
+async def test_get_progress_value_invalid_status():
+    """Invalid status should return no progress."""
+    assert _get_progress_value([]) is None
+
+
+async def test_calculate_print_progress_no_progress_values():
+    """Missing progress values should return 0."""
+    data = {
+        "status": {
+            "print_stats": {"filename": "test.gcode"},
+            "display_status": {"progress": None},
+            "virtual_sdcard": {"progress": None},
+        }
+    }
+
+    assert calculate_print_progress(data) == 0.0
 
 
 async def test_calculate_print_progress_invalid_bytes_fallback():
@@ -477,6 +503,7 @@ async def test_calculate_print_progress_invalid_status():
     """Invalid status containers should return 0 progress."""
     assert calculate_print_progress({}) == 0.0
     assert calculate_print_progress({"status": None}) == 0.0
+    assert calculate_print_progress(None) == 0.0
 
 
 async def test_no_history_data(
