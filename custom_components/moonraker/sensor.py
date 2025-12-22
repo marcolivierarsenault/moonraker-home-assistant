@@ -964,7 +964,7 @@ def calculate_pct_job(data) -> float:
     if progress is None:
         progress = 0.0
 
-    if print_expected_duration != 0 and progress is not None:
+    if print_expected_duration != 0:
         time_pct = progress
         divider += 1
 
