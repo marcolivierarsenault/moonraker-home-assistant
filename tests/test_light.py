@@ -188,7 +188,7 @@ async def test_light_turn_on_with_zero_current_state(hass, light, get_default_ap
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
     data = {**get_default_api_response}
-    sensor_name = f"led {light.split('_')[2]}" 
+    sensor_name = f"led {light.split('_')[2]}"
     if "status" in data and sensor_name in data["status"]:
         data["status"][sensor_name]["color_data"] = [[0.0, 0.0, 0.0, 0.0]]
 
@@ -201,7 +201,7 @@ async def test_light_turn_on_with_zero_current_state(hass, light, get_default_ap
             SERVICE_TURN_ON,
             {
                 ATTR_ENTITY_ID: f"light.{light}",
-                "brightness": 255, 
+                "brightness": 255,
             },
             blocking=True,
         )
@@ -254,7 +254,7 @@ async def test_light_update_exception(hass, light, get_default_api_response):
     bad_data = {**get_default_api_response}
     sensor_name = f"led {light.split('_')[2]}"
     if "status" in bad_data and sensor_name in bad_data["status"]:
-        bad_data["status"][sensor_name] = {} 
+        bad_data["status"][sensor_name] = {}
 
     with patch(
         "moonraker_api.MoonrakerClient.call_method",
