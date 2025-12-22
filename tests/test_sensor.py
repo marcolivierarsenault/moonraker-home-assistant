@@ -164,10 +164,22 @@ def test_idle_timeout_state_handles_missing():
     assert format_idle_timeout_state(data) is None
 
 
-def test_idle_timeout_state_non_string_passthrough():
-    """format_idle_timeout_state returns non-string state unchanged."""
+def test_idle_timeout_state_non_string_returns_none():
+    """format_idle_timeout_state returns None for non-string states."""
     data = {"status": {"idle_timeout": {"state": 5}}}
-    assert format_idle_timeout_state(data) == 5
+    assert format_idle_timeout_state(data) is None
+
+
+def test_idle_timeout_state_unknown_returns_none():
+    """format_idle_timeout_state returns None for unsupported states."""
+    data = {"status": {"idle_timeout": {"state": "mystery_mode"}}}
+    assert format_idle_timeout_state(data) is None
+
+
+def test_idle_timeout_state_blank_returns_none():
+    """format_idle_timeout_state returns None for blank values."""
+    data = {"status": {"idle_timeout": {"state": "   "}}}
+    assert format_idle_timeout_state(data) is None
 
 
 # test all sensors
