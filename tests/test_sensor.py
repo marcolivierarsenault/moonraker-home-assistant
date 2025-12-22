@@ -324,12 +324,13 @@ async def test_eta(hass):
 
     state = hass.states.get("sensor.mainsail_print_eta")
 
+    # ETA is rounded to nearest minute, so allow ±30 seconds tolerance
     assert dt.datetime.strptime(state.state, "%Y-%m-%dT%H:%M:%S%z") < dt.datetime.now(
         dt.timezone.utc
-    ) + dt.timedelta(0, 1182.94 + 2)
+    ) + dt.timedelta(0, 1182.94 + 30)
     assert dt.datetime.strptime(state.state, "%Y-%m-%dT%H:%M:%S%z") > dt.datetime.now(
         dt.timezone.utc
-    ) + dt.timedelta(0, 1182.94 - 2)
+    ) + dt.timedelta(0, 1182.94 - 30)
 
 
 async def test_slicer_time_left(hass, get_data):

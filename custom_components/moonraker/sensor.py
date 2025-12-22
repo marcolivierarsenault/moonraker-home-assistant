@@ -13,15 +13,15 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import (
     PERCENTAGE,
+    REVOLUTIONS_PER_MINUTE,
     UnitOfLength,
     UnitOfPressure,
     UnitOfTemperature,
     UnitOfTime,
-    REVOLUTIONS_PER_MINUTE,
 )
 from homeassistant.core import callback
 
-from .const import OBJ, DOMAIN, METHODS, PRINTERSTATES, PRINTSTATES
+from .const import DOMAIN, METHODS, OBJ, PRINTERSTATES, PRINTSTATES
 from .entity import BaseMoonrakerEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -993,7 +993,9 @@ def calculate_eta(data):
         "status"
     ]["print_stats"]["print_duration"]
 
-    return datetime.now(timezone.utc) + timedelta(0, time_left)
+    eta = datetime.now(timezone.utc) + timedelta(seconds=time_left)
+    # Round to nearest minute by adding 30s bias before truncating seconds
+    return (eta + timedelta(seconds=30)).replace(second=0, microsecond=0)
 
 
 def calculate_current_layer(data):
