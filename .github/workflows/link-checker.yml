@@ -27,17 +27,12 @@ jobs:
       - name: Check links in all Markdown files
         uses: lycheeverse/lychee-action@v2
         with:
-          args: --verbose --no-progress '**/*.md'
-          fail: true
-
-      - name: Generate link check report
-        if: always()
-        uses: lycheeverse/lychee-action@v2
-        with:
           args: --verbose --no-progress --format markdown '**/*.md'
           output: link-check-report.md
-          fail: false
-
+          fail: true
+      # Note: A second lychee-action run was removed; the step above now both
+      # generates the markdown report and fails the job on broken links.
+      # This avoids re-scanning all links twice in the same workflow run.
       - name: Upload link check report
         if: always()
         uses: actions/upload-artifact@v4
