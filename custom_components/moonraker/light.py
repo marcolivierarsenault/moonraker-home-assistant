@@ -95,7 +95,6 @@ async def async_setup_light(coordinator, entry, async_add_entities):
 
 _LOGGER = logging.getLogger(__name__)
 
-
 class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
     """Moonraker LED class."""
 
