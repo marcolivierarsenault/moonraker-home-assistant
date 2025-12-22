@@ -53,16 +53,16 @@ jobs:
           script: |
             const title = 'Broken links detected in Markdown files';
             const body = `
-            ## Link Check Failed
+## Link Check Failed
 
-            The automated link checker found broken links in Markdown files across the repository.
+The automated link checker found broken links in Markdown files across the repository.
 
-            **Workflow run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+**Workflow run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-            Please check the workflow logs and artifacts for details about which links are broken and fix them.
+Please check the workflow logs and artifacts for details about which links are broken and fix them.
 
-            This issue was automatically created by the link-checker workflow.
-            `;
+This issue was automatically created by the link-checker workflow.
+`;
 
             // Check if an issue already exists
             const issues = await github.rest.issues.listForRepo({
