@@ -203,7 +203,7 @@ async def test_light_turn_on_with_zero_current_state(hass, light, get_default_ap
             SERVICE_TURN_ON,
             {
                 ATTR_ENTITY_ID: f"light.{light}",
-                "brightness": 255, 
+                "brightness": 255,
             },
             blocking=True,
         )
