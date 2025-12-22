@@ -26,6 +26,18 @@ from .entity import BaseMoonrakerEntity
 
 _LOGGER = logging.getLogger(__name__)
 
+IDLE_TIMEOUT_STATE_OPTIONS = (
+    "Printing",
+    "Ready",
+    "Idle",
+    "Standby",
+    "Paused",
+    "Complete",
+)
+IDLE_TIMEOUT_STATE_MAP = {
+    option.casefold(): option for option in IDLE_TIMEOUT_STATE_OPTIONS
+}
+
 
 @dataclass(frozen=True)
 class MoonrakerSensorDescription(SensorEntityDescription):
@@ -80,7 +92,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
         name="Idle Timeout State",
         value_fn=lambda sensor: format_idle_timeout_state(sensor.coordinator.data),
         device_class=SensorDeviceClass.ENUM,
-        options=["Printing", "Ready", "Idle", "Standby", "Paused", "Complete"],
+        options=list(IDLE_TIMEOUT_STATE_OPTIONS),
         subscriptions=[("idle_timeout", "state")],
     ),
     MoonrakerSensorDescription(
@@ -869,9 +881,17 @@ def format_idle_timeout_state(data):
         return None
 
     if not isinstance(state, str):
-        return state
+        return None
 
-    return state.replace("_", " ").title()
+    normalized = state.replace("_", " ").strip()
+    if not normalized:
+        return None
+
+    mapped = IDLE_TIMEOUT_STATE_MAP.get(normalized.casefold())
+    if mapped is not None:
+        return mapped
+
+    return None
 
 
 def calculate_pct_job(data) -> float:
