@@ -229,15 +229,12 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
         key="progress",
         name="Progress",
         value_fn=lambda sensor: sensor.empty_result_when_not_printing(
-            (
-                sensor.coordinator.data["status"]["display_status"]["progress"]
-                or sensor.coordinator.data["status"]["virtual_sdcard"]["progress"]
-            )
-            * 100
+            calculate_print_progress(sensor.coordinator.data) * 100
         ),
         subscriptions=[
             ("display_status", "progress"),
             ("virtual_sdcard", "progress"),
+            ("virtual_sdcard", "file_position"),
         ],
         icon="mdi:percent",
         unit=PERCENTAGE,
@@ -873,6 +870,84 @@ def calculate_print_speed(data):
     return 0.0 if speed <= 0 else round(speed, 2)
 
 
+def _parse_progress(value) -> float | None:
+    if value is None:
+        return None
+
+    try:
+        return max(0.0, min(float(value), 1.0))
+    except (TypeError, ValueError):
+        return None
+
+
+def _get_progress_value(status) -> float | None:
+    if not isinstance(status, dict):
+        return None
+
+    display_status = status.get("display_status")
+    if isinstance(display_status, dict):
+        progress = _parse_progress(display_status.get("progress"))
+        if progress is not None:
+            return progress
+
+    virtual_sdcard = status.get("virtual_sdcard")
+    if isinstance(virtual_sdcard, dict):
+        progress = _parse_progress(virtual_sdcard.get("progress"))
+        if progress is not None:
+            return progress
+
+    return None
+
+
+def _as_int(value) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def calculate_print_progress(data) -> float:
+    """Calculate print progress using file-relative progress when available."""
+    if not isinstance(data, dict):
+        return 0.0
+
+    status = data.get("status")
+    if not isinstance(status, dict):
+        return 0.0
+
+    print_stats = status.get("print_stats")
+    if not isinstance(print_stats, dict):
+        print_stats = {}
+
+    virtual_sdcard = status.get("virtual_sdcard")
+    if not isinstance(virtual_sdcard, dict):
+        virtual_sdcard = {}
+
+    file_position = virtual_sdcard.get("file_position")
+    gcode_start_byte = data.get("gcode_start_byte")
+    gcode_end_byte = data.get("gcode_end_byte")
+    filename = print_stats.get("filename")
+
+    if filename:
+        start = _as_int(gcode_start_byte)
+        end = _as_int(gcode_end_byte)
+        position = _as_int(file_position)
+        if start is not None and end is not None and position is not None:
+            if end > start and end > 0:
+                if position <= start:
+                    return 0.0
+                if position >= end:
+                    return 1.0
+
+                current_position = position - start
+                max_position = end - start
+                if current_position > 0 and max_position > 0:
+                    return max(0.0, min(current_position / max_position, 1.0))
+
+    progress = _get_progress_value(status)
+    return progress if progress is not None else 0.0
+
+
 def format_idle_timeout_state(data):
     """Return the idle timeout state in title case when available."""
 
@@ -905,12 +980,11 @@ def calculate_pct_job(data) -> float:
     divider = 0
     time_pct = 0
     filament_pct = 0
-    progress = (
-        data["status"]["display_status"]["progress"]
-        or data["status"]["virtual_sdcard"]["progress"]
-    )
+    progress = _get_progress_value(data.get("status", {}))
+    if progress is None:
+        progress = 0.0
 
-    if print_expected_duration != 0 and progress is not None:
+    if print_expected_duration != 0:
         time_pct = progress
         divider += 1
 

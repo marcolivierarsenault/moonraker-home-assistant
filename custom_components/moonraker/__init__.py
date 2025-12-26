@@ -283,6 +283,8 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             "layer_height": None,
             "object_height": None,
             "first_layer_height": None,
+            "gcode_start_byte": None,
+            "gcode_end_byte": None,
         }
         if gcode_filename is None or gcode_filename == "":
             return return_gcode
@@ -300,6 +302,8 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         return_gcode["layer_count"] = gcode.get("layer_count", 0)
         return_gcode["layer_height"] = gcode.get("layer_height", 0)
         return_gcode["first_layer_height"] = gcode.get("first_layer_height", 0)
+        return_gcode["gcode_start_byte"] = gcode.get("gcode_start_byte")
+        return_gcode["gcode_end_byte"] = gcode.get("gcode_end_byte")
 
         try:
             # Keep last since this can fail but, we still want the other data
