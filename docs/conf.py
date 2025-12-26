@@ -3,6 +3,12 @@
 #
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
+from sphinx.ext import autodoc
+from sphinx.util import logging as sphinx_logging
+
+if not hasattr(autodoc, "logger"):
+    # Sphinx 9 removed autodoc.logger; sphinx-toolbox still expects it.
+    autodoc.logger = sphinx_logging.getLogger("sphinx.ext.autodoc")
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
