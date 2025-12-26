@@ -13,8 +13,10 @@ from pytest_homeassistant_custom_component.common import (
 
 from custom_components.moonraker.const import DOMAIN, PRINTSTATES
 from custom_components.moonraker.sensor import (
+    _get_progress_value,
     calculate_current_layer,
     calculate_pct_job,
+    calculate_print_progress,
     format_idle_timeout_state,
 )
 
@@ -395,6 +397,126 @@ async def test_calculate_pct_job_no_filament_no_time(data_for_calculate_pct):
     data_for_calculate_pct["filament_total"] = 0
     data_for_calculate_pct["estimated_time"] = 0
     assert calculate_pct_job(data_for_calculate_pct) == 0.6
+
+
+async def test_calculate_pct_job_missing_progress(data_for_calculate_pct):
+    """Progress defaults to 0 when missing."""
+    data_for_calculate_pct["status"]["display_status"]["progress"] = None
+
+    assert calculate_pct_job(data_for_calculate_pct) == 0.25
+
+
+async def test_calculate_print_progress_file_relative():
+    """File-relative progress should use gcode byte offsets."""
+    data = {
+        "gcode_start_byte": 100,
+        "gcode_end_byte": 1100,
+        "status": {
+            "print_stats": {"filename": "test.gcode"},
+            "virtual_sdcard": {"file_position": 600, "progress": 0.2},
+            "display_status": {"progress": 0.3},
+        },
+    }
+
+    assert calculate_print_progress(data) == pytest.approx(0.5)
+
+
+async def test_calculate_print_progress_file_relative_bounds():
+    """File-relative progress should clamp to start/end bounds."""
+    data = {
+        "gcode_start_byte": 100,
+        "gcode_end_byte": 1100,
+        "status": {
+            "print_stats": {"filename": "test.gcode"},
+            "virtual_sdcard": {"file_position": 100, "progress": 0.2},
+        },
+    }
+
+    assert calculate_print_progress(data) == 0.0
+
+    data["status"]["virtual_sdcard"]["file_position"] = 1100
+    assert calculate_print_progress(data) == 1.0
+
+
+async def test_calculate_print_progress_fallback_display_status():
+    """Fallback to display_status when file-relative progress isn't available."""
+    data = {"status": {"display_status": {"progress": 0.6}}}
+
+    assert calculate_print_progress(data) == pytest.approx(0.6)
+
+
+async def test_get_progress_value_invalid_status():
+    """Invalid status should return no progress."""
+    assert _get_progress_value([]) is None
+
+
+async def test_calculate_print_progress_no_progress_values():
+    """Missing progress values should return 0."""
+    data = {
+        "status": {
+            "print_stats": {"filename": "test.gcode"},
+            "display_status": {"progress": None},
+            "virtual_sdcard": {"progress": None},
+        }
+    }
+
+    assert calculate_print_progress(data) == 0.0
+
+
+async def test_calculate_print_progress_invalid_bytes_fallback():
+    """Invalid gcode byte offsets should fall back to display_status."""
+    data = {
+        "gcode_start_byte": "bad",
+        "gcode_end_byte": "data",
+        "status": {
+            "print_stats": {"filename": "test.gcode"},
+            "display_status": {"progress": 0.25},
+            "virtual_sdcard": {"file_position": 200},
+        },
+    }
+
+    assert calculate_print_progress(data) == pytest.approx(0.25)
+
+
+async def test_calculate_print_progress_null_bytes():
+    """Null gcode byte offsets should fall back to display_status."""
+    data = {
+        "gcode_start_byte": None,
+        "gcode_end_byte": None,
+        "status": {
+            "print_stats": {"filename": "test.gcode"},
+            "display_status": {"progress": 0.7},
+            "virtual_sdcard": {"file_position": None},
+        },
+    }
+
+    assert calculate_print_progress(data) == pytest.approx(0.7)
+
+
+async def test_calculate_print_progress_display_invalid_uses_virtual():
+    """Invalid display_status progress should fall back to virtual_sdcard."""
+    data = {
+        "status": {
+            "display_status": {"progress": "bad"},
+            "virtual_sdcard": {"progress": 0.45},
+        }
+    }
+
+    assert calculate_print_progress(data) == pytest.approx(0.45)
+
+
+async def test_calculate_print_progress_fallback_virtual_sdcard():
+    """Fallback to virtual_sdcard when display_status is missing."""
+    data = {"status": {"virtual_sdcard": {"progress": 0.4}}}
+
+    assert calculate_print_progress(data) == pytest.approx(0.4)
+
+
+async def test_calculate_print_progress_invalid_status():
+    """Invalid status containers should return 0 progress."""
+    assert calculate_print_progress({}) == 0.0
+    assert calculate_print_progress({"status": None}) == 0.0
+    assert calculate_print_progress(None) == 0.0
 
 
 async def test_no_history_data(
