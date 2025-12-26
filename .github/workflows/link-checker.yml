@@ -1,0 +1,42 @@
+name: Link Checker
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run weekly on Mondays at 9 AM UTC
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+    # Allow manual triggering
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  link-checker:
+    runs-on: ubuntu-latest
+    name: Check links in all Markdown files
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Check links in all Markdown files
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --verbose --no-progress --format markdown '**/*.md'
+          output: link-check-report.md
+          fail: true
+      # Note: A second lychee-action run was removed; the step above now both
+      # generates the markdown report and fails the job on broken links.
+      # This avoids re-scanning all links twice in the same workflow run.
+      - name: Upload link check report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: link-check-report
+          path: link-check-report.md
+          retention-days: 30
