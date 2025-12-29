@@ -35,7 +35,7 @@ jobs:
       # This avoids re-scanning all links twice in the same workflow run.
       - name: Upload link check report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: link-check-report
           path: link-check-report.md
