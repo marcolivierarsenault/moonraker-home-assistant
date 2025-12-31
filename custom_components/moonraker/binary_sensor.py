@@ -87,12 +87,12 @@ def update_available_fn(sensor):
 
     version_info = machine_update.get("version_info") or {}
     for component, info in version_info.items():
+        if not isinstance(info, dict):
+            continue
+
         if component == "system":
             if info.get("package_count", 0) > 0:
                 return True
-            continue
-
-        if not isinstance(info, dict):
             continue
 
         version = info.get("version")
