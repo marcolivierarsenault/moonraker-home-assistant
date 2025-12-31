@@ -145,6 +145,7 @@ async def test_light_turn_on_rgb(hass, light, get_default_api_response):
             script=f'SET_LED LED="{light.split("_")[2]}" RED=1.0 GREEN=0.0 BLUE=0.5 WHITE=0.0 SYNC=0 TRANSMIT=1',
         )
 
+
 # test light on rgbw
 @pytest.mark.parametrize(
     "light",
@@ -176,18 +177,22 @@ async def test_light_turn_on_rgbw(hass, light, get_default_api_response):
             script=f'SET_LED LED="{light.split("_")[2]}" RED=1.0 GREEN=0.0 BLUE=0.0 WHITE=0.5 SYNC=0 TRANSMIT=1',
         )
 
+
 # test light brightness up while light values r, g, b, w all 0
 @pytest.mark.parametrize(
     "light",
     [("mainsail_led_chamber")],
 )
-async def test_light_turn_on_with_zero_current_state(hass, light, get_default_api_response):
+async def test_light_turn_on_with_zero_current_state(
+    hass, light, get_default_api_response
+):
     """Test turning on with brightness when current state is 0,0,0,0."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
     data = {**get_default_api_response}
     sensor_name = f"led {light.split('_')[2]}"
     import copy
+
     if "status" in data:
         data["status"] = copy.deepcopy(data["status"])
         if sensor_name in data["status"]:
@@ -212,6 +217,7 @@ async def test_light_turn_on_with_zero_current_state(hass, light, get_default_ap
             METHODS.PRINTER_GCODE_SCRIPT.value,
             script=f'SET_LED LED="{light.split("_")[2]}" RED=0.0 GREEN=0.0 BLUE=0.0 WHITE=0.0 SYNC=0 TRANSMIT=1',
         )
+
 
 # test light off
 @pytest.mark.parametrize(
@@ -242,6 +248,7 @@ async def test_light_turn_off(hass, light, get_default_api_response):
             METHODS.PRINTER_GCODE_SCRIPT.value,
             script=f'SET_LED LED="{light.split("_")[2]}" RED=0.0 GREEN=0.0 BLUE=0.0 WHITE=0.0 SYNC=0 TRANSMIT=1',
         )
+
 
 # test bad data
 @pytest.mark.parametrize(
