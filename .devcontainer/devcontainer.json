@@ -1,6 +1,6 @@
 {
   "name": "moonraker-home-assistant",
-  "image": "mcr.microsoft.com/devcontainers/python:dev-3.13-bookworm",
+  "image": "mcr.microsoft.com/devcontainers/python:dev-3.13-trixie",
   "mounts": [
     "source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached"
   ],
