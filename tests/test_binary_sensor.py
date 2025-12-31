@@ -6,6 +6,11 @@ from homeassistant.helpers import entity_registry as er
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.moonraker.binary_sensor import (
+    MoonrakerBinarySensor,
+    MoonrakerBinarySensorDescription,
+    update_available_fn,
+)
 from custom_components.moonraker.const import DOMAIN
 
 from .const import MOCK_CONFIG
@@ -188,3 +193,49 @@ async def test_update_available_no_update(hass, get_machine_update_status):
 
     state = hass.states.get("binary_sensor.mainsail_update_available")
     assert state.state == "off"
+
+
+async def test_update_available_missing_machine_update(hass):
+    """Test update available without machine_update data."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    coordinator.data.pop("machine_update", None)
+
+    desc = MoonrakerBinarySensorDescription(
+        key="update_available_direct",
+        sensor_name="update_available",
+        is_on_fn=update_available_fn,
+        name="Update Available",
+    )
+    sensor = MoonrakerBinarySensor(coordinator, config_entry, desc)
+    assert sensor.is_on is False
+
+
+async def test_update_available_missing_remote_version(hass):
+    """Test update available skips incomplete component data."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    coordinator.data["machine_update"] = {
+        "version_info": {
+            "system": {"package_count": 0},
+            "klipper": "invalid",
+            "mainsail": {"version": "v2.8.0"},
+        }
+    }
+
+    desc = MoonrakerBinarySensorDescription(
+        key="update_available_incomplete",
+        sensor_name="update_available",
+        is_on_fn=update_available_fn,
+        name="Update Available",
+    )
+    sensor = MoonrakerBinarySensor(coordinator, config_entry, desc)
+    assert sensor.is_on is False

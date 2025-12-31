@@ -81,28 +81,26 @@ async def async_setup_update_binary_sensors(coordinator, entry, async_add_entiti
 
 def update_available_fn(sensor):
     """Return if update is available."""
-    if "machine_update" not in sensor.coordinator.data:
+    machine_update = sensor.coordinator.data.get("machine_update")
+    if not machine_update:
         return False
 
-    for component in sensor.coordinator.data["machine_update"]["version_info"]:
+    version_info = machine_update.get("version_info") or {}
+    for component, info in version_info.items():
         if component == "system":
-            if (
-                sensor.coordinator.data["machine_update"]["version_info"][component][
-                    "package_count"
-                ]
-                > 0
-            ):
+            if info.get("package_count", 0) > 0:
                 return True
             continue
 
-        if (
-            sensor.coordinator.data["machine_update"]["version_info"][component][
-                "remote_version"
-            ]
-            != sensor.coordinator.data["machine_update"]["version_info"][component][
-                "version"
-            ]
-        ):
+        if not isinstance(info, dict):
+            continue
+
+        version = info.get("version")
+        remote_version = info.get("remote_version")
+        if version is None or remote_version is None:
+            continue
+
+        if remote_version != version:
             return True
 
     return False
