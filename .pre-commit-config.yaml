@@ -22,6 +22,6 @@ repos:
       - id: lychee
         name: run lychee
         description: run lychee, a fast, async, stream-based link checker written in Rust
-        args: [--verbose, --no-progress, "**/*.md"]
+        args: [--verbose, --no-progress, --exclude-path, ".venv", "**/*.md"]
         files: \.md$
         exclude: ^\.venv/
