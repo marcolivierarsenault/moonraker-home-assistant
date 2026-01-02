@@ -40,10 +40,95 @@ _LOGGER = logging.getLogger(__name__)
 
 _LOGGER.debug("loading moonraker init")
 
+_GCODE_ROOT = "gcodes"
+
 
 async def async_setup(_hass: HomeAssistant, _config: ConfigType):
     """Set up this integration using YAML is not supported."""
     return True
+
+
+def _normalize_gcode_path(filename: str | None) -> tuple[str, str | None]:
+    """Return normalized filename and detected root for gcode metadata calls."""
+    if not filename:
+        return "", None
+
+    normalized = filename.replace("\\", "/").strip()
+    if not normalized:
+        return "", None
+
+    normalized = normalized.lstrip("/")
+    lowered = normalized.casefold()
+
+    root = None
+    root_prefix = f"{_GCODE_ROOT}/"
+    if lowered.startswith(root_prefix):
+        root = _GCODE_ROOT
+        normalized = normalized[len(root_prefix) :]
+    else:
+        marker = f"/{_GCODE_ROOT}/"
+        idx = lowered.find(marker)
+        if idx != -1:
+            root = _GCODE_ROOT
+            normalized = normalized[idx + len(marker) :]
+
+    return normalized, root
+
+
+def _strip_gcode_root(path: str | None, root: str | None) -> str:
+    """Strip a known root prefix from a path for URL usage."""
+    if not path:
+        return ""
+
+    normalized = path.replace("\\", "/").strip()
+    if not normalized:
+        return ""
+
+    normalized = normalized.lstrip("/")
+    if not root:
+        root_prefix = f"{_GCODE_ROOT}/"
+        lowered = normalized.casefold()
+        if lowered.startswith(root_prefix):
+            return normalized[len(root_prefix) :]
+        return normalized
+
+    lowered = normalized.casefold()
+    root_prefix = f"{root}/"
+    if lowered.startswith(root_prefix):
+        return normalized[len(root_prefix) :]
+
+    marker = f"/{root}/"
+    idx = lowered.find(marker)
+    if idx != -1:
+        return normalized[idx + len(marker) :]
+
+    return normalized
+
+
+def _build_thumbnail_path(
+    gcode_dir: str, thumbnail_path: str | None, root: str | None
+) -> str | None:
+    """Build a thumbnail path relative to the gcodes root."""
+    normalized = _strip_gcode_root(thumbnail_path, root)
+    if not normalized:
+        return None
+
+    if normalized.startswith("./"):
+        normalized = normalized[2:]
+    if not normalized:
+        return None
+
+    if not gcode_dir:
+        return normalized
+
+    gcode_dir = gcode_dir.replace("\\", "/").strip("/")
+    if not gcode_dir:
+        return normalized
+
+    if normalized.startswith(f"{gcode_dir}/"):
+        return normalized
+
+    return os.path.join(gcode_dir, normalized)
 
 
 def get_user_name(hass: HomeAssistant, entry: ConfigEntry):
@@ -215,8 +300,12 @@ async def _gcode_file_detail_updater(coordinator):
         METHODS.PRINTER_OBJECTS_QUERY, coordinator.query_obj
     )
     filename = ""
-    if "status" in data:
-        filename = data["status"]["print_stats"]["filename"]
+    status = data.get("status") or {}
+    print_stats = status.get("print_stats") or {}
+    filename = print_stats.get("filename") or ""
+    if not filename:
+        virtual_sdcard = status.get("virtual_sdcard") or {}
+        filename = virtual_sdcard.get("file_path") or ""
 
     return await coordinator._async_get_gcode_file_detail(filename)
 
@@ -244,6 +333,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         self.api_device_name = api_device_name
         self.query_obj = {OBJ: {}}
         self.load_sensor_data(SENSORS)
+        self.add_query_objects("virtual_sdcard", "file_path")
 
         super().__init__(
             hass,
@@ -286,13 +376,17 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             "gcode_start_byte": None,
             "gcode_end_byte": None,
         }
-        if gcode_filename is None or gcode_filename == "":
+        if not gcode_filename:
             return return_gcode
 
         # Get prefix of the filename to get the appropriate thumbnail
-        dirname = os.path.dirname(gcode_filename)
+        normalized_filename, root = _normalize_gcode_path(gcode_filename)
+        if not normalized_filename:
+            return return_gcode
 
-        query_object = {"filename": gcode_filename}
+        dirname = os.path.dirname(normalized_filename)
+
+        query_object = {"filename": normalized_filename}
         gcode = await self._async_fetch_data(
             METHODS.SERVER_FILES_METADATA, query_object
         )
@@ -314,10 +408,12 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
                     thumbnailSize = t["size"]
                     path = t["relative_path"]
 
-            return_gcode["thumbnails_path"] = os.path.join(dirname, path)
+            return_gcode["thumbnails_path"] = _build_thumbnail_path(
+                dirname, path, root
+            )
             return return_gcode
         except Exception as ex:
-            _LOGGER.warning("failed to get thumbnails  {%s}", ex)
+            _LOGGER.warning("failed to get thumbnails {%s}", ex)
             _LOGGER.warning("Query Object {%s}", query_object)
             _LOGGER.warning("gcode {%s}", gcode)
             return return_gcode

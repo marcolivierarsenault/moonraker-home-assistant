@@ -296,6 +296,24 @@ async def test_thumbnail_on_subfolder(hass, get_data, aioclient_mock):
     await camera.async_get_image(hass, "camera.mainsail_thumbnail")
 
 
+async def test_thumbnail_with_gcodes_prefix(hass, get_data, aioclient_mock):
+    """Test thumbnail path when filename includes gcodes root."""
+    get_data["status"]["print_stats"][
+        "filename"
+    ] = "gcodes/subfolder/CE3E3V2_picture_frame_holder.gcode"
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    test_path = "http://1.2.3.4/server/files/gcodes/subfolder/.thumbs/CE3E3V2_picture_frame_holder.png"
+
+    aioclient_mock.get(test_path, content=Image.new("RGB", (30, 30)))
+
+    await camera.async_get_image(hass, "camera.mainsail_thumbnail")
+
+
 async def test_thumbnail_space_in_path(hass, get_data, aioclient_mock):
     """Test thumbnail with space in URL."""
 
@@ -309,6 +327,25 @@ async def test_thumbnail_space_in_path(hass, get_data, aioclient_mock):
     await hass.async_block_till_done()
 
     test_path = "http://1.2.3.4/server/files/gcodes/.thumbs/CE3E3V2_picture%20frame_holder-32x32.png"
+
+    aioclient_mock.get(test_path, content=Image.new("RGB", (30, 30)))
+
+    await camera.async_get_image(hass, "camera.mainsail_thumbnail")
+
+
+async def test_thumbnail_uses_virtual_sdcard_path(hass, get_data, aioclient_mock):
+    """Use virtual_sdcard.file_path when print_stats filename is empty."""
+    get_data["status"]["print_stats"]["filename"] = ""
+    get_data["status"]["virtual_sdcard"] = {
+        "file_path": "subfolder/CE3E3V2_picture_frame_holder.gcode"
+    }
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    test_path = "http://1.2.3.4/server/files/gcodes/subfolder/.thumbs/CE3E3V2_picture_frame_holder.png"
 
     aioclient_mock.get(test_path, content=Image.new("RGB", (30, 30)))
 

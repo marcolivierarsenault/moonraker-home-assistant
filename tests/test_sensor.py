@@ -812,6 +812,25 @@ async def test_current_layer_calculated_partial_info():
     assert calculate_current_layer(data) == 42
 
 
+async def test_current_layer_uses_virtual_sdcard_filename():
+    """Use virtual_sdcard file path when print_stats filename is empty."""
+    data = {
+        "status": {
+            "print_stats": {
+                "state": PRINTSTATES.PRINTING.value,
+                "filename": "",
+                "print_duration": 120,
+                "info": {},
+            },
+            "virtual_sdcard": {"file_path": "TheUniverse.gcode"},
+            "toolhead": {"position": [0, 0, 8.4]},
+        },
+        "first_layer_height": 0.2,
+        "layer_height": 0.2,
+    }
+    assert calculate_current_layer(data) == 42
+
+
 async def test_current_layer_zero_info_fallback():
     """Ensure we fall back when current layer info is stuck at zero."""
     data = {
