@@ -41,6 +41,11 @@ def test_normalize_gcode_path_empty():
     assert _normalize_gcode_path(None) == ("", None)
 
 
+def test_normalize_gcode_path_whitespace():
+    """Return empty parts for whitespace-only input."""
+    assert _normalize_gcode_path("   ") == ("", None)
+
+
 def test_normalize_gcode_path_with_root_prefix():
     """Strip gcodes root from relative paths."""
     filename, root = _normalize_gcode_path("gcodes/subdir/file.gcode")
@@ -60,6 +65,16 @@ def test_normalize_gcode_path_with_absolute_path():
 def test_strip_gcode_root_prefix():
     """Strip root prefix from thumbnail paths."""
     assert _strip_gcode_root("gcodes/.thumbs/file.png", "gcodes") == ".thumbs/file.png"
+
+
+def test_strip_gcode_root_none_path():
+    """Return empty string when path is None."""
+    assert _strip_gcode_root(None, "gcodes") == ""
+
+
+def test_strip_gcode_root_whitespace_path():
+    """Return empty string when path is whitespace."""
+    assert _strip_gcode_root("   ", "gcodes") == ""
 
 
 def test_strip_gcode_root_absolute():
@@ -91,6 +106,16 @@ def test_build_thumbnail_path_reuses_existing_dir():
     )
 
 
+def test_build_thumbnail_path_missing_thumbnail():
+    """Return None when thumbnail path is missing."""
+    assert _build_thumbnail_path("subfolder", None, "gcodes") is None
+
+
+def test_build_thumbnail_path_only_dot_prefix():
+    """Return None when thumbnail path is only './'."""
+    assert _build_thumbnail_path("subfolder", "./", "gcodes") is None
+
+
 def test_build_thumbnail_path_joins_dir():
     """Join the gcode directory when thumbnails are relative."""
     assert (
@@ -99,11 +124,31 @@ def test_build_thumbnail_path_joins_dir():
     )
 
 
+def test_build_thumbnail_path_empty_dir_after_strip():
+    """Return thumbnail path when directory collapses to empty."""
+    assert (
+        _build_thumbnail_path("/", ".thumbs/file.png", "gcodes") == ".thumbs/file.png"
+    )
+
+
 def test_build_thumbnail_path_strips_dot_prefix():
     """Trim leading ./ for URL usage."""
     assert (
         _build_thumbnail_path("", "./.thumbs/file.png", "gcodes") == ".thumbs/file.png"
     )
+
+
+async def test_gcode_detail_skips_empty_normalized_filename(hass):
+    """Return defaults when normalized filename is empty."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=MagicMock(), config_entry=config_entry, api_device_name="printer"
+    )
+
+    result = await coordinator._async_get_gcode_file_detail("/")
+
+    assert result["thumbnails_path"] is None
+    assert result["layer_count"] is None
 
 
 async def test_setup_unload_and_reload_entry(hass):
