@@ -16,6 +16,9 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.moonraker import (
     MoonrakerDataUpdateCoordinator,
+    _build_thumbnail_path,
+    _normalize_gcode_path,
+    _strip_gcode_root,
     async_reload_entry,
     async_setup_entry,
     async_unload_entry,
@@ -30,6 +33,77 @@ def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
     with patch("custom_components.moonraker.MoonrakerApiClient.start"):
         yield
+
+
+def test_normalize_gcode_path_empty():
+    """Return empty parts for empty input."""
+    assert _normalize_gcode_path("") == ("", None)
+    assert _normalize_gcode_path(None) == ("", None)
+
+
+def test_normalize_gcode_path_with_root_prefix():
+    """Strip gcodes root from relative paths."""
+    filename, root = _normalize_gcode_path("gcodes/subdir/file.gcode")
+    assert filename == "subdir/file.gcode"
+    assert root == "gcodes"
+
+
+def test_normalize_gcode_path_with_absolute_path():
+    """Extract gcodes root from absolute paths."""
+    filename, root = _normalize_gcode_path(
+        "/home/user/printer_data/gcodes/subdir/file.gcode"
+    )
+    assert filename == "subdir/file.gcode"
+    assert root == "gcodes"
+
+
+def test_strip_gcode_root_prefix():
+    """Strip root prefix from thumbnail paths."""
+    assert _strip_gcode_root("gcodes/.thumbs/file.png", "gcodes") == ".thumbs/file.png"
+
+
+def test_strip_gcode_root_absolute():
+    """Strip root prefix when embedded in an absolute path."""
+    assert (
+        _strip_gcode_root("/home/user/gcodes/.thumbs/file.png", "gcodes")
+        == ".thumbs/file.png"
+    )
+
+
+def test_strip_gcode_root_without_root():
+    """Leave paths untouched when no root is provided."""
+    assert (
+        _strip_gcode_root("subfolder/.thumbs/file.png", None)
+        == "subfolder/.thumbs/file.png"
+    )
+
+
+def test_strip_gcode_root_without_root_prefix():
+    """Strip gcodes prefix even without an explicit root."""
+    assert _strip_gcode_root("gcodes/.thumbs/file.png", None) == ".thumbs/file.png"
+
+
+def test_build_thumbnail_path_reuses_existing_dir():
+    """Avoid duplicating directory segments."""
+    assert (
+        _build_thumbnail_path("subfolder", "subfolder/.thumbs/file.png", "gcodes")
+        == "subfolder/.thumbs/file.png"
+    )
+
+
+def test_build_thumbnail_path_joins_dir():
+    """Join the gcode directory when thumbnails are relative."""
+    assert (
+        _build_thumbnail_path("subfolder", ".thumbs/file.png", "gcodes")
+        == "subfolder/.thumbs/file.png"
+    )
+
+
+def test_build_thumbnail_path_strips_dot_prefix():
+    """Trim leading ./ for URL usage."""
+    assert (
+        _build_thumbnail_path("", "./.thumbs/file.png", "gcodes") == ".thumbs/file.png"
+    )
 
 
 async def test_setup_unload_and_reload_entry(hass):

@@ -1023,10 +1023,15 @@ def calculate_current_layer(data):
 
     print_stats = data["status"].get("print_stats", {})
     print_duration = print_stats.get("print_duration")
+    filename = print_stats.get("filename") or ""
+    if not filename:
+        filename = (
+            data["status"].get("virtual_sdcard", {}).get("file_path") or ""
+        )
 
     if (
         print_stats.get("state") != PRINTSTATES.PRINTING.value
-        or print_stats.get("filename") == ""
+        or filename == ""
         or print_duration is None
         or print_duration <= 0
     ):
