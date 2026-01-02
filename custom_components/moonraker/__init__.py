@@ -413,7 +413,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             )
             return return_gcode
         except Exception as ex:
-            _LOGGER.warning("failed to get thumbnails  {%s}", ex)
+            _LOGGER.warning("failed to get thumbnails {%s}", ex)
             _LOGGER.warning("Query Object {%s}", query_object)
             _LOGGER.warning("gcode {%s}", gcode)
             return return_gcode
