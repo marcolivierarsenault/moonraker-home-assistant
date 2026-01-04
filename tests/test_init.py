@@ -189,6 +189,47 @@ async def test_gcode_detail_missing_thumbnails_skips_warning(hass, caplog):
     assert "failed to get thumbnails" not in caplog.text
 
 
+async def test_gcode_detail_thumbnail_selection_ignores_invalid_entries(hass):
+    """Pick the best thumbnail while ignoring invalid entries."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=MagicMock(), config_entry=config_entry, api_device_name="printer"
+    )
+    gcode_data = {
+        "thumbnails": [
+            "not-a-dict",
+            {"size": 12},
+            {"relative_path": ".thumbs/fallback.png", "size": "bad"},
+            {"relative_path": ".thumbs/best.png", "size": 999},
+        ]
+    }
+    coordinator._async_fetch_data = AsyncMock(return_value=gcode_data)
+
+    result = await coordinator._async_get_gcode_file_detail("subdir/file.gcode")
+
+    coordinator._async_fetch_data.assert_awaited_once_with(
+        METHODS.SERVER_FILES_METADATA, {"filename": "subdir/file.gcode"}
+    )
+    assert result["thumbnails_path"] == "subdir/.thumbs/best.png"
+
+
+async def test_gcode_detail_thumbnail_selection_missing_paths(hass):
+    """Return without thumbnail when no valid paths are provided."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=MagicMock(), config_entry=config_entry, api_device_name="printer"
+    )
+    gcode_data = {"thumbnails": ["not-a-dict", {"size": 12}, {"relative_path": ""}]}
+    coordinator._async_fetch_data = AsyncMock(return_value=gcode_data)
+
+    result = await coordinator._async_get_gcode_file_detail("file.gcode")
+
+    coordinator._async_fetch_data.assert_awaited_once_with(
+        METHODS.SERVER_FILES_METADATA, {"filename": "file.gcode"}
+    )
+    assert result["thumbnails_path"] is None
+
+
 async def test_setup_unload_and_reload_entry(hass):
     """Test entry setup and unload."""
     # Create a mock entry so we don't have to go through config flow
