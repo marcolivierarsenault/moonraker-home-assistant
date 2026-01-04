@@ -399,24 +399,42 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         return_gcode["gcode_start_byte"] = gcode.get("gcode_start_byte")
         return_gcode["gcode_end_byte"] = gcode.get("gcode_end_byte")
 
-        try:
-            # Keep last since this can fail but, we still want the other data
-            path = gcode["thumbnails"][len(gcode["thumbnails"]) - 1]["relative_path"]
-            thumbnailSize = 0
-            for t in gcode["thumbnails"]:
-                if t["size"] > thumbnailSize:
-                    thumbnailSize = t["size"]
-                    path = t["relative_path"]
+        thumbnails = gcode.get("thumbnails")
+        if not thumbnails or not isinstance(thumbnails, list):
+            return return_gcode
 
-            return_gcode["thumbnails_path"] = _build_thumbnail_path(
-                dirname, path, root
-            )
+        best_path = None
+        best_size = -1.0
+        for thumbnail in thumbnails:
+            if not isinstance(thumbnail, dict):
+                continue
+            relative_path = thumbnail.get("relative_path")
+            if not relative_path:
+                continue
+            size = thumbnail.get("size")
+            size_value = None
+            if size is not None:
+                try:
+                    size_value = float(size)
+                except (TypeError, ValueError):
+                    size_value = None
+
+            if size_value is None:
+                if best_path is None:
+                    best_path = relative_path
+                continue
+
+            if size_value > best_size:
+                best_size = size_value
+                best_path = relative_path
+
+        if not best_path:
             return return_gcode
-        except Exception as ex:
-            _LOGGER.warning("failed to get thumbnails {%s}", ex)
-            _LOGGER.warning("Query Object {%s}", query_object)
-            _LOGGER.warning("gcode {%s}", gcode)
-            return return_gcode
+
+        return_gcode["thumbnails_path"] = _build_thumbnail_path(
+            dirname, best_path, root
+        )
+        return return_gcode
 
     async def _async_fetch_data(
         self, query_path: METHODS, query_object, quiet: bool = False
