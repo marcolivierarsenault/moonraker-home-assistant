@@ -1,9 +1,11 @@
 """Test moonraker setup process."""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+import logging
 from datetime import timedelta
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 from custom_components.moonraker.const import PRINTSTATES
 
 from homeassistant.exceptions import ConfigEntryNotReady
@@ -149,6 +151,83 @@ async def test_gcode_detail_skips_empty_normalized_filename(hass):
 
     assert result["thumbnails_path"] is None
     assert result["layer_count"] is None
+
+
+async def test_gcode_detail_missing_thumbnails_skips_warning(hass, caplog):
+    """Missing thumbnail metadata should not emit warnings."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=MagicMock(), config_entry=config_entry, api_device_name="printer"
+    )
+    gcode_data = {
+        "estimated_time": 10,
+        "object_height": 5.5,
+        "filament_total": 1.2,
+        "layer_count": 20,
+        "layer_height": 0.2,
+        "first_layer_height": 0.3,
+        "gcode_start_byte": 100,
+        "gcode_end_byte": 200,
+    }
+    coordinator._async_fetch_data = AsyncMock(return_value=gcode_data)
+
+    with caplog.at_level(logging.WARNING):
+        result = await coordinator._async_get_gcode_file_detail("example.gcode")
+
+    coordinator._async_fetch_data.assert_awaited_once_with(
+        METHODS.SERVER_FILES_METADATA, {"filename": "example.gcode"}
+    )
+    assert result["thumbnails_path"] is None
+    assert result["estimated_time"] == 10
+    assert result["object_height"] == 5.5
+    assert result["filament_total"] == 1.2
+    assert result["layer_count"] == 20
+    assert result["layer_height"] == 0.2
+    assert result["first_layer_height"] == 0.3
+    assert result["gcode_start_byte"] == 100
+    assert result["gcode_end_byte"] == 200
+    assert "failed to get thumbnails" not in caplog.text
+
+
+async def test_gcode_detail_thumbnail_selection_ignores_invalid_entries(hass):
+    """Pick the best thumbnail while ignoring invalid entries."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=MagicMock(), config_entry=config_entry, api_device_name="printer"
+    )
+    gcode_data = {
+        "thumbnails": [
+            "not-a-dict",
+            {"size": 12},
+            {"relative_path": ".thumbs/fallback.png", "size": "bad"},
+            {"relative_path": ".thumbs/best.png", "size": 999},
+        ]
+    }
+    coordinator._async_fetch_data = AsyncMock(return_value=gcode_data)
+
+    result = await coordinator._async_get_gcode_file_detail("subdir/file.gcode")
+
+    coordinator._async_fetch_data.assert_awaited_once_with(
+        METHODS.SERVER_FILES_METADATA, {"filename": "subdir/file.gcode"}
+    )
+    assert result["thumbnails_path"] == "subdir/.thumbs/best.png"
+
+
+async def test_gcode_detail_thumbnail_selection_missing_paths(hass):
+    """Return without thumbnail when no valid paths are provided."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=MagicMock(), config_entry=config_entry, api_device_name="printer"
+    )
+    gcode_data = {"thumbnails": ["not-a-dict", {"size": 12}, {"relative_path": ""}]}
+    coordinator._async_fetch_data = AsyncMock(return_value=gcode_data)
+
+    result = await coordinator._async_get_gcode_file_detail("file.gcode")
+
+    coordinator._async_fetch_data.assert_awaited_once_with(
+        METHODS.SERVER_FILES_METADATA, {"filename": "file.gcode"}
+    )
+    assert result["thumbnails_path"] is None
 
 
 async def test_setup_unload_and_reload_entry(hass):
