@@ -1042,7 +1042,8 @@ def calculate_current_layer(data):
 
     calculated_layer = 0
     layer_height = data.get("layer_height")
-    if layer_height and layer_height > 0:
+    if layer_height and float(layer_height) > 0:
+        layer_height = float(layer_height)
         toolhead = data["status"].get("toolhead", {})
         position = toolhead.get("position")
         if position and len(position) >= 3:
