@@ -6,6 +6,6 @@ colorlog==6.10.1
 furo==2025.12.19
 ruff==0.14.10
 ha-ffmpeg==3.2.2
-sphinx-toolbox==4.1.0
+sphinx-toolbox==4.1.1
 bump2version==1.0.1
 PyTurboJPEG==1.8.2
