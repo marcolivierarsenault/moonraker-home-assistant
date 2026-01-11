@@ -388,14 +388,14 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
         "bme280",
         "htu21d",
         "lm75",
-    	"aht10",
-    	"sht3x", 
+        "aht10",
+        "sht3x", 
     ]
     environmental_keys = [
-    	"bme280", 
-    	"htu21d", 
-    	"aht10",
-    	"sht3x",
+        "bme280", 
+        "htu21d", 
+        "aht10",
+        "sht3x",
     ]
     fan_keys = ["heater_fan", "controller_fan", "fan_generic"]
 
