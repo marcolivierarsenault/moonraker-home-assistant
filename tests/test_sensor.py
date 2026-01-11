@@ -778,6 +778,22 @@ async def test_current_layer_calculated_layer_height_str():
     assert calculate_current_layer(data) == 42
 
 
+async def test_current_layer_info_float_str():
+    """Return current layer when the info value is a float string."""
+    data = {
+        "status": {
+            "print_stats": {
+                "state": PRINTSTATES.PRINTING.value,
+                "filename": "TheUniverse.gcode",
+                "print_duration": 120,
+                "info": {"current_layer": "22.0"},
+            }
+        },
+        "layer_height": 0,
+    }
+    assert calculate_current_layer(data) == 22
+
+
 async def test_current_layer_calculated_layer_height_0():
     """Test."""
     data = {
@@ -987,9 +1003,9 @@ async def test_update_no_info_item(hass, get_machine_update_status):
 
 async def test_optional_sensor_is_none(hass, get_default_api_response):
     """Test."""
-    get_default_api_response["status"]["temperature_sensor mcu_temp"]["temperature"] = (
-        None
-    )
+    get_default_api_response["status"]["temperature_sensor mcu_temp"][
+        "temperature"
+    ] = None
     del get_default_api_response["queued_jobs"]
 
     with patch(
