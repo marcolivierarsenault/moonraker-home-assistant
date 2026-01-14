@@ -709,9 +709,11 @@ Create a **Template Sensor** helper in Home Assistant.
 - **State template** (shows friendly filament name)
 - Add an attribute called ``color`` (hex color for the dot)
 
-.. collapse:: State template
+.. collapse:: Template Sensor helper (State + Availability)
 
-  .. code-block:: State
+  .. rubric:: State template
+
+  .. code-block:: jinja
 
         {% set sid = states('sensor.moonraker_spool_id') | int(0) %}
         {% if sid == 0 %}
@@ -721,7 +723,9 @@ Create a **Template Sensor** helper in Home Assistant.
           {{ state_attr(eid, 'friendly_name') or ('Spool ' ~ sid) }}
         {% endif %}
 
-  .. code-block:: Availability template
+  .. rubric:: Availability template
+
+  .. code-block:: jinja
 
         {% set sid = states('sensor.moonraker_spool_id') %}
         {% set ok_sid = sid not in ['unknown','unavailable','none','', None] %}
@@ -734,7 +738,7 @@ Create a **Template Sensor** helper in Home Assistant.
 
 .. collapse:: Attribute template (key: color)
 
-  .. code-block:: Attribute
+  .. code-block:: jinja
 
       {% set sid = states('sensor.moonraker_spool_id') | int(0) %}
       {% if sid == 0 %}
