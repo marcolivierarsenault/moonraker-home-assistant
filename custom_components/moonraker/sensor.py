@@ -906,6 +906,13 @@ def _as_int(value) -> int | None:
         return None
 
 
+def _as_float(value) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def calculate_print_progress(data) -> float:
     """Calculate print progress using file-relative progress when available."""
     if not isinstance(data, dict):
@@ -1037,23 +1044,27 @@ def calculate_current_layer(data):
     ):
         return 0
 
-    info = print_stats.get("info") or {}
-    current_layer = info.get("current_layer")
+    info = print_stats.get("info")
+    if not isinstance(info, dict):
+        info = {}
+
+    current_layer_raw = info.get("current_layer")
+    current_layer = _as_int(current_layer_raw)
+    if current_layer is None:
+        current_layer_float = _as_float(current_layer_raw)
+        if current_layer_float is not None:
+            current_layer = int(current_layer_float)
 
     calculated_layer = 0
-    layer_height = data.get("layer_height")
-    if layer_height and float(layer_height) > 0:
-        layer_height = float(layer_height)
+    layer_height = _as_float(data.get("layer_height"))
+    if layer_height is not None and layer_height > 0:
         toolhead = data["status"].get("toolhead", {})
         position = toolhead.get("position")
         if position and len(position) >= 3:
-            first_layer_height = data.get("first_layer_height")
+            first_layer_height = _as_float(data.get("first_layer_height"))
             if first_layer_height is None:
                 first_layer_height = layer_height
-            try:
-                z_height = float(position[2])
-            except (TypeError, ValueError):
-                z_height = None
+            z_height = _as_float(position[2])
 
             if z_height is not None:
                 progress_height = z_height - (first_layer_height or 0)
