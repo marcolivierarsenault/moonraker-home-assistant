@@ -253,15 +253,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
         key="total_layer",
         name="Total Layer",
         value_fn=lambda sensor: sensor.empty_result_when_not_printing(
-            sensor.coordinator.data["status"]["print_stats"]["info"]["total_layer"]
-            if sensor.coordinator.data["status"]["print_stats"]["info"] is not None
-            and "total_layer"
-            in sensor.coordinator.data["status"]["print_stats"]["info"]
-            and sensor.coordinator.data["status"]["print_stats"]["info"]["total_layer"]
-            is not None
-            and sensor.coordinator.data["status"]["print_stats"]["info"]["total_layer"]
-            > 0
-            else sensor.coordinator.data["layer_count"]
+            calculate_total_layer(sensor.coordinator.data)
         ),
         subscriptions=[("print_stats", "info", "total_layer")],
         icon="mdi:layers-triple",
@@ -906,6 +898,26 @@ def _as_int(value) -> int | None:
         return None
 
 
+def _coerce_positive_float(value) -> float | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+
+    if number <= 0:
+        return None
+
+    return number
+
+
+def _coerce_positive_int(value) -> int | None:
+    number = _coerce_positive_float(value)
+    if number is None:
+        return None
+
+    return int(round(number, 0))
+
+
 def calculate_print_progress(data) -> float:
     """Calculate print progress using file-relative progress when available."""
     if not isinstance(data, dict):
@@ -1069,6 +1081,33 @@ def calculate_current_layer(data):
 
     if current_layer is not None:
         return current_layer
+
+    return 0
+
+
+def calculate_total_layer(data):
+    """Calculate total layer."""
+    print_stats = data.get("status", {}).get("print_stats", {})
+    info = print_stats.get("info") or {}
+
+    info_total_layer = _coerce_positive_int(info.get("total_layer"))
+    if info_total_layer:
+        return info_total_layer
+
+    layer_count = _coerce_positive_int(data.get("layer_count"))
+    if layer_count:
+        return layer_count
+
+    layer_height = _coerce_positive_float(data.get("layer_height"))
+    object_height = _coerce_positive_float(data.get("object_height"))
+    if layer_height and object_height:
+        first_layer_height = _coerce_positive_float(data.get("first_layer_height"))
+        if not first_layer_height:
+            first_layer_height = layer_height
+
+        remaining_height = max(0.0, object_height - first_layer_height)
+        total_layers = int(round(remaining_height / layer_height, 0)) + 1
+        return max(total_layers, 0)
 
     return 0
 

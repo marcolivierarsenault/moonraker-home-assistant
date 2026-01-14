@@ -17,6 +17,7 @@ from custom_components.moonraker.sensor import (
     calculate_current_layer,
     calculate_pct_job,
     calculate_print_progress,
+    calculate_total_layer,
     format_idle_timeout_state,
 )
 
@@ -724,6 +725,48 @@ async def test_total_layer_in_info_is_none(hass, get_data):
     assert state.state == "313"
 
 
+async def test_total_layer_parses_string_info():
+    """Use total layer reported as a string."""
+    data = {"status": {"print_stats": {"info": {"total_layer": "12"}}}}
+
+    assert calculate_total_layer(data) == 12
+
+
+async def test_total_layer_uses_layer_count_string():
+    """Fallback to parsed layer count when info is empty."""
+    data = {
+        "status": {"print_stats": {"info": {"total_layer": 0}}},
+        "layer_count": "33.0",
+    }
+
+    assert calculate_total_layer(data) == 33
+
+
+async def test_total_layer_calculated_from_object_height():
+    """Calculate total layers using height metadata."""
+    data = {
+        "status": {"print_stats": {"info": {"total_layer": 0}}},
+        "layer_count": 0,
+        "object_height": 8.4,
+        "layer_height": 0.2,
+        "first_layer_height": None,
+    }
+
+    assert calculate_total_layer(data) == 42
+
+
+async def test_total_layer_invalid_metadata_returns_zero():
+    """Return zero when height metadata is not usable."""
+    data = {
+        "status": {"print_stats": {"info": {"total_layer": 0}}},
+        "layer_count": 0,
+        "object_height": "bad",
+        "layer_height": "bad",
+    }
+
+    assert calculate_total_layer(data) == 0
+
+
 async def test_missing_estimated_time(hass, get_data, get_printer_info):
     """Test."""
     del get_data["estimated_time"]
@@ -987,9 +1030,9 @@ async def test_update_no_info_item(hass, get_machine_update_status):
 
 async def test_optional_sensor_is_none(hass, get_default_api_response):
     """Test."""
-    get_default_api_response["status"]["temperature_sensor mcu_temp"]["temperature"] = (
-        None
-    )
+    get_default_api_response["status"]["temperature_sensor mcu_temp"][
+        "temperature"
+    ] = None
     del get_default_api_response["queued_jobs"]
 
     with patch(
