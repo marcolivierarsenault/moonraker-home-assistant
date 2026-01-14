@@ -1013,3 +1013,137 @@ async def test_optional_sensor_is_none(hass, get_default_api_response):
 
     entity = entity_registry.async_get("sensor.mainsail_jobs_in_queue")
     assert entity is None
+
+
+async def test_spoolman_spool_id_sensor_created(hass, get_default_api_response):
+    spoolman_status = {
+        "spoolman_connected": True,
+        "pending_reports": [],
+        "spool_id": 1,  # arbitrary test value
+    }
+
+    def _call_method_side_effect(method, *args, **kwargs):
+        if method == "server.spoolman.status":
+            return spoolman_status
+        return {**get_default_api_response}
+
+    with patch(
+            "moonraker_api.MoonrakerClient.call_method",
+            side_effect=_call_method_side_effect,
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    entity_registry = get_entity_registry(hass)
+    entries = er.async_entries_for_config_entry(entity_registry, config_entry.entry_id)
+
+    spool_entry = next(
+        (e for e in entries if e.unique_id == f"{config_entry.entry_id}_spool_id"),
+        None,
+    )
+    assert spool_entry is not None
+
+    state = hass.states.get(spool_entry.entity_id)
+    assert state is not None
+    assert state.state == "1"
+
+
+async def test_spoolman_spool_id_sensor_not_created_on_error(hass, get_default_api_response):
+    spoolman_status = {"error": "not configured"}
+
+    def _call_method_side_effect(method, *args, **kwargs):
+        if method == "server.spoolman.status":
+            return spoolman_status
+        return {**get_default_api_response}
+
+    with patch(
+            "moonraker_api.MoonrakerClient.call_method",
+            side_effect=_call_method_side_effect,
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    entity_registry = get_entity_registry(hass)
+    entries = er.async_entries_for_config_entry(entity_registry, config_entry.entry_id)
+
+    spool_entry = next(
+        (e for e in entries if e.unique_id == f"{config_entry.entry_id}_spool_id"),
+        None,
+    )
+    assert spool_entry is None
+
+async def test_spoolman_spool_id_sensor_null_value(hass, get_default_api_response):
+    """Spool ID sensor exists but is unknown when Moonraker returns null spool_id."""
+    spoolman_status = {
+        "spoolman_connected": True,
+        "pending_reports": [],
+        "spool_id": None,
+    }
+
+    def _call_method_side_effect(method, *args, **kwargs):
+        if method == "server.spoolman.status":
+            return spoolman_status
+        return {**get_default_api_response}
+
+    with patch(
+            "moonraker_api.MoonrakerClient.call_method",
+            side_effect=_call_method_side_effect,
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    entity_registry = get_entity_registry(hass)
+    entries = er.async_entries_for_config_entry(entity_registry, config_entry.entry_id)
+
+    spool_entry = next(
+        (e for e in entries if e.unique_id == f"{config_entry.entry_id}_spool_id"),
+        None,
+    )
+    assert spool_entry is not None
+
+    state = hass.states.get(spool_entry.entity_id)
+    assert state is not None
+    # When native_value is None, HA state shows as "unknown"
+    assert state.state == "unknown"
+
+
+async def test_spoolman_spool_id_sensor_null_value(hass, get_default_api_response):
+    spoolman_status = {
+        "spoolman_connected": True,
+        "pending_reports": [],
+        "spool_id": None,
+    }
+
+    def _call_method_side_effect(method, *args, **kwargs):
+        if method == "server.spoolman.status":
+            return spoolman_status
+        return {**get_default_api_response}
+
+    with patch(
+            "moonraker_api.MoonrakerClient.call_method",
+            side_effect=_call_method_side_effect,
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    entity_registry = get_entity_registry(hass)
+    entries = er.async_entries_for_config_entry(entity_registry, config_entry.entry_id)
+
+    spool_entry = next(
+        (e for e in entries if e.unique_id == f"{config_entry.entry_id}_spool_id"),
+        None,
+    )
+    assert spool_entry is not None
+
+    state = hass.states.get(spool_entry.entity_id)
+    assert state is not None
+    # When native_value is None, HA state shows as "unknown"
+    assert state.state == "unknown"
