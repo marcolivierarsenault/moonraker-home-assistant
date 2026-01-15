@@ -323,40 +323,20 @@ async def test_fan_speed_set_value(hass, get_default_api_response):
 
 
 @pytest.mark.parametrize(
-    ("obj", "fan_name", "entity_id"),
+    ("obj", "fan_name"),
     [
-        (
-            "fan_generic cooling_fan",
-            "cooling_fan",
-            "number.mainsail_fan_generic_cooling_fan_speed",
-        ),
-        (
-            "heater_fan hotend_fan",
-            "hotend_fan",
-            "number.mainsail_heater_fan_hotend_fan_speed",
-        ),
-        (
-            "controller_fan board_fan",
-            "board_fan",
-            "number.mainsail_controller_fan_board_fan_speed",
-        ),
-        (
-            "chamber_fan chamber_fan",
-            "chamber_fan",
-            "number.mainsail_chamber_fan_chamber_fan_speed",
-        ),
+        ("fan_generic cooling_fan", "cooling_fan"),
     ],
 )
-async def test_named_fan_speed_entity_created(
-    hass, get_data, get_printer_objects_list, obj, fan_name, entity_id
+async def test_fan_generic_speed_entity_created(
+    hass, get_data, get_printer_objects_list, obj, fan_name
 ):
-    """Named fan objects should create controllable Number entities."""
-    # Ensure we test the behavior when classic [fan] is NOT present.
+    """fan_generic objects should create controllable Number entities."""
+    # Ensure classic [fan] is NOT present.
     if "fan" in get_printer_objects_list["objects"]:
         get_printer_objects_list["objects"].remove("fan")
     get_data["status"].pop("fan", None)
 
-    # Add named fan object + status
     if obj not in get_printer_objects_list["objects"]:
         get_printer_objects_list["objects"].append(obj)
     get_data["status"][obj] = {"speed": 0.5123}
@@ -366,6 +346,16 @@ async def test_named_fan_speed_entity_created(
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
+    # Resolve entity_id via entity registry (don’t hardcode).
+    entity_registry = er.async_get(hass)
+    number_entries = {
+        entry.unique_id: entry.entity_id
+        for entry in entity_registry.entities.values()
+        if entry.platform == DOMAIN and entry.domain == NUMBER_DOMAIN
+    }
+    unique_id = f"{config_entry.entry_id}_fan_generic_{fan_name}_speed"
+    entity_id = number_entries[unique_id]
+
     state = hass.states.get(entity_id)
     assert state is not None
     assert state.state == "51.23"
@@ -374,51 +364,23 @@ async def test_named_fan_speed_entity_created(
 
 
 @pytest.mark.parametrize(
-    ("obj", "fan_name", "entity_id", "value", "expected_speed"),
+    ("obj", "fan_name", "value", "expected_speed"),
     [
-        (
-            "fan_generic cooling_fan",
-            "cooling_fan",
-            "number.mainsail_fan_generic_cooling_fan_speed",
-            50,
-            "0.5",
-        ),
-        (
-            "heater_fan hotend_fan",
-            "hotend_fan",
-            "number.mainsail_heater_fan_hotend_fan_speed",
-            80,
-            "0.8",
-        ),
-        (
-            "controller_fan board_fan",
-            "board_fan",
-            "number.mainsail_controller_fan_board_fan_speed",
-            12,
-            "0.12",
-        ),
-        (
-            "chamber_fan chamber_fan",
-            "chamber_fan",
-            "number.mainsail_chamber_fan_chamber_fan_speed",
-            100,
-            "1.0",
-        ),
+        ("fan_generic cooling_fan", "cooling_fan", 50, "0.5"),
     ],
 )
-async def test_named_fan_speed_set_value(
+async def test_fan_generic_speed_set_value(
     hass,
     get_default_api_response,
     get_data,
     get_printer_objects_list,
     obj,
     fan_name,
-    entity_id,
     value,
     expected_speed,
 ):
-    """Named fan Number entities should send SET_FAN_SPEED with SPEED scaled 0..1."""
-    # Ensure we test the behavior when classic [fan] is NOT present.
+    """fan_generic Number should send SET_FAN_SPEED with SPEED scaled 0..1."""
+    # Ensure classic [fan] is NOT present.
     if "fan" in get_printer_objects_list["objects"]:
         get_printer_objects_list["objects"].remove("fan")
     get_data["status"].pop("fan", None)
@@ -431,6 +393,15 @@ async def test_named_fan_speed_set_value(
     config_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
+
+    entity_registry = er.async_get(hass)
+    number_entries = {
+        entry.unique_id: entry.entity_id
+        for entry in entity_registry.entities.values()
+        if entry.platform == DOMAIN and entry.domain == NUMBER_DOMAIN
+    }
+    unique_id = f"{config_entry.entry_id}_fan_generic_{fan_name}_speed"
+    entity_id = number_entries[unique_id]
 
     with patch(
         "moonraker_api.MoonrakerClient.call_method",

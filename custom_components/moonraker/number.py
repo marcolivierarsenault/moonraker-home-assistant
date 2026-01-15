@@ -246,7 +246,7 @@ async def async_setup_fan_speed(coordinator, entry, async_add_entities):
         )
 
     # Named fans: fan_generic / heater_fan / controller_fan / chamber_fan
-    prefixes = ("fan ", "fan_generic ")
+    prefixes = ("fan_generic ",)
     for obj in objects:
         if not obj.startswith(prefixes):
             continue
