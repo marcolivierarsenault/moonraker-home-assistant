@@ -422,46 +422,44 @@ async def test_fan_generic_speed_set_value(
 
 
 async def test_fan_speed_no_supported_fans(hass, get_data, get_printer_objects_list):
-    """Fan speed setup should exit early when no controllable fans are exposed."""
+    """Exit early when no controllable fan objects are present."""
 
-    # Remove classic fan (if present)
-    if "fan" in get_printer_objects_list["objects"]:
-        get_printer_objects_list["objects"].remove("fan")
-    get_data["status"].pop("fan", None)
+    def _objects_list(payload: dict) -> list:
+        if "objects" in payload:
+            return payload["objects"]
+        return payload["result"]["objects"]
 
-    # Remove all fan_generic <name> objects
-    get_printer_objects_list["objects"] = [
+    objects = _objects_list(get_printer_objects_list)
+
+    # Remove all objects that could create fan speed number entities
+    objects[:] = [
         obj
-        for obj in get_printer_objects_list["objects"]
-        if not obj.startswith("fan_generic ")
+        for obj in objects
+        if obj != "fan"
+        and not obj.startswith("fan_generic ")
+        and not obj.startswith("fan ")
     ]
-    for key in list(get_data["status"].keys()):
-        if key.startswith("fan_generic "):
-            get_data["status"].pop(key)
 
-    config_entry = MockConfigEntry(
-        domain=DOMAIN,
-        data={
-            "host": "test.local",
-            "port": 80,
-            "path": "/",
-            "unique_id": "1234",
-        },
-        entry_id="1234",
-    )
+    # Also remove their status blocks if present
+    status = get_data.get("status", {})
+    for key in list(status.keys()):
+        if key == "fan" or key.startswith("fan_generic ") or key.startswith("fan "):
+            status.pop(key, None)
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
 
     assert await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
-    # Ensure no fan number entities were created
+    # Only assert fan *speed* numbers are absent (temperature_fan targets may still exist)
     ent_reg = er.async_get(hass)
-    fan_numbers = [
+    fan_speed_numbers = [
         entity_id
         for entity_id in ent_reg.entities
-        if entity_id.startswith("number.") and "fan" in entity_id
+        if entity_id.startswith("number.mainsail_") and "fan_speed" in entity_id
     ]
-    assert fan_numbers == []
+    assert fan_speed_numbers == []
 
 
 async def test_temperature_targets_handle_none(hass, get_data):
