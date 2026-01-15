@@ -359,6 +359,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     await async_setup_history_sensors(coordinator, entry, async_add_entities)
     await async_setup_machine_update_sensors(coordinator, entry, async_add_entities)
     await async_setup_queue_sensors(coordinator, entry, async_add_entities)
+    await async_setup_spoolman_sensors(coordinator, entry, async_add_entities)
 
 
 async def _machine_system_info_updater(coordinator):
@@ -750,6 +751,36 @@ async def async_setup_queue_sensors(coordinator, entry, async_add_entities):
             unit="Jobs",
             state_class=SensorStateClass.MEASUREMENT,
             suggested_display_precision=0,
+        ),
+    ]
+
+    coordinator.load_sensor_data(sensors)
+    await coordinator.async_refresh()
+    async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
+
+
+async def _spoolman_updater(coordinator):
+    return {
+        "spoolman": await coordinator.async_fetch_data(
+            METHODS.SERVER_SPOOLMAN_ID
+        )
+    }
+
+
+async def async_setup_spoolman_sensors(coordinator, entry, async_add_entities):
+    """Spoolman sensors."""
+    spoolman = await coordinator.async_fetch_data(METHODS.SERVER_SPOOLMAN_ID)
+    if spoolman.get("error"):
+        return
+
+    coordinator.add_data_updater(_spoolman_updater)
+
+    sensors = [
+        MoonrakerSensorDescription(
+            key="spool_id",
+            name="Spool ID",
+            value_fn=lambda sensor: sensor.coordinator.data["spoolman"]["spool_id"],
+            subscriptions=[("spool_id")],
         ),
     ]
 
