@@ -322,6 +322,134 @@ async def test_fan_speed_set_value(hass, get_default_api_response):
         )
 
 
+@pytest.mark.parametrize(
+    ("obj", "fan_name", "entity_id"),
+    [
+        (
+            "fan_generic cooling_fan",
+            "cooling_fan",
+            "number.mainsail_fan_generic_cooling_fan_speed",
+        ),
+        (
+            "heater_fan hotend_fan",
+            "hotend_fan",
+            "number.mainsail_heater_fan_hotend_fan_speed",
+        ),
+        (
+            "controller_fan board_fan",
+            "board_fan",
+            "number.mainsail_controller_fan_board_fan_speed",
+        ),
+        (
+            "chamber_fan chamber_fan",
+            "chamber_fan",
+            "number.mainsail_chamber_fan_chamber_fan_speed",
+        ),
+    ],
+)
+async def test_named_fan_speed_entity_created(
+    hass, get_data, get_printer_objects_list, obj, fan_name, entity_id
+):
+    """Named fan objects should create controllable Number entities."""
+    # Ensure we test the behavior when classic [fan] is NOT present.
+    if "fan" in get_printer_objects_list["objects"]:
+        get_printer_objects_list["objects"].remove("fan")
+    get_data["status"].pop("fan", None)
+
+    # Add named fan object + status
+    if obj not in get_printer_objects_list["objects"]:
+        get_printer_objects_list["objects"].append(obj)
+    get_data["status"][obj] = {"speed": 0.5123}
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.state == "51.23"
+    assert state.attributes["unit_of_measurement"] == "%"
+    assert state.attributes["icon"] == "mdi:fan"
+
+
+@pytest.mark.parametrize(
+    ("obj", "fan_name", "entity_id", "value", "expected_speed"),
+    [
+        (
+            "fan_generic cooling_fan",
+            "cooling_fan",
+            "number.mainsail_fan_generic_cooling_fan_speed",
+            50,
+            "0.5",
+        ),
+        (
+            "heater_fan hotend_fan",
+            "hotend_fan",
+            "number.mainsail_heater_fan_hotend_fan_speed",
+            80,
+            "0.8",
+        ),
+        (
+            "controller_fan board_fan",
+            "board_fan",
+            "number.mainsail_controller_fan_board_fan_speed",
+            12,
+            "0.12",
+        ),
+        (
+            "chamber_fan chamber_fan",
+            "chamber_fan",
+            "number.mainsail_chamber_fan_chamber_fan_speed",
+            100,
+            "1.0",
+        ),
+    ],
+)
+async def test_named_fan_speed_set_value(
+    hass,
+    get_default_api_response,
+    get_data,
+    get_printer_objects_list,
+    obj,
+    fan_name,
+    entity_id,
+    value,
+    expected_speed,
+):
+    """Named fan Number entities should send SET_FAN_SPEED with SPEED scaled 0..1."""
+    # Ensure we test the behavior when classic [fan] is NOT present.
+    if "fan" in get_printer_objects_list["objects"]:
+        get_printer_objects_list["objects"].remove("fan")
+    get_data["status"].pop("fan", None)
+
+    if obj not in get_printer_objects_list["objects"]:
+        get_printer_objects_list["objects"].append(obj)
+    get_data["status"][obj] = {"speed": 0.2}
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={**get_default_api_response},
+    ) as mock_api:
+        await hass.services.async_call(
+            NUMBER_DOMAIN,
+            SERVICE_SET_VALUE,
+            {ATTR_ENTITY_ID: entity_id, "value": value},
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+        mock_api.assert_called_once_with(
+            METHODS.PRINTER_GCODE_SCRIPT.value,
+            script=f"SET_FAN_SPEED FAN={fan_name} SPEED={expected_speed}",
+        )
+
+
 async def test_temperature_targets_handle_none(hass, get_data):
     """Ensure number entities handle None target values gracefully."""
     get_data["status"]["heater_bed"]["target"] = None
