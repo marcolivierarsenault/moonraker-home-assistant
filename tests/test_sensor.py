@@ -1032,6 +1032,7 @@ async def test_optional_sensor_is_none(hass, get_default_api_response):
 
 
 async def test_spoolman_spool_id_sensor_created(hass, get_default_api_response):
+    """Create Spool ID sensor when Moonraker/Klipper returns a spool_id."""
     spoolman_status = {
         "spoolman_connected": True,
         "pending_reports": [],
@@ -1044,8 +1045,8 @@ async def test_spoolman_spool_id_sensor_created(hass, get_default_api_response):
         return {**get_default_api_response}
 
     with patch(
-            "moonraker_api.MoonrakerClient.call_method",
-            side_effect=_call_method_side_effect,
+        "moonraker_api.MoonrakerClient.call_method",
+        side_effect=_call_method_side_effect,
     ):
         config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
         config_entry.add_to_hass(hass)
@@ -1066,7 +1067,10 @@ async def test_spoolman_spool_id_sensor_created(hass, get_default_api_response):
     assert state.state == "1"
 
 
-async def test_spoolman_spool_id_sensor_not_created_on_error(hass, get_default_api_response):
+async def test_spoolman_spool_id_sensor_not_created_on_error(
+    hass, get_default_api_response
+):
+    """Expose Spool ID sensor with state 'unknown' when Moonraker/Klipper returns null."""
     spoolman_status = {"error": "not configured"}
 
     def _call_method_side_effect(method, *args, **kwargs):
@@ -1075,8 +1079,8 @@ async def test_spoolman_spool_id_sensor_not_created_on_error(hass, get_default_a
         return {**get_default_api_response}
 
     with patch(
-            "moonraker_api.MoonrakerClient.call_method",
-            side_effect=_call_method_side_effect,
+        "moonraker_api.MoonrakerClient.call_method",
+        side_effect=_call_method_side_effect,
     ):
         config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
         config_entry.add_to_hass(hass)
@@ -1094,6 +1098,7 @@ async def test_spoolman_spool_id_sensor_not_created_on_error(hass, get_default_a
 
 
 async def test_spoolman_spool_id_sensor_null_value(hass, get_default_api_response):
+    """Do not create Spool ID sensor when Moonraker reports a spoolman error."""
     spoolman_status = {
         "spoolman_connected": True,
         "pending_reports": [],
@@ -1106,8 +1111,8 @@ async def test_spoolman_spool_id_sensor_null_value(hass, get_default_api_respons
         return {**get_default_api_response}
 
     with patch(
-            "moonraker_api.MoonrakerClient.call_method",
-            side_effect=_call_method_side_effect,
+        "moonraker_api.MoonrakerClient.call_method",
+        side_effect=_call_method_side_effect,
     ):
         config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
         config_entry.add_to_hass(hass)
