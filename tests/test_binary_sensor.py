@@ -239,3 +239,48 @@ async def test_update_available_missing_remote_version(hass):
     )
     sensor = MoonrakerBinarySensor(coordinator, config_entry, desc)
     assert sensor.is_on is False
+
+
+async def test_hall_filament_width_sensor_active_on(
+    hass, get_data, get_printer_objects_list
+):
+    """Hall filament width sensor exposes an 'Active' binary sensor."""
+    if "hall_filament_width_sensor" not in get_printer_objects_list["objects"]:
+        get_printer_objects_list["objects"].append("hall_filament_width_sensor")
+
+    get_data["status"]["hall_filament_width_sensor"] = {
+        "is_active": True,
+        # Keep other fields optional; implementation only reads is_active.
+        "Diameter": 1.75,
+        "Raw": 1234,
+    }
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("binary_sensor.mainsail_filament_width_sensor_active")
+    assert state is not None
+    assert state.state == "on"
+
+
+async def test_hall_filament_width_sensor_active_off(
+    hass, get_data, get_printer_objects_list
+):
+    """Active binary sensor turns off when is_active is False."""
+    if "hall_filament_width_sensor" not in get_printer_objects_list["objects"]:
+        get_printer_objects_list["objects"].append("hall_filament_width_sensor")
+
+    get_data["status"]["hall_filament_width_sensor"] = {"is_active": False}
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("binary_sensor.mainsail_filament_width_sensor_active")
+    assert state is not None
+    assert state.state == "off"

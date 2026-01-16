@@ -52,6 +52,27 @@ async def async_setup_optional_binary_sensors(coordinator, entry, async_add_enti
                 device_class=BinarySensorDeviceClass.OCCUPANCY,
             )
             sensors.append(desc)
+        elif split_obj[0] == "hall_filament_width_sensor":
+            # Klipper hall filament width sensor: enabled, filament_detected, is_active
+            # hall_filament_width_sensor may be unnamed (e.g. "hall_filament_width_sensor")
+            base_key = obj.replace(" ", "_")
+            base_name = (
+                split_obj[1].replace("_", " ").title()
+                if len(split_obj) > 1
+                else "Filament Width Sensor"
+            )
+            sensors.append(
+                MoonrakerBinarySensorDescription(
+                    key=f"{base_key}_active",
+                    sensor_name=obj,
+                    is_on_fn=lambda sensor: sensor.coordinator.data["status"][
+                        sensor.sensor_name
+                    ]["is_active"],
+                    name=f"{base_name} Active",
+                    subscriptions=[(obj, "is_active")],
+                    icon="mdi:motion-sensor",
+                )
+            )
 
     coordinator.load_sensor_data(sensors)
     await coordinator.async_refresh()
