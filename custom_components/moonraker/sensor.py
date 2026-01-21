@@ -351,6 +351,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     await async_setup_history_sensors(coordinator, entry, async_add_entities)
     await async_setup_machine_update_sensors(coordinator, entry, async_add_entities)
     await async_setup_queue_sensors(coordinator, entry, async_add_entities)
+    await async_setup_spoolman_sensors(coordinator, entry, async_add_entities)
 
 
 async def _machine_system_info_updater(coordinator):
@@ -750,6 +751,36 @@ async def async_setup_queue_sensors(coordinator, entry, async_add_entities):
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
 
 
+async def _spoolman_updater(coordinator):
+    return {
+        "spoolman": await coordinator.async_fetch_data(
+            METHODS.SERVER_SPOOLMAN_ID
+        )
+    }
+
+
+async def async_setup_spoolman_sensors(coordinator, entry, async_add_entities):
+    """Spoolman sensors."""
+    spoolman = await coordinator.async_fetch_data(METHODS.SERVER_SPOOLMAN_ID)
+    if spoolman.get("error"):
+        return
+
+    coordinator.add_data_updater(_spoolman_updater)
+
+    sensors = [
+        MoonrakerSensorDescription(
+            key="spool_id",
+            name="Spool ID",
+            value_fn=lambda sensor: sensor.coordinator.data["spoolman"]["spool_id"],
+            subscriptions=[("spool_id")],
+        ),
+    ]
+
+    coordinator.load_sensor_data(sensors)
+    await coordinator.async_refresh()
+    async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
+
+
 async def _machine_update_updater(coordinator):
     return {
         "machine_update": await coordinator.async_fetch_data(
@@ -917,6 +948,12 @@ def _coerce_positive_int(value) -> int | None:
 
     return int(round(number, 0))
 
+def _as_float(value) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
 
 def calculate_print_progress(data) -> float:
     """Calculate print progress using file-relative progress when available."""
@@ -1049,23 +1086,27 @@ def calculate_current_layer(data):
     ):
         return 0
 
-    info = print_stats.get("info") or {}
-    current_layer = info.get("current_layer")
+    info = print_stats.get("info")
+    if not isinstance(info, dict):
+        info = {}
+
+    current_layer_raw = info.get("current_layer")
+    current_layer = _as_int(current_layer_raw)
+    if current_layer is None:
+        current_layer_float = _as_float(current_layer_raw)
+        if current_layer_float is not None:
+            current_layer = int(current_layer_float)
 
     calculated_layer = 0
-    layer_height = data.get("layer_height")
-    if layer_height and float(layer_height) > 0:
-        layer_height = float(layer_height)
+    layer_height = _as_float(data.get("layer_height"))
+    if layer_height is not None and layer_height > 0:
         toolhead = data["status"].get("toolhead", {})
         position = toolhead.get("position")
         if position and len(position) >= 3:
-            first_layer_height = data.get("first_layer_height")
+            first_layer_height = _as_float(data.get("first_layer_height"))
             if first_layer_height is None:
                 first_layer_height = layer_height
-            try:
-                z_height = float(position[2])
-            except (TypeError, ValueError):
-                z_height = None
+            z_height = _as_float(position[2])
 
             if z_height is not None:
                 progress_height = z_height - (first_layer_height or 0)
