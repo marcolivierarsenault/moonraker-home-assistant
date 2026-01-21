@@ -204,6 +204,14 @@ def get_data_fixture():
             "lm75 lm75_temp": {
                 "temperature": 32.43,
             },
+            "aht10 aht10_temp": {
+                "temperature": 32.43,
+                "humidity": 42.0,
+            },
+            "sht3x sht3x_temp": {
+                "temperature": 32.43,
+                "humidity": 43.0,
+            },
             "display_status": {
                 "progress": 0.9078104237663283,
                 "message": "Custom Message",
@@ -485,6 +493,8 @@ def get_printer_objects_list_fixture():
             "bme280 bme280_temp",
             "tmc2240 tmc2240_stepper_x_temp",
             "htu21d htu21d_temp",
+            "aht10 aht10_temp",
+            "sht3x sht3x_temp",
             "lm75 lm75_temp",
             "heater_fan heater_fan",
             "controller_fan controller_fan",
