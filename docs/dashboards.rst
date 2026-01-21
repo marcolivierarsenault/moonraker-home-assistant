@@ -682,3 +682,86 @@ Here is the yaml code to generate this lovely dashboard.
           data: {}
           target:
             device_id: #whatever your printer device_id is
+
+
+Spoolman active spool (Mushroom card)
+-------------------------------------
+
+.. image:: _static/spoolmanMushroomCard.png
+    :align: center
+
+If you use Spoolman, the integration exposes a **Spool ID** sensor (active spool id).
+You can combine it with the Home Assistant Spoolman integration to display the active filament name and a colored circle using a Mushroom template card.
+
+This example uses:
+
+- ``sensor.<printer>_spool_id`` (from this integration)
+- ``sensor.spoolman_spool_<id>`` (from the Home Assistant Spoolman integration)
+
+Replace entity ids below with your own.
+
+
+1) Template Sensor helper (UI)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Create a **Template Sensor** helper in Home Assistant.
+
+- **State template** (shows friendly filament name)
+- Add an attribute called ``color`` (hex color for the dot)
+
+.. collapse:: Template Sensor helper (State + Availability)
+
+  .. rubric:: State template
+
+  .. code-block:: jinja
+
+        {% set sid = states('sensor.moonraker_spool_id') | int(0) %}
+        {% if sid == 0 %}
+          No active spool
+        {% else %}
+          {% set eid = 'sensor.spoolman_spool_' ~ sid %}
+          {{ state_attr(eid, 'friendly_name') or ('Spool ' ~ sid) }}
+        {% endif %}
+
+  .. rubric:: Availability template
+
+  .. code-block:: jinja
+
+        {% set sid = states('sensor.moonraker_spool_id') %}
+        {% set ok_sid = sid not in ['unknown','unavailable','none','', None] %}
+        {% if not ok_sid %}
+          false
+        {% else %}
+          {% set eid = 'sensor.spoolman_spool_' ~ (sid | int) %}
+          {{ states(eid) not in ['unknown','unavailable'] }}
+        {% endif %}
+
+.. collapse:: Attribute template (key: color)
+
+  .. code-block:: jinja
+
+      {% set sid = states('sensor.moonraker_spool_id') | int(0) %}
+      {% if sid == 0 %}
+        {{ none }}
+      {% else %}
+        {% set eid = 'sensor.spoolman_spool_' ~ sid %}
+        {% set h = state_attr(eid, 'filament_color_hex') %}
+        {{ ('#' ~ h) if h else none }}
+      {% endif %}
+
+
+2) Mushroom template card
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. collapse:: Code
+
+  .. code-block:: yaml
+
+      type: custom:mushroom-template-card
+      entity: sensor.active_spool
+      primary: "{{ states('sensor.active_spool') }}"
+      secondary: Active spool
+      icon: mdi:circle
+      icon_color: "{{ state_attr('sensor.active_spool', 'color') or '#999999' }}"
+      tap_action:
+        action: more-info

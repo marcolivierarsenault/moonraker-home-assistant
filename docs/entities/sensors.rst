@@ -103,6 +103,9 @@ Sensors that are added on integration startup.
   * - Jobs in queue
     - Number of print jobs in the job queue.
     - From Moonraker API (queued_jobs)
+  * - Spool ID
+    - Active Spoolman spool id used for tracking/reporting. Only available when Spoolman is configured. Can be empty when tracking is disabled.
+    - From Moonraker API (server.spoolman.status, spool_id)
 
 
 History Sensors
