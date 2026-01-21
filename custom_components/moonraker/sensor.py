@@ -415,7 +415,9 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
     for obj in object_list["objects"]:
         split_obj = obj.split()
 
-        if split_obj[0] in temperature_keys:
+        if not split_obj:
+            continue
+        if split_obj[0] in temperature_keys and len(split_obj) > 1:
             # If we already have a temperature_sensor <name>, don't also create a Temp entity
             # from bme280/aht10/etc for the same <name>.
             if not (split_obj[0] in environmental_keys and split_obj[1] in generic_temp_names):
