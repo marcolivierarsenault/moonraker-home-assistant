@@ -437,13 +437,12 @@ async def test_fan_speed_no_supported_fans(hass, get_data, get_printer_objects_l
         for obj in objects
         if obj != "fan"
         and not obj.startswith("fan_generic ")
-        and not obj.startswith("fan ")
     ]
 
     # Also remove their status blocks if present
     status = get_data.get("status", {})
     for key in list(status.keys()):
-        if key == "fan" or key.startswith("fan_generic ") or key.startswith("fan "):
+        if key == "fan" or key.startswith("fan_generic "):
             status.pop(key, None)
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
