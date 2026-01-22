@@ -20,7 +20,7 @@ from custom_components.moonraker.__init__ import MoonrakerDataUpdateCoordinator
 
 @dataclass(frozen=True)
 class MoonrakerNumberSensorDescription(NumberEntityDescription):
-    """Class describing Mookraker number entities."""
+    """Class describing Moonraker number entities."""
 
     sensor_name: str | None = None
     subscriptions: list | None = None
@@ -221,27 +221,65 @@ async def async_setup_fan_speed(coordinator, entry, async_add_entities):
     """Set up fan speed number entity."""
 
     object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
-    if "fan" not in object_list["objects"]:
+    objects = object_list.get("objects", [])
+
+    descs: list[MoonrakerNumberSensorDescription] = []
+    entities: list[NumberEntity] = []
+
+    # Classic part-cooling fan ([fan]) - use M106 (0-255) but expose as %.
+    if "fan" in objects:
+        desc = MoonrakerNumberSensorDescription(
+            key="fan_speed",
+            sensor_name="fan",
+            name="Fan Speed",
+            status_key="speed",
+            subscriptions=[("fan", "speed")],
+            icon="mdi:fan",
+            unit=PERCENTAGE,
+            update_code="M106 S",
+            max_value=100,
+            min_value=0,
+        )
+        descs.append(desc)
+        entities.append(
+            MoonrakerFanSpeed(coordinator, entry, desc, value_multiplier=100.0)
+        )
+
+    # Named fans: only fan_generic* fans are exposed here as controllable Number entities.
+    # Other fan types (e.g. heater_fan, controller_fan, chamber_fan) are read-only sensors.
+    prefixes = ("fan_generic ",)
+    for obj in objects:
+        if not obj.startswith(prefixes):
+            continue
+
+        section, fan_name = obj.split(" ", 1)
+        display_name = fan_name.replace("_", " ").title()
+        key = f"{section}_{fan_name}_speed".replace(" ", "_")
+
+        desc = MoonrakerNumberSensorDescription(
+            key=key,
+            sensor_name=obj,
+            name=f"{display_name} Speed",
+            status_key="speed",
+            subscriptions=[(obj, "speed")],
+            icon="mdi:fan",
+            unit=PERCENTAGE,
+            # Klipper expects SPEED 0.0..1.0 for SET_FAN_SPEED
+            update_code=f"SET_FAN_SPEED FAN={fan_name} SPEED=",
+            max_value=100,
+            min_value=0,
+        )
+        descs.append(desc)
+        entities.append(
+            MoonrakerKlipperFanSpeed(coordinator, entry, desc, value_multiplier=100.0)
+        )
+
+    if not descs:
         return
 
-    desc = MoonrakerNumberSensorDescription(
-        key="fan_speed",
-        sensor_name="fan",
-        name="Fan Speed",
-        status_key="speed",
-        subscriptions=[("fan", "speed")],
-        icon="mdi:fan",
-        unit=PERCENTAGE,
-        update_code="M106 S",
-        max_value=100,
-    )
-
-    coordinator.load_sensor_data([desc])
+    coordinator.load_sensor_data(descs)
     await coordinator.async_refresh()
-    async_add_entities(
-        [MoonrakerFanSpeed(coordinator, entry, desc, value_multiplier=100.0)]
-    )
-
+    async_add_entities(entities)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -377,6 +415,20 @@ class MoonrakerFanSpeed(MoonrakerNumber):
         await self.coordinator.async_send_data(
             METHODS.PRINTER_GCODE_SCRIPT,
             {"script": f"{self.update_string}{int(adjusted_value)}"},
+        )
+        self._attr_native_value = value
+        self.async_write_ha_state()
+
+
+class MoonrakerKlipperFanSpeed(MoonrakerNumber):
+    """Fan speed slider 0..100% that sends 0.0..1.0 to SET_FAN_SPEED."""
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Set native value."""
+        adjusted_value = round(value / self.value_multiplier, 3)
+        await self.coordinator.async_send_data(
+            METHODS.PRINTER_GCODE_SCRIPT,
+            {"script": f"{self.update_string}{adjusted_value}"},
         )
         self._attr_native_value = value
         self.async_write_ha_state()
