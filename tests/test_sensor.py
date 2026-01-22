@@ -1140,3 +1140,50 @@ async def test_spoolman_spool_id_sensor_null_value(hass, get_default_api_respons
     assert state is not None
     # When native_value is None, HA state shows as "unknown"
     assert state.state == "unknown"
+
+
+async def test_hall_filament_width_sensor_diameter_and_raw_created(
+    hass, get_data, get_printer_objects_list
+):
+    """Create Diameter/Raw sensors when hall_filament_width_sensor exposes those keys."""
+    if "hall_filament_width_sensor" not in get_printer_objects_list["objects"]:
+        get_printer_objects_list["objects"].append("hall_filament_width_sensor")
+
+    get_data["status"]["hall_filament_width_sensor"] = {
+        "is_active": True,
+        "Diameter": 1.75,
+        "Raw": 1234,
+    }
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    diameter = hass.states.get("sensor.mainsail_filament_width_sensor_diameter")
+    raw = hass.states.get("sensor.mainsail_filament_width_sensor_raw")
+
+    assert diameter is not None
+    assert diameter.state == "1.75"
+
+    assert raw is not None
+    assert raw.state == "1234"
+
+
+async def test_hall_filament_width_sensor_diameter_and_raw_not_created_when_missing(
+    hass, get_data, get_printer_objects_list
+):
+    """Do not create Diameter/Raw sensors when the keys are absent."""
+    if "hall_filament_width_sensor" not in get_printer_objects_list["objects"]:
+        get_printer_objects_list["objects"].append("hall_filament_width_sensor")
+
+    # Keys absent -> should not create entities
+    get_data["status"]["hall_filament_width_sensor"] = {"is_active": True}
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.mainsail_filament_width_sensor_diameter") is None
+    assert hass.states.get("sensor.mainsail_filament_width_sensor_raw") is None

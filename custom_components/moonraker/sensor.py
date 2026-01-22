@@ -392,7 +392,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
         "sht3x",
     ]
     environmental_keys = [
-        "bme280",
+        "bme280", 
         "htu21d",
         "aht10",
         "sht3x",
@@ -602,6 +602,54 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                     suggested_display_precision=0,
                 )
                 sensors.append(desc)
+        elif split_obj[0] == "hall_filament_width_sensor":
+            # Hall filament width sensor: expose Diameter (mm) and Raw readings
+            query_obj = {OBJ: {obj: None}}
+            result = await coordinator.async_fetch_data(
+                METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
+            )
+            status = result["status"].get(obj, {})
+
+            base_key = obj.replace(" ", "_")
+            base_name = (
+                split_obj[1].replace("_", " ").title()
+                if len(split_obj) > 1
+                else "Filament Width Sensor"
+            )
+
+            if "Diameter" in status:
+                sensors.append(
+                    MoonrakerSensorDescription(
+                        key=f"{base_key}_diameter",
+                        status_key=obj,
+                        name=f"{base_name} Diameter",
+                        value_fn=lambda sensor: sensor.coordinator.data["status"][
+                            sensor.status_key
+                        ]["Diameter"],
+                        subscriptions=[(obj, "Diameter")],
+                        icon="mdi:tape-measure",
+                        unit=UnitOfLength.MILLIMETERS,
+                        device_class=SensorDeviceClass.DISTANCE,
+                        state_class=SensorStateClass.MEASUREMENT,
+                        suggested_display_precision=3,
+                    )
+                )
+
+            if "Raw" in status:
+                sensors.append(
+                    MoonrakerSensorDescription(
+                        key=f"{base_key}_raw",
+                        status_key=obj,
+                        name=f"{base_name} Raw",
+                        value_fn=lambda sensor: sensor.coordinator.data["status"][
+                            sensor.status_key
+                        ]["Raw"],
+                        subscriptions=[(obj, "Raw")],
+                        icon="mdi:counter",
+                        state_class=SensorStateClass.MEASUREMENT,
+                        suggested_display_precision=0,
+                    )
+                )
         elif split_obj[0] == "heater_generic":
             desc = MoonrakerSensorDescription(
                 key=f"{split_obj[0]}_{split_obj[1]}_power",
