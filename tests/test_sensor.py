@@ -50,8 +50,8 @@ DEFAULT_VALUES = [
     ("mainsail_bme280_temp", "32.43"),
     ("mainsail_htu21d_temp", "32.43"),
     ("mainsail_bme280_temp_humidity", "26.7836192965663"),
-    ("mainsail_bme280_temp_pressure", "988.1478719193026"),
-    ("mainsail_bme280_temp_gas", "36351.74625591767"),
+    ("mainsail_bme280_temp_pressure", "988.147871919303"),
+    ("mainsail_bme280_temp_gas", "36351.7462559177"),
     ("mainsail_htu21d_temp_humidity", "55.0"),
     ("mainsail_aht10_temp", "32.43"),
     ("mainsail_aht10_temp_humidity", "42.0"),
@@ -135,7 +135,9 @@ async def test_sensors(hass):
     await hass.async_block_till_done()
 
     for sensor, value in DEFAULT_VALUES:
-        assert hass.states.get(f"sensor.{sensor}").state == value
+        state = hass.states.get(f"sensor.{sensor}")
+        assert state is not None, f"Missing sensor.{sensor}"
+        assert state.state == value
 
     assert hass.states.get("sensor.mainsail_my_super_heater_target") is None
     assert hass.states.get("sensor.mainsail_mixed_case_target") is None
@@ -1187,3 +1189,16 @@ async def test_hall_filament_width_sensor_diameter_and_raw_not_created_when_miss
 
     assert hass.states.get("sensor.mainsail_filament_width_sensor_diameter") is None
     assert hass.states.get("sensor.mainsail_filament_width_sensor_raw") is None
+
+async def test_optional_sensors_ignores_empty_object_name(hass, get_printer_objects_list):
+    """Empty object names in objects list should be ignored safely."""
+    # Inject an empty/whitespace object name to exercise `if not split_obj: continue`
+    get_printer_objects_list["objects"].append("")
+    get_printer_objects_list["objects"].append("   ")
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+
+    # If the guard works, setup completes without raising.
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()

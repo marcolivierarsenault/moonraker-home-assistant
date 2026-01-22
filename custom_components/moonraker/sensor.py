@@ -392,7 +392,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
         "sht3x",
     ]
     environmental_keys = [
-        "bme280", 
+        "bme280",
         "htu21d",
         "aht10",
         "sht3x",
