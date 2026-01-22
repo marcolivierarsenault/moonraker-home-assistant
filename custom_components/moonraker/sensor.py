@@ -397,7 +397,8 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
         "aht10",
         "sht3x",
     ]
-    fan_keys = ["heater_fan", "controller_fan", "fan_generic"]
+
+    fan_keys = ["heater_fan", "controller_fan", "fan_generic", "chamber_fan"]
 
     sensors = []
     object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
