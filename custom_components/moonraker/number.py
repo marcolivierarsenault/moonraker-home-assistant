@@ -245,7 +245,8 @@ async def async_setup_fan_speed(coordinator, entry, async_add_entities):
             MoonrakerFanSpeed(coordinator, entry, desc, value_multiplier=100.0)
         )
 
-    # Named fans: fan_generic / heater_fan / controller_fan / chamber_fan
+    # Named fans: only fan_generic* fans are exposed here as controllable Number entities.
+    # Other fan types (e.g. heater_fan, controller_fan, chamber_fan) are read-only sensors.
     prefixes = ("fan_generic ",)
     for obj in objects:
         if not obj.startswith(prefixes):
