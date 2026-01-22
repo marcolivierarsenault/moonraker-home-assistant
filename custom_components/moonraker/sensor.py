@@ -389,11 +389,11 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
         "htu21d",
         "lm75",
         "aht10",
-        "sht3x", 
+        "sht3x",
     ]
     environmental_keys = [
-        "bme280", 
-        "htu21d", 
+        "bme280",
+        "htu21d",
         "aht10",
         "sht3x",
     ]
@@ -402,7 +402,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
     sensors = []
     object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
     objects = set(object_list["objects"])
-    
+
     # Build a set of names that already have a generic temperature_sensor <name>
     # This will be used to deduplicate sensors reported both as a generic temperature_sensor
     # and as a temperature sensor exposed via a klipper module (eg. BME280)
@@ -411,7 +411,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
         parts = obj.split(maxsplit=1)
         if len(parts) == 2 and parts[0] == "temperature_sensor":
             generic_temp_names.add(parts[1])
-    
+
     for obj in object_list["objects"]:
         split_obj = obj.split()
 

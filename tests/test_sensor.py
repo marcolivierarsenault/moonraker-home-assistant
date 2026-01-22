@@ -49,7 +49,7 @@ DEFAULT_VALUES = [
     ("mainsail_tmc2240_stepper_x_temp", "32.43"),
     ("mainsail_bme280_temp", "32.43"),
     ("mainsail_htu21d_temp", "32.43"),
-    ("mainsail_bme280_temp_humidity", "26.783619296566297"),
+    ("mainsail_bme280_temp_humidity", "26.7836192965663"),
     ("mainsail_bme280_temp_pressure", "988.1478719193026"),
     ("mainsail_bme280_temp_gas", "36351.74625591767"),
     ("mainsail_htu21d_temp_humidity", "55.0"),
