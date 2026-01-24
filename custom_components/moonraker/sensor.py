@@ -388,33 +388,57 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
         "bme280",
         "htu21d",
         "lm75",
+        "aht10",
+        "sht3x",
+    ]
+    environmental_keys = [
+        "bme280",
+        "htu21d",
+        "aht10",
+        "sht3x",
     ]
 
     fan_keys = ["heater_fan", "controller_fan", "fan_generic", "chamber_fan"]
 
     sensors = []
     object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
+    objects = set(object_list["objects"])
+
+    # Build a set of names that already have a generic temperature_sensor <name>
+    # This will be used to deduplicate sensors reported both as a generic temperature_sensor
+    # and as a temperature sensor exposed via a klipper module (eg. BME280)
+    generic_temp_names = set()
+    for obj in objects:
+        parts = obj.split(maxsplit=1)
+        if len(parts) == 2 and parts[0] == "temperature_sensor":
+            generic_temp_names.add(parts[1])
+
     for obj in object_list["objects"]:
         split_obj = obj.split()
 
-        if split_obj[0] in temperature_keys:
-            desc = MoonrakerSensorDescription(
-                key=f"{split_obj[0]}_{split_obj[1]}",
-                status_key=obj,
-                name=split_obj[1].removesuffix("_temp").replace("_", " ").title()
-                + " Temp",
-                value_fn=lambda sensor: sensor.coordinator.data["status"][
-                    sensor.status_key
-                ]["temperature"],
-                subscriptions=[(obj, "temperature")],
-                icon="mdi:thermometer",
-                unit=UnitOfTemperature.CELSIUS,
-                state_class=SensorStateClass.MEASUREMENT,
-                suggested_display_precision=2,
-            )
-            sensors.append(desc)
+        if not split_obj:
+            continue
+        if split_obj[0] in temperature_keys and len(split_obj) > 1:
+            # If we already have a temperature_sensor <name>, don't also create a Temp entity
+            # from bme280/aht10/etc for the same <name>.
+            if not (split_obj[0] in environmental_keys and split_obj[1] in generic_temp_names):
+                desc = MoonrakerSensorDescription(
+                    key=f"{split_obj[0]}_{split_obj[1]}",
+                    status_key=obj,
+                    name=split_obj[1].removesuffix("_temp").replace("_", " ").title()
+                    + " Temp",
+                    value_fn=lambda sensor: sensor.coordinator.data["status"][
+                        sensor.status_key
+                    ]["temperature"],
+                    subscriptions=[(obj, "temperature")],
+                    icon="mdi:thermometer",
+                    unit=UnitOfTemperature.CELSIUS,
+                    state_class=SensorStateClass.MEASUREMENT,
+                    suggested_display_precision=2,
+                )
+                sensors.append(desc)
 
-            if split_obj[0] == "bme280":
+            if split_obj[0] in environmental_keys:
                 query_obj = {OBJ: {obj: None}}
                 result = await coordinator.async_fetch_data(
                     METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
