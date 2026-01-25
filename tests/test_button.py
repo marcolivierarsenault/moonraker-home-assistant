@@ -116,6 +116,24 @@ async def test_gcode_macro_attributes(hass):
     assert state.attributes["last_service_date"] == "2023-10-01"
 
 
+async def test_gcode_macro_attributes_empty(hass, get_data):
+    """Test macro attributes are omitted when empty."""
+    get_data["status"]["gcode_macro START_PRINT"] = {}
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    entity_id = "button.mainsail_macro_start_print"
+    await _enable_button_entity(hass, config_entry, entity_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert "filament_used" not in state.attributes
+    assert "last_service_date" not in state.attributes
+
+
 async def test_services(hass):
     """Test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
