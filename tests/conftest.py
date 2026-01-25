@@ -278,6 +278,10 @@ def get_data_fixture():
                 "speed": 123.456,
                 "speed_factor": 2.0,
             },
+            "gcode_macro START_PRINT": {
+                "filament_used": 0,
+                "last_service_date": "2023-10-01",
+            },
             "mcu": {
                 "last_stats": {
                     "mcu_awake": 0.031,
@@ -468,6 +472,8 @@ def get_printer_objects_list_fixture():
             "gcode_macro CANCEL_PRINT",
             "gcode_macro PAUSE",
             "gcode_macro RESUME",
+            "gcode_macro START_PRINT",
+            "gcode_macro END_PRINT",
             "idle_timeout",
             "heaters",
             "heater_bed",
