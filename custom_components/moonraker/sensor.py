@@ -384,33 +384,57 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
         "bme280",
         "htu21d",
         "lm75",
+        "aht10",
+        "sht3x",
+    ]
+    environmental_keys = [
+        "bme280",
+        "htu21d",
+        "aht10",
+        "sht3x",
     ]
 
-    fan_keys = ["heater_fan", "controller_fan", "fan_generic"]
+    fan_keys = ["heater_fan", "controller_fan", "fan_generic", "chamber_fan"]
 
     sensors = []
     object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
+    objects = set(object_list["objects"])
+
+    # Build a set of names that already have a generic temperature_sensor <name>
+    # This will be used to deduplicate sensors reported both as a generic temperature_sensor
+    # and as a temperature sensor exposed via a klipper module (eg. BME280)
+    generic_temp_names = set()
+    for obj in objects:
+        parts = obj.split(maxsplit=1)
+        if len(parts) == 2 and parts[0] == "temperature_sensor":
+            generic_temp_names.add(parts[1])
+
     for obj in object_list["objects"]:
         split_obj = obj.split()
 
-        if split_obj[0] in temperature_keys:
-            desc = MoonrakerSensorDescription(
-                key=f"{split_obj[0]}_{split_obj[1]}",
-                status_key=obj,
-                name=split_obj[1].removesuffix("_temp").replace("_", " ").title()
-                + " Temp",
-                value_fn=lambda sensor: sensor.coordinator.data["status"][
-                    sensor.status_key
-                ]["temperature"],
-                subscriptions=[(obj, "temperature")],
-                icon="mdi:thermometer",
-                unit=UnitOfTemperature.CELSIUS,
-                state_class=SensorStateClass.MEASUREMENT,
-                suggested_display_precision=2,
-            )
-            sensors.append(desc)
+        if not split_obj:
+            continue
+        if split_obj[0] in temperature_keys and len(split_obj) > 1:
+            # If we already have a temperature_sensor <name>, don't also create a Temp entity
+            # from bme280/aht10/etc for the same <name>.
+            if not (split_obj[0] in environmental_keys and split_obj[1] in generic_temp_names):
+                desc = MoonrakerSensorDescription(
+                    key=f"{split_obj[0]}_{split_obj[1]}",
+                    status_key=obj,
+                    name=split_obj[1].removesuffix("_temp").replace("_", " ").title()
+                    + " Temp",
+                    value_fn=lambda sensor: sensor.coordinator.data["status"][
+                        sensor.status_key
+                    ]["temperature"],
+                    subscriptions=[(obj, "temperature")],
+                    icon="mdi:thermometer",
+                    unit=UnitOfTemperature.CELSIUS,
+                    state_class=SensorStateClass.MEASUREMENT,
+                    suggested_display_precision=2,
+                )
+                sensors.append(desc)
 
-            if split_obj[0] == "bme280":
+            if split_obj[0] in environmental_keys:
                 query_obj = {OBJ: {obj: None}}
                 result = await coordinator.async_fetch_data(
                     METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
@@ -575,6 +599,54 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                     suggested_display_precision=0,
                 )
                 sensors.append(desc)
+        elif split_obj[0] == "hall_filament_width_sensor":
+            # Hall filament width sensor: expose Diameter (mm) and Raw readings
+            query_obj = {OBJ: {obj: None}}
+            result = await coordinator.async_fetch_data(
+                METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
+            )
+            status = result["status"].get(obj, {})
+
+            base_key = obj.replace(" ", "_")
+            base_name = (
+                split_obj[1].replace("_", " ").title()
+                if len(split_obj) > 1
+                else "Filament Width Sensor"
+            )
+
+            if "Diameter" in status:
+                sensors.append(
+                    MoonrakerSensorDescription(
+                        key=f"{base_key}_diameter",
+                        status_key=obj,
+                        name=f"{base_name} Diameter",
+                        value_fn=lambda sensor: sensor.coordinator.data["status"][
+                            sensor.status_key
+                        ]["Diameter"],
+                        subscriptions=[(obj, "Diameter")],
+                        icon="mdi:tape-measure",
+                        unit=UnitOfLength.MILLIMETERS,
+                        device_class=SensorDeviceClass.DISTANCE,
+                        state_class=SensorStateClass.MEASUREMENT,
+                        suggested_display_precision=3,
+                    )
+                )
+
+            if "Raw" in status:
+                sensors.append(
+                    MoonrakerSensorDescription(
+                        key=f"{base_key}_raw",
+                        status_key=obj,
+                        name=f"{base_name} Raw",
+                        value_fn=lambda sensor: sensor.coordinator.data["status"][
+                            sensor.status_key
+                        ]["Raw"],
+                        subscriptions=[(obj, "Raw")],
+                        icon="mdi:counter",
+                        state_class=SensorStateClass.MEASUREMENT,
+                        suggested_display_precision=0,
+                    )
+                )
         elif split_obj[0] == "heater_generic":
             desc = MoonrakerSensorDescription(
                 key=f"{split_obj[0]}_{split_obj[1]}_power",

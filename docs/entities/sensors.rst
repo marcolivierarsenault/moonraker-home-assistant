@@ -147,6 +147,9 @@ Binary Sensors are used to represent a single binary value. They can are used fo
   * - Filament Switch Sensor
     - True if filament is missing
     - From Moonraker API
+  * - Filament Width Sensor Active
+    - True when the hall filament width sensor reports it is active
+    - From Moonraker API (hall_filament_width_sensor, is_active)
 
 Current Layer
 -----------------------------
@@ -161,14 +164,16 @@ Optional Sensors
 -----------------------------
 
 -  For every optional fan object available in [``heater_fan``,
-   ``controller_fan``, ``fan_generic``] we will create a sensor showing fan speed.
+   ``controller_fan``, ``fan_generic``, ``chamber_fan``] we will create a sensor showing fan speed.
 -  For every optional fan object available in [``heater_fan``,
-   ``controller_fan``, ``fan_generic``, ``fan``] we will create a sensor showing rpm if the data is available.
+   ``controller_fan``, ``fan_generic``, ``fan``, ``chamber_fan``] we will create a sensor showing rpm if the data is available.
 -  For every optional temperature object available in
    [``temperature_sensor``, ``temperature_fan``, ``bme280``, ``htu21d``, ``lm75``]
    we will create a sensor showing sensor temperature.
 - For every ``heater_generic`` object we will create sensors showing the
    temperature, the target and the power.
+- For every ``hall_filament_width_sensor`` object we will create sensors showing
+   filament Diameter (mm) and Raw readings.
 
 
 Optional Temperature Sensor

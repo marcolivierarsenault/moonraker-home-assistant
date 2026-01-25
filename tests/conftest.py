@@ -191,18 +191,27 @@ def get_data_fixture():
             },
             "bme280 bme280_temp": {
                 "temperature": 32.43,
-                "pressure": 988.1478719193026,
-                "humidity": 26.783619296566297,
-                "gas": 36351.74625591767,
+                "pressure": 988.147871919303,
+                "humidity": 26.7836192965663,
+                "gas": 36351.7462559177,
             },
             "tmc2240 tmc2240_stepper_x_temp": {
                 "temperature": 32.43,
             },
             "htu21d htu21d_temp": {
                 "temperature": 32.43,
+                "humidity": 55.0,
             },
             "lm75 lm75_temp": {
                 "temperature": 32.43,
+            },
+            "aht10 aht10_temp": {
+                "temperature": 32.43,
+                "humidity": 42.0,
+            },
+            "sht3x sht3x_temp": {
+                "temperature": 32.43,
+                "humidity": 43.0,
             },
             "display_status": {
                 "progress": 0.9078104237663283,
@@ -485,6 +494,8 @@ def get_printer_objects_list_fixture():
             "bme280 bme280_temp",
             "tmc2240 tmc2240_stepper_x_temp",
             "htu21d htu21d_temp",
+            "aht10 aht10_temp",
+            "sht3x sht3x_temp",
             "lm75 lm75_temp",
             "heater_fan heater_fan",
             "controller_fan controller_fan",

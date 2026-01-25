@@ -50,6 +50,14 @@ DEFAULT_VALUES = [
     ("mainsail_tmc2240_stepper_x_temp", "32.43"),
     ("mainsail_bme280_temp", "32.43"),
     ("mainsail_htu21d_temp", "32.43"),
+    ("mainsail_bme280_temp_humidity", "26.7836192965663"),
+    ("mainsail_bme280_temp_pressure", "988.147871919303"),
+    ("mainsail_bme280_temp_gas", "36351.7462559177"),
+    ("mainsail_htu21d_temp_humidity", "55.0"),
+    ("mainsail_aht10_temp", "32.43"),
+    ("mainsail_aht10_temp_humidity", "42.0"),
+    ("mainsail_sht3x_temp", "32.43"),
+    ("mainsail_sht3x_temp_humidity", "43.0"),
     ("mainsail_lm75_temp", "32.43"),
     ("mainsail_heater_fan", "51.23"),
     ("mainsail_controller_fan", "51.23"),
@@ -128,7 +136,9 @@ async def test_sensors(hass):
     await hass.async_block_till_done()
 
     for sensor, value in DEFAULT_VALUES:
-        assert hass.states.get(f"sensor.{sensor}").state == value
+        state = hass.states.get(f"sensor.{sensor}")
+        assert state is not None, f"Missing sensor.{sensor}"
+        assert state.state == value
 
     assert hass.states.get("sensor.mainsail_my_super_heater_target") is None
     assert hass.states.get("sensor.mainsail_mixed_case_target") is None
@@ -1205,3 +1215,63 @@ async def test_spoolman_spool_id_sensor_null_value(hass, get_default_api_respons
     assert state is not None
     # When native_value is None, HA state shows as "unknown"
     assert state.state == "unknown"
+
+
+async def test_hall_filament_width_sensor_diameter_and_raw_created(
+    hass, get_data, get_printer_objects_list
+):
+    """Create Diameter/Raw sensors when hall_filament_width_sensor exposes those keys."""
+    if "hall_filament_width_sensor" not in get_printer_objects_list["objects"]:
+        get_printer_objects_list["objects"].append("hall_filament_width_sensor")
+
+    get_data["status"]["hall_filament_width_sensor"] = {
+        "is_active": True,
+        "Diameter": 1.75,
+        "Raw": 1234,
+    }
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    diameter = hass.states.get("sensor.mainsail_filament_width_sensor_diameter")
+    raw = hass.states.get("sensor.mainsail_filament_width_sensor_raw")
+
+    assert diameter is not None
+    assert diameter.state == "1.75"
+
+    assert raw is not None
+    assert raw.state == "1234"
+
+
+async def test_hall_filament_width_sensor_diameter_and_raw_not_created_when_missing(
+    hass, get_data, get_printer_objects_list
+):
+    """Do not create Diameter/Raw sensors when the keys are absent."""
+    if "hall_filament_width_sensor" not in get_printer_objects_list["objects"]:
+        get_printer_objects_list["objects"].append("hall_filament_width_sensor")
+
+    # Keys absent -> should not create entities
+    get_data["status"]["hall_filament_width_sensor"] = {"is_active": True}
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.mainsail_filament_width_sensor_diameter") is None
+    assert hass.states.get("sensor.mainsail_filament_width_sensor_raw") is None
+
+async def test_optional_sensors_ignores_empty_object_name(hass, get_printer_objects_list):
+    """Empty object names in objects list should be ignored safely."""
+    # Inject an empty/whitespace object name to exercise `if not split_obj: continue`
+    get_printer_objects_list["objects"].append("")
+    get_printer_objects_list["objects"].append("   ")
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+
+    # If the guard works, setup completes without raising.
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
