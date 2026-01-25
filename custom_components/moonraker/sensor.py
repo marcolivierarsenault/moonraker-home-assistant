@@ -255,7 +255,10 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
         value_fn=lambda sensor: sensor.empty_result_when_not_printing(
             calculate_total_layer(sensor.coordinator.data)
         ),
-        subscriptions=[("print_stats", "info", "total_layer")],
+        subscriptions=[
+            ("print_stats", "info", "total_layer"),
+            ("virtual_sdcard", "total_layer"),
+        ],
         icon="mdi:layers-triple",
         state_class=SensorStateClass.MEASUREMENT,
     ),
@@ -265,6 +268,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
         value_fn=lambda sensor: calculate_current_layer(sensor.coordinator.data),
         subscriptions=[
             ("print_stats", "info", "current_layer"),
+            ("virtual_sdcard", "current_layer"),
             ("toolhead", "position"),
         ],
         icon="mdi:layers-edit",
@@ -1089,6 +1093,8 @@ def calculate_current_layer(data):
     info = print_stats.get("info")
     if not isinstance(info, dict):
         info = {}
+    virtual_sdcard = data["status"].get("virtual_sdcard", {})
+    virtual_current_layer = _coerce_positive_int(virtual_sdcard.get("current_layer"))
 
     current_layer_raw = info.get("current_layer")
     current_layer = _as_int(current_layer_raw)
@@ -1117,6 +1123,9 @@ def calculate_current_layer(data):
     if current_layer is not None and current_layer > 0:
         return current_layer
 
+    if virtual_current_layer is not None and virtual_current_layer > 0:
+        return virtual_current_layer
+
     if calculated_layer > 0:
         return calculated_layer
 
@@ -1134,6 +1143,11 @@ def calculate_total_layer(data):
     info_total_layer = _coerce_positive_int(info.get("total_layer"))
     if info_total_layer:
         return info_total_layer
+
+    virtual_sdcard = data.get("status", {}).get("virtual_sdcard", {})
+    virtual_total_layer = _coerce_positive_int(virtual_sdcard.get("total_layer"))
+    if virtual_total_layer:
+        return virtual_total_layer
 
     layer_count = _coerce_positive_int(data.get("layer_count"))
     if layer_count:

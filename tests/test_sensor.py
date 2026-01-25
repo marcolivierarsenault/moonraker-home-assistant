@@ -742,6 +742,18 @@ async def test_total_layer_uses_layer_count_string():
     assert calculate_total_layer(data) == 33
 
 
+async def test_total_layer_uses_virtual_sdcard():
+    """Fallback to virtual_sdcard total layer when info is empty."""
+    data = {
+        "status": {
+            "print_stats": {"info": {"total_layer": 0}},
+            "virtual_sdcard": {"total_layer": 128},
+        }
+    }
+
+    assert calculate_total_layer(data) == 128
+
+
 async def test_total_layer_calculated_from_object_height():
     """Calculate total layers using height metadata."""
     data = {
@@ -905,6 +917,24 @@ async def test_current_layer_uses_virtual_sdcard_filename():
         "layer_height": 0.2,
     }
     assert calculate_current_layer(data) == 42
+
+
+async def test_current_layer_uses_virtual_sdcard_value():
+    """Use virtual_sdcard layer when print_stats info is empty."""
+    data = {
+        "status": {
+            "print_stats": {
+                "state": PRINTSTATES.PRINTING.value,
+                "filename": "TheUniverse.gcode",
+                "print_duration": 120,
+                "info": {"current_layer": 0},
+            },
+            "virtual_sdcard": {"current_layer": 21},
+            "toolhead": {"position": [0, 0, 0.0]},
+        },
+        "layer_height": 0,
+    }
+    assert calculate_current_layer(data) == 21
 
 
 async def test_current_layer_zero_info_fallback():
