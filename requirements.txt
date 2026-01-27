@@ -1,4 +1,4 @@
-pytest-homeassistant-custom-component==0.13.307
+pytest-homeassistant-custom-component==0.13.308
 moonraker-api==2.0.6
 pre-commit==4.5.1
 sphinx==9.1.0
