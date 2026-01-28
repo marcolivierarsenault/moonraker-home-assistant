@@ -168,8 +168,10 @@ Optional Sensors
 -  For every optional fan object available in [``heater_fan``,
    ``controller_fan``, ``fan_generic``, ``fan``, ``chamber_fan``] we will create a sensor showing rpm if the data is available.
 -  For every optional temperature object available in
-   [``temperature_sensor``, ``temperature_fan``, ``bme280``, ``htu21d``, ``lm75``]
+   [``temperature_sensor``, ``temperature_fan``, ``bme280``, ``htu21d``, ``aht10``, ``aht20_f``, ``sht3x``, ``lm75``]
    we will create a sensor showing sensor temperature.
+-  For every optional environmental sensors [``bme280``, ``htu21d``, ``aht10``, ``aht20_f``, ``sht3x``]
+   we will create a sensor showing humidity.
 - For every ``heater_generic`` object we will create sensors showing the
    temperature, the target and the power.
 - For every ``hall_filament_width_sensor`` object we will create sensors showing

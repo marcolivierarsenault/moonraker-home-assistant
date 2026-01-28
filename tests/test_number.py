@@ -433,10 +433,7 @@ async def test_fan_speed_no_supported_fans(hass, get_data, get_printer_objects_l
 
     # Remove all objects that could create fan speed number entities
     objects[:] = [
-        obj
-        for obj in objects
-        if obj != "fan"
-        and not obj.startswith("fan_generic ")
+        obj for obj in objects if obj != "fan" and not obj.startswith("fan_generic ")
     ]
 
     # Also remove their status blocks if present
