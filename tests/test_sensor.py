@@ -56,6 +56,10 @@ DEFAULT_VALUES = [
     ("mainsail_htu21d_temp_humidity", "55.0"),
     ("mainsail_aht10_temp", "32.43"),
     ("mainsail_aht10_temp_humidity", "42.0"),
+    ("mainsail_heater_box1_temp", "23.74"),
+    ("mainsail_heater_box1_humidity", "26.0"),
+    ("mainsail_heater_box2_temp", "24.5"),
+    ("mainsail_heater_box2_humidity", "30.0"),
     ("mainsail_sht3x_temp", "32.43"),
     ("mainsail_sht3x_temp_humidity", "43.0"),
     ("mainsail_lm75_temp", "32.43"),
@@ -1263,7 +1267,10 @@ async def test_hall_filament_width_sensor_diameter_and_raw_not_created_when_miss
     assert hass.states.get("sensor.mainsail_filament_width_sensor_diameter") is None
     assert hass.states.get("sensor.mainsail_filament_width_sensor_raw") is None
 
-async def test_optional_sensors_ignores_empty_object_name(hass, get_printer_objects_list):
+
+async def test_optional_sensors_ignores_empty_object_name(
+    hass, get_printer_objects_list
+):
     """Empty object names in objects list should be ignored safely."""
     # Inject an empty/whitespace object name to exercise `if not split_obj: continue`
     get_printer_objects_list["objects"].append("")
