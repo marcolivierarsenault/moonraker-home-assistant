@@ -25,7 +25,7 @@ from custom_components.moonraker import (
     async_setup_entry,
     async_unload_entry,
 )
-from custom_components.moonraker.const import DOMAIN, METHODS
+from custom_components.moonraker.const import DOMAIN, METHODS, OBJ
 
 from .const import MOCK_CONFIG, MOCK_CONFIG_WITH_NAME
 
@@ -228,6 +228,20 @@ async def test_gcode_detail_thumbnail_selection_missing_paths(hass):
         METHODS.SERVER_FILES_METADATA, {"filename": "file.gcode"}
     )
     assert result["thumbnails_path"] is None
+
+
+async def test_add_query_objects_ignores_keys_after_full_object(hass):
+    """Skip adding keys when object is already set to fetch all fields."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=MagicMock(), config_entry=config_entry, api_device_name="printer"
+    )
+
+    coordinator.add_query_objects("gcode_macro TEST", None)
+    assert coordinator.query_obj[OBJ]["gcode_macro TEST"] is None
+
+    coordinator.add_query_objects("gcode_macro TEST", "variable_1")
+    assert coordinator.query_obj[OBJ]["gcode_macro TEST"] is None
 
 
 async def test_setup_unload_and_reload_entry(hass):
