@@ -495,8 +495,18 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             for subscriptions in sensor.subscriptions:
                 self.add_query_objects(subscriptions[0], subscriptions[1])
 
-    def add_query_objects(self, query_object: str, result_key: str):
+    def add_query_objects(self, query_object: str, result_key: str | None):
         """Build the list of object we want to retreive from the server."""
+        if result_key is None:
+            self.query_obj[OBJ][query_object] = None
+            return
+
+        if (
+            query_object in self.query_obj[OBJ]
+            and self.query_obj[OBJ][query_object] is None
+        ):
+            return
+
         if query_object not in self.query_obj[OBJ]:
             self.query_obj[OBJ][query_object] = []
         if result_key not in self.query_obj[OBJ][query_object]:
