@@ -17,6 +17,7 @@ from custom_components.moonraker.sensor import (
     calculate_current_layer,
     calculate_pct_job,
     calculate_print_progress,
+    calculate_total_layer,
     format_idle_timeout_state,
 )
 
@@ -55,6 +56,10 @@ DEFAULT_VALUES = [
     ("mainsail_htu21d_temp_humidity", "55.0"),
     ("mainsail_aht10_temp", "32.43"),
     ("mainsail_aht10_temp_humidity", "42.0"),
+    ("mainsail_heater_box1_temp", "23.74"),
+    ("mainsail_heater_box1_humidity", "26.0"),
+    ("mainsail_heater_box2_temp", "24.5"),
+    ("mainsail_heater_box2_humidity", "30.0"),
     ("mainsail_sht3x_temp", "32.43"),
     ("mainsail_sht3x_temp_humidity", "43.0"),
     ("mainsail_lm75_temp", "32.43"),
@@ -734,6 +739,60 @@ async def test_total_layer_in_info_is_none(hass, get_data):
     assert state.state == "313"
 
 
+async def test_total_layer_parses_string_info():
+    """Use total layer reported as a string."""
+    data = {"status": {"print_stats": {"info": {"total_layer": "12"}}}}
+
+    assert calculate_total_layer(data) == 12
+
+
+async def test_total_layer_uses_layer_count_string():
+    """Fallback to parsed layer count when info is empty."""
+    data = {
+        "status": {"print_stats": {"info": {"total_layer": 0}}},
+        "layer_count": "33.0",
+    }
+
+    assert calculate_total_layer(data) == 33
+
+
+async def test_total_layer_uses_virtual_sdcard():
+    """Fallback to virtual_sdcard total layer when info is empty."""
+    data = {
+        "status": {
+            "print_stats": {"info": {"total_layer": 0}},
+            "virtual_sdcard": {"total_layer": 128},
+        }
+    }
+
+    assert calculate_total_layer(data) == 128
+
+
+async def test_total_layer_calculated_from_object_height():
+    """Calculate total layers using height metadata."""
+    data = {
+        "status": {"print_stats": {"info": {"total_layer": 0}}},
+        "layer_count": 0,
+        "object_height": 8.4,
+        "layer_height": 0.2,
+        "first_layer_height": None,
+    }
+
+    assert calculate_total_layer(data) == 42
+
+
+async def test_total_layer_invalid_metadata_returns_zero():
+    """Return zero when height metadata is not usable."""
+    data = {
+        "status": {"print_stats": {"info": {"total_layer": 0}}},
+        "layer_count": 0,
+        "object_height": "bad",
+        "layer_height": "bad",
+    }
+
+    assert calculate_total_layer(data) == 0
+
+
 async def test_missing_estimated_time(hass, get_data, get_printer_info):
     """Test."""
     del get_data["estimated_time"]
@@ -872,6 +931,24 @@ async def test_current_layer_uses_virtual_sdcard_filename():
         "layer_height": 0.2,
     }
     assert calculate_current_layer(data) == 42
+
+
+async def test_current_layer_uses_virtual_sdcard_value():
+    """Use virtual_sdcard layer when print_stats info is empty."""
+    data = {
+        "status": {
+            "print_stats": {
+                "state": PRINTSTATES.PRINTING.value,
+                "filename": "TheUniverse.gcode",
+                "print_duration": 120,
+                "info": {"current_layer": 0},
+            },
+            "virtual_sdcard": {"current_layer": 21},
+            "toolhead": {"position": [0, 0, 0.0]},
+        },
+        "layer_height": 0,
+    }
+    assert calculate_current_layer(data) == 21
 
 
 async def test_current_layer_zero_info_fallback():
@@ -1190,7 +1267,10 @@ async def test_hall_filament_width_sensor_diameter_and_raw_not_created_when_miss
     assert hass.states.get("sensor.mainsail_filament_width_sensor_diameter") is None
     assert hass.states.get("sensor.mainsail_filament_width_sensor_raw") is None
 
-async def test_optional_sensors_ignores_empty_object_name(hass, get_printer_objects_list):
+
+async def test_optional_sensors_ignores_empty_object_name(
+    hass, get_printer_objects_list
+):
     """Empty object names in objects list should be ignored safely."""
     # Inject an empty/whitespace object name to exercise `if not split_obj: continue`
     get_printer_objects_list["objects"].append("")

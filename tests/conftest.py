@@ -209,6 +209,14 @@ def get_data_fixture():
                 "temperature": 32.43,
                 "humidity": 42.0,
             },
+            "aht20_f heater_box1": {
+                "temperature": 23.74,
+                "humidity": 26.0,
+            },
+            "aht20_f heater_box2": {
+                "temperature": 24.5,
+                "humidity": 30.0,
+            },
             "sht3x sht3x_temp": {
                 "temperature": 32.43,
                 "humidity": 43.0,
@@ -501,6 +509,8 @@ def get_printer_objects_list_fixture():
             "tmc2240 tmc2240_stepper_x_temp",
             "htu21d htu21d_temp",
             "aht10 aht10_temp",
+            "aht20_f heater_box1",
+            "aht20_f heater_box2",
             "sht3x sht3x_temp",
             "lm75 lm75_temp",
             "heater_fan heater_fan",
