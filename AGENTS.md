@@ -6,11 +6,14 @@ Core integration code sits in `custom_components/moonraker/`: Home Assistant boo
 
 ## Build, Test, and Development Commands
 
-- `python3 -m pip install -r requirements.txt` — install dev dependencies and HA tooling.
+- `scripts/setup` — install Python dependencies; rerun whenever dependencies change.
+- `scripts/setup_system` — install full local/devcontainer system dependencies (includes `go2rtc`, apt packages, and `scripts/setup`).
 - `scripts/develop` — launch a local Home Assistant instance with this integration (requires `hass` on PATH).
-- `scripts/lint` — run Ruff with autofix; prefer `pre-commit run --all-files` before pushing.
-- `pytest --durations=10 --cov-report term-missing --cov=custom_components.moonraker tests` or `pytest tests/test_config_flow.py` — execute unit test suites.
-- `sphinx-build -b html docs docs/_build/html` — rebuild documentation after content changes.
+- `scripts/test_strict` — run the full test suite with strict 100% coverage enforcement.
+- `scripts/docs_build` — rebuild docs with warnings treated as errors.
+- `pre-commit run --all-files` — run formatting and quality hooks before pushing.
+- `scripts/prepush` — run pre-push checks (`pre-commit`, strict tests, and docs build when `docs/**` changed).
+- `scripts/version_bump major|minor|patch` — perform release version bumps through `bump2version`.
 
 ## Coding Style & Naming Conventions
 
@@ -18,11 +21,11 @@ Target Python 3.13 with four-space indentation. Follow Home Assistant norms: mod
 
 ## Testing Guidelines
 
-Place tests beside their feature under `tests/` and name files `test_<feature>.py`. Reuse fixtures in `tests/conftest.py` for mocked Moonraker clients; assert on Home Assistant states rather than raw dictionaries. Aim to cover new logic and regressions, and record troubleshooting notes in `docs/support/` when behaviour needs guidance. We always want to have 100% coverage for our test. so we need to make sure any new feature reaches 100% completion.
+Place tests beside their feature under `tests/` and name files `test_<feature>.py`. Reuse fixtures in `tests/conftest.py` for mocked Moonraker clients; assert on Home Assistant states rather than raw dictionaries. Aim to cover new logic and regressions, and record troubleshooting notes in `docs/support/` when behaviour needs guidance. Run `scripts/test_strict` before pushing; new work must keep coverage at 100%.
 
 ## Commit & Pull Request Guidelines
 
-Write short, imperative commit titles (`Add camera snapshot support`). PRs should explain user impact, list validation like `pytest`, `scripts/lint`, and manual HA runs, and link issues (`Fixes #123`) where relevant. Include updated screenshots or docs links for UI changes, and squash noisy work-in-progress commits before review.
+Write short, imperative commit titles (`Add camera snapshot support`). Before pushing, run `scripts/prepush` (or at minimum `pre-commit run --all-files` and `scripts/test_strict`, plus `scripts/docs_build` for docs changes). PRs should explain user impact, list validation commands run, and link issues (`Fixes #123`) where relevant. Include updated screenshots or docs links for UI changes, and squash noisy work-in-progress commits before review. For version bumps, use `bump2version major|minor|patch` (or `scripts/version_bump ...`), which handles the commit automatically.
 
 ## Security & Configuration Tips
 

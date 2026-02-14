@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+set -e
+
+cd "$(dirname "$0")/.."
+
+if [ "$#" -ne 1 ]; then
+    echo "Usage: scripts/version_bump {major|minor|patch}" >&2
+    exit 1
+fi
+
+case "$1" in
+    major|minor|patch) ;;
+    *)
+        echo "Invalid bump type: $1" >&2
+        echo "Usage: scripts/version_bump {major|minor|patch}" >&2
+        exit 1
+        ;;
+esac
+
+bump2version "$1"

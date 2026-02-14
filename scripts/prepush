@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+set -e
+
+cd "$(dirname "$0")/.."
+
+pre-commit run --all-files
+scripts/test_strict
+
+docs_changed=0
+
+if ! git diff --quiet -- docs/; then
+    docs_changed=1
+fi
+
+if ! git diff --cached --quiet -- docs/; then
+    docs_changed=1
+fi
+
+if git ls-files --others --exclude-standard -- docs | grep -q .; then
+    docs_changed=1
+fi
+
+if [ "$docs_changed" -eq 1 ]; then
+    scripts/docs_build
+else
+    echo "No docs changes detected; skipping docs build."
+fi

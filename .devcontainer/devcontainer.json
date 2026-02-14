@@ -11,7 +11,7 @@
   "remoteEnv": {
     "SSH_AUTH_SOCK": "/ssh-agent"
   },
-  "postCreateCommand": "scripts/setup",
+  "postCreateCommand": "scripts/setup_system",
   "forwardPorts": [8123],
   "customizations": {
     "vscode": {

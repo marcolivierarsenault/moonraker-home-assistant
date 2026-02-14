@@ -1,6 +1,21 @@
 {
   "version": "2.0.0",
+  "inputs": [
+    {
+      "id": "bumpLevel",
+      "type": "pickString",
+      "description": "Select bump2version level",
+      "options": ["patch", "minor", "major"],
+      "default": "patch"
+    }
+  ],
   "tasks": [
+    {
+      "label": "Setup environment",
+      "type": "shell",
+      "command": "scripts/setup",
+      "problemMatcher": []
+    },
     {
       "label": "Run Home Assistant on port 8123",
       "type": "shell",
@@ -8,9 +23,9 @@
       "problemMatcher": []
     },
     {
-      "label": "Run tests",
+      "label": "Run strict tests",
       "type": "shell",
-      "command": "pytest --durations=10 --cov-report term-missing --cov=custom_components.moonraker tests",
+      "command": "scripts/test_strict",
       "problemMatcher": []
     },
     {
@@ -20,9 +35,21 @@
       "problemMatcher": []
     },
     {
-      "label": "Generate Documentation",
+      "label": "Run prepush checks",
       "type": "shell",
-      "command": "sphinx-build -W -E docs docs/_build && echo http://127.0.0.1:3000/docs/_build/index.html",
+      "command": "scripts/prepush",
+      "problemMatcher": []
+    },
+    {
+      "label": "Generate documentation",
+      "type": "shell",
+      "command": "scripts/docs_build && echo http://127.0.0.1:3000/docs/_build/index.html",
+      "problemMatcher": []
+    },
+    {
+      "label": "Version bump",
+      "type": "shell",
+      "command": "scripts/version_bump ${input:bumpLevel}",
       "problemMatcher": []
     }
   ]

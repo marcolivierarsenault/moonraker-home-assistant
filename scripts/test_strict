@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+set -e
+
+cd "$(dirname "$0")/.."
+
+pytest --durations=10 --cov-report term-missing --cov=custom_components.moonraker --cov-fail-under=100 tests
