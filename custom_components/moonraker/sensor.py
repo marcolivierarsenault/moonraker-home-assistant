@@ -840,7 +840,7 @@ async def _spoolman_updater(coordinator):
 async def async_setup_spoolman_sensors(coordinator, entry, async_add_entities):
     """Spoolman sensors."""
     spoolman = await coordinator.async_fetch_data(METHODS.SERVER_SPOOLMAN_ID)
-    if spoolman.get("error"):
+    if spoolman.get("error") or "spoolman_connected" not in spoolman:
         return
 
     coordinator.add_data_updater(_spoolman_updater)
