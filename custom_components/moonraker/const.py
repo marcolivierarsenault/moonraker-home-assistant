@@ -39,6 +39,18 @@ OBJ = "objects"
 # API timeout
 TIMEOUT = 10
 
+# U1 Custom Filament Attributes
+U1_PRINT_TASK_CONFIG = "print_task_config"
+U1_FILAMENT_ATTRIBUTES = [
+    "filament_color_rgba",
+    "filament_vendor",
+    "filament_type",
+    "filament_sub_type",
+    "filament_official",
+    "filament_sku",
+    "filament_edit",
+    "filament_soft",
+]
 
 class METHODS(Enum):
     """API methods."""
