@@ -8,4 +8,4 @@ ruff==0.15.2
 ha-ffmpeg==3.2.2
 sphinx-toolbox==4.1.2
 bump2version==1.0.1
-PyTurboJPEG==1.8.2
+PyTurboJPEG==2.2.0
