@@ -17,11 +17,17 @@ repos:
     hooks:
       - id: prettier
   - repo: https://github.com/lycheeverse/lychee.git
-    rev: lychee-v0.21.0
+    rev: lychee-v0.23.0
     hooks:
       - id: lychee
         name: run lychee
         description: run lychee, a fast, async, stream-based link checker written in Rust
-        args: [--verbose, --no-progress, --exclude-path, ".venv", "**/*.md"]
+        args:
+          - --config
+          - lychee.toml
+          - --verbose
+          - --no-progress
+          - --exclude-path
+          - .venv
         files: \.md$
         exclude: ^\.venv/

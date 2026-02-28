@@ -8,8 +8,12 @@
     "ghcr.io/devcontainers/features/sshd:1": {},
     "rust": "latest"
   },
+  "containerEnv": {
+    "GITHUB_MCP_TOKEN": "${localEnv:GITHUB_MCP_TOKEN}"
+  },
   "remoteEnv": {
-    "SSH_AUTH_SOCK": "/ssh-agent"
+    "SSH_AUTH_SOCK": "/ssh-agent",
+    "GITHUB_MCP_TOKEN": "${localEnv:GITHUB_MCP_TOKEN}"
   },
   "postCreateCommand": "scripts/setup_system",
   "forwardPorts": [8123],
