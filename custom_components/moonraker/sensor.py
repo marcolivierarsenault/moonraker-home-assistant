@@ -22,7 +22,15 @@ from homeassistant.const import (
 )
 from homeassistant.core import callback
 
-from .const import DOMAIN, METHODS, OBJ, PRINTERSTATES, PRINTSTATES
+from .const import (
+    DOMAIN,
+    METHODS,
+    OBJ,
+    PRINTERSTATES,
+    PRINTSTATES,
+    U1_PRINT_TASK_CONFIG,
+    U1_FILAMENT_ATTRIBUTES,
+)
 from .entity import BaseMoonrakerEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -51,6 +59,13 @@ class MoonrakerSensorDescription(SensorEntityDescription):
     unit: str | None = None
     device_class: str | None = None
     subscriptions: list | None = None
+
+
+@dataclass(frozen=True)
+class U1ExtruderFilamentSensorDescription(MoonrakerSensorDescription):
+    """Class describing U1 filament color sensor, with an additional extra_state_fn."""
+
+    extra_state_fn: Callable = lambda sensor: None
 
 
 SENSORS: tuple[MoonrakerSensorDescription, ...] = (
@@ -357,6 +372,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     await async_setup_machine_update_sensors(coordinator, entry, async_add_entities)
     await async_setup_queue_sensors(coordinator, entry, async_add_entities)
     await async_setup_spoolman_sensors(coordinator, entry, async_add_entities)
+    await async_setup_u1_sensors(coordinator, entry, async_add_entities)
 
 
 async def _machine_system_info_updater(coordinator):
@@ -841,7 +857,7 @@ async def _spoolman_updater(coordinator):
 async def async_setup_spoolman_sensors(coordinator, entry, async_add_entities):
     """Spoolman sensors."""
     spoolman = await coordinator.async_fetch_data(METHODS.SERVER_SPOOLMAN_ID)
-    if spoolman.get("error"):
+    if spoolman.get("error") or "spoolman_connected" not in spoolman:
         return
 
     coordinator.add_data_updater(_spoolman_updater)
@@ -858,6 +874,61 @@ async def async_setup_spoolman_sensors(coordinator, entry, async_add_entities):
     coordinator.load_sensor_data(sensors)
     await coordinator.async_refresh()
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
+
+
+async def _u1_updater(coordinator):
+    return {
+        U1_PRINT_TASK_CONFIG: (
+            await coordinator._async_fetch_data(
+                METHODS.PRINTER_OBJECTS_QUERY,
+                {OBJ: {U1_PRINT_TASK_CONFIG: U1_FILAMENT_ATTRIBUTES}},
+            )
+        )["status"][U1_PRINT_TASK_CONFIG]
+    }
+
+
+def create_u1_filament_sensor_description(extruder_index):
+    """Create a U1 filament sensor description for the given extruder index."""
+    return U1ExtruderFilamentSensorDescription(
+        key=f"e{extruder_index}_filament_info",
+        name=f"E{extruder_index} Filament Info",
+        value_fn=lambda sensor: f"#{sensor.coordinator.data[U1_PRINT_TASK_CONFIG][
+            'filament_color_rgba'
+        ][extruder_index]}",
+        extra_state_fn=lambda sensor: {
+            field.replace("filament_", ""): sensor.coordinator.data[
+                U1_PRINT_TASK_CONFIG
+            ][field][extruder_index]
+            for field in U1_FILAMENT_ATTRIBUTES
+        },
+        subscriptions=[],
+        icon="mdi:format-color-highlight",
+    )
+
+
+async def async_setup_u1_sensors(coordinator, entry, async_add_entities):
+    """U1 Extruder Filament Info sensors."""
+    u1_print_task_query = await coordinator._async_fetch_data(
+        METHODS.PRINTER_OBJECTS_QUERY,
+        {OBJ: {U1_PRINT_TASK_CONFIG: U1_FILAMENT_ATTRIBUTES}},
+    )
+    if (
+        u1_print_task_query is None or
+        "status" not in u1_print_task_query or
+        U1_PRINT_TASK_CONFIG not in u1_print_task_query["status"]
+        or not u1_print_task_query["status"][U1_PRINT_TASK_CONFIG]
+    ):
+        return
+
+    coordinator.add_data_updater(_u1_updater)
+
+    sensors = [create_u1_filament_sensor_description(i) for i in range(4)]
+
+    coordinator.load_sensor_data(sensors)
+    await coordinator.async_refresh()
+    async_add_entities(
+        [U1ExtruderFilamentSensor(coordinator, entry, desc) for desc in sensors]
+    )
 
 
 async def _machine_update_updater(coordinator):
@@ -950,6 +1021,23 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
         ):
             return "" if isinstance(value, str) else 0.0
         return value
+
+
+class U1ExtruderFilamentSensor(MoonrakerSensor):
+    """U1 Extruder Filament Sensor with extra attributes for filament details."""
+
+    def __init__(self, coordinator, entry, description):
+        """Init."""
+        super().__init__(coordinator, entry, description)
+        self._attr_extra_state_attributes = self.entity_description.extra_state_fn(self)
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        self._attr_extra_state_attributes.update(
+            self.entity_description.extra_state_fn(self)
+        )
+        super()._handle_coordinator_update()
 
 
 def calculate_print_speed(data):
