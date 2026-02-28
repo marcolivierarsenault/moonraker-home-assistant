@@ -1,5 +1,6 @@
 """Sensor platform for Moonraker integration."""
 
+import math
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -1177,6 +1178,12 @@ def calculate_current_layer(data):
         if current_layer_float is not None:
             current_layer = int(current_layer_float)
 
+    if current_layer is not None and current_layer > 0:
+        return current_layer
+
+    if virtual_current_layer is not None and virtual_current_layer > 0:
+        return virtual_current_layer
+
     calculated_layer = 0
     layer_height = _as_float(data.get("layer_height"))
     if layer_height is not None and layer_height > 0:
@@ -1190,15 +1197,10 @@ def calculate_current_layer(data):
 
             if z_height is not None:
                 progress_height = z_height - (first_layer_height or 0)
-                calculated_layer = int(round(progress_height / layer_height, 0)) + 1
+                # Use floor to avoid round-threshold jitter from bed compensation.
+                calculated_layer = math.floor(progress_height / layer_height) + 1
                 if calculated_layer < 0:
                     calculated_layer = 0
-
-    if current_layer is not None and current_layer > 0:
-        return current_layer
-
-    if virtual_current_layer is not None and virtual_current_layer > 0:
-        return virtual_current_layer
 
     if calculated_layer > 0:
         return calculated_layer
