@@ -900,7 +900,7 @@ def create_u1_filament_sensor_description(extruder_index):
             ][field][extruder_index]
             for field in U1_FILAMENT_ATTRIBUTES
         },
-        subscriptions=U1_FILAMENT_ATTRIBUTES,
+        subscriptions=[],
         icon="mdi:format-color-highlight",
     )
 
@@ -912,6 +912,8 @@ async def async_setup_u1_sensors(coordinator, entry, async_add_entities):
         {OBJ: {U1_PRINT_TASK_CONFIG: U1_FILAMENT_ATTRIBUTES}},
     )
     if (
+        u1_print_task_query is None or
+        "status" not in u1_print_task_query or
         U1_PRINT_TASK_CONFIG not in u1_print_task_query["status"]
         or not u1_print_task_query["status"][U1_PRINT_TASK_CONFIG]
     ):
@@ -1031,10 +1033,10 @@ class U1ExtruderFilamentSensor(MoonrakerSensor):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        super()._handle_coordinator_update()
         self._attr_extra_state_attributes.update(
             self.entity_description.extra_state_fn(self)
         )
+        super()._handle_coordinator_update()
 
 
 def calculate_print_speed(data):
