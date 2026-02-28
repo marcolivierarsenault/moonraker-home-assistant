@@ -1,15 +1,13 @@
 {
   "name": "moonraker-home-assistant",
-  "image": "mcr.microsoft.com/devcontainers/python:dev-3.13-trixie",
+  "image": "mcr.microsoft.com/devcontainers/python:dev-3.13-bookworm",
   "mounts": [
     "source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached"
   ],
   "features": {
-    "ghcr.io/devcontainers/features/sshd:1": {},
-    "rust": "latest"
-  },
-  "containerEnv": {
-    "GITHUB_MCP_TOKEN": "${localEnv:GITHUB_MCP_TOKEN}"
+    "ghcr.io/devcontainers/features/rust:1": {
+      "version": "latest"
+    }
   },
   "remoteEnv": {
     "SSH_AUTH_SOCK": "/ssh-agent",
