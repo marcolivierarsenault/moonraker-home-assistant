@@ -899,6 +899,7 @@ def create_u1_filament_sensor_description(extruder_index):
                 U1_PRINT_TASK_CONFIG
             ][field][extruder_index]
             for field in U1_FILAMENT_ATTRIBUTES
+            if sensor.coordinator.data[U1_PRINT_TASK_CONFIG][field] # ensure to add only fields that are available
         },
         subscriptions=[],
         icon="mdi:format-color-highlight",
@@ -911,13 +912,13 @@ async def async_setup_u1_sensors(coordinator, entry, async_add_entities):
         METHODS.PRINTER_OBJECTS_QUERY,
         {OBJ: {U1_PRINT_TASK_CONFIG: U1_FILAMENT_ATTRIBUTES}},
     )
-    if (
-        u1_print_task_query is None or
-        "status" not in u1_print_task_query or
-        U1_PRINT_TASK_CONFIG not in u1_print_task_query["status"]
-        or not u1_print_task_query["status"][U1_PRINT_TASK_CONFIG]
-    ):
+
+    # If the object isn't supported the API will still respond with {"status": {U1_PRINT_TASK_CONFIG: {}}}
+    # to make sure the sensor can be created ensure that at least `filament_color_rgba` is available and has four entires
+    if len(u1_print_task_query.get("status", {}).get(U1_PRINT_TASK_CONFIG, {}).get("filament_color_rgba", [])) != 4:
+        _LOGGER.debug("`%s` is not available, don't setup U1 Filament Sensors", U1_PRINT_TASK_CONFIG)
         return
+
 
     coordinator.add_data_updater(_u1_updater)
 
