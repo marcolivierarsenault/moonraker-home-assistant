@@ -886,26 +886,6 @@ async def _u1_updater(coordinator):
     }
 
 
-def create_u1_filament_sensor_description(extruder_index):
-    """Create a U1 filament sensor description for the given extruder index."""
-    return U1ExtruderFilamentSensorDescription(
-        key=f"e{extruder_index}_filament_info",
-        name=f"E{extruder_index} Filament Info",
-        value_fn=lambda sensor: f"#{sensor.coordinator.data[U1_PRINT_TASK_CONFIG][
-            'filament_color_rgba'
-        ][extruder_index]}",
-        extra_state_fn=lambda sensor: {
-            field.replace("filament_", ""): sensor.coordinator.data[
-                U1_PRINT_TASK_CONFIG
-            ][field][extruder_index]
-            for field in U1_FILAMENT_ATTRIBUTES
-            if sensor.coordinator.data[U1_PRINT_TASK_CONFIG][field] # ensure to add only fields that are available
-        },
-        subscriptions=[],
-        icon="mdi:format-color-highlight",
-    )
-
-
 async def async_setup_u1_sensors(coordinator, entry, async_add_entities):
     """U1 Extruder Filament Info sensors."""
     u1_print_task_query = await coordinator._async_fetch_data(
@@ -928,6 +908,26 @@ async def async_setup_u1_sensors(coordinator, entry, async_add_entities):
     await coordinator.async_refresh()
     async_add_entities(
         [U1ExtruderFilamentSensor(coordinator, entry, desc) for desc in sensors]
+    )
+
+
+def create_u1_filament_sensor_description(extruder_index):
+    """Create a U1 filament sensor description for the given extruder index."""
+    return U1ExtruderFilamentSensorDescription(
+        key=f"e{extruder_index}_filament_info",
+        name=f"E{extruder_index} Filament Info",
+        value_fn=lambda sensor: f"#{sensor.coordinator.data[U1_PRINT_TASK_CONFIG][
+            'filament_color_rgba'
+        ][extruder_index]}",
+        extra_state_fn=lambda sensor: {
+            field.replace("filament_", ""): sensor.coordinator.data[
+                U1_PRINT_TASK_CONFIG
+            ][field][extruder_index]
+            for field in U1_FILAMENT_ATTRIBUTES
+            if sensor.coordinator.data[U1_PRINT_TASK_CONFIG][field] # ensure to add only fields that are available
+        },
+        subscriptions=[],
+        icon="mdi:format-color-highlight",
     )
 
 
