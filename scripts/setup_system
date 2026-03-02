@@ -14,4 +14,4 @@ sudo chmod +x /bin/go2rtc
 
 sudo apt-get update
 sudo apt-get upgrade -y
-sudo apt-get install -y libturbojpeg0 ffmpeg libpcap-dev
+sudo apt-get install -y libturbojpeg0 ffmpeg libpcap-dev libspeexdsp-dev

@@ -934,7 +934,7 @@ async def test_current_layer_uses_virtual_sdcard_filename():
 
 
 async def test_current_layer_uses_virtual_sdcard_value():
-    """Use virtual_sdcard layer when print_stats info is empty."""
+    """Use virtual_sdcard layer when print_stats info is invalid."""
     data = {
         "status": {
             "print_stats": {
@@ -944,11 +944,36 @@ async def test_current_layer_uses_virtual_sdcard_value():
                 "info": {"current_layer": 0},
             },
             "virtual_sdcard": {"current_layer": 21},
-            "toolhead": {"position": [0, 0, 0.0]},
+            "toolhead": {"position": [0, 0, 8.4]},
         },
-        "layer_height": 0,
+        "first_layer_height": 0.2,
+        "layer_height": 0.2,
     }
     assert calculate_current_layer(data) == 21
+
+
+async def test_current_layer_calculated_no_layer_bounce_from_z_jitter():
+    """Do not bounce layers from toolhead Z jitter within one logical layer."""
+    data = {
+        "status": {
+            "print_stats": {
+                "state": PRINTSTATES.PRINTING.value,
+                "filename": "TheUniverse.gcode",
+                "print_duration": 120,
+                "info": {"current_layer": 0},
+            },
+            "toolhead": {"position": [0, 0, 8.302]},
+        },
+        "first_layer_height": 0.2,
+        "layer_height": 0.2,
+    }
+
+    layers = []
+    for z_height in (8.302, 8.298, 8.302):
+        data["status"]["toolhead"]["position"][2] = z_height
+        layers.append(calculate_current_layer(data))
+
+    assert layers == [41, 41, 41]
 
 
 async def test_current_layer_zero_info_fallback():
