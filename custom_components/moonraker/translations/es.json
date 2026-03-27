@@ -1,0 +1,37 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Información de conexión de Moonraker",
+        "data": {
+          "url": "Servidor",
+          "port": "Puerto",
+          "tls": "Usa TLS",
+          "api_key": "Clave de la API (opcional)",
+          "printer_name": "Nombre de la impresora (por defecto, el nombre del servidor)"
+        }
+      }
+    },
+    "error": {
+      "host_error": "Servidor no válido. No incluya \"http://\", \"https://\", ni una barra oblicua al final.",
+      "port_error": "Puerto no válido, debe ser un número entre 1 y 65535.",
+      "api_key_error": "Clave de la API no válida, debe tener 32 caracteres alfanuméricos.",
+      "printer_name_error": "Nombre de la impresora no válido.",
+      "printer_connection_error": "Fallo al conectar."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "polling_rate": "Tasa de sondeo de la integración (s)",
+          "camera_stream_url": "URL de la transmisión de la cámara",
+          "camera_snapshot_url": "URL de la instantánea de la cámara",
+          "camera_port": "Puerto de la cámara",
+          "thumbnail_port": "Puerto de la miniatura"
+        },
+        "title": "Configuración"
+      }
+    }
+  }
+}
