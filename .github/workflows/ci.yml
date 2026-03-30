@@ -62,6 +62,6 @@ jobs:
         run: |
           pytest . --cov=custom_components.moonraker --cov-report=xml
       - name: Upload coverage reports to Codecov with GitHub Action
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
