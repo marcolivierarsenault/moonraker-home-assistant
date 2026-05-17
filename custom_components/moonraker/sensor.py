@@ -401,7 +401,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
 
     sensors = []
     object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
-    objects = set(object_list["objects"])
+    objects = set(object_list.get("objects", []))
 
     # Build a set of names that already have a generic temperature_sensor <name>
     # This will be used to deduplicate sensors reported both as a generic temperature_sensor
@@ -412,7 +412,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
         if len(parts) == 2 and parts[0] == "temperature_sensor":
             generic_temp_names.add(parts[1])
 
-    for obj in object_list["objects"]:
+    for obj in object_list.get("objects", []):
         split_obj = obj.split()
 
         if not split_obj:
@@ -932,22 +932,29 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
         self._attr_name = description.name
         self._attr_has_entity_name = True
         self.entity_description: MoonrakerSensorDescription = description
-        self._attr_native_value = description.value_fn(self)
+        try:
+            self._attr_native_value = description.value_fn(self)
+        except (KeyError, TypeError):
+            self._attr_native_value = None
         self._attr_icon = description.icon
         self._attr_native_unit_of_measurement = description.unit
 
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        self._attr_native_value = self.entity_description.value_fn(self)
+        try:
+            self._attr_native_value = self.entity_description.value_fn(self)
+        except (KeyError, TypeError):
+            return
         self.async_write_ha_state()
 
     def empty_result_when_not_printing(self, value=""):
         """Return empty string when not printing."""
-        if (
-            self.coordinator.data["status"]["print_stats"]["state"]
-            != PRINTSTATES.PRINTING.value
-        ):
+        try:
+            state = self.coordinator.data["status"]["print_stats"]["state"]
+        except (KeyError, TypeError):
+            return "" if isinstance(value, str) else 0.0
+        if state != PRINTSTATES.PRINTING.value:
             return "" if isinstance(value, str) else 0.0
         return value
 
@@ -955,7 +962,7 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
 def calculate_print_speed(data):
     """Calculate the current print speed in mm/s."""
 
-    state = data["status"]["print_stats"]["state"]
+    state = data.get("status", {}).get("print_stats", {}).get("state")
     if state != PRINTSTATES.PRINTING.value:
         return 0.0
 

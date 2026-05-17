@@ -350,6 +350,8 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         for updater in self.updaters:
             data.update(await updater(self))
 
+        data.setdefault("status", {})
+
         # --- Dynamic polling logic ---
         prev_state = getattr(self, "_last_print_state", None)
         current_state = data.get("status", {}).get("print_stats", {}).get("state")
