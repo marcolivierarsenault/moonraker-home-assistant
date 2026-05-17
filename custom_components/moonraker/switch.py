@@ -50,7 +50,7 @@ async def async_setup_output_pin(coordinator, entry, async_add_entities):
 
     switches = []
 
-    for obj in object_list["objects"]:
+    for obj in object_list.get("objects", []):
         if not obj.startswith("output_pin "):
             continue
 
@@ -167,7 +167,10 @@ class MoonrakerDigitalOutputPin(MoonrakerSwitchSensor):
     @property
     def is_on(self) -> bool:
         """Return true if the switch is on."""
-        return self.coordinator.data["status"][self.sensor_name]["value"] == 1
+        try:
+            return self.coordinator.data["status"][self.sensor_name]["value"] == 1
+        except (KeyError, TypeError):
+            return False
 
     async def async_turn_on(self, **kwargs) -> None:
         """Turn on the switch."""
