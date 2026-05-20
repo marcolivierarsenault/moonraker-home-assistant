@@ -25,7 +25,12 @@ from custom_components.moonraker import (
     async_setup_entry,
     async_unload_entry,
 )
-from custom_components.moonraker.const import DOMAIN, METHODS, OBJ
+from custom_components.moonraker.const import (
+    CONF_OPTION_QUIET_UNREACHABLE,
+    DOMAIN,
+    METHODS,
+    OBJ,
+)
 
 from .const import MOCK_CONFIG, MOCK_CONFIG_WITH_NAME
 
@@ -33,7 +38,14 @@ from .const import MOCK_CONFIG, MOCK_CONFIG_WITH_NAME
 @pytest.fixture(name="bypass_connect_client", autouse=True)
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
-    with patch("custom_components.moonraker.MoonrakerApiClient.start"):
++    with (
+        patch("custom_components.moonraker.MoonrakerApiClient.start"),
+        patch(
+            "custom_components.moonraker._async_is_tcp_reachable",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+    ):
         yield
 
 
@@ -331,6 +343,64 @@ async def test_setup_entry_exception(hass):
 
         with pytest.raises(ConfigEntryNotReady):
             assert await async_setup_entry(hass, config_entry)
+
+
+async def test_setup_entry_unreachable_logs_warning_by_default(hass, caplog):
+    """Unreachable printers keep warning-level visibility unless silenced."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="offline")
+    config_entry.add_to_hass(hass)
+
+    with (
+        patch(
+            "custom_components.moonraker._async_is_tcp_reachable",
+            new_callable=AsyncMock,
+            return_value=False,
+        ),
+        caplog.at_level(logging.DEBUG),
+        pytest.raises(ConfigEntryNotReady),
+    ):
+        await async_setup_entry(hass, config_entry)
+
+    assert "Cannot configure moonraker instance" in caplog.text
+    assert any(
+        record.levelno == logging.WARNING
+        and "Cannot configure moonraker instance" in record.message
+        for record in caplog.records
+    )
+
+
+async def test_setup_entry_unreachable_logs_debug_when_option_enabled(hass, caplog):
+    """Unreachable printers can be configured to avoid warning-level log spam."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MOCK_CONFIG,
+        options={CONF_OPTION_QUIET_UNREACHABLE: True},
+        entry_id="offline_quiet",
+    )
+    config_entry.add_to_hass(hass)
+
+    with (
+        patch(
+            "custom_components.moonraker._async_is_tcp_reachable",
+            new_callable=AsyncMock,
+            return_value=False,
+        ),
+        caplog.at_level(logging.DEBUG),
+        pytest.raises(ConfigEntryNotReady),
+    ):
+        await async_setup_entry(hass, config_entry)
+
+    assert "Cannot configure moonraker instance" in caplog.text
+    assert any(
+        record.levelno == logging.DEBUG
+        and "Cannot configure moonraker instance" in record.message
+        for record in caplog.records
+    )
+    assert not any(
+        record.levelno >= logging.WARNING
+        and "Cannot configure moonraker instance" in record.message
+        for record in caplog.records
+    )
 
 
 async def test_coordinator_passes_config_entry_to_super(hass):
