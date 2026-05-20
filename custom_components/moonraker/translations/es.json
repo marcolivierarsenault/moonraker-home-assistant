@@ -25,6 +25,7 @@
       "init": {
         "data": {
           "polling_rate": "Tasa de sondeo de la integración (s)",
+          "quiet_unreachable_devices": "Registrar los mensajes de conexión de impresora inalcanzable solo en nivel DEBUG",
           "camera_stream_url": "URL de la transmisión de la cámara",
           "camera_snapshot_url": "URL de la instantánea de la cámara",
           "camera_port": "Puerto de la cámara",
