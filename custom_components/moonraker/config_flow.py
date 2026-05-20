@@ -19,6 +19,7 @@ from .const import (
     CONF_TLS,
     CONF_URL,
     CONF_OPTION_POLLING_RATE,
+    CONF_OPTION_QUIET_UNREACHABLE,
     CONF_OPTION_CAMERA_STREAM,
     CONF_OPTION_CAMERA_SNAPSHOT,
     CONF_OPTION_CAMERA_PORT,
@@ -170,6 +171,12 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                             CONF_OPTION_POLLING_RATE, 30
                         ),
                     ): int,
+                    vol.Optional(
+                        CONF_OPTION_QUIET_UNREACHABLE,
+                        default=self.config_entry.options.get(
+                            CONF_OPTION_QUIET_UNREACHABLE, False
+                        ),
+                    ): bool,
                     vol.Optional(
                         CONF_OPTION_CAMERA_STREAM,
                         default=self.config_entry.options.get(
