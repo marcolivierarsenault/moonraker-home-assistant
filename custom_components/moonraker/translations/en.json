@@ -25,6 +25,7 @@
       "init": {
         "data": {
           "polling_rate": "Integration polling rate (s)",
+          "quiet_unreachable_devices": "Log unreachable printer connection messages only at DEBUG level",
           "camera_stream_url": "Camera Stream URL",
           "camera_snapshot_url": "Camera Snapshot URL",
           "camera_port": "Camera Port",
