@@ -20,6 +20,7 @@ from custom_components.moonraker import (
     MoonrakerDataUpdateCoordinator,
     _build_thumbnail_path,
     _normalize_gcode_path,
+    _normalize_moonraker_port,
     _strip_gcode_root,
     async_reload_entry,
     async_setup_entry,
@@ -27,6 +28,8 @@ from custom_components.moonraker import (
 )
 from custom_components.moonraker.const import (
     CONF_OPTION_QUIET_UNREACHABLE,
+    CONF_PORT,
+    DEFAULT_PORT,
     DOMAIN,
     METHODS,
     OBJ,
@@ -47,6 +50,18 @@ def bypass_connect_client_fixture():
         ),
     ):
         yield
+
+
+def test_normalize_moonraker_port_uses_default_for_empty_values():
+    """Empty configured ports should use the Moonraker default port."""
+    assert _normalize_moonraker_port("") == DEFAULT_PORT
+    assert _normalize_moonraker_port(None) == DEFAULT_PORT
+
+
+def test_normalize_moonraker_port_converts_configured_values():
+    """Configured ports should be converted to integers for socket probing."""
+    assert _normalize_moonraker_port("7611") == 7611
+    assert _normalize_moonraker_port(7611) == 7611
 
 
 def test_normalize_gcode_path_empty():
@@ -395,6 +410,25 @@ async def test_setup_entry_unreachable_logs_warning_by_default(hass, caplog):
         and "Cannot configure moonraker instance" in record.message
         for record in caplog.records
     )
+
+
+async def test_setup_entry_empty_port_uses_default_for_reachability_probe(hass):
+    """Empty stored ports remain accepted and are probed as the default port."""
+    config = {**MOCK_CONFIG, CONF_PORT: ""}
+    config_entry = MockConfigEntry(domain=DOMAIN, data=config, entry_id="empty_port")
+    config_entry.add_to_hass(hass)
+
+    with (
+        patch(
+            "custom_components.moonraker._async_is_tcp_reachable",
+            new_callable=AsyncMock,
+            return_value=False,
+        ) as is_reachable,
+        pytest.raises(ConfigEntryNotReady),
+    ):
+        await async_setup_entry(hass, config_entry)
+
+    is_reachable.assert_awaited_once_with("1.2.3.4", DEFAULT_PORT)
 
 
 async def test_setup_entry_unreachable_logs_debug_when_option_enabled(hass, caplog):
