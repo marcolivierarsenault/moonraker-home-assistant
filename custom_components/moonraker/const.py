@@ -40,6 +40,9 @@ OBJ = "objects"
 # API timeout
 TIMEOUT = 10
 
+# CONNECTION DATA
+DEFAULT_PORT = 7125
+
 
 class METHODS(Enum):
     """API methods."""
