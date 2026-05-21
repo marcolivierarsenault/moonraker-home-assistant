@@ -71,7 +71,7 @@ def _entry_port(entry: ConfigEntry) -> int:
     return _normalize_moonraker_port(entry.data.get(CONF_PORT, DEFAULT_PORT))
 
 
-+async def _async_is_tcp_reachable(host: str, port: int | str | None) -> bool:
+async def _async_is_tcp_reachable(host: str, port: int | str | None) -> bool:
     """Return whether a TCP connection to the Moonraker endpoint can be opened."""
     writer: asyncio.StreamWriter | None = None
     try:
