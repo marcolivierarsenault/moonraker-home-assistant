@@ -18,6 +18,7 @@ from .const import (
     CONF_PRINTER_NAME,
     CONF_TLS,
     CONF_URL,
+    DEFAULT_PORT,
     CONF_OPTION_POLLING_RATE,
     CONF_OPTION_QUIET_UNREACHABLE,
     CONF_OPTION_CAMERA_STREAM,
@@ -128,10 +129,11 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         return True
 
     async def _test_connection(self, host, port, api_key, tls):
+        effective_port = DEFAULT_PORT if port == "" else port
         api = MoonrakerApiClient(
             host,
             async_get_clientsession(self.hass, verify_ssl=False),
-            port=port,
+            port=effective_port,
             api_key=api_key,
             tls=tls,
         )
