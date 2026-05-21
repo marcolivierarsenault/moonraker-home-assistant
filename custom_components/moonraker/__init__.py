@@ -227,7 +227,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         await api.stop()
         raise
     except Exception as exc:
-        _log_unreachable(entry, "Cannot configure moonraker instance")
+        _LOGGER.warning("Cannot configure moonraker instance")
         await api.stop()
         raise ConfigEntryNotReady(f"Error connecting to {url}:{port}") from exc
 
@@ -497,9 +497,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
                     self.config_entry.data.get(CONF_PORT, 7125),
                 )
                 raise UpdateFailed()
-            _log_unreachable(
-                self.config_entry, "connection to moonraker down, restarting"
-            )
+            _LOGGER.warning("connection to moonraker down, restarting")
             await self.moonraker.start()
         try:
             if query_object is None:
@@ -527,9 +525,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
                     self.config_entry.data.get(CONF_PORT, 7125),
                 )
                 raise UpdateFailed()
-            _log_unreachable(
-                self.config_entry, "connection to moonraker down, restarting"
-            )
+            _LOGGER.warning("connection to moonraker down, restarting")
             await self.moonraker.start()
         try:
             if query_obj is None:
