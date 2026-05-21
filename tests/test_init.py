@@ -345,6 +345,34 @@ async def test_setup_entry_exception(hass):
             assert await async_setup_entry(hass, config_entry)
 
 
+async def test_setup_entry_generic_exception_stays_warning_when_option_enabled(hass, caplog):
+    """Quiet unreachable mode must not hide non-reachability setup failures."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MOCK_CONFIG,
+        options={CONF_OPTION_QUIET_UNREACHABLE: True},
+        entry_id="setup_error_quiet",
+    )
+    config_entry.add_to_hass(hass)
+
+    with (
+        patch(
+            "moonraker_api.MoonrakerClient.call_method",
+            new_callable=AsyncMock,
+            side_effect=Exception,
+        ),
+        caplog.at_level(logging.DEBUG),
+        pytest.raises(ConfigEntryNotReady),
+    ):
+        await async_setup_entry(hass, config_entry)
+
+    assert any(
+        record.levelno == logging.WARNING
+        and record.message == "Cannot configure moonraker instance"
+        for record in caplog.records
+    )
+
+
 async def test_setup_entry_unreachable_logs_warning_by_default(hass, caplog):
     """Unreachable printers keep warning-level visibility unless silenced."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="offline")
