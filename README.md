@@ -2,6 +2,9 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-blue.svg)](https://github.com/custom-components/hacs)
 ![install_badge](https://img.shields.io/badge/dynamic/json?color=41BDF5&logo=home-assistant&label=integration%20usage&suffix=%20installs&cacheSeconds=15600&url=https://analytics.home-assistant.io/custom_integrations.json&query=$.moonraker.total)
 
+## Currently unmaintained, if you are insterested to help maintain this, email me marcolivier.arsenault@gmail.com
+
+
 # Moonraker Home Assistant
 
 Non official integration for Moonraker and Klipper in Home Assistant (via HACS).
