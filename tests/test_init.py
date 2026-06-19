@@ -18,14 +18,23 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.moonraker import (
     MoonrakerDataUpdateCoordinator,
+    _async_is_tcp_reachable,
     _build_thumbnail_path,
     _normalize_gcode_path,
+    _normalize_moonraker_port,
     _strip_gcode_root,
     async_reload_entry,
     async_setup_entry,
     async_unload_entry,
 )
-from custom_components.moonraker.const import DOMAIN, METHODS, OBJ
+from custom_components.moonraker.const import (
+    CONF_OPTION_QUIET_UNREACHABLE,
+    CONF_PORT,
+    DEFAULT_PORT,
+    DOMAIN,
+    METHODS,
+    OBJ,
+)
 
 from .const import MOCK_CONFIG, MOCK_CONFIG_WITH_NAME
 
@@ -33,8 +42,27 @@ from .const import MOCK_CONFIG, MOCK_CONFIG_WITH_NAME
 @pytest.fixture(name="bypass_connect_client", autouse=True)
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
-    with patch("custom_components.moonraker.MoonrakerApiClient.start"):
+    with (
+        patch("custom_components.moonraker.MoonrakerApiClient.start"),
+        patch(
+            "custom_components.moonraker._async_is_tcp_reachable",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+    ):
         yield
+
+
+def test_normalize_moonraker_port_uses_default_for_empty_values():
+    """Empty configured ports should use the Moonraker default port."""
+    assert _normalize_moonraker_port("") == DEFAULT_PORT
+    assert _normalize_moonraker_port(None) == DEFAULT_PORT
+
+
+def test_normalize_moonraker_port_converts_configured_values():
+    """Configured ports should be converted to integers for socket probing."""
+    assert _normalize_moonraker_port("7611") == 7611
+    assert _normalize_moonraker_port(7611) == 7611
 
 
 def test_normalize_gcode_path_empty():
@@ -333,6 +361,179 @@ async def test_setup_entry_exception(hass):
             assert await async_setup_entry(hass, config_entry)
 
 
+async def test_setup_entry_generic_exception_stays_warning_when_option_enabled(
+    hass, caplog
+):
+    """Quiet unreachable mode must not hide non-reachability setup failures."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MOCK_CONFIG,
+        options={CONF_OPTION_QUIET_UNREACHABLE: True},
+        entry_id="setup_error_quiet",
+    )
+    config_entry.add_to_hass(hass)
+
+    with (
+        patch(
+            "moonraker_api.MoonrakerClient.call_method",
+            new_callable=AsyncMock,
+            side_effect=Exception,
+        ),
+        caplog.at_level(logging.DEBUG),
+        pytest.raises(ConfigEntryNotReady),
+    ):
+        await async_setup_entry(hass, config_entry)
+
+    assert any(
+        record.levelno == logging.WARNING
+        and record.message == "Cannot configure moonraker instance"
+        for record in caplog.records
+    )
+
+
+async def test_setup_entry_unreachable_logs_warning_by_default(hass, caplog):
+    """Unreachable printers keep warning-level visibility unless silenced."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="offline")
+    config_entry.add_to_hass(hass)
+
+    with (
+        patch(
+            "custom_components.moonraker._async_is_tcp_reachable",
+            new_callable=AsyncMock,
+            return_value=False,
+        ),
+        caplog.at_level(logging.DEBUG),
+        pytest.raises(ConfigEntryNotReady),
+    ):
+        await async_setup_entry(hass, config_entry)
+
+    assert "Cannot configure moonraker instance" in caplog.text
+    assert any(
+        record.levelno == logging.WARNING
+        and "Cannot configure moonraker instance" in record.message
+        for record in caplog.records
+    )
+
+
+async def test_setup_entry_empty_port_uses_default_for_reachability_probe(hass):
+    """Empty stored ports remain accepted and are probed as the default port."""
+    config = {**MOCK_CONFIG, CONF_PORT: ""}
+    config_entry = MockConfigEntry(domain=DOMAIN, data=config, entry_id="empty_port")
+    config_entry.add_to_hass(hass)
+
+    with (
+        patch(
+            "custom_components.moonraker._async_is_tcp_reachable",
+            new_callable=AsyncMock,
+            return_value=False,
+        ) as is_reachable,
+        pytest.raises(ConfigEntryNotReady),
+    ):
+        await async_setup_entry(hass, config_entry)
+
+    is_reachable.assert_awaited_once_with("1.2.3.4", DEFAULT_PORT)
+
+
+async def test_setup_entry_unreachable_logs_debug_when_option_enabled(hass, caplog):
+    """Unreachable printers can be configured to avoid warning-level log spam."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MOCK_CONFIG,
+        options={CONF_OPTION_QUIET_UNREACHABLE: True},
+        entry_id="offline_quiet",
+    )
+    config_entry.add_to_hass(hass)
+
+    with (
+        patch(
+            "custom_components.moonraker._async_is_tcp_reachable",
+            new_callable=AsyncMock,
+            return_value=False,
+        ),
+        caplog.at_level(logging.DEBUG),
+        pytest.raises(ConfigEntryNotReady),
+    ):
+        await async_setup_entry(hass, config_entry)
+
+    assert "Cannot configure moonraker instance" in caplog.text
+    assert any(
+        record.levelno == logging.DEBUG
+        and "Cannot configure moonraker instance" in record.message
+        for record in caplog.records
+    )
+    assert not any(
+        record.levelno >= logging.WARNING
+        and "Cannot configure moonraker instance" in record.message
+        for record in caplog.records
+    )
+
+
+async def test_async_is_tcp_reachable_returns_true_when_connection_opens():
+    """A successful TCP connection marks the endpoint as reachable."""
+    writer = MagicMock()
+    writer.wait_closed = AsyncMock()
+
+    with patch(
+        "custom_components.moonraker.asyncio.open_connection",
+        new_callable=AsyncMock,
+        return_value=(MagicMock(), writer),
+    ):
+        assert await _async_is_tcp_reachable("1.2.3.4", 7125) is True
+
+    writer.close.assert_called_once()
+    writer.wait_closed.assert_awaited_once()
+
+
+async def test_async_is_tcp_reachable_returns_false_when_connection_fails():
+    """Connection errors mark the endpoint as unreachable."""
+    with patch(
+        "custom_components.moonraker.asyncio.open_connection",
+        new_callable=AsyncMock,
+        side_effect=OSError,
+    ):
+        assert await _async_is_tcp_reachable("1.2.3.4", 7125) is False
+
+
+async def test_async_fetch_data_unreachable_raises_update_failed(hass):
+    """Fetching while disconnected and unreachable raises UpdateFailed."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+
+    with (
+        patch(
+            "custom_components.moonraker._async_is_tcp_reachable",
+            new_callable=AsyncMock,
+            return_value=False,
+        ),
+        pytest.raises(UpdateFailed),
+    ):
+        await coordinator.async_fetch_data(METHODS.PRINTER_INFO)
+
+    assert await async_unload_entry(hass, config_entry)
+
+
+async def test_async_send_data_unreachable_raises_update_failed(hass):
+    """Sending while disconnected and unreachable raises UpdateFailed."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+
+    with (
+        patch(
+            "custom_components.moonraker._async_is_tcp_reachable",
+            new_callable=AsyncMock,
+            return_value=False,
+        ),
+        pytest.raises(UpdateFailed),
+    ):
+        await coordinator.async_send_data(METHODS.PRINTER_EMERGENCY_STOP)
+
+    assert await async_unload_entry(hass, config_entry)
+
+
 async def test_coordinator_passes_config_entry_to_super(hass):
     """Ensure the coordinator forwards the config entry to the base class."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="config")
@@ -528,9 +729,12 @@ async def test_send_gcode_identifier_fallback(hass):
             return identifier_device
         return original_async_get(device_id)
 
-    with patch.object(dev_reg, "async_get", side_effect=async_get_override), patch(
-        "moonraker_api.MoonrakerClient.call_method", new_callable=AsyncMock
-    ) as mock_call:
+    with (
+        patch.object(dev_reg, "async_get", side_effect=async_get_override),
+        patch(
+            "moonraker_api.MoonrakerClient.call_method", new_callable=AsyncMock
+        ) as mock_call,
+    ):
         await hass.services.async_call(
             DOMAIN,
             "send_gcode",
@@ -572,9 +776,12 @@ async def test_send_gcode_skips_device_without_entries(hass):
             return orphan_device
         return original_async_get(device_id)
 
-    with patch.object(dev_reg, "async_get", side_effect=async_get_override), patch(
-        "moonraker_api.MoonrakerClient.call_method", new_callable=AsyncMock
-    ) as mock_call:
+    with (
+        patch.object(dev_reg, "async_get", side_effect=async_get_override),
+        patch(
+            "moonraker_api.MoonrakerClient.call_method", new_callable=AsyncMock
+        ) as mock_call,
+    ):
         await hass.services.async_call(
             DOMAIN,
             "send_gcode",
@@ -614,9 +821,12 @@ async def test_send_gcode_skips_unloaded_entries(hass):
             return missing_device
         return original_async_get(device_id)
 
-    with patch.object(dev_reg, "async_get", side_effect=async_get_override), patch(
-        "moonraker_api.MoonrakerClient.call_method", new_callable=AsyncMock
-    ) as mock_call:
+    with (
+        patch.object(dev_reg, "async_get", side_effect=async_get_override),
+        patch(
+            "moonraker_api.MoonrakerClient.call_method", new_callable=AsyncMock
+        ) as mock_call,
+    ):
         await hass.services.async_call(
             DOMAIN,
             "send_gcode",
