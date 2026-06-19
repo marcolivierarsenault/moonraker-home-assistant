@@ -36,7 +36,7 @@ async def async_setup_optional_binary_sensors(coordinator, entry, async_add_enti
 
     sensors = []
     object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
-    for obj in object_list["objects"]:
+    for obj in object_list.get("objects", []):
         split_obj = obj.split()
 
         if split_obj[0] in ["filament_switch_sensor", "filament_motion_sensor"]:
