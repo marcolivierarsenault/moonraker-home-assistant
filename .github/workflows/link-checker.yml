@@ -22,7 +22,7 @@ jobs:
     name: Check links in all Markdown files
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Check links in all Markdown files
         uses: lycheeverse/lychee-action@v2
