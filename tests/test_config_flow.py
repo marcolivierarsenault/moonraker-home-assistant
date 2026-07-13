@@ -31,8 +31,11 @@ def bypass_connect_client_fixture():
 @pytest.fixture(name="error_connect_client")
 def error_connect_client_fixture():
     """Throw error when trying to connect."""
-    with patch("custom_components.moonraker.MoonrakerApiClient.start"):
-        raise Exception
+    with patch(
+        "custom_components.moonraker.MoonrakerApiClient.start",
+        side_effect=Exception,
+    ):
+        yield
 
 
 @pytest.mark.usefixtures("bypass_connect_client")
@@ -384,6 +387,7 @@ async def test_printer_name_when_good(hass):
     assert result["result"]
 
 
+@pytest.mark.usefixtures("error_connect_client")
 async def test_bad_connection_config_flow(hass):
     """Test a config flow with a bad connection."""
     # Initialize a config flow
