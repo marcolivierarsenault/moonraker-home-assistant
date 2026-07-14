@@ -1,0 +1,38 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Informations de connexion Moonraker",
+        "data": {
+          "url": "Hôte",
+          "port": "Port",
+          "tls": "Utilise TLS",
+          "api_key": "Clé API (facultatif)",
+          "printer_name": "Nom de l'imprimante (par défaut, le nom d'hôte)"
+        }
+      }
+    },
+    "error": {
+      "host_error": "Hôte non valide. N'incluez pas « http:// », « https:// », ni de barre oblique finale.",
+      "port_error": "Port non valide, doit être un nombre entre 1 et 65535.",
+      "api_key_error": "Clé API non valide, doit comporter 32 caractères alphanumériques.",
+      "printer_name_error": "Nom d'imprimante non valide.",
+      "printer_connection_error": "Échec de la connexion."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "polling_rate": "Fréquence d'interrogation de l'intégration (s)",
+          "quiet_unreachable_devices": "Journaliser les messages de connexion d'imprimante inaccessible uniquement au niveau DEBUG",
+          "camera_stream_url": "URL du flux de la caméra",
+          "camera_snapshot_url": "URL de l'instantané de la caméra",
+          "camera_port": "Port de la caméra",
+          "thumbnail_port": "Port de la miniature"
+        },
+        "title": "Configuration"
+      }
+    }
+  }
+}
