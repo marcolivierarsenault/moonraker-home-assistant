@@ -55,17 +55,13 @@ Camera URL can be manually defined more details in the :ref:`camera_config`
 Unreachable Printer
 -------------------------------------
 
-If you have your printer turned off by a smart switch or the printer is not reachable, the integration will try to connect to the printer every 30 seconds.
-This is not problematic for the Home Assistant setup, but it may cause some redundent logs in the Home Assistant log file.
+If you have your printer turned off by a smart switch or the printer is not reachable, the integration will periodically try to reconnect.
+This is not problematic for Home Assistant, but it may create repetitive connection messages in the Home Assistant log file.
 
-To avoid this, you can add a filter to the logger configuration in the Home Assistant configuration file.
-
-.. code-block:: yaml
-
-  logger:
-    filters:
-      moonraker_api.websockets.websocketclient:
-        - ".*Websocket connection error: Cannot connect to host*"
+In the integration options for the affected printer, enable
+``Log unreachable printer connection messages only at DEBUG level``.
+When enabled, the integration first checks whether the Moonraker host and port are reachable and avoids starting the websocket client while the endpoint is offline.
+This suppresses the normal warning/error noise for intentionally powered-off printers, while DEBUG logging still retains diagnostic information.
 
 Change IP/Hostname of your printer
 -------------------------------------

@@ -174,8 +174,10 @@ async def test_thumbnail_camera_image(
     await camera.async_get_image(hass, "camera.mainsail_thumbnail")
 
 
-async def test_thumbnail_camera_from_img_to_none(hass):
+async def test_thumbnail_camera_from_img_to_none(hass, aioclient_mock):
     """Test thumbnail camera from img to none."""
+
+    del aioclient_mock
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)

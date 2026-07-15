@@ -22,7 +22,7 @@ jobs:
     name: Check links in all Markdown files
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Check links in all Markdown files
         uses: lycheeverse/lychee-action@v2
@@ -35,7 +35,7 @@ jobs:
       # This avoids re-scanning all links twice in the same workflow run.
       - name: Upload link check report
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: link-check-report
           path: link-check-report.md

@@ -48,5 +48,5 @@ This allows you home assistant to connect to your Klipper 3D printer and display
 [hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
 [license]: https://github.com/marcolivierarsenault/moonraker-home-assistant/blob/main/LICENSE
 [license-shield]: https://img.shields.io/github/license/marcolivierarsenault/moonraker-home-assistant.svg?style=for-the-badge
-[releases-shield]: https://img.shields.io/github/release/marcolivierarsenault/moonraker-home-assistant.svg?style=for-the-badge
+[releases-shield]: https://img.shields.io/github/v/release/marcolivierarsenault/moonraker-home-assistant.svg?style=for-the-badge
 [releases]: https://github.com/marcolivierarsenault/moonraker-home-assistant/releases

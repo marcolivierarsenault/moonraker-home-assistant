@@ -17,7 +17,7 @@ Core integration code sits in `custom_components/moonraker/`: Home Assistant boo
 
 ## Coding Style & Naming Conventions
 
-Target Python 3.13 with four-space indentation. Follow Home Assistant norms: modules and entities in snake_case, user-facing strings sentence case, constants upper snake in `const.py`, and translation keys lower_snake_case. Let Ruff enforce formatting and import sorting (`scripts/lint` or `ruff format`). Keep docstrings concise and update type hints when behaviour shifts.
+Target Python 3.14 with four-space indentation. Follow Home Assistant norms: modules and entities in snake_case, user-facing strings sentence case, constants upper snake in `const.py`, and translation keys lower_snake_case. Let Ruff enforce formatting and import sorting (`scripts/lint` or `ruff format`). Keep docstrings concise and update type hints when behaviour shifts.
 
 ## Testing Guidelines
 

@@ -1,6 +1,6 @@
 """Global fixtures for integration_blueprint integration."""
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -36,6 +36,23 @@ def skip_notifications_fixture():
     with (
         patch("homeassistant.components.persistent_notification.async_create"),
         patch("homeassistant.components.persistent_notification.async_dismiss"),
+    ):
+        yield
+
+
+@pytest.fixture(name="bypass_tcp_reachable", autouse=True)
+def bypass_tcp_reachable_fixture():
+    """Treat the Moonraker endpoint as reachable during tests.
+
+    The integration probes the printer with a real TCP connection before
+    configuring the entry. Tests use a mocked API client, so default to a
+    reachable endpoint; individual tests can patch this to exercise the
+    offline path.
+    """
+    with patch(
+        "custom_components.moonraker._async_is_tcp_reachable",
+        new_callable=AsyncMock,
+        return_value=True,
     ):
         yield
 
