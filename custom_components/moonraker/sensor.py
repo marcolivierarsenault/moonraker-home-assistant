@@ -893,9 +893,16 @@ async def async_setup_u1_sensors(coordinator, entry, async_add_entities):
         {OBJ: {U1_PRINT_TASK_CONFIG: U1_FILAMENT_ATTRIBUTES}},
     )
 
+    filament_colors = (
+        u1_print_task_query.get("status", {})
+        .get(U1_PRINT_TASK_CONFIG, {})
+        .get("filament_color_rgba")
+        or []
+    )
+
     # If the object isn't supported the API will still respond with {"status": {U1_PRINT_TASK_CONFIG: {}}}
     # to make sure the sensor can be created ensure that at least `filament_color_rgba` is available and has four entires
-    if len(u1_print_task_query.get("status", {}).get(U1_PRINT_TASK_CONFIG, {}).get("filament_color_rgba", [])) != 4:
+    if len(filament_colors) != 4:
         _LOGGER.debug("`%s` is not available, don't setup U1 Filament Sensors", U1_PRINT_TASK_CONFIG)
         return
 
