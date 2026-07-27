@@ -34,6 +34,7 @@ CONF_OPTION_CAMERA_PORT = "camera_port"
 CONF_OPTION_THUMBNAIL_PORT = "thumbnail_port"
 
 # API dict keys
+DEVICE_TYPE = "device_type"
 HOSTNAME = "hostname"
 OBJ = "objects"
 
