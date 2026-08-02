@@ -35,7 +35,7 @@ async def _power_device_updater(coordinator):
 
 
 async def async_setup_output_pin(coordinator, entry, async_add_entities):
-    """Set optional binary sensor platform."""
+    """Set optional switch platform for non-PWM output pins."""
 
     object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
 
@@ -44,19 +44,31 @@ async def async_setup_output_pin(coordinator, entry, async_add_entities):
         METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
     )
 
+    config_settings = (
+        settings.get("status", {})
+        .get("configfile", {})
+        .get("settings", {})
+    )
+
     switches = []
+
     for obj in object_list["objects"]:
         if "output_pin" not in obj:
             continue
 
-        if settings["status"]["configfile"]["settings"][obj.lower()]["pwm"]:
+        output_pin_config = config_settings.get(obj.lower())
+
+        if not output_pin_config:
+            continue
+
+        if output_pin_config.get("pwm", False):
             continue
 
         desc = MoonrakerSwitchSensorDescription(
             key=obj,
             sensor_name=obj,
             name=obj.replace("_", " ").title(),
-            icon="mdi:switch",
+            icon="mdi:toggle-switch-outline",
             subscriptions=[(obj, "value")],
         )
         switches.append(desc)
@@ -66,7 +78,6 @@ async def async_setup_output_pin(coordinator, entry, async_add_entities):
     async_add_entities(
         [MoonrakerDigitalOutputPin(coordinator, entry, desc) for desc in switches]
     )
-
 
 async def async_setup_power_device(coordinator, entry, async_add_entities):
     """Set optional binary sensor platform."""
