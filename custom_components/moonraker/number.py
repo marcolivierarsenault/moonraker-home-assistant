@@ -90,7 +90,11 @@ async def async_setup_temperature_target(coordinator, entry, async_add_entities)
 
         elif obj.startswith("heater_generic"):
             _, _, heater_name = obj.partition(" ")
-            display_name = heater_name.replace("_", " ").title() if heater_name else "Heater Generic"
+            display_name = (
+                heater_name.replace("_", " ").title()
+                if heater_name
+                else "Heater Generic"
+            )
 
             settings = config_settings.get(obj)
             if settings is None:
@@ -101,6 +105,12 @@ async def async_setup_temperature_target(coordinator, entry, async_add_entities)
             max_temp = settings.get("max_temp")
             min_temp = settings.get("min_temp")
 
+            # Qidi may list virtual/generic heaters in printer objects
+            # without their matching configfile settings. A HA Number
+            # entity requires a numeric max_value, so skip these safely.
+            if max_temp is None:
+                continue
+
             desc = MoonrakerNumberSensorDescription(
                 key=f"{obj.replace(' ', '_')}_target_number",
                 sensor_name=obj,
@@ -109,8 +119,11 @@ async def async_setup_temperature_target(coordinator, entry, async_add_entities)
                 subscriptions=[(obj, "target")],
                 icon="mdi:radiator",
                 unit=UnitOfTemperature.CELSIUS,
-                update_code=f"SET_HEATER_TEMPERATURE HEATER={heater_name or 'heater_generic'} TARGET=",
-                max_value=float(max_temp) if max_temp is not None else None,
+                update_code=(
+                    f"SET_HEATER_TEMPERATURE "
+                    f"HEATER={heater_name or 'heater_generic'} TARGET="
+                ),
+                max_value=float(max_temp),
                 min_value=float(min_temp) if min_temp is not None else 0.0,
                 device_class=NumberDeviceClass.TEMPERATURE,
             )
@@ -158,7 +171,7 @@ async def async_setup_temperature_target(coordinator, entry, async_add_entities)
 
 
 async def async_setup_output_pin(coordinator, entry, async_add_entities):
-    """Set optional binary sensor platform."""
+    """Set optional number platform for PWM output pins."""
 
     object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
 
@@ -167,12 +180,25 @@ async def async_setup_output_pin(coordinator, entry, async_add_entities):
         METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
     )
 
+    config_settings = (
+        settings.get("status", {})
+        .get("configfile", {})
+        .get("settings", {})
+    )
+
     numbers = []
+
     for obj in object_list["objects"]:
         if "output_pin" not in obj:
             continue
 
-        if not settings["status"]["configfile"]["settings"][obj.lower()]["pwm"]:
+        output_pin_config = config_settings.get(obj.lower())
+
+        if not output_pin_config or not output_pin_config.get("pwm", False):
+            _LOGGER.debug(
+                "Skipping output pin '%s': no matching configfile setting or not PWM",
+                obj,
+            )
             continue
 
         desc = MoonrakerNumberSensorDescription(
@@ -189,7 +215,6 @@ async def async_setup_output_pin(coordinator, entry, async_add_entities):
     async_add_entities(
         [MoonrakerPWMOutputPin(coordinator, entry, desc) for desc in numbers]
     )
-
 
 async def async_setup_speed_factor(coordinator, entry, async_add_entities):
     """Set up speed factor number entity."""
@@ -295,7 +320,6 @@ def _coerce_float(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
 
-
 class MoonrakerPWMOutputPin(BaseMoonrakerEntity, NumberEntity):
     """Moonraker PWM output pin class."""
 
@@ -309,6 +333,9 @@ class MoonrakerPWMOutputPin(BaseMoonrakerEntity, NumberEntity):
         super().__init__(coordinator, entry)
         self.pin = description.sensor_name.replace("output_pin ", "")
         self._attr_mode = NumberMode.SLIDER
+        self._attr_native_min_value = 0.0
+        self._attr_native_max_value = 100.0
+        self._attr_native_step = 1.0
         self.entity_description: MoonrakerNumberSensorDescription = description
         self.sensor_name = description.sensor_name
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
