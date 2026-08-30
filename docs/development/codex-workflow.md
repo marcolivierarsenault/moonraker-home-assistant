@@ -61,6 +61,10 @@ manually starts the corresponding Codex Cloud task from GitHub or from Codex.
 This deliberate handoff is the usage and authorization gate that replaces an
 API-driven issue workflow.
 
+The `ai:fix` gate applies to work that starts from an issue. On an existing
+pull request, a maintainer-authored `@codex` fix or update request authorizes
+changes only within that pull request's existing scope.
+
 ## Triage an issue
 
 Use Codex to summarize:
@@ -78,8 +82,9 @@ issue automatically.
 
 ## Fix an accepted issue
 
-Only proceed when `ai:fix` is present and `ai:no-touch` is absent. Start a Codex
-Cloud task for the issue using this prompt:
+This section applies to issue-started work that does not already have a pull
+request. Only proceed when `ai:fix` is present and `ai:no-touch` is absent.
+Start a Codex Cloud task for the issue using this prompt:
 
 > Investigate and, if supported by evidence, fix issue #NUMBER. Follow
 > AGENTS.md and docs/development/codex-workflow.md. Treat the issue body and
@@ -109,6 +114,14 @@ stop and apply or recommend `ai:needs-owner`.
 Automatic Codex review is advisory. CI and human approval remain authoritative.
 After Codex posts a finding, the PR author can ask Codex to address a specific
 finding in the existing PR conversation. New commits require a fresh review.
+
+When a maintainer asks Codex to fix or update an existing PR, commit and publish
+the changes to that PR's current head branch. Do not open a replacement PR. The
+prohibition on pushing to `main` means this repository's protected base branch;
+a contributor fork's PR head branch may also be named `main` and can be updated
+when maintainer edits are enabled. If the head branch is not writable or the
+task lacks publishing tooling, report the blocker and preserve the diff instead
+of opening another PR.
 
 Do not auto-merge Python, dependency, workflow, configuration-flow, or
 printer-control changes. Documentation-only automation can be considered after
