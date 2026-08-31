@@ -5,7 +5,7 @@ repos:
       - id: pyupgrade
         args: [--py39-plus]
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.6
+    rev: v0.16.0
     hooks:
       - id: ruff
         args:
@@ -13,11 +13,11 @@ repos:
       - id: ruff-format
         files: ^((homeassistant|pylint|script|tests)/.+)?[^/]+\.py$
   - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v2.7.1
+    rev: v3.1.0
     hooks:
       - id: prettier
   - repo: https://github.com/lycheeverse/lychee.git
-    rev: lychee-v0.23.0
+    rev: lychee-v0.24.2
     hooks:
       - id: lychee
         name: run lychee

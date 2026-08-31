@@ -49,12 +49,12 @@ async def test_camera_services(hass, caplog):
 
 async def test_camera_services_full_path(hass, get_camera_info, caplog):
     """Test camera services."""
-    get_camera_info["webcams"][0][
-        "stream_url"
-    ] = "http://1.2.3.4/webcam/?action=2stream"
-    get_camera_info["webcams"][0][
-        "snapshot_url"
-    ] = "http://1.2.3.4/webcam/?action=2snapshot"
+    get_camera_info["webcams"][0]["stream_url"] = (
+        "http://1.2.3.4/webcam/?action=2stream"
+    )
+    get_camera_info["webcams"][0]["snapshot_url"] = (
+        "http://1.2.3.4/webcam/?action=2snapshot"
+    )
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(config_entry.entry_id)
@@ -281,9 +281,9 @@ async def test_thumbnail_data_failing(
 async def test_thumbnail_on_subfolder(hass, get_data, aioclient_mock):
     """Test thumbnail on subfolder."""
 
-    get_data["status"]["print_stats"][
-        "filename"
-    ] = "subfolder/CE3E3V2_picture_frame_holder.gcode"
+    get_data["status"]["print_stats"]["filename"] = (
+        "subfolder/CE3E3V2_picture_frame_holder.gcode"
+    )
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
@@ -300,9 +300,9 @@ async def test_thumbnail_on_subfolder(hass, get_data, aioclient_mock):
 
 async def test_thumbnail_with_gcodes_prefix(hass, get_data, aioclient_mock):
     """Test thumbnail path when filename includes gcodes root."""
-    get_data["status"]["print_stats"][
-        "filename"
-    ] = "gcodes/subfolder/CE3E3V2_picture_frame_holder.gcode"
+    get_data["status"]["print_stats"]["filename"] = (
+        "gcodes/subfolder/CE3E3V2_picture_frame_holder.gcode"
+    )
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
@@ -319,9 +319,9 @@ async def test_thumbnail_with_gcodes_prefix(hass, get_data, aioclient_mock):
 async def test_thumbnail_space_in_path(hass, get_data, aioclient_mock):
     """Test thumbnail with space in URL."""
 
-    get_data["thumbnails"][1][
-        "relative_path"
-    ] = ".thumbs/CE3E3V2_picture frame_holder-32x32.png"
+    get_data["thumbnails"][1]["relative_path"] = (
+        ".thumbs/CE3E3V2_picture frame_holder-32x32.png"
+    )
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
