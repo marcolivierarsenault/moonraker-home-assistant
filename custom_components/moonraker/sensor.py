@@ -924,9 +924,7 @@ def create_u1_filament_sensor_description(extruder_index):
     return U1ExtruderFilamentSensorDescription(
         key=f"e{extruder_index}_filament_info",
         name=f"E{extruder_index} Filament Info",
-        value_fn=lambda sensor: f"#{sensor.coordinator.data[U1_PRINT_TASK_CONFIG][
-            'filament_color_rgba'
-        ][extruder_index]}",
+        value_fn=lambda sensor: f"#{sensor.coordinator.data[U1_PRINT_TASK_CONFIG]['filament_color_rgba'][extruder_index]}",
         extra_state_fn=lambda sensor: {
             field.replace("filament_", ""): sensor.coordinator.data[
                 U1_PRINT_TASK_CONFIG
