@@ -27,6 +27,7 @@ from .const import (
     CONF_TLS,
     CONF_URL,
     DEFAULT_PORT,
+    DEVICE_TYPE,
     DOMAIN,
     HOSTNAME,
     METHODS,
@@ -279,10 +280,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             printer_info = await api.client.call_method("printer.info")
             _LOGGER.debug(printer_info)
 
-            if printer_name == "" or printer_name is None:
-                api_device_name = printer_info[HOSTNAME]
-            else:
-                api_device_name = printer_name
+            api_device_name = (
+                printer_name
+                or printer_info.get(HOSTNAME)
+                or printer_info.get(DEVICE_TYPE)
+                or url
+            )
 
             hass.config_entries.async_update_entry(entry, title=api_device_name)
 
