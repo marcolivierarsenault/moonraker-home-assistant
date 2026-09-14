@@ -250,6 +250,19 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
         unit="mm/s",
         state_class=SensorStateClass.MEASUREMENT,
     ),
+        MoonrakerSensorDescription(
+        key="flow_rate",
+        name="Flow Rate",
+        value_fn=lambda sensor: calculate_flow_rate(sensor.coordinator.data),
+        subscriptions=[
+            ("motion_report", "live_extruder_velocity"),
+            ("motion_report", "live_velocity"),
+        ],
+        icon="mdi:printer-3d-nozzle",
+        unit="mm³/s",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=2,
+    ),
     MoonrakerSensorDescription(
         key="total_layer",
         name="Total Layer",
@@ -970,6 +983,28 @@ def calculate_print_speed(data):
         return None
 
     return 0.0 if speed <= 0 else round(speed, 2)
+    
+
+def calculate_flow_rate(data):
+    """Calculate deposited volumetric flow for 1.75 mm filament."""
+
+    state = data["status"]["print_stats"]["state"]
+    if state != PRINTSTATES.PRINTING.value:
+        return 0.0
+
+    motion_report = data["status"].get("motion_report", {})
+    extruder_velocity = motion_report.get("live_extruder_velocity")
+    tool_velocity = motion_report.get("live_velocity")
+
+    if extruder_velocity is None or tool_velocity is None:
+        return None
+
+    # Ignore retractions, unretractions and stationary extrusion moves.
+    if extruder_velocity <= 0 or tool_velocity <= 1:
+        return 0.0
+
+    filament_area = math.pi * (1.75 / 2) ** 2
+    return round(extruder_velocity * filament_area, 2)
 
 
 def _parse_progress(value) -> float | None:
