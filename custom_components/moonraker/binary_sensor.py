@@ -43,9 +43,9 @@ async def async_setup_optional_binary_sensors(coordinator, entry, async_add_enti
             desc = MoonrakerBinarySensorDescription(
                 key=f"{split_obj[0]}_{split_obj[1]}",
                 sensor_name=obj,
-                is_on_fn=lambda sensor: sensor.coordinator.data["status"][
-                    sensor.sensor_name
-                ]["filament_detected"],
+                is_on_fn=lambda sensor: sensor.coordinator.data.get("status", {}).get(
+                    sensor.sensor_name, {}
+                )["filament_detected"],
                 name=split_obj[1].replace("_", " ").title(),
                 subscriptions=[(obj, "filament_detected")],
                 icon="mdi:printer-3d-nozzle-alert",
@@ -65,9 +65,9 @@ async def async_setup_optional_binary_sensors(coordinator, entry, async_add_enti
                 MoonrakerBinarySensorDescription(
                     key=f"{base_key}_active",
                     sensor_name=obj,
-                    is_on_fn=lambda sensor: sensor.coordinator.data["status"][
-                        sensor.sensor_name
-                    ]["is_active"],
+                    is_on_fn=lambda sensor: sensor.coordinator.data.get(
+                        "status", {}
+                    ).get(sensor.sensor_name, {})["is_active"],
                     name=f"{base_name} Active",
                     subscriptions=[(obj, "is_active")],
                     icon="mdi:motion-sensor",
@@ -144,10 +144,25 @@ class MoonrakerBinarySensor(BaseMoonrakerEntity, BinarySensorEntity):
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
         self._attr_name = description.name
         self._attr_has_entity_name = True
-        self._attr_native_value = description.is_on_fn(self)
         self._attr_icon = description.icon
+        self._attr_available = True
+        try:
+            self._attr_native_value = description.is_on_fn(self)
+        except (KeyError, TypeError):
+            self._attr_available = False
 
     @property
-    def is_on(self) -> bool:
+    def available(self) -> bool:
+        """Return True if last update succeeded and this sensor's data is present."""
+        return super().available and self._attr_available
+
+    @property
+    def is_on(self) -> bool | None:
         """Return state."""
-        return self.is_on_fn(self)
+        try:
+            state = self.is_on_fn(self)
+        except (KeyError, TypeError):
+            self._attr_available = False
+            return None
+        self._attr_available = True
+        return state

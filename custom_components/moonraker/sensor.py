@@ -380,7 +380,7 @@ async def _machine_system_info_updater(coordinator):
     return {
         "system_info": (
             await coordinator.async_fetch_data(METHODS.MACHINE_SYSTEM_INFO)
-        )["system_info"]
+        ).get("system_info", {})
     }
 
 
@@ -983,7 +983,7 @@ async def async_setup_machine_update_sensors(coordinator, entry, async_add_entit
     coordinator.add_data_updater(_machine_update_updater)
     sensors = []
 
-    for version_info in machine_status["version_info"]:
+    for version_info in machine_status.get("version_info", {}):
         if version_info == "system":
             sensors.append(
                 MoonrakerSensorDescription(
@@ -1041,12 +1041,19 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
         self._attr_name = description.name
         self._attr_has_entity_name = True
         self.entity_description: MoonrakerSensorDescription = description
+        self._attr_available = True
         try:
             self._attr_native_value = description.value_fn(self)
         except (KeyError, TypeError):
             self._attr_native_value = None
+            self._attr_available = False
         self._attr_icon = description.icon
         self._attr_native_unit_of_measurement = description.unit
+
+    @property
+    def available(self) -> bool:
+        """Return True if last update succeeded and this sensor's data is present."""
+        return super().available and self._attr_available
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -1054,7 +1061,10 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
         try:
             self._attr_native_value = self.entity_description.value_fn(self)
         except (KeyError, TypeError):
+            self._attr_available = False
+            self.async_write_ha_state()
             return
+        self._attr_available = True
         self.async_write_ha_state()
 
     def empty_result_when_not_printing(self, value=""):

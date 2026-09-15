@@ -214,7 +214,9 @@ async def async_setup_macros(coordinator, entry, async_add_entities):
 async def async_setup_services(coordinator, entry, async_add_entities):
     """Create Start, Stop, and Restart buttons for all allowed services."""
     system_info = await coordinator.async_fetch_data(METHODS.MACHINE_SYSTEM_INFO)
-    available_services = system_info["system_info"].get("available_services", [])
+    available_services = system_info.get("system_info", {}).get(
+        "available_services", []
+    )
 
     service_buttons = []
 
