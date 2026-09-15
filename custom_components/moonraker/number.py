@@ -52,10 +52,10 @@ async def async_setup_temperature_target(coordinator, entry, async_add_entities)
     config_response = await coordinator.async_fetch_data(
         METHODS.PRINTER_OBJECTS_QUERY, config_query, quiet=True
     )
-    config_settings = config_response["status"]["configfile"].get("settings", {})
+    config_settings = config_response.get("status", {}).get("configfile", {}).get("settings", {})
 
     object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
-    for obj in object_list["objects"]:
+    for obj in object_list.get("objects", []):
         if obj.startswith("heater_bed"):
             desc = MoonrakerNumberSensorDescription(
                 key=f"{obj}_target",
@@ -167,12 +167,13 @@ async def async_setup_output_pin(coordinator, entry, async_add_entities):
         METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
     )
 
+    cfg = settings.get("status", {}).get("configfile", {}).get("settings", {})
     numbers = []
-    for obj in object_list["objects"]:
+    for obj in object_list.get("objects", []):
         if "output_pin" not in obj:
             continue
 
-        if not settings["status"]["configfile"]["settings"][obj.lower()]["pwm"]:
+        if not cfg.get(obj.lower(), {}).get("pwm", False):
             continue
 
         desc = MoonrakerNumberSensorDescription(
@@ -195,7 +196,7 @@ async def async_setup_speed_factor(coordinator, entry, async_add_entities):
     """Set up speed factor number entity."""
 
     object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
-    if "gcode_move" not in object_list["objects"]:
+    if "gcode_move" not in object_list.get("objects", []):
         return
 
     desc = MoonrakerNumberSensorDescription(

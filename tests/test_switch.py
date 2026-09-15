@@ -4,7 +4,12 @@ from unittest.mock import patch
 
 import pytest
 from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
-from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_OFF, SERVICE_TURN_ON
+from homeassistant.const import (
+    ATTR_ENTITY_ID,
+    STATE_UNAVAILABLE,
+    SERVICE_TURN_OFF,
+    SERVICE_TURN_ON,
+)
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.moonraker.const import DOMAIN, METHODS
@@ -101,3 +106,58 @@ async def test_switch_turn_off(hass, switch, switch_type, get_default_api_respon
                 METHODS.PRINTER_GCODE_SCRIPT.value,
                 script=f"SET_PIN PIN={switch.split('_')[3]} VALUE=0",
             )
+
+
+async def test_power_devices_missing_key(hass, get_default_api_response):
+    """Missing 'devices' key (e.g. Moonraker offline) must not crash setup."""
+    response_without_devices = {**get_default_api_response}
+    response_without_devices.pop("devices", None)
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value=response_without_devices,
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert config_entry.state.value == "loaded"
+    assert hass.states.get("switch.mainsail_printer") is None
+
+
+async def test_power_device_missing_from_coordinator_data(hass, get_power_devices):
+    """Power state going missing after setup marks the switch unavailable, not crashed."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("switch.mainsail_printer")
+    assert state is not None
+    assert state.state != STATE_UNAVAILABLE
+
+    get_power_devices["devices"] = []
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={"devices": []},
+    ):
+        coordinator = hass.data[DOMAIN][config_entry.entry_id]
+        await coordinator.async_refresh()
+        await hass.async_block_till_done()
+
+    state = hass.states.get("switch.mainsail_printer")
+    assert state is not None
+    assert state.state == STATE_UNAVAILABLE
+
+
+async def test_output_pin_config_missing_skips_entity(hass, get_data):
+    """An output pin with unknown config must be skipped, not guessed as digital."""
+    get_data["status"]["configfile"]["settings"].pop("output_pin digital", None)
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("switch.mainsail_output_pin_digital") is None

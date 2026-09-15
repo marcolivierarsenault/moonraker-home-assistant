@@ -134,6 +134,24 @@ async def test_gcode_macro_attributes_empty(hass, get_data):
     assert "last_service_date" not in state.attributes
 
 
+async def test_services_missing_system_info(hass, get_default_api_response):
+    """Empty system_info response (e.g. Moonraker offline) must not crash setup."""
+    response_without_system_info = {**get_default_api_response}
+    response_without_system_info.pop("system_info", None)
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value=response_without_system_info,
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert config_entry.state.value == "loaded"
+    assert hass.states.get("button.mainsail_stop_klipper") is None
+
+
 async def test_services(hass):
     """Test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")

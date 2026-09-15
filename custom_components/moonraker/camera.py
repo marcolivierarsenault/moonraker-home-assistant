@@ -158,10 +158,12 @@ class PreviewCamera(Camera):
     ) -> bytes | None:
         """Return current camera image."""
         _LOGGER.debug("Trying to get thumbnail ")
-        if (
-            self.coordinator.data["status"]["print_stats"]["state"]
-            != PRINTSTATES.PRINTING.value
-        ):
+        state = (
+            self.coordinator.data.get("status", {})
+            .get("print_stats", {})
+            .get("state")
+        )
+        if state != PRINTSTATES.PRINTING.value:
             _LOGGER.debug("Not printing, no thumbnail")
             return None
 
