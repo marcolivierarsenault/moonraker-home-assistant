@@ -13,16 +13,20 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from .const import (
     CONF_API_KEY,
+    CONF_OPTION_QUIET_UNREACHABLE,
     CONF_PORT,
     CONF_TLS,
     CONF_URL,
     DEFAULT_PORT,
     DOMAIN,
     METHODS,
+    PRINTING_POLLING_RATE,
     TIMEOUT,
+    VERSION,
 )
 
 if TYPE_CHECKING:
@@ -31,12 +35,21 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 PANEL_URL = "/api/moonraker/panel"
+PANEL_EMBED_URL = "/api/moonraker/panel_embed"
+PANEL_MODULE_URL = "/api/moonraker/panel_module.js"
+PANEL_CLIENT_URL = "/api/moonraker/panel_client.js"
 PANEL_DATA_URL = "/api/moonraker/panel_data"
+PANEL_GCODE_URL = "/api/moonraker/panel_gcode"
 PANEL_THUMB_URL = "/api/moonraker/panel_thumbnail"
 PANEL_ACTION_URL = "/api/moonraker/panel_action"
+PANEL_FRONTEND_PATH = "moonraker-control-deck"
+UPLOAD_URL = "/api/moonraker/gcode_upload"
 
 _GCODE_ROOT = "gcodes"
+_MAX_TOOLPATH_BYTES = 128 * 1024 * 1024
 _TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "panel.html")
+_MODULE_PATH = os.path.join(os.path.dirname(__file__), "panel_module.js")
+_CLIENT_PATH = os.path.join(os.path.dirname(__file__), "panel_client.js")
 
 _META_KEYS = (
     "estimated_time",
@@ -59,6 +72,7 @@ _DIRECT_ACTIONS = {
     "server_restart": METHODS.SERVER_RESTART,
     "host_restart": METHODS.HOST_RESTART,
     "host_shutdown": METHODS.HOST_SHUTDOWN,
+    "machine_update_refresh": METHODS.MACHINE_UPDATE_REFRESH,
     "start_queue": METHODS.SERVER_JOB_QUEUE_START,
 }
 
@@ -85,9 +99,9 @@ _PREHEAT_PRESETS = {
 }
 
 
-def _read_template() -> str:
-    """Read the panel template from disk; intended to run in the executor."""
-    with open(_TEMPLATE_PATH, encoding="utf-8") as file:
+def _read_asset(path: str) -> str:
+    """Read a panel asset from disk; intended to run in the executor."""
+    with open(path, encoding="utf-8") as file:
         return file.read()
 
 
@@ -134,22 +148,95 @@ class _PanelViewBase(HomeAssistantView):
         return next(iter(coordinators.values()), None)
 
 
-class MoonrakerPanelView(_PanelViewBase):
-    """Serve the live control panel page."""
+class MoonrakerPanelView(HomeAssistantView):
+    """Redirect the legacy panel URL to the authenticated HA sidebar panel."""
 
     url = PANEL_URL
     name = "api:moonraker:panel"
+    requires_auth = False
+
+    async def get(self, request):
+        """Redirect to the Home Assistant frontend panel."""
+        return web.Response(
+            status=302, headers={"Location": f"/{PANEL_FRONTEND_PATH}"}
+        )
+
+
+class MoonrakerPanelEmbedView(HomeAssistantView):
+    """Serve the control deck page within the authenticated HA panel."""
+
+    url = PANEL_EMBED_URL
+    name = "api:moonraker:panel_embed"
+    requires_auth = False
 
     def __init__(self, hass: HomeAssistant) -> None:
         """Initialize the view."""
-        super().__init__(hass)
+        self.hass = hass
         self._template: str | None = None
 
     async def get(self, request):
-        """Render the panel page."""
+        """Render the panel content frame."""
         if self._template is None:
-            self._template = await self.hass.async_add_executor_job(_read_template)
+            self._template = await self.hass.async_add_executor_job(
+                _read_asset, _TEMPLATE_PATH
+            )
         return web.Response(text=self._template, content_type="text/html")
+
+
+class _PanelAssetView(HomeAssistantView):
+    """Serve static panel code, which contains no printer data or credentials."""
+
+    requires_auth = False
+
+    def __init__(self, hass: HomeAssistant, path: str) -> None:
+        """Initialize the asset view."""
+        self.hass = hass
+        self._path = path
+
+    async def get(self, request):
+        """Serve a static panel asset."""
+        content = await self.hass.async_add_executor_job(_read_asset, self._path)
+        return web.Response(
+            text=content,
+            content_type="application/javascript",
+            headers={"Cache-Control": "no-store"},
+        )
+
+
+class MoonrakerPanelModuleView(_PanelAssetView):
+    """Serve the Home Assistant custom panel module."""
+
+    url = PANEL_MODULE_URL
+    name = "api:moonraker:panel_module"
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        """Initialize the view."""
+        super().__init__(hass, _MODULE_PATH)
+
+
+class MoonrakerPanelClientView(_PanelAssetView):
+    """Serve the panel's browser-side control logic."""
+
+    url = PANEL_CLIENT_URL
+    name = "api:moonraker:panel_client"
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        """Initialize the view."""
+        super().__init__(hass, _CLIENT_PATH)
+
+
+class MoonrakerUploadRedirectView(HomeAssistantView):
+    """Redirect browser navigation to the upload UI in the control panel."""
+
+    url = UPLOAD_URL
+    name = "api:moonraker:gcode_upload_page"
+    requires_auth = False
+
+    async def get(self, request):
+        """Redirect to the authenticated Home Assistant panel."""
+        return web.Response(
+            status=302, headers={"Location": f"/{PANEL_FRONTEND_PATH}"}
+        )
 
 
 class MoonrakerPanelDataView(_PanelViewBase):
@@ -204,6 +291,44 @@ class MoonrakerPanelDataView(_PanelViewBase):
             for obj in status
             if obj.startswith("gcode_macro ")
         )
+        try:
+            system_info_response = await coordinator.async_get_system_info()
+        except UpdateFailed:
+            system_info_response = {}
+        raw_system_info = (
+            system_info_response.get("system_info")
+            if isinstance(system_info_response, dict)
+            else {}
+        ) or {}
+        if not isinstance(raw_system_info, dict):
+            raw_system_info = {}
+        raw_cpu_info = raw_system_info.get("cpu_info") or {}
+        if not isinstance(raw_cpu_info, dict):
+            raw_cpu_info = {}
+        safe_cpu_keys = (
+            "cpu_count",
+            "bits",
+            "processor",
+            "cpu_desc",
+            "hardware_desc",
+            "model",
+            "total_memory",
+            "memory_units",
+        )
+        system_info = {
+            "provider": raw_system_info.get("provider"),
+            "cpu_info": {
+                key: raw_cpu_info[key] for key in safe_cpu_keys if key in raw_cpu_info
+            },
+        }
+        entry_options = coordinator.config_entry.options
+        tracked_objects = [
+            {
+                "name": object_name,
+                "fields": None if fields is None else sorted(fields),
+            }
+            for object_name, fields in coordinator.query_obj.get("objects", {}).items()
+        ]
 
         return self.json(
             {
@@ -213,6 +338,7 @@ class MoonrakerPanelDataView(_PanelViewBase):
                 "selected_file": coordinator.selected_file,
                 "status": status,
                 "printer_info": data.get("printer.info") or {},
+                "system_info": system_info,
                 "meta": {key: data.get(key) for key in _META_KEYS},
                 "history": data.get("history") or {},
                 "queue": data.get("queue") or {},
@@ -235,8 +361,127 @@ class MoonrakerPanelDataView(_PanelViewBase):
                     {"id": entry_id, "name": other.api_device_name}
                     for entry_id, other in self._coordinators().items()
                 ],
+                "api_key_configured": bool(entry.data.get(CONF_API_KEY)),
+                "settings": {
+                    "host": entry.data.get(CONF_URL),
+                    "port": _entry_port(entry),
+                    "tls": bool(entry.data.get(CONF_TLS, False)),
+                    "idle_poll_seconds": coordinator.polling_interval.total_seconds(),
+                    "print_poll_seconds": PRINTING_POLLING_RATE,
+                    "quiet_unreachable": bool(
+                        entry_options.get(CONF_OPTION_QUIET_UNREACHABLE, False)
+                    ),
+                },
+                "platforms": [
+                    getattr(platform, "value", str(platform))
+                    for platform in coordinator.platforms
+                ],
+                "tracked_objects": tracked_objects,
+                "available_objects": (coordinator._printer_objects_list or {}).get(
+                    "objects", []
+                ),
+                "integration_version": VERSION,
             }
         )
+
+
+def _relative_gcode_path(filename: str | None) -> str | None:
+    """Normalize a Moonraker gcode path and reject path traversal."""
+    if not filename:
+        return None
+    normalized = filename.replace("\\", "/").strip()
+    was_absolute = normalized.startswith("/")
+    normalized = normalized.lstrip("/")
+    lowered = normalized.casefold()
+    if lowered.startswith(f"{_GCODE_ROOT}/"):
+        normalized = normalized[len(_GCODE_ROOT) + 1 :]
+    elif was_absolute:
+        marker = f"/{_GCODE_ROOT}/"
+        index = lowered.find(marker)
+        if index >= 0:
+            normalized = normalized[index + len(marker):]
+    if not normalized or any(part in ("", ".", "..") for part in normalized.split("/")):
+        return None
+    return normalized
+
+
+class MoonrakerPanelGcodeView(_PanelViewBase):
+    """Stream the active gcode file to the authenticated dashboard for preview."""
+
+    url = PANEL_GCODE_URL
+    name = "api:moonraker:panel_gcode"
+
+    async def get(self, request):
+        """Proxy the active gcode file without exposing Moonraker credentials."""
+        coordinator = self._resolve(request.query.get("printer"))
+        if coordinator is None:
+            return self.json({"error": "unknown printer"}, status_code=404)
+
+        status = (coordinator.data or {}).get("status") or {}
+        print_stats = status.get("print_stats") or {}
+        virtual_sdcard = status.get("virtual_sdcard") or {}
+        active_path = _relative_gcode_path(
+            print_stats.get("filename") or virtual_sdcard.get("file_path")
+        )
+        requested_path = _relative_gcode_path(request.query.get("filename"))
+        if not requested_path or requested_path != active_path:
+            return self.json({"error": "only the active gcode file can be previewed"}, status_code=404)
+
+        file_list = (coordinator.data or {}).get("file_list") or {}
+        files = file_list.get("files") if isinstance(file_list, dict) else file_list
+        allowed_paths = {
+            _relative_gcode_path(file.get("path"))
+            for file in files or []
+            if isinstance(file, dict)
+        }
+        if requested_path not in allowed_paths:
+            return self.json({"error": "gcode file is not in the printer file list"}, status_code=404)
+
+        entry = coordinator.config_entry
+        scheme = "https" if entry.data.get(CONF_TLS, False) else "http"
+        url = (
+            f"{scheme}://{entry.data.get(CONF_URL)}:{_entry_port(entry)}"
+            f"/server/files/{_GCODE_ROOT}/{quote(requested_path, safe='/')}"
+        )
+        api_key = entry.data.get(CONF_API_KEY)
+        headers = {"X-Api-Key": api_key} if api_key else {}
+        session = async_get_clientsession(self.hass, verify_ssl=False)
+        response = None
+        response_started = False
+        timeout = aiohttp.ClientTimeout(total=None, sock_connect=TIMEOUT, sock_read=30)
+        try:
+            async with session.get(url, headers=headers, timeout=timeout) as upstream:
+                if upstream.status != 200:
+                    return web.Response(status=404)
+                if upstream.content_length and upstream.content_length > _MAX_TOOLPATH_BYTES:
+                    return self.json(
+                        {"error": "gcode file exceeds the interactive preview limit"},
+                        status_code=413,
+                    )
+                response_headers = {
+                    "Content-Type": "text/plain; charset=utf-8",
+                    "Cache-Control": "no-store",
+                }
+                if upstream.content_length is not None:
+                    response_headers["Content-Length"] = str(upstream.content_length)
+                response = web.StreamResponse(headers=response_headers)
+                await response.prepare(request)
+                response_started = True
+                bytes_streamed = 0
+                async for chunk in upstream.content.iter_chunked(64 * 1024):
+                    bytes_streamed += len(chunk)
+                    if bytes_streamed > _MAX_TOOLPATH_BYTES:
+                        response.force_close()
+                        return response
+                    await response.write(chunk)
+                await response.write_eof()
+                return response
+        except (asyncio.TimeoutError, aiohttp.ClientError, OSError) as exception:
+            _LOGGER.debug("Could not stream active gcode to the dashboard: %s", exception)
+            if response_started and response is not None:
+                response.force_close()
+                return response
+            return web.Response(status=502)
 
 
 class MoonrakerPanelThumbnailView(_PanelViewBase):
@@ -409,9 +654,26 @@ class MoonrakerPanelActionView(_PanelViewBase):
         return "unknown action"
 
 
-def register_panel_views(hass: HomeAssistant) -> None:
-    """Register all panel HTTP views."""
-    hass.http.register_view(MoonrakerPanelView(hass))
+async def register_panel_views(hass: HomeAssistant) -> None:
+    """Register panel HTTP views and the authenticated HA sidebar panel."""
+    from homeassistant.components.panel_custom import async_register_panel
+
+    hass.http.register_view(MoonrakerPanelView())
+    hass.http.register_view(MoonrakerPanelEmbedView(hass))
+    hass.http.register_view(MoonrakerPanelModuleView(hass))
+    hass.http.register_view(MoonrakerPanelClientView(hass))
+    hass.http.register_view(MoonrakerUploadRedirectView())
     hass.http.register_view(MoonrakerPanelDataView(hass))
+    hass.http.register_view(MoonrakerPanelGcodeView(hass))
     hass.http.register_view(MoonrakerPanelThumbnailView(hass))
     hass.http.register_view(MoonrakerPanelActionView(hass))
+    await async_register_panel(
+        hass,
+        frontend_url_path=PANEL_FRONTEND_PATH,
+        webcomponent_name="moonraker-control-panel",
+        sidebar_title="Moonraker Control",
+        sidebar_icon="mdi:printer-3d",
+        module_url=PANEL_MODULE_URL,
+        embed_iframe=False,
+        config={"frame_url": PANEL_EMBED_URL},
+    )

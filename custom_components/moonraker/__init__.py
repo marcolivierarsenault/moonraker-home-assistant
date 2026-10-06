@@ -3,17 +3,14 @@
 import asyncio
 from collections import deque
 from collections.abc import Callable
-import html
 import logging
 from contextlib import suppress
 import os.path
-from urllib.parse import quote
 import uuid
 from datetime import timedelta
 from typing import Any
 
 import aiohttp
-from aiohttp import web
 import async_timeout
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.config_entries import ConfigEntry
@@ -45,6 +42,7 @@ from .const import (
     DEFAULT_PORT,
     DEVICE_TYPE,
     DOMAIN,
+    DOMAIN_DATA,
     HOSTNAME,
     METHODS,
     NOTIFY_GCODE_RESPONSE,
@@ -65,43 +63,9 @@ _GCODE_ROOT = "gcodes"
 
 _UPLOAD_VIEW_URL = "/api/moonraker/gcode_upload"
 
-_UPLOAD_PAGE = """<!doctype html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Moonraker G-code Upload</title>
-  <style>
-    body {{ font-family: sans-serif; margin: 2rem auto; max-width: 32rem; padding: 0 1rem; }}
-    form {{ display: grid; gap: 1rem; }}
-    label {{ display: grid; gap: 0.25rem; }}
-    button {{ padding: 0.6rem 1rem; font-size: 1rem; }}
-    .msg {{ padding: 0.75rem; background: #e8f0fe; border-radius: 0.4rem; }}
-  </style>
-</head>
-<body>
-  <h1>Upload G-code</h1>
-  <p><a href="/api/moonraker/panel">Open the live control deck</a></p>
-  {message}
-  <form method="post" enctype="multipart/form-data">
-    <label>Printer
-      <select name="printer">{options}</select>
-    </label>
-    <label>G-code file
-      <input type="file" name="file" accept=".gcode,.g,.gco,.bgcode" required>
-    </label>
-    <label>
-      <input type="checkbox" name="start_print" value="1"> Start printing after upload
-    </label>
-    <button type="submit">Upload</button>
-  </form>
-</body>
-</html>"""
-
-_upload_view_registered = False
-
 
 class MoonrakerGcodeUploadView(HomeAssistantView):
-    """Serve a browser form that uploads gcode files to Moonraker."""
+    """Handle authenticated browser uploads of gcode files to Moonraker."""
 
     url = _UPLOAD_VIEW_URL
     name = "api:moonraker:gcode_upload"
@@ -118,20 +82,6 @@ class MoonrakerGcodeUploadView(HomeAssistantView):
             for entry_id, coordinator in self.hass.data.get(DOMAIN, {}).items()
             if isinstance(coordinator, MoonrakerDataUpdateCoordinator)
         }
-
-    async def get(self, request):
-        """Render the upload form."""
-        options = "".join(
-            f'<option value="{entry_id}">'
-            f"{html.escape(str(coordinator.api_device_name))}</option>"
-            for entry_id, coordinator in self._coordinators().items()
-        )
-        notice = request.query.get("notice", "")
-        message = f'<p class="msg">{html.escape(notice)}</p>' if notice else ""
-        return web.Response(
-            text=_UPLOAD_PAGE.format(options=options, message=message),
-            content_type="text/html",
-        )
 
     async def post(self, request):
         """Handle the uploaded file and forward it to Moonraker."""
@@ -151,23 +101,23 @@ class MoonrakerGcodeUploadView(HomeAssistantView):
                 start_print = True
 
         coordinator = self._coordinators().get(entry_id)
-        notice = "Select a gcode file to upload."
-        if coordinator is not None and data and filename:
-            filename = os.path.basename(filename.replace("\\", "/"))
-            try:
-                await coordinator.async_upload_gcode_data(data, filename)
-                if start_print:
-                    await coordinator.async_send_data(
-                        METHODS.PRINTER_PRINT_START, {"filename": filename}
-                    )
-                notice = f"Uploaded {filename}"
-                if start_print:
-                    notice += " and started the print"
-            except Exception:
-                _LOGGER.exception("Moonraker gcode upload failed")
-                notice = f"Upload of {filename} failed; see logs"
+        if coordinator is None:
+            return self.json({"error": "unknown printer"}, status_code=404)
+        if not data or not filename:
+            return self.json({"error": "select a gcode file to upload"}, status_code=400)
 
-        raise web.HTTPFound(f"{_UPLOAD_VIEW_URL}?notice={quote(notice)}")
+        filename = os.path.basename(filename.replace("\\", "/"))
+        try:
+            await coordinator.async_upload_gcode_data(data, filename)
+            if start_print:
+                await coordinator.async_send_data(
+                    METHODS.PRINTER_PRINT_START, {"filename": filename}
+                )
+        except Exception:
+            _LOGGER.exception("Moonraker gcode upload failed")
+            return self.json({"error": "gcode upload failed"}, status_code=502)
+
+        return self.json({"ok": True, "filename": filename})
 
 
 def _quiet_unreachable_logs(entry: ConfigEntry) -> bool:
@@ -465,6 +415,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
+    object_list = await coordinator.async_get_printer_objects()
+    if isinstance(object_list, dict) and "bed_mesh" in (object_list.get("objects") or []):
+        coordinator.add_query_objects("bed_mesh", None)
+        try:
+            await coordinator.async_refresh_query_data()
+        except UpdateFailed:
+            _LOGGER.debug("Could not fetch bed mesh status for control panel")
+
     try:
         await coordinator.async_subscribe_status_updates()
     except UpdateFailed:
@@ -527,13 +485,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     hass.services.async_register(DOMAIN, "start_print", start_print_service)
     hass.services.async_register(DOMAIN, "upload_gcode", upload_gcode_service)
 
-    global _upload_view_registered
-    if not _upload_view_registered:
-        from .panel import register_panel_views
+    panel_data = hass.data.setdefault(DOMAIN_DATA, {})
+    views_lock = panel_data.setdefault("views_lock", asyncio.Lock())
+    async with views_lock:
+        if not panel_data.get("views_registered"):
+            from .panel import register_panel_views
 
-        hass.http.register_view(MoonrakerGcodeUploadView(hass))
-        register_panel_views(hass)
-        _upload_view_registered = True
+            hass.http.register_view(MoonrakerGcodeUploadView(hass))
+            await register_panel_views(hass)
+            panel_data["views_registered"] = True
 
     return True
 
@@ -600,6 +560,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         client.notification_handler = self._async_handle_notification
         self.load_sensor_data(SENSORS)
         self.add_query_objects("virtual_sdcard", "file_path")
+        self.add_query_objects("virtual_sdcard", "file_size")
 
         super().__init__(
             hass,

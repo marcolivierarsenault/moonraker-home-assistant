@@ -3,666 +3,323 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🛸 moonraker // control deck</title>
+<title>NEXUS CONTROL // Moonraker</title>
 <style>
   :root {
-    --neon-pink: #ff2fd6; --neon-cyan: #00f5d4; --neon-lime: #ccff00;
-    --neon-orange: #ff9f1c; --neon-violet: #8a2bff;
-    --ink: #241d2b;
-    --pastel-pink: #ffe3f4; --pastel-mint: #d9fbe8; --pastel-sky: #dcefff;
-    --pastel-butter: #fff6c9; --pastel-lilac: #efe1ff; --pastel-peach: #ffe9d6;
-    --card: #fffdf8;
+    color-scheme: dark;
+    --bg: #020706;
+    --panel: #06110d;
+    --panel-hi: #0a1a13;
+    --line: #164432;
+    --line-hi: #19754a;
+    --green: #00ef91;
+    --green-soft: #9bffc7;
+    --cyan: #39e8bd;
+    --red: #ff536b;
+    --amber: #e6c165;
+    --text: #c9e8d7;
+    --muted: #5e8871;
+    --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+    --sans: "Arial Narrow", "Segoe UI", Arial, sans-serif;
   }
   * { box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
   body {
-    margin: 0; color: var(--ink);
-    font-family: "Segoe UI", ui-sans-serif, system-ui, sans-serif;
-    background: #fdf3ff; min-height: 100vh; overflow-x: hidden;
-  }
-  body::before {
-    content: ""; position: fixed; inset: -10%; z-index: -2;
+    color: var(--text);
     background:
-      radial-gradient(circle at 15% 20%, var(--pastel-pink) 0 18%, transparent 35%),
-      radial-gradient(circle at 85% 15%, var(--pastel-sky) 0 20%, transparent 40%),
-      radial-gradient(circle at 25% 85%, var(--pastel-mint) 0 22%, transparent 42%),
-      radial-gradient(circle at 80% 80%, var(--pastel-butter) 0 18%, transparent 38%),
-      radial-gradient(circle at 55% 45%, var(--pastel-lilac) 0 15%, transparent 35%);
+      radial-gradient(ellipse at 52% -20%, rgba(0,239,145,.12), transparent 48%),
+      linear-gradient(rgba(0,110,66,.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,110,66,.045) 1px, transparent 1px), var(--bg);
+    background-size: auto, 32px 32px, 32px 32px, auto;
+    font-family: var(--sans);
+    font-size: 13px;
   }
-  body::after {
-    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 50;
-    background: repeating-linear-gradient(0deg, rgba(0,0,0,.03) 0 1px, transparent 1px 3px);
-    mix-blend-mode: multiply;
+  button, input, select { color: inherit; font: inherit; }
+  button { cursor: pointer; }
+  .shell { height: 100%; min-width: 320px; display: flex; flex-direction: column; }
+  .topbar {
+    height: 48px; min-height: 48px; display: flex; align-items: center; gap: 15px;
+    padding: 0 16px; position: relative; z-index: 5;
+    background: rgba(2,9,7,.98); border-bottom: 1px solid var(--line-hi);
+    box-shadow: 0 2px 20px rgba(0,239,145,.08);
   }
-  header {
-    display: flex; align-items: center; gap: .8rem; padding: .8rem 1.4rem;
-    background: var(--ink); color: var(--neon-cyan); flex-wrap: wrap;
-    border-bottom: 4px solid var(--neon-pink); z-index: 40; position: sticky; top: 0;
-    font-family: "Courier New", ui-monospace, monospace;
+  .brand { min-width: 190px; display: flex; align-items: center; gap: 7px; color: var(--green); }
+  .brand-mark { width: 20px; height: 20px; display: grid; place-items: center; border: 1px solid var(--green); font: 900 12px var(--mono); box-shadow: 0 0 10px rgba(0,239,145,.22); }
+  .brand-name { font-size: 12px; font-weight: 900; letter-spacing: .19em; }
+  .brand-name small { margin-left: 5px; color: #5f8a70; font: 8px var(--mono); letter-spacing: .17em; }
+  .topline { flex: 1; height: 2px; position: relative; background: linear-gradient(90deg,var(--green),rgba(0,239,145,.02)); }
+  .topline:after { content: ""; position: absolute; right: 16%; top: -2px; width: 48px; height: 6px; background: var(--green); box-shadow: 0 0 12px var(--green); }
+  .top-stat { min-width: 75px; display: grid; gap: 2px; font-family: var(--mono); }
+  .top-stat span:first-child { color: var(--muted); font-size: 7px; letter-spacing: .16em; text-transform: uppercase; }
+  .top-stat span:last-child { color: var(--green-soft); font-size: 9px; text-transform: uppercase; }
+  .top-select, .top-chip { min-height: 27px; padding: 4px 8px; border: 1px solid var(--line-hi); border-radius: 2px; background: #06120e; color: var(--green-soft); font: 9px var(--mono); }
+  .top-select { max-width: 190px; }
+  .top-select:focus { outline: none; border-color: var(--green); }
+  .top-chip { display: inline-flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: .08em; }
+  .led { width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .top-chip.bad { color: var(--red); border-color: #73323b; }
+  .top-chip.bad .led { background: var(--red); box-shadow: 0 0 8px var(--red); }
+
+  .app { flex: 1; min-height: 0; display: grid; grid-template-columns: 190px minmax(0,1fr); }
+  .sidebar { min-height: 0; display: flex; flex-direction: column; padding: 12px 8px 9px; background: rgba(3,11,9,.98); border-right: 1px solid var(--line); }
+  .nav-label { padding: 7px 10px 8px; color: #3c7259; font: 8px var(--mono); letter-spacing: .2em; text-transform: uppercase; }
+  .nav-list { display: grid; gap: 3px; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--line-hi) transparent; }
+  .nav-item { min-height: 31px; width: 100%; display: grid; grid-template-columns: 19px 1fr auto; align-items: center; gap: 7px; padding: 5px 9px; text-align: left; border: 1px solid transparent; border-radius: 2px; background: transparent; color: #779985; font: 8px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+  .nav-item:hover { color: var(--green-soft); border-color: #174733; background: #071711; }
+  .nav-item.active { color: var(--green); border-color: #218052; background: linear-gradient(90deg,rgba(0,239,145,.16),rgba(0,239,145,.015)); box-shadow: inset 2px 0 var(--green),0 0 11px rgba(0,239,145,.06); }
+  .nav-icon { color: var(--green); text-align: center; font: 13px var(--mono); }
+  .nav-num { color: #365d49; font-size: 7px; }
+  .side-bottom { margin-top: auto; padding: 9px 9px 0; border-top: 1px solid #102d20; color: #4b765f; font: 7px/1.7 var(--mono); }
+  .side-bottom strong { display: block; color: var(--green); font-size: 8px; letter-spacing: .13em; }
+
+  .main { min-height: 0; overflow: auto; padding: 0 14px 16px; scrollbar-width: thin; scrollbar-color: var(--line-hi) var(--bg); }
+  .pagebar { min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; border-bottom: 1px solid #123d2a; }
+  .page-kicker { color: var(--muted); font: 7px var(--mono); letter-spacing: .2em; text-transform: uppercase; }
+  .page-title { margin: 3px 0 0; color: var(--green); font-size: 17px; line-height: 1; font-weight: 900; letter-spacing: .17em; text-transform: uppercase; }
+  .page-tools { display: flex; align-items: center; gap: 5px; }
+  .micro { color: var(--muted); font: 7px/1.5 var(--mono); letter-spacing: .07em; text-transform: uppercase; }
+  .ticker { height: 22px; display: flex; align-items: center; gap: 8px; overflow: hidden; white-space: nowrap; margin-bottom: 10px; padding: 0 8px; border: 1px solid #143e2a; background: rgba(4,17,12,.9); color: #74ab8a; font: 8px var(--mono); }
+  .ticker-label { flex: 0 0 auto; color: var(--green); }
+  #tickerText { overflow: hidden; text-overflow: ellipsis; }
+  .pages { padding-bottom: 18px; }
+  .screen { display: none; }
+  .screen.active { display: block; animation: page-in .14s ease-out; }
+  @keyframes page-in { from { opacity: .65; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+
+  .grid { display: grid; grid-template-columns: repeat(12,minmax(0,1fr)); gap: 8px; align-content: start; }
+  .span-12 { grid-column: span 12; } .span-8 { grid-column: span 8; } .span-7 { grid-column: span 7; } .span-6 { grid-column: span 6; }
+  .span-5 { grid-column: span 5; } .span-4 { grid-column: span 4; } .span-3 { grid-column: span 3; } .span-2 { grid-column: span 2; }
+  .panel { min-width: 0; position: relative; overflow: hidden; padding: 9px 10px 10px; background: linear-gradient(145deg,rgba(8,27,20,.97),rgba(3,13,10,.98)); border: 1px solid var(--line); border-radius: 3px; box-shadow: inset 0 0 20px rgba(0,120,72,.035); }
+  .panel:before { content: ""; position: absolute; top: -1px; left: -1px; width: 25px; height: 2px; background: var(--green); box-shadow: 0 0 8px rgba(0,239,145,.35); }
+  .panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .panel-kicker { margin-bottom: 3px; color: #4d8265; font: 7px var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+  .panel-title { margin: 0; color: #b8e5ce; font-size: 9px; line-height: 1.35; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+  .panel-tools { display: flex; align-items: center; justify-content: flex-end; gap: 4px; flex-wrap: wrap; }
+  .muted { color: var(--muted); }
+  .mono { font-family: var(--mono); }
+  .big-number { color: var(--green-soft); font: 700 23px var(--mono); letter-spacing: -.06em; }
+  .small-number { color: var(--green-soft); font: 600 13px var(--mono); }
+  .status-value { color: var(--green-soft); font: 9px var(--mono); }
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 6px; border: 1px solid #1b5036; color: var(--green-soft); font: 7px var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+  .row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  .row-between { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .kv { display: grid; grid-template-columns: minmax(70px,auto) 1fr; gap: 5px 9px; align-items: baseline; font: 8px var(--mono); }
+  .kv b { color: #57846c; font-weight: 400; text-transform: uppercase; letter-spacing: .04em; }
+  .kv span { color: #b6d9c5; text-align: right; overflow-wrap: anywhere; }
+  .divider { height: 1px; margin: 8px 0; border: 0; background: #123a29; }
+  .notice { padding: 6px 8px; border-left: 2px solid var(--amber); color: #b9a76e; background: rgba(247,203,100,.04); font: 8px/1.45 var(--mono); }
+  .empty-state { padding: 13px; border: 1px dashed #17442e; color: #547e65; text-align: center; font: 8px var(--mono); }
+  .bad-text { color: var(--red) !important; } .ok-text { color: var(--green) !important; }
+
+  button, input, select { border: 1px solid #1a5739; border-radius: 2px; outline: none; background: #06140f; color: #bfe7d0; font: 8px var(--mono); }
+  button { padding: 5px 8px; letter-spacing: .04em; text-transform: uppercase; }
+  button:hover { color: var(--green-soft); border-color: var(--green); background: #0b2419; box-shadow: 0 0 9px rgba(0,239,145,.09); }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: .42; cursor: not-allowed; }
+  button.primary { color: #00150b; border-color: var(--green); background: var(--green); font-weight: 900; }
+  button.primary:hover { background: var(--green-soft); }
+  button.danger { color: var(--red); border-color: #75313a; }
+  button.danger:hover { background: rgba(255,83,107,.12); border-color: var(--red); }
+  button.subtle { color: #71a187; border-color: #164331; background: #04100c; }
+  button.is-active { color: #00180c; border-color: var(--green); background: var(--green); }
+  input, select { min-width: 0; padding: 6px 8px; }
+  input:focus, select:focus { border-color: var(--green); box-shadow: 0 0 8px rgba(0,239,145,.12); }
+  input[type=range] { width: 100%; padding: 0; accent-color: var(--green); }
+  input[type=number] { width: 95px; }
+  input[type=file] { max-width: 220px; }
+  label { color: #6f9b81; font: 7px var(--mono); text-transform: uppercase; }
+  .control-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  .range-row { display: grid; gap: 4px; margin: 8px 0; }
+  .range-label { display: flex; justify-content: space-between; color: #7fb095; font: 7px var(--mono); text-transform: uppercase; }
+  .stat-tile { min-height: 67px; display: flex; flex-direction: column; justify-content: space-between; }
+  .stat-tile .stat-label { color: #5b8d70; font: 7px var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+  .stat-tile .stat-value { color: var(--green-soft); font: 600 16px var(--mono); }
+  .stat-tile .stat-foot { color: #4c745e; font: 7px var(--mono); }
+
+  .job-hero { min-height: 276px; }
+  .job-hero-content { display: grid; grid-template-columns: 100px minmax(0,1fr) 130px; gap: 10px; min-height: 208px; }
+  .progress-wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; }
+  .progress-svg { width: 92px; height: 92px; transform: rotate(-90deg); }
+  .progress-track { fill: none; stroke: #10281c; stroke-width: 11; }
+  .progress-ring { fill: none; stroke: var(--green); stroke-linecap: square; stroke-width: 11; filter: drop-shadow(0 0 5px rgba(0,239,145,.35)); }
+  .progress-text { fill: #ccffe3; font: 700 16px var(--mono); text-anchor: middle; dominant-baseline: middle; transform: rotate(90deg); transform-origin: center; }
+  .progress-readout { color: var(--green-soft); font: 7px var(--mono); text-align: center; text-transform: uppercase; }
+  .toolpath-box { position: relative; height: 190px; overflow: hidden; border: 1px solid #14452d; background: linear-gradient(rgba(0,112,66,.13) 1px,transparent 1px),linear-gradient(90deg,rgba(0,112,66,.13) 1px,transparent 1px),#030d0a; background-size: 18px 18px; }
+  #toolpathCanvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+  #toolpathCanvas:active { cursor: grabbing; }
+  .toolpath-status { position: absolute; left: 7px; bottom: 6px; max-width: 88%; color: #55a477; font: 7px var(--mono); text-shadow: 0 1px #020706; pointer-events: none; }
+  .toolpath-controls { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-top: 5px; }
+  .toolpath-controls button { padding: 3px 5px; font-size: 6px; }
+  .job-file { margin-bottom: 6px; color: var(--green-soft); font: 9px var(--mono); overflow-wrap: anywhere; }
+  .job-metrics { display: grid; align-content: center; gap: 7px; padding-left: 9px; border-left: 1px solid #163b29; }
+  .job-metric { display: grid; gap: 3px; }
+  .job-metric span:first-child { color: #57846c; font: 6px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+  .job-metric span:last-child { color: #c4ebd4; font: 9px var(--mono); }
+  .camera-preview { display: block; width: 100%; height: 210px; min-height: 150px; object-fit: cover; border: 1px solid #164a31; background: #020604; }
+  .camera-large { height: min(68vh, 620px); object-fit: contain; background: #010403; }
+  .gcode-thumb { display: block; width: 100%; max-height: 230px; object-fit: contain; margin-top: 8px; border: 1px solid #164a31; background: #030d0a; }
+  .camera-empty { display: grid; place-items: center; height: 210px; border: 1px dashed #17462f; color: #4f8065; background: #030b08; font: 8px var(--mono); text-align: center; }
+  .camera-actions { display: flex; justify-content: space-between; gap: 5px; margin-top: 6px; }
+  .temp-bar { height: 5px; overflow: hidden; background: #10241a; }
+  .temp-bar > i { display: block; height: 100%; background: linear-gradient(90deg,#00894f,var(--green)); box-shadow: 0 0 8px rgba(0,239,145,.25); transition: width .3s ease; }
+  .temp-bar.cool > i { background: linear-gradient(90deg,#126963,var(--cyan)); }
+  .temp-graph { display: block; width: 100%; height: 125px; border: 1px solid #16452f; background: #030b08; }
+  .jog-pad { display: grid; grid-template-areas: ". yp ." "xm home xp" ". ym ."; gap: 6px; justify-items: center; align-items: center; }
+  .jog-pad button { width: 39px; height: 35px; padding: 0; font-size: 11px; }
+  .jog-pad .yp { grid-area: yp; } .jog-pad .ym { grid-area: ym; } .jog-pad .xp { grid-area: xp; } .jog-pad .xm { grid-area: xm; } .jog-pad .home { grid-area: home; }
+  .jog-pad.large button { width: 48px; height: 43px; }
+  .jog-z { display: grid; gap: 6px; }
+  .jog-z button { width: 42px; height: 35px; padding: 0; }
+  .jog-z.large button { width: 56px; height: 42px; }
+  .steps { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+  .steps button { padding: 4px 7px; }
+  .position-table { width: 100%; border-collapse: collapse; font: 8px var(--mono); }
+  .position-table td { padding: 5px 6px; border-bottom: 1px solid #10301f; }
+  .position-table td:first-child { color: #5d8f70; }
+  .position-table td:last-child { color: var(--green-soft); text-align: right; }
+  .macro-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(118px,1fr)); gap: 5px; }
+  .macro-grid button { min-height: 40px; text-align: left; }
+  .macro-grid button span { display: block; margin-top: 3px; color: #4d8063; font-size: 6px; }
+  .file-list { max-height: 330px; overflow: auto; margin-top: 7px; border: 1px solid #143c29; }
+  .file-option { width: 100%; display: flex; justify-content: space-between; gap: 7px; padding: 6px 8px; border: 0; border-bottom: 1px solid #102a1d; text-align: left; background: transparent; color: #a4d5b8; font: 8px var(--mono); text-transform: none; }
+  .file-option:hover, .file-option.selected { background: #0b2419; color: var(--green); }
+  .console-output { height: 350px; overflow: auto; padding: 9px; border: 1px solid #1b5437; background: #020806; color: #8ce2aa; white-space: pre-wrap; word-break: break-all; font: 8px/1.5 var(--mono); text-shadow: 0 0 5px rgba(0,239,145,.12); }
+  .system-list { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; border: 1px solid #123a29; background: #123a29; }
+  .system-item { min-height: 39px; display: grid; gap: 4px; padding: 6px; background: #06130e; }
+  .system-item span:first-child { color: #5e8d70; font: 6px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+  .system-item span:last-child { color: #b9e3c9; font: 8px var(--mono); overflow-wrap: anywhere; }
+  .mesh-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 3px; max-width: 380px; margin: 10px auto; }
+  .mesh-cell { aspect-ratio: 1.2; display: grid; place-items: center; border: 1px solid #174c33; color: var(--green-soft); background: rgba(0,239,145,.035); font: 8px var(--mono); }
+  .object-table { max-height: 420px; overflow: auto; border: 1px solid #153d2a; }
+  .object-row { display: grid; grid-template-columns: minmax(130px,.8fr) 2fr; gap: 7px; padding: 6px 8px; border-bottom: 1px solid #10291c; font: 7px var(--mono); }
+  .object-row span:first-child { color: var(--green-soft); overflow-wrap: anywhere; }
+  .object-row span:last-child { color: #6f9f80; overflow-wrap: anywhere; }
+  .toast { position: fixed; right: 12px; bottom: 12px; z-index: 50; display: none; max-width: 340px; padding: 9px 12px; border: 1px solid var(--green); background: #061810; color: var(--green-soft); box-shadow: 0 0 18px rgba(0,239,145,.16); font: 8px var(--mono); }
+  @media (max-width: 900px) { .span-8,.span-7,.span-6,.span-5,.span-4,.span-3,.span-2 { grid-column: span 6; } .job-hero,.camera-panel { grid-column: span 12; } }
+  @media (max-width: 720px) {
+    html, body { height: auto; min-height: 100%; overflow: auto; }
+    .shell { min-height: 100vh; height: auto; }
+    .topbar { gap: 7px; padding: 0 8px; } .brand { min-width: auto; } .brand-name small,.top-stat,.topline { display: none; }
+    .app { display: flex; flex-direction: column; }
+    .sidebar { position: sticky; top: 0; z-index: 4; padding: 5px; border-right: 0; border-bottom: 1px solid var(--line); }
+    .sidebar-brand,.nav-label,.side-bottom { display: none; } .nav-list { display: flex; gap: 4px; overflow-x: auto; }
+    .nav-item { min-width: 110px; grid-template-columns: 15px 1fr; padding: 6px; } .nav-num { display: none; }
+    .main { overflow: visible; padding: 0 7px 14px; } .pagebar { min-height: 49px; }
+    .span-8,.span-7,.span-6,.span-5,.span-4,.span-3,.span-2,.job-hero,.camera-panel { grid-column: span 12; }
+    .job-hero-content { grid-template-columns: 78px minmax(0,1fr); } .job-metrics { grid-column: span 2; grid-template-columns: repeat(3,1fr); border-left: 0; border-top: 1px solid #163b29; padding: 7px 0 0; }
+    .progress-svg { width: 72px; height: 72px; } .toolpath-box { height: 190px; }
   }
-  header h1 { margin: 0; font-size: 1.05rem; letter-spacing: .12em; white-space: nowrap;
-    text-shadow: 0 0 8px var(--neon-cyan), 0 0 22px rgba(0,245,212,.5); }
-  .zone-tag { font-size: .65rem; letter-spacing: .3em; opacity: .6; }
-  .statechip { padding: .25rem .8rem; border-radius: 999px; font-weight: 700;
-    border: 2px solid var(--neon-lime); color: var(--neon-lime);
-    text-transform: uppercase; font-size: .75rem; letter-spacing: .15em;
-    text-shadow: 0 0 8px rgba(204,255,0,.7); }
-  .statechip.bad { border-color: var(--neon-pink); color: var(--neon-pink); }
-  .kchip { padding: .2rem .7rem; border-radius: 999px; font-size: .7rem;
-    border: 2px solid var(--neon-violet); color: var(--neon-violet); letter-spacing: .1em; }
-  .ticker { overflow: hidden; white-space: nowrap; background: var(--neon-lime);
-    color: var(--ink); border-bottom: 4px solid var(--neon-pink);
-    font-family: "Courier New", monospace; font-weight: 700;
-    padding: .3rem 0; letter-spacing: .08em; font-size: .8rem; }
-  .ticker span { display: inline-block; padding-left: 100%; animation: tick 30s linear infinite; }
-  @keyframes tick { to { transform: translateX(-100%); } }
-
-  .deck { display: grid; gap: 1.3rem; padding: 1.4rem;
-    grid-template-columns: repeat(12, 1fr); max-width: 1500px; margin: 0 auto; }
-  .zone { display: grid; gap: 1.3rem; align-content: start; }
-  .z1 { grid-column: span 4; } .z2 { grid-column: span 4; } .z3 { grid-column: span 4; }
-  .z4 { grid-column: span 12; }
-  @media (max-width: 1080px) { .z1,.z2,.z3 { grid-column: span 12; } }
-  .zone-h { font-family: "Courier New", monospace; font-weight: 800; font-size: .75rem;
-    letter-spacing: .35em; text-transform: uppercase; padding: .2rem .8rem;
-    display: inline-block; transform: rotate(-1deg); width: max-content; }
-  .z1 .zone-h { background: var(--neon-pink); }
-  .z2 .zone-h { background: var(--neon-cyan); }
-  .z3 .zone-h { background: var(--neon-violet); color: #fff; }
-  .z4 > .zone-h { background: var(--neon-orange); }
-
-  .card { background: var(--card); border: 3px solid var(--ink); border-radius: 14px;
-    padding: .9rem 1.1rem; position: relative; }
-  .card h2 { margin: 0 0 .7rem; font-family: "Courier New", monospace; font-size: .8rem;
-    letter-spacing: .2em; text-transform: uppercase; display: inline-block;
-    background: var(--ink); color: #fff; padding: .15rem .7rem; border-radius: 6px; }
-  .z1 .card { box-shadow: 6px 6px 0 var(--neon-pink); }
-  .z2 .card { box-shadow: 6px 6px 0 var(--neon-cyan); }
-  .z3 .card { box-shadow: 6px 6px 0 var(--neon-violet); }
-  .z4 .card { box-shadow: 6px 6px 0 var(--neon-orange); }
-  .tilt-l { transform: rotate(-.7deg); } .tilt-r { transform: rotate(.7deg); }
-  @media (max-width: 1080px) { .tilt-l,.tilt-r { transform: none; } }
-
-  .ringwrap { display: flex; gap: 1rem; align-items: center; }
-  .ring { transform: rotate(-90deg); }
-  .ring .bg { stroke: #efe7f5; }
-  .ring .fg { stroke: url(#grad); stroke-linecap: round;
-    transition: stroke-dashoffset .6s ease;
-    filter: drop-shadow(0 0 6px rgba(255,47,214,.6)); }
-  .pct { font-size: 2rem; font-weight: 800; font-family: "Courier New", monospace; }
-  .thumb { width: 110px; height: 110px; object-fit: contain;
-    border: 3px solid var(--neon-violet); border-radius: 10px; background: var(--pastel-lilac); }
-  .fname { font-family: "Courier New", monospace; font-weight: 700; word-break: break-all;
-    font-size: .9rem; background: var(--pastel-butter); padding: .3rem .6rem;
-    border: 2px dashed var(--neon-orange); border-radius: 8px; margin: .4rem 0; }
-  .kv { display: grid; grid-template-columns: auto 1fr; gap: .2rem .8rem;
-    font-family: "Courier New", monospace; font-size: .82rem; }
-  .kv b { text-align: right; } .kv span { text-align: left; }
-  .layerbar { height: .9rem; background: #f0e8f6; border: 2px solid var(--ink);
-    border-radius: 6px; overflow: hidden; margin-top: .5rem; }
-  .layerbar > i { display: block; height: 100%;
-    background: repeating-linear-gradient(45deg, var(--neon-cyan) 0 10px, var(--neon-lime) 10px 20px); }
-
-  .btnrow { display: flex; flex-wrap: wrap; gap: .55rem; }
-  button { font-family: "Courier New", monospace; font-weight: 800; font-size: .78rem;
-    letter-spacing: .06em; text-transform: uppercase; border: 3px solid var(--ink);
-    border-radius: 10px; padding: .45rem .85rem; cursor: pointer;
-    background: var(--pastel-mint); box-shadow: 3px 3px 0 var(--ink);
-    transition: transform .08s, box-shadow .08s; }
-  button:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--ink); }
-  button.b-pink { background: var(--pastel-pink); }
-  button.b-sky { background: var(--pastel-sky); }
-  button.b-butter { background: var(--pastel-butter); }
-  button.b-lilac { background: var(--pastel-lilac); }
-  button.b-peach { background: var(--pastel-peach); }
-  button.b-danger { background: #ffd6d6; border-color: #c00; box-shadow: 3px 3px 0 #c00; }
-  button.sm { padding: .3rem .6rem; font-size: .68rem; border-width: 2px; box-shadow: 2px 2px 0 var(--ink); }
-  button:disabled { opacity: .45; cursor: not-allowed; }
-  button.on { background: var(--neon-lime); }
-
-  /* jog pad */
-  .jogwrap { display: flex; gap: 1rem; align-items: center; justify-content: center; }
-  .jog { display: grid; grid-template-areas: ". yp ." "xm h xp" ". ym .";
-    gap: .4rem; justify-items: center; }
-  .jog button { width: 3.1rem; height: 3.1rem; padding: 0; font-size: 1.1rem; border-radius: 12px; }
-  .jog .yp { grid-area: yp; } .jog .ym { grid-area: ym; }
-  .jog .xp { grid-area: xp; } .jog .xm { grid-area: xm; }
-  .jog .jh { grid-area: h; background: var(--pastel-butter); font-size: .85rem; }
-  .jogz { display: grid; gap: .4rem; }
-  .jogz button { width: 3.1rem; height: 3.1rem; padding: 0; font-size: 1rem;
-    border-radius: 12px; background: var(--pastel-sky); }
-  .steps { display: flex; gap: .35rem; justify-content: center; margin-top: .6rem; }
-  .steps button.on { background: var(--neon-cyan); }
-
-  /* thermal */
-  .bar { height: 1.5rem; background: #f0e8f6; border: 2px solid var(--ink);
-    border-radius: 8px; overflow: hidden; position: relative; }
-  .bar > i { display: block; height: 100%; transition: width .5s ease;
-    background: repeating-linear-gradient(45deg, var(--neon-pink) 0 12px, var(--neon-violet) 12px 24px); }
-  .bar.cool > i { background: repeating-linear-gradient(45deg, var(--neon-cyan) 0 12px, #7df 12px 24px); }
-  .bar > em { position: absolute; inset: 0; display: grid; place-items: center;
-    font-style: normal; font-weight: 700; font-size: .72rem; font-family: "Courier New", monospace; }
-  #tempGraph { width: 100%; height: 90px; border: 3px solid var(--ink);
-    border-radius: 8px; background: #fff; margin-top: .6rem; }
-  .numrow { display: flex; gap: .5rem; align-items: center; }
-  input[type=number], input[type=text], select {
-    font-family: "Courier New", monospace; font-size: .85rem;
-    border: 3px solid var(--ink); border-radius: 8px; padding: .3rem .5rem;
-    background: #fff; min-width: 0; }
-  select { max-width: 100%; }
-  input[type=range] { width: 100%; accent-color: var(--neon-pink); height: 1.4rem; }
-  .slider-block { margin: .55rem 0; }
-  .slider-block label { font-family: "Courier New", monospace; font-size: .72rem;
-    font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
-    display: flex; justify-content: space-between; }
-  .posgrid { display: grid; grid-template-columns: repeat(4,1fr); gap: .45rem;
-    text-align: center; font-family: "Courier New", monospace; }
-  .posgrid div { border: 2px solid var(--ink); border-radius: 8px;
-    padding: .35rem .15rem; background: var(--pastel-sky); font-size: .85rem; }
-  .posgrid b { display: block; font-size: .65rem; letter-spacing: .15em; }
-
-  /* console */
-  #console { font-family: "Courier New", monospace; font-size: .75rem; height: 160px;
-    overflow-y: auto; background: var(--ink); color: var(--neon-lime);
-    border: 3px solid var(--neon-cyan); border-radius: 8px; padding: .5rem .7rem;
-    white-space: pre-wrap; word-break: break-all; text-shadow: 0 0 6px rgba(204,255,0,.4); }
-  #console .cmd { color: var(--neon-cyan); }
-
-  .chiprow { display: flex; flex-wrap: wrap; gap: .4rem; }
-  .macchip { font-family: "Courier New", monospace; font-size: .68rem; font-weight: 700;
-    border: 2px solid var(--neon-violet); border-radius: 999px; color: var(--neon-violet);
-    background: var(--pastel-lilac); padding: .25rem .7rem; cursor: pointer; }
-  .macchip:hover { background: var(--neon-violet); color: #fff; }
-  .powchip { display: flex; align-items: center; gap: .5rem; font-family: "Courier New", monospace;
-    font-size: .75rem; font-weight: 700; border: 2px solid var(--ink); border-radius: 8px;
-    padding: .35rem .6rem; background: var(--pastel-butter); }
-  .powchip .dot { width: .7rem; height: .7rem; border-radius: 50%;
-    border: 2px solid var(--ink); background: #ccc; }
-  .powchip.on .dot { background: var(--neon-lime); box-shadow: 0 0 8px var(--neon-lime); }
-  .webcam { width: 100%; border: 3px solid var(--neon-cyan); border-radius: 10px;
-    background: #111; min-height: 60px; }
-  .queueitem { font-family: "Courier New", monospace; font-size: .75rem;
-    border-left: 4px solid var(--neon-orange); padding: .15rem .5rem; margin: .2rem 0;
-    background: var(--pastel-butter); border-radius: 0 6px 6px 0; }
-  .filegrid { display: grid; grid-template-columns: 1fr auto; gap: .6rem 1rem; align-items: start; }
-  .toast { position: fixed; right: 1rem; bottom: 1rem; z-index: 60; background: var(--ink);
-    color: var(--neon-lime); padding: .8rem 1.2rem; border: 3px solid var(--neon-lime);
-    border-radius: 10px; font-family: "Courier New", monospace; display: none; max-width: 26rem; }
-  .muted { opacity: .65; font-size: .78rem; }
-  .filesearch { width: 100%; margin-bottom: .5rem; }
 </style>
 </head>
 <body>
-
-<header>
-  <h1>🛸 MOONRAKER&nbsp;//&nbsp;CONTROL&nbsp;DECK</h1>
-  <select id="printerSel" onchange="switchPrinter()"></select>
-  <div style="margin-left:auto" class="zone-tag">CYBERSPACE&nbsp;PRINT&nbsp;OPS</div>
-  <div id="klippyChip" class="kchip">klippy ?</div>
-  <div id="stateChip" class="statechip">???</div>
-</header>
-<div class="ticker"><span id="tickerText">BOOTING CYBERDECK…</span></div>
-
-<div class="deck">
-
-  <!-- ═══════════ ZONE 1 · JOB ═══════════ -->
-  <div class="zone z1">
-    <div class="zone-h">▓▓ job monitor</div>
-    <section class="card tilt-l">
-      <h2>// CURRENT JOB</h2>
-      <div class="ringwrap">
-        <svg class="ring" width="140" height="140" viewBox="0 0 120 120">
-          <defs><linearGradient id="grad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stop-color="#ff2fd6"/><stop offset="1" stop-color="#00f5d4"/>
-          </linearGradient></defs>
-          <circle class="bg" cx="60" cy="60" r="52" fill="none" stroke-width="12"/>
-          <circle class="fg" id="ringFg" cx="60" cy="60" r="52" fill="none"
-            stroke-width="12" stroke-dasharray="326.7" stroke-dashoffset="326.7"/>
-        </svg>
-        <div>
-          <div class="pct" id="pct">0%</div>
-          <div id="eta" class="muted">—</div>
-        </div>
-        <img id="thumb" class="thumb" alt="thumbnail"
-          src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==">
+<div class="shell">
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">N</span><span class="brand-name">NEXUS <small>CONTROL</small></span></div>
+    <div class="topline"></div>
+    <div class="top-stat"><span>Node Link</span><span id="linkStatus">CONNECTING</span></div>
+    <select class="top-select" id="printerSel" aria-label="Printer"></select>
+    <span class="top-chip"><i class="led"></i> LIVE</span>
+    <span id="stateChip" class="top-chip"><i class="led"></i> UNKNOWN</span>
+    <span id="klippyChip" class="top-chip">KLIPPY —</span>
+  </header>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-brand"><div class="nav-label">Subsystems / 01</div></div>
+      <nav class="nav-list" aria-label="Printer console">
+        <button class="nav-item active" data-screen-target="dashboard"><span class="nav-icon">⌂</span><span>Dashboard</span><span class="nav-num">01</span></button>
+        <button class="nav-item" data-screen-target="print"><span class="nav-icon">▤</span><span>Print Job</span><span class="nav-num">02</span></button>
+        <button class="nav-item" data-screen-target="movement"><span class="nav-icon">✣</span><span>Movement</span><span class="nav-num">03</span></button>
+        <button class="nav-item" data-screen-target="thermal"><span class="nav-icon">♨</span><span>Temperatures</span><span class="nav-num">04</span></button>
+        <button class="nav-item" data-screen-target="extruder"><span class="nav-icon">◉</span><span>Extruder</span><span class="nav-num">05</span></button>
+        <button class="nav-item" data-screen-target="bedmesh"><span class="nav-icon">▦</span><span>Bed Mesh</span><span class="nav-num">06</span></button>
+        <button class="nav-item" data-screen-target="tuning"><span class="nav-icon">⌁</span><span>Tuning</span><span class="nav-num">07</span></button>
+        <button class="nav-item" data-screen-target="macros"><span class="nav-icon">▶</span><span>Macros</span><span class="nav-num">08</span></button>
+        <button class="nav-item" data-screen-target="files"><span class="nav-icon">▰</span><span>Files & Queue</span><span class="nav-num">09</span></button>
+        <button class="nav-item" data-screen-target="history"><span class="nav-icon">⌁</span><span>History</span><span class="nav-num">10</span></button>
+        <button class="nav-item" data-screen-target="camera"><span class="nav-icon">▣</span><span>Camera</span><span class="nav-num">11</span></button>
+        <button class="nav-item" data-screen-target="console"><span class="nav-icon">&gt;_</span><span>Console</span><span class="nav-num">12</span></button>
+        <button class="nav-item" data-screen-target="hardware"><span class="nav-icon">⬡</span><span>Hardware</span><span class="nav-num">13</span></button>
+        <button class="nav-item" data-screen-target="system"><span class="nav-icon">⛭</span><span>System</span><span class="nav-num">14</span></button>
+        <button class="nav-item" data-screen-target="network"><span class="nav-icon">⌁</span><span>Network</span><span class="nav-num">15</span></button>
+        <button class="nav-item" data-screen-target="settings"><span class="nav-icon">⚙</span><span>Settings</span><span class="nav-num">16</span></button>
+        <button class="nav-item" data-screen-target="components"><span class="nav-icon">▧</span><span>Components</span><span class="nav-num">17</span></button>
+      </nav>
+      <div class="side-bottom"><strong>NEXUS // PRINT OPS</strong>MOONRAKER LINK / <span id="sidePrinter">—</span><br>2 SEC TELEMETRY / AUTH LINK</div>
+    </aside>
+    <main class="main">
+      <div class="pagebar">
+        <div><div class="page-kicker" id="pageKicker">DEVICE / LIVE OVERVIEW</div><h1 class="page-title" id="screenTitle">Dashboard</h1></div>
+        <div class="page-tools"><span class="micro">SYSTEM TIME</span><span id="clock" class="pill">--:--:--</span><button class="top-button" data-action="refresh_files">SYNC</button></div>
       </div>
-      <div class="fname" id="fname">no file</div>
-      <div class="layerbar"><i id="layerBar" style="width:0%"></i></div>
-      <div class="kv" style="margin-top:.5rem">
-        <b>elapsed</b><span id="elapsed">—</span>
-        <b>remaining</b><span id="remaining">—</span>
-        <b>total est.</b><span id="totalEst">—</span>
-        <b>slicer est.</b><span id="slicerEst">—</span>
-        <b>layer</b><span id="layer">—</span>
-        <b>z height</b><span id="zpos">—</span>
-        <b>filament</b><span id="filUsed">—</span>
-        <b>fil est.</b><span id="filEst">—</span>
-      </div>
-    </section>
-    <section class="card tilt-r" id="webcamCard" style="display:none">
-      <h2>// WEBCAM</h2>
-      <img id="webcam" class="webcam" alt="webcam stream">
-    </section>
-  </div>
-
-  <!-- ═══════════ ZONE 2 · OPERATE ═══════════ -->
-  <div class="zone z2">
-    <div class="zone-h">▓▓ operate</div>
-    <section class="card tilt-r">
-      <h2>// JOB CONTROL</h2>
-      <div class="btnrow">
-        <button class="b-sky" onclick="act('pause')">⏸ pause</button>
-        <button onclick="act('resume')">▶ resume</button>
-        <button class="b-butter" onclick="confirmAct('cancel','Cancel this print?')">✖ cancel</button>
-        <button class="b-danger" onclick="confirmAct('emergency_stop','⚠ EMERGENCY STOP?')">☢ e-stop</button>
-      </div>
-    </section>
-    <section class="card tilt-l">
-      <h2>// MOTION</h2>
-      <div class="jogwrap">
-        <div class="jog">
-          <button class="yp b-sky" onclick="jog('Y',1)">Y+</button>
-          <button class="xm b-sky" onclick="jog('X',-1)">X−</button>
-          <button class="jh" onclick="act('home_all')">⌂</button>
-          <button class="xp b-sky" onclick="jog('X',1)">X+</button>
-          <button class="ym b-sky" onclick="jog('Y',-1)">Y−</button>
-        </div>
-        <div class="jogz">
-          <button onclick="jog('Z',1)">Z+</button>
-          <button onclick="act('home_z')">Z⌂</button>
-          <button onclick="jog('Z',-1)">Z−</button>
-        </div>
-      </div>
-      <div class="steps" id="steps">
-        <button class="sm" onclick="setStep(this,.1)">0.1</button>
-        <button class="sm" onclick="setStep(this,1)">1</button>
-        <button class="sm on" onclick="setStep(this,10)">10</button>
-        <button class="sm" onclick="setStep(this,50)">50</button>
-      </div>
-      <div class="btnrow" style="margin-top:.7rem">
-        <button class="sm b-sky" onclick="act('home_x')">home x</button>
-        <button class="sm b-sky" onclick="act('home_y')">home y</button>
-        <button class="sm b-sky" onclick="act('home_z')">home z</button>
-        <button class="sm b-peach" onclick="confirmAct('motors_off','Release stepper motors?')">motors off</button>
-      </div>
-      <h2 style="margin-top:.9rem">// Z OFFSET</h2>
-      <div class="btnrow">
-        <button class="sm b-pink" onclick="act('z_adjust',-0.05)">−0.05</button>
-        <button class="sm b-pink" onclick="act('z_adjust',-0.01)">−0.01</button>
-        <button class="sm b-pink" onclick="act('z_adjust',0.01)">+0.01</button>
-        <button class="sm b-pink" onclick="act('z_adjust',0.05)">+0.05</button>
-      </div>
-      <div class="posgrid" style="margin-top:.7rem">
-        <div><b>X</b><span id="posX">—</span></div>
-        <div><b>Y</b><span id="posY">—</span></div>
-        <div><b>Z</b><span id="posZ">—</span></div>
-        <div><b>E</b><span id="posE">—</span></div>
-      </div>
-      <div class="kv" style="margin-top:.6rem">
-        <b>move speed</b><span id="moveSpeed">—</span>
-        <b>print time</b><span id="printTime">—</span>
-        <b>state msg</b><span id="stateMsg">—</span>
-      </div>
-    </section>
-    <section class="card tilt-r">
-      <h2>// CONSOLE</h2>
-      <pre id="console"></pre>
-      <div class="numrow" style="margin-top:.5rem">
-        <input type="text" id="gcodeIn" style="flex:1" placeholder="send gcode… (G28, M105…)"
-          onkeydown="if(event.key==='Enter')sendGcode()">
-        <button class="sm b-sky" onclick="sendGcode()">send</button>
-      </div>
-    </section>
-  </div>
-
-  <!-- ═══════════ ZONE 3 · THERMAL ═══════════ -->
-  <div class="zone z3">
-    <div class="zone-h">▓▓ thermal · tune</div>
-    <section class="card tilt-l">
-      <h2>// TEMPERATURES</h2>
-      <div class="kv"><b>extruder</b><span id="extNow">—</span></div>
-      <div class="bar"><i id="extBar" style="width:0%"></i><em id="extBarT"></em></div>
-      <div class="numrow" style="margin:.35rem 0 .7rem">
-        <input type="number" id="extTarget" min="0" max="350" placeholder="°C">
-        <button class="sm b-pink" onclick="act('set_extruder',byId('extTarget').value)">set</button>
-      </div>
-      <div class="kv"><b>bed</b><span id="bedNow">—</span></div>
-      <div class="bar cool"><i id="bedBar" style="width:0%"></i><em id="bedBarT"></em></div>
-      <div class="numrow" style="margin:.35rem 0 .5rem">
-        <input type="number" id="bedTarget" min="0" max="130" placeholder="°C">
-        <button class="sm b-sky" onclick="act('set_bed',byId('bedTarget').value)">set</button>
-      </div>
-      <canvas id="tempGraph" width="520" height="90"></canvas>
-      <div class="btnrow" style="margin-top:.6rem">
-        <button class="sm b-butter" onclick="act('preheat',null,'pla')">pla</button>
-        <button class="sm b-butter" onclick="act('preheat',null,'petg')">petg</button>
-        <button class="sm b-butter" onclick="act('preheat',null,'abs')">abs</button>
-        <button class="sm b-sky" onclick="act('cooldown')">cool down</button>
-      </div>
-    </section>
-    <section class="card tilt-r">
-      <h2>// TUNE</h2>
-      <div class="slider-block">
-        <label><span>SPEED</span><span id="speedVal">—</span></label>
-        <input type="range" id="speed" min="20" max="200" step="5"
-          oninput="sliderVal('speed')" onchange="act('set_speed',this.value)">
-      </div>
-      <div class="slider-block">
-        <label><span>FLOW</span><span id="flowVal">—</span></label>
-        <input type="range" id="flow" min="20" max="150" step="5"
-          oninput="sliderVal('flow')" onchange="act('set_flow',this.value)">
-      </div>
-      <div class="slider-block">
-        <label><span>PART FAN</span><span id="fanVal">—</span></label>
-        <input type="range" id="fan" min="0" max="100" step="1"
-          oninput="sliderVal('fan')" onchange="act('set_fan',this.value*2.55|0)">
-      </div>
-      <div class="kv"><b>speed factor</b><span id="speedFactor">—</span>
-        <b>flow factor</b><span id="flowFactor">—</span></div>
-    </section>
-    <section class="card tilt-l">
-      <h2>// POWER · MACROS</h2>
-      <div class="chiprow" id="powerRow"><span class="muted">—</span></div>
-      <h2 style="margin-top:.9rem">// MACROS</h2>
-      <div class="chiprow" id="macroRow"><span class="muted">—</span></div>
-    </section>
-  </div>
-
-  <!-- ═══════════ ZONE 4 · FILES & SYSTEM ═══════════ -->
-  <div class="zone z4">
-    <div class="zone-h">▓▓ files · queue · system</div>
-    <section class="card">
-      <div class="filegrid">
-        <div>
-          <h2>// FILES</h2>
-          <input type="text" id="fileSearch" class="filesearch" placeholder="filter files…"
-            oninput="renderFiles()">
-          <div class="numrow">
-            <select id="fileSel" style="flex:1"></select>
+      <div class="ticker"><span class="ticker-label">LIVE FEED //</span><span id="tickerText">Awaiting printer telemetry…</span></div>
+      <div class="pages">
+        <section class="screen active" id="screen-dashboard" data-screen="dashboard">
+          <div class="grid">
+            <article class="panel job-hero span-8">
+              <div class="panel-head"><div><div class="panel-kicker">Active Build / Interactive Toolpath</div><h2 class="panel-title" id="dashboardState">PRINTING</h2></div><span class="pill"><i class="led"></i><span id="dashboardAvailability">STREAMING</span></span></div>
+              <div class="job-hero-content">
+                <div class="progress-wrap">
+                  <svg class="progress-svg" viewBox="0 0 120 120" aria-label="Print progress"><circle class="progress-track" cx="60" cy="60" r="51"></circle><circle class="progress-ring" id="ringFg" cx="60" cy="60" r="51" stroke-dasharray="320.44" stroke-dashoffset="320.44"></circle><text class="progress-text" id="pct" x="60" y="60">0%</text></svg>
+                  <div class="progress-readout">BUILD PROGRESS</div><div class="small-number" id="eta">ETA —</div>
+                </div>
+                <div class="model-column">
+                  <div class="job-file" id="fname">NO ACTIVE G-CODE</div>
+                  <div class="toolpath-box"><canvas id="toolpathCanvas" aria-label="Interactive 3D G-code toolpath"></canvas><div class="toolpath-status" id="toolpathStatus">WAITING FOR ACTIVE G-CODE</div></div>
+                  <div class="toolpath-controls"><div class="row"><button class="is-active" data-toolpath-view="iso">ISO</button><button data-toolpath-view="top">TOP</button><button data-toolpath-view="front">FRONT</button><button data-toolpath-view="side">SIDE</button><button class="subtle" data-toolpath-reset>RESET</button><button id="toolpathLoadButton" class="subtle" data-toolpath-load>LOAD 3D PREVIEW</button></div><label class="micro"><input type="checkbox" id="showFuturePath" checked> FUTURE</label><span class="micro">DRAG / ORBIT · WHEEL / ZOOM</span></div>
+                </div>
+                <div class="job-metrics"><div class="job-metric"><span>Elapsed</span><span id="elapsed">—</span></div><div class="job-metric"><span>Remaining</span><span id="remaining">—</span></div><div class="job-metric"><span>Layer</span><span id="layer">—</span></div><div class="job-metric"><span>Layer Height</span><span id="zpos">—</span></div><div class="job-metric"><span>Filament Used</span><span id="filUsed">—</span></div></div>
+              </div>
+              <div class="divider"></div><div class="row-between"><div class="micro">SLICER EST. <span id="slicerEst" class="status-value">—</span></div><div class="micro">TOTAL ELAPSED <span id="totalEst" class="status-value">—</span></div><div class="micro">FILAMENT PLAN <span id="filEst" class="status-value">—</span></div></div><div class="temp-bar"><i id="layerBar" style="width:0%"></i></div>
+            </article>
+            <article class="panel camera-panel span-4" id="webcamCard"><div class="panel-head"><div><div class="panel-kicker">Optical Feed / Primary Camera</div><h2 class="panel-title">LIVE CAMERA</h2></div><span class="pill"><i class="led"></i> LIVE</span></div><img id="webcam" class="camera-preview" alt="Printer webcam stream" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="><div class="camera-actions"><span class="micro">PRINTER VIEW</span><button class="subtle" data-camera-fullscreen>EXPAND</button><button class="subtle" data-screen-target="camera">CAMERA MODULE</button></div></article>
+            <article class="panel stat-tile span-2"><span class="stat-label">Nozzle</span><span class="stat-value" id="dashNozzle">—</span><span class="stat-foot">TARGET <span id="dashNozzleTarget">—</span></span></article>
+            <article class="panel stat-tile span-2"><span class="stat-label">Bed</span><span class="stat-value" id="dashBed">—</span><span class="stat-foot">TARGET <span id="dashBedTarget">—</span></span></article>
+            <article class="panel stat-tile span-2"><span class="stat-label">Chamber</span><span class="stat-value" id="dashChamber">—</span><span class="stat-foot" id="dashHumidity">SENSOR / NOT REPORTED</span></article>
+            <article class="panel stat-tile span-2"><span class="stat-label">Speed</span><span class="stat-value" id="dashSpeed">—</span><span class="stat-foot">FACTOR</span></article>
+            <article class="panel stat-tile span-2"><span class="stat-label">Flow</span><span class="stat-value" id="dashFlow">—</span><span class="stat-foot">EXTRUSION FACTOR</span></article>
+            <article class="panel stat-tile span-2"><span class="stat-label">Part Fan</span><span class="stat-value" id="dashFan">—</span><span class="stat-foot">FAN OUTPUT</span></article>
+            <article class="panel span-5"><div class="panel-head"><div><div class="panel-kicker">Axis Control / XYZ</div><h2 class="panel-title">MOVEMENT</h2></div><button class="subtle" data-screen-target="movement">OPEN</button></div><div class="row-between"><div class="jog-pad"><button class="yp" data-action="jog" data-axis="Y" data-dir="1">Y+</button><button class="xm" data-action="jog" data-axis="X" data-dir="-1">X−</button><button class="home primary" data-action="home_all">HOME</button><button class="xp" data-action="jog" data-axis="X" data-dir="1">X+</button><button class="ym" data-action="jog" data-axis="Y" data-dir="-1">Y−</button></div><div class="jog-z"><button data-action="jog" data-axis="Z" data-dir="1">Z +</button><button data-action="home_z">Z HOME</button><button data-action="jog" data-axis="Z" data-dir="-1">Z −</button></div><table class="position-table"><tbody><tr><td>X</td><td id="posX">—</td></tr><tr><td>Y</td><td id="posY">—</td></tr><tr><td>Z</td><td id="posZ">—</td></tr><tr><td>FEED</td><td id="moveSpeed">—</td></tr></tbody></table></div><div class="steps"><span class="micro">STEP MM</span><button data-jog-step="0.1">0.1</button><button class="is-active" data-jog-step="1">1</button><button data-jog-step="10">10</button><button data-jog-step="50">50</button></div></article>
+            <article class="panel span-4"><div class="panel-head"><div><div class="panel-kicker">Quick Actions / Macros</div><h2 class="panel-title">MACRO DECK</h2></div><button class="subtle" data-screen-target="macros">ALL</button></div><div class="macro-grid" id="dashboardMacros"><span class="empty-state">WAITING FOR MACROS</span></div></article>
+            <article class="panel span-3"><div class="panel-head"><div><div class="panel-kicker">Machine Telemetry</div><h2 class="panel-title">SYSTEM</h2></div><span class="pill" id="dashboardSystemLive">ONLINE</span></div><div class="system-list"><div class="system-item"><span>Printer State</span><span id="sysPrinterState">—</span></div><div class="system-item"><span>Klippy</span><span id="sysKlippy">—</span></div><div class="system-item"><span>Klipper</span><span id="sysKlipperVersion">—</span></div><div class="system-item"><span>Moonraker</span><span id="sysMoonrakerVersion">—</span></div><div class="system-item"><span>CPU Model</span><span id="sysCpu">—</span></div><div class="system-item"><span>Host Temp</span><span id="sysHostTemp">—</span></div></div></article>
           </div>
-          <div class="btnrow" style="margin-top:.5rem">
-            <button class="sm" onclick="act('print_file',byId('fileSel').value)">⏵ print</button>
-            <button class="sm b-sky" onclick="act('enqueue_file',byId('fileSel').value)">+ queue</button>
-            <button class="sm b-butter" onclick="act('start_queue')">▶▶ start queue</button>
-            <button class="sm b-danger" onclick="confirmAct('delete_file','Delete '+byId('fileSel').value+'?',byId('fileSel').value)">🗑</button>
-            <button class="sm b-lilac" onclick="act('refresh_files')">⟳</button>
-          </div>
-          <h2 style="margin-top:.9rem">// QUEUE <span id="queueState" class="muted"></span></h2>
-          <div id="queueList"><span class="muted">—</span></div>
-          <h2 style="margin-top:.9rem">// UPLOAD</h2>
-          <form onsubmit="return uploadFile(event)">
-            <div class="numrow">
-              <input type="file" id="upFile" accept=".gcode,.g,.gco,.bgcode" required>
-              <label style="font-size:.75rem"><input type="checkbox" id="upPrint"> print after</label>
-              <button type="submit" class="sm b-pink">⇪ upload</button>
-            </div>
-          </form>
-        </div>
-        <div style="min-width:290px">
-          <h2>// STATS</h2>
-          <div class="kv">
-            <b>total jobs</b><span id="totJobs">—</span>
-            <b>total print</b><span id="totPrint">—</span>
-            <b>filament life</b><span id="totFil">—</span>
-            <b>longest job</b><span id="longJob">—</span>
-            <b>spool</b><span id="spool">—</span>
-            <b>updates</b><span id="updates">—</span>
-          </div>
-          <h2 style="margin-top:.9rem">// SYSTEM</h2>
-          <div class="btnrow">
-            <button class="sm b-butter" onclick="confirmAct('firmware_restart','Firmware restart?')">fw restart</button>
-            <button class="sm b-butter" onclick="confirmAct('server_restart','Restart moonraker?')">svr restart</button>
-            <button class="sm b-peach" onclick="confirmAct('host_restart','Reboot printer host?')">host reboot</button>
-            <button class="sm b-danger" onclick="confirmAct('host_shutdown','SHUT DOWN printer host?')">host off</button>
-          </div>
-        </div>
-      </div>
-    </section>
-  </div>
+        </section>
 
+        <section class="screen" id="screen-print" data-screen="print"><div class="grid"><article class="panel span-8"><div class="panel-head"><div><div class="panel-kicker">Current File / Progress</div><h2 class="panel-title">PRINT JOB</h2></div><span id="printPageState" class="pill">—</span></div><div class="job-file" id="printPageFile">—</div><img id="thumb" class="gcode-thumb" alt="Slicer thumbnail"><div class="temp-bar"><i id="printProgressBar" style="width:0%"></i></div><div class="row-between"><span id="printProgressText" class="big-number">0%</span><span id="printPageEta" class="status-value">ETA —</span></div><div class="system-list"><div class="system-item"><span>Elapsed</span><span id="printElapsed">—</span></div><div class="system-item"><span>Remaining</span><span id="printRemaining">—</span></div><div class="system-item"><span>Current Layer</span><span id="printLayer">—</span></div><div class="system-item"><span>Layer Height</span><span id="printHeight">—</span></div><div class="system-item"><span>Filament Used</span><span id="printFilament">—</span></div><div class="system-item"><span>Slicer Estimate</span><span id="printEstimate">—</span></div></div></article><article class="panel span-4"><div class="panel-head"><div><div class="panel-kicker">Print State Machine</div><h2 class="panel-title">JOB CONTROL</h2></div></div><div class="row"><button class="primary" data-action="pause">PAUSE</button><button data-action="resume">RESUME</button><button class="danger" data-action="cancel" data-confirm="Cancel the current print?">CANCEL</button><button class="danger" data-action="emergency_stop" data-confirm="Emergency stop the printer?">E-STOP</button></div><div class="notice" style="margin-top:9px">E-STOP halts motion immediately. Use only for an emergency.</div></article><article class="panel span-6"><div class="panel-head"><div><div class="panel-kicker">Current File Preview</div><h2 class="panel-title">TOOLPATH</h2></div><button data-screen-target="dashboard">OPEN 3D VIEW</button></div><div class="micro" id="printToolpathStatus">3D SIMULATION IS AVAILABLE ON DASHBOARD</div></article><article class="panel span-6"><div class="panel-head"><div><div class="panel-kicker">G-code Metadata</div><h2 class="panel-title">SLICER DATA</h2></div></div><div class="system-list"><div class="system-item"><span>Estimated Print</span><span id="printMetaEstimate">—</span></div><div class="system-item"><span>Filament Plan</span><span id="printMetaFilament">—</span></div><div class="system-item"><span>Object Height</span><span id="printMetaObjectHeight">—</span></div><div class="system-item"><span>Layer Count</span><span id="printMetaLayerCount">—</span></div></div></article></div></section>
+
+        <section class="screen" id="screen-movement" data-screen="movement"><div class="grid"><article class="panel span-6"><div class="panel-head"><div><div class="panel-kicker">Cartesian Control</div><h2 class="panel-title">XY JOG</h2></div><span class="pill">STEP <span id="moveStepValue">1</span> MM</span></div><div class="row-between"><div class="jog-pad large"><button class="yp" data-action="jog" data-axis="Y" data-dir="1">Y+</button><button class="xm" data-action="jog" data-axis="X" data-dir="-1">X−</button><button class="home primary" data-action="home_all">HOME ALL</button><button class="xp" data-action="jog" data-axis="X" data-dir="1">X+</button><button class="ym" data-action="jog" data-axis="Y" data-dir="-1">Y−</button></div><table class="position-table"><tbody><tr><td>X POSITION</td><td id="movePosX">—</td></tr><tr><td>Y POSITION</td><td id="movePosY">—</td></tr><tr><td>Z POSITION</td><td id="movePosZ">—</td></tr><tr><td>E POSITION</td><td id="movePosE">—</td></tr><tr><td>FEED RATE</td><td id="moveSpeedDetail">—</td></tr></tbody></table></div><div class="steps"><span class="micro">STEP MM</span><button data-jog-step="0.1">0.1</button><button class="is-active" data-jog-step="1">1</button><button data-jog-step="10">10</button><button data-jog-step="50">50</button></div></article><article class="panel span-3"><div class="panel-head"><div><div class="panel-kicker">Vertical Axis</div><h2 class="panel-title">Z JOG</h2></div></div><div class="jog-z large"><button data-action="jog" data-axis="Z" data-dir="1">Z +</button><button data-action="home_z">HOME Z</button><button data-action="jog" data-axis="Z" data-dir="-1">Z −</button></div><div class="row" style="margin-top:10px"><button data-action="home_x">HOME X</button><button data-action="home_y">HOME Y</button></div></article><article class="panel span-3"><div class="panel-head"><div><div class="panel-kicker">Stepper Control</div><h2 class="panel-title">MOTORS</h2></div></div><button class="danger" data-action="motors_off" data-confirm="Disable stepper motors?">DISABLE MOTORS</button><div class="notice" style="margin-top:10px">Do not disable motors while a print is moving.</div></article></div></section>
+
+        <section class="screen" id="screen-thermal" data-screen="thermal"><div class="grid"><article class="panel span-6"><div class="panel-head"><div><div class="panel-kicker">Heater / Tool 0</div><h2 class="panel-title">NOZZLE TEMPERATURE</h2></div><span class="pill">EXTRUDER</span></div><div class="row-between"><span id="extNow" class="big-number">—</span><span id="extBarT" class="status-value">—</span></div><div class="temp-bar"><i id="extBar" style="width:0%"></i></div><div class="control-row" style="margin-top:9px"><input type="number" id="extTarget" min="0" max="350" placeholder="TARGET °C"><button class="primary" data-action="set_extruder" data-value-from="extTarget">SET TARGET</button></div></article><article class="panel span-6"><div class="panel-head"><div><div class="panel-kicker">Heater / Build Plate</div><h2 class="panel-title">BED TEMPERATURE</h2></div><span class="pill">BED</span></div><div class="row-between"><span id="bedNow" class="big-number">—</span><span id="bedBarT" class="status-value">—</span></div><div class="temp-bar cool"><i id="bedBar" style="width:0%"></i></div><div class="control-row" style="margin-top:9px"><input type="number" id="bedTarget" min="0" max="130" placeholder="TARGET °C"><button class="primary" data-action="set_bed" data-value-from="bedTarget">SET TARGET</button></div></article><article class="panel span-8"><div class="panel-head"><div><div class="panel-kicker">Rolling Live Telemetry</div><h2 class="panel-title">TEMPERATURE HISTORY</h2></div><span class="micro">HOTEND / BED</span></div><canvas id="tempGraph" class="temp-graph" width="900" height="240"></canvas></article><article class="panel span-4"><div class="panel-head"><div><div class="panel-kicker">Material Presets</div><h2 class="panel-title">PREHEAT</h2></div></div><div class="grid" style="grid-template-columns:1fr 1fr"><button data-action="preheat" data-preset="pla">PREHEAT PLA</button><button data-action="preheat" data-preset="petg">PREHEAT PETG</button><button data-action="preheat" data-preset="abs">PREHEAT ABS</button><button class="danger" data-action="cooldown" data-confirm="Turn off heaters and part cooling fan?">COOLDOWN</button></div><div class="notice" style="margin-top:9px">Confirm material and printer temperature limits before heating.</div></article></div></section>
+
+        <section class="screen" id="screen-extruder" data-screen="extruder"><div class="grid"><article class="panel span-5"><div class="panel-head"><div><div class="panel-kicker">Extrusion Multiplier / M221</div><h2 class="panel-title">FLOW CONTROL</h2></div><span id="flowVal" class="big-number">—</span></div><input type="range" id="flow" min="20" max="150" step="1" value="100"><div class="row-between"><span class="micro">EXTRUSION FACTOR</span><span id="flowFactor" class="status-value">—</span></div><div class="row" style="margin-top:10px"><button data-action="set_flow" data-value="90">90%</button><button data-action="set_flow" data-value="100">100%</button><button data-action="set_flow" data-value="110">110%</button></div></article><article class="panel span-4"><div class="panel-head"><div><div class="panel-kicker">Filament Estimate</div><h2 class="panel-title">MATERIAL</h2></div></div><div class="system-list"><div class="system-item"><span>Used</span><span id="extrusionFilUsed">—</span></div><div class="system-item"><span>Planned</span><span id="extrusionFilEst">—</span></div><div class="system-item"><span>Spoolman</span><span id="extrusionSpool">—</span></div><div class="system-item"><span>Current Layer</span><span id="extrusionLayer">—</span></div></div></article><article class="panel span-3"><div class="panel-head"><div><div class="panel-kicker">Extrusion State</div><h2 class="panel-title">TOOL</h2></div></div><div class="kv"><b>Nozzle</b><span id="extrusionNozzle">—</span><b>Target</b><span id="extrusionTarget">—</span><b>Position E</b><span id="extrusionPosition">—</span><b>Move Speed</b><span id="extrusionSpeed">—</span></div></article><article class="panel span-6"><div class="panel-head"><div><div class="panel-kicker">Extrusion Rate</div><h2 class="panel-title">LIVE FACTORS</h2></div></div><div class="system-list"><div class="system-item"><span>Speed Factor</span><span id="extrusionSpeedFactor">—</span></div><div class="system-item"><span>Flow Factor</span><span id="extrusionFlowFactor">—</span></div><div class="system-item"><span>Extruder Temp</span><span id="extrusionTemp">—</span></div><div class="system-item"><span>Fan Output</span><span id="extrusionFan">—</span></div></div></article></div></section>
+
+        <section class="screen" id="screen-bedmesh" data-screen="bedmesh"><div class="grid"><article class="panel span-7"><div class="panel-head"><div><div class="panel-kicker">Klipper Bed Mesh</div><h2 class="panel-title">BED MESH MAP</h2></div><span id="meshProfile" class="pill">NO PROFILE</span></div><div id="bedMeshMap" class="mesh-grid"><div class="empty-state wide">BED MESH DATA NOT REPORTED BY PRINTER</div></div><div class="micro" id="meshBounds">Mesh matrix appears when Klipper exposes an active bed_mesh profile.</div></article><article class="panel span-5"><div class="panel-head"><div><div class="panel-kicker">Live Z Compensation</div><h2 class="panel-title">Z OFFSET</h2></div><span id="bedzPosition" class="big-number">—</span></div><div class="row"><button data-action="z_adjust" data-value="-0.05">−0.05</button><button data-action="z_adjust" data-value="-0.01">−0.01</button><button data-action="z_adjust" data-value="0.01">+0.01</button><button data-action="z_adjust" data-value="0.05">+0.05</button></div><div class="control-row" style="margin-top:10px"><input type="number" id="zOffsetValue" step="0.01" placeholder="ABSOLUTE MM"><button data-action="z_set" data-value-from="zOffsetValue">SET Z</button></div><div class="divider"></div><div class="kv"><b>Current Layer</b><span id="bedLayer">—</span><b>Layer Height</b><span id="bedLayerHeight">—</span><b>Bed Temp</b><span id="bedTempZ">—</span></div><div class="row" style="margin-top:10px"><button data-action="home_z">HOME Z</button><button data-action="home_all">HOME ALL</button></div></article></div></section>
+
+        <section class="screen" id="screen-tuning" data-screen="tuning"><div class="grid"><article class="panel span-4"><div class="panel-head"><div><div class="panel-kicker">M220</div><h2 class="panel-title">PRINT SPEED</h2></div><span id="speedVal" class="big-number">—</span></div><input type="range" id="speed" min="20" max="200" step="1" value="100"><div class="row-between"><span class="micro">SPEED FACTOR</span><span id="speedFactor" class="status-value">—</span></div><div class="row" style="margin-top:10px"><button data-action="set_speed" data-value="50">50%</button><button data-action="set_speed" data-value="100">100%</button><button data-action="set_speed" data-value="150">150%</button></div></article><article class="panel span-4"><div class="panel-head"><div><div class="panel-kicker">M106</div><h2 class="panel-title">PART COOLING</h2></div><span id="fanVal" class="big-number">—</span></div><input type="range" id="fan" min="0" max="100" step="1" value="0"><div class="row-between"><span class="micro">PART FAN OUTPUT</span><span id="fanNow" class="status-value">—</span></div><div class="row" style="margin-top:10px"><button data-action="set_fan" data-value="0">OFF</button><button data-action="set_fan" data-value="50" data-scale="fan-percent">50%</button><button data-action="set_fan" data-value="100" data-scale="fan-percent">100%</button></div></article><article class="panel span-4"><div class="panel-head"><div><div class="panel-kicker">Live State</div><h2 class="panel-title">TUNING SUMMARY</h2></div></div><div class="kv"><b>Move Speed</b><span id="tuneMoveSpeed">—</span><b>Speed Factor</b><span id="tuneSpeedFactor">—</span><b>Flow Factor</b><span id="tuneFlowFactor">—</span><b>Print State</b><span id="tuneState">—</span></div></article><article class="panel span-12"><div class="panel-head"><div><div class="panel-kicker">Build Progress / Live Rate</div><h2 class="panel-title">CURRENT PROCESS</h2></div></div><div class="row-between"><span id="tuneProgress" class="big-number">—</span><span id="tuneEta" class="status-value">—</span></div><div class="temp-bar"><i id="tuneProgressBar" style="width:0%"></i></div></article></div></section>
+
+        <section class="screen" id="screen-macros" data-screen="macros"><div class="grid"><article class="panel span-12"><div class="panel-head"><div><div class="panel-kicker">Klipper G-code Macros</div><h2 class="panel-title">MACRO DECK</h2></div><span class="pill" id="macroCount">0 MACROS</span></div><div class="macro-grid" id="macroRow"><span class="empty-state">MACROS APPEAR WHEN DISCOVERED FROM KLIPPER</span></div><div class="notice" style="margin-top:10px">Macro execution sends the macro name to Klipper as a G-code script. Run only macros you trust.</div></article></div></section>
+
+        <section class="screen" id="screen-files" data-screen="files"><div class="grid"><article class="panel span-8"><div class="panel-head"><div><div class="panel-kicker">Local G-code Storage</div><h2 class="panel-title">FILES & QUEUE</h2></div><span class="pill" id="queueState">QUEUE —</span></div><div class="control-row"><input type="search" id="fileSearch" placeholder="FILTER G-CODE FILES"><select id="fileSel" class="file-select"></select><button data-action="refresh_files">REFRESH</button></div><div class="row" style="margin-top:8px"><button class="primary" data-action="print_file" data-file-select>PRINT SELECTED</button><button data-action="enqueue_file" data-file-select>ADD TO QUEUE</button><button data-action="start_queue">START QUEUE</button><button class="danger" data-action="delete_file" data-file-select data-confirm="Delete the selected G-code file?">DELETE</button></div><div class="file-list" id="fileList"><div class="empty-state">LOADING FILE LIST</div></div></article><article class="panel span-4"><div class="panel-head"><div><div class="panel-kicker">Print Queue</div><h2 class="panel-title">SCHEDULE</h2></div></div><div id="queueList"><span class="empty-state">QUEUE EMPTY</span></div><hr class="divider"><div class="panel-kicker">Browser Upload</div><form id="upForm"><div class="control-row"><input type="file" id="upFile" accept=".gcode,.g,.gco,.bgcode" required></div><label class="row" style="margin:8px 0"><input type="checkbox" id="upPrint"> START PRINT AFTER UPLOAD</label><button type="submit" class="primary">UPLOAD TO PRINTER</button></form></article></div></section>
+
+        <section class="screen" id="screen-history" data-screen="history"><div class="grid"><article class="panel stat-tile span-3"><span class="stat-label">Completed Jobs</span><span class="stat-value" id="totJobs">—</span><span class="stat-foot">MOONRAKER HISTORY TOTAL</span></article><article class="panel stat-tile span-3"><span class="stat-label">Total Print Time</span><span class="stat-value" id="totPrint">—</span><span class="stat-foot">ACCUMULATED</span></article><article class="panel stat-tile span-3"><span class="stat-label">Filament Used</span><span class="stat-value" id="totFil">—</span><span class="stat-foot">LIFETIME TOTAL</span></article><article class="panel stat-tile span-3"><span class="stat-label">Longest Print</span><span class="stat-value" id="longJob">—</span><span class="stat-foot">RECORDED MAXIMUM</span></article><article class="panel span-8"><div class="panel-head"><div><div class="panel-kicker">Rolling Printer Telemetry</div><h2 class="panel-title">TEMPERATURE TRACE</h2></div></div><canvas id="tempGraphHistory" class="temp-graph" width="900" height="240"></canvas></article><article class="panel span-4"><div class="panel-head"><div><div class="panel-kicker">Spoolman / Updates</div><h2 class="panel-title">INTEGRATION STATUS</h2></div></div><div class="system-list"><div class="system-item"><span>Active Spool</span><span id="spool">—</span></div><div class="system-item"><span>Pending Updates</span><span id="updates">—</span></div></div><p class="micro">Moonraker exposes lifetime totals here; per-job charts require a detailed history endpoint.</p></article></div></section>
+
+        <section class="screen" id="screen-camera" data-screen="camera"><div class="grid"><article class="panel span-12"><div class="panel-head"><div><div class="panel-kicker">Moonraker Webcam</div><h2 class="panel-title">CAMERA ARRAY</h2></div><span class="pill"><i class="led"></i> LIVE FEED</span></div><img id="webcamLarge" class="camera-preview camera-large" alt="Printer webcam stream"><div class="row-between"><span id="cameraName" class="micro">CAMERA SOURCE —</span><button data-camera-fullscreen>FULLSCREEN</button></div><div id="cameraEmpty" class="empty-state">NO STREAM URL REPORTED BY MOONRAKER</div></article></div></section>
+
+        <section class="screen" id="screen-console" data-screen="console"><div class="grid"><article class="panel span-9"><div class="panel-head"><div><div class="panel-kicker">Notify G-code Response</div><h2 class="panel-title">SERIAL CONSOLE</h2></div><span class="pill">LIVE TAIL</span></div><pre id="console" class="console-output"></pre><form id="gcodeForm" class="control-row"><input type="text" id="gcodeIn" class="console-input" placeholder="ENTER G-CODE COMMAND…" autocomplete="off"><button type="submit" class="primary">SEND</button></form></article><article class="panel span-3"><div class="panel-head"><div><div class="panel-kicker">Current Context</div><h2 class="panel-title">JOB / POSITION</h2></div></div><div class="kv"><b>File</b><span id="consoleFile">—</span><b>Progress</b><span id="consoleProgress">—</span><b>X</b><span id="consoleX">—</span><b>Y</b><span id="consoleY">—</span><b>Z</b><span id="consoleZ">—</span><b>Layer</b><span id="consoleLayer">—</span></div></article></div></section>
+
+        <section class="screen" id="screen-hardware" data-screen="hardware"><div class="grid"><article class="panel span-6"><div class="panel-head"><div><div class="panel-kicker">Moonraker Device Power</div><h2 class="panel-title">POWER CHANNELS</h2></div></div><div class="macro-grid" id="powerRow"><span class="empty-state">NO POWER DEVICES REPORTED</span></div></article><article class="panel span-6"><div class="panel-head"><div><div class="panel-kicker">Klipper Hardware State</div><h2 class="panel-title">SENSORS & MOTION</h2></div></div><div class="object-table" id="hardwareTable"><div class="empty-state">WAITING FOR HARDWARE TELEMETRY</div></div></article></div></section>
+
+        <section class="screen" id="screen-system" data-screen="system"><div class="grid"><article class="panel span-8"><div class="panel-head"><div><div class="panel-kicker">Host / Firmware / Moonraker</div><h2 class="panel-title">SYSTEM STATUS</h2></div><span id="systemLive" class="pill">ONLINE</span></div><div class="system-list"><div class="system-item"><span>Printer State</span><span id="sysPrinterState">—</span></div><div class="system-item"><span>Klippy</span><span id="sysKlippy">—</span></div><div class="system-item"><span>Klipper Version</span><span id="sysKlipperVersion">—</span></div><div class="system-item"><span>Moonraker Version</span><span id="sysMoonrakerVersion">—</span></div><div class="system-item"><span>CPU Model</span><span id="sysCpu">—</span></div><div class="system-item"><span>Host Temp</span><span id="sysHostTemp">—</span></div></div><div class="row" style="margin-top:9px"><button data-action="firmware_restart" data-confirm="Restart Klipper firmware?">FIRMWARE RESTART</button><button data-action="server_restart" data-confirm="Restart the Moonraker server?">MOONRAKER RESTART</button><button data-action="host_restart" data-confirm="Reboot the printer host?">HOST REBOOT</button><button class="danger" data-action="host_shutdown" data-confirm="Shut down the printer host?">HOST SHUTDOWN</button></div><div class="notice" style="margin-top:8px">Host and firmware actions interrupt printing. Use only when safe.</div></article><article class="panel span-4"><div class="panel-head"><div><div class="panel-kicker">Software Updates</div><h2 class="panel-title">VERSIONS</h2></div></div><div class="object-table" id="versionList"><div class="empty-state">UPDATE STATUS UNAVAILABLE</div></div><button style="margin-top:8px" data-action="machine_update_refresh">REFRESH UPDATE STATUS</button></article></div></section>
+
+        <section class="screen" id="screen-network" data-screen="network"><div class="grid"><article class="panel span-6"><div class="panel-head"><div><div class="panel-kicker">Moonraker Connection</div><h2 class="panel-title">NETWORK LINK</h2></div><span class="pill" id="networkState">—</span></div><div class="system-list"><div class="system-item"><span>Host</span><span id="networkHost">—</span></div><div class="system-item"><span>Port</span><span id="networkPort">—</span></div><div class="system-item"><span>TLS</span><span id="networkTls">—</span></div><div class="system-item"><span>API Key</span><span id="networkApiKey">—</span></div></div></article><article class="panel span-6"><div class="panel-head"><div><div class="panel-kicker">Connection Health</div><h2 class="panel-title">LINK STATUS</h2></div></div><div class="kv"><b>Moonraker</b><span id="networkMoonraker">—</span><b>Klippy</b><span id="networkKlippy">—</span><b>Realtime Updates</b><span id="networkPush">—</span><b>Webcam Sources</b><span id="networkCameras">—</span></div><p class="micro">API keys and credentials are never displayed.</p></article></div></section>
+
+        <section class="screen" id="screen-settings" data-screen="settings"><div class="grid"><article class="panel span-6"><div class="panel-head"><div><div class="panel-kicker">Integration Configuration</div><h2 class="panel-title">CONNECTION SETTINGS</h2></div></div><div class="system-list"><div class="system-item"><span>Printer Name</span><span id="settingName">—</span></div><div class="system-item"><span>Host</span><span id="settingHost">—</span></div><div class="system-item"><span>Moonraker Port</span><span id="settingPort">—</span></div><div class="system-item"><span>TLS</span><span id="settingTls">—</span></div><div class="system-item"><span>Idle Poll Interval</span><span id="settingIdlePoll">—</span></div><div class="system-item"><span>Print Poll Interval</span><span id="settingPrintPoll">—</span></div><div class="system-item"><span>Quiet Unreachable Logs</span><span id="settingQuiet">—</span></div><div class="system-item"><span>Integration Version</span><span id="settingVersion">—</span></div></div></article><article class="panel span-6"><div class="panel-head"><div><div class="panel-kicker">Display / Telemetry</div><h2 class="panel-title">PANEL SETTINGS</h2></div></div><div class="notice">Connection and polling settings are read-only here. Edit them in Home Assistant's Moonraker integration options.</div><div class="system-list" style="margin-top:8px"><div class="system-item"><span>UI Refresh</span><span>2 SEC</span></div><div class="system-item"><span>WebSocket Push</span><span>WHEN AVAILABLE</span></div><div class="system-item"><span>G-code Preview</span><span>ACTIVE FILE ONLY</span></div></div></article></div></section>
+
+        <section class="screen" id="screen-components" data-screen="components"><div class="grid"><article class="panel span-4"><div class="panel-head"><div><div class="panel-kicker">Home Assistant Platforms</div><h2 class="panel-title">COMPONENTS</h2></div><span class="pill" id="componentCount">0</span></div><div id="platformList" class="object-table"><div class="empty-state">WAITING FOR PLATFORM DATA</div></div></article><article class="panel span-8"><div class="panel-head"><div><div class="panel-kicker">Moonraker Subscription Map</div><h2 class="panel-title">TRACKED OBJECTS</h2></div><span id="objectCount" class="pill">0 OBJECTS</span></div><div id="objectList" class="object-table"><div class="empty-state">WAITING FOR OBJECT MAP</div></div></article><article class="panel span-12"><div class="micro">Only fields subscribed by the integration are shown. Optional objects depend on the printer's Klipper configuration.</div></article></div></section>
+      </div>
+    </main>
+  </div>
 </div>
 <div class="toast" id="toast"></div>
-
-<script>
-const API = {
-  data: p => `/api/moonraker/panel_data?printer=${encodeURIComponent(p||'')}`,
-  thumb: p => `/api/moonraker/panel_thumbnail?printer=${encodeURIComponent(p||'')}`,
-  action: `/api/moonraker/panel_action`,
-  upload: `/api/moonraker/gcode_upload`,
-};
-let printer = '', jogStep = 10, consoleLen = 0, lastFiles = [], selectedFile = '';
-const extHist = [], bedHist = [];
-const byId = id => document.getElementById(id);
-const fmt = (v,d=1) => (v==null||isNaN(v)) ? '—' : Number(v).toFixed(d);
-function dur(s){ if(s==null||isNaN(s)) return '—'; s=Math.floor(s);
-  const h=s/3600|0,m=(s%3600)/60|0,x=s%60;
-  return `${h? h+'h ':''}${m}m ${x}s`; }
-function toast(msg,ms=3200){ const t=byId('toast'); t.textContent=msg;
-  t.style.display='block'; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display='none',ms); }
-function sliderVal(id){ const map={speed:'speedVal',flow:'flowVal',fan:'fanVal'};
-  byId(map[id]).textContent = byId(id).value + '%'; }
-function switchPrinter(){ printer = byId('printerSel').value; consoleLen=0;
-  extHist.length=0; bedHist.length=0; refresh(); }
-function setStep(btn,v){ jogStep=v;
-  btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on'); }
-function jog(axis,dir){ act('jog',null,null,{axis, dist: dir*jogStep}); }
-function sendGcode(){ const v=byId('gcodeIn').value.trim(); if(!v)return;
-  byId('gcodeIn').value=''; act('run_gcode',null,null,{script:v}); }
-
-async function act(action, value, preset, extra){
-  const body = {entry_id: printer, action};
-  if (['set_speed','set_flow','set_fan','set_extruder','set_bed','z_adjust','z_set']
-      .includes(action)) body.value = Number(value);
-  if (preset) body.preset = preset;
-  if (['print_file','select_file','enqueue_file','delete_file'].includes(action))
-    body.filename = value;
-  if (extra) Object.assign(body, extra);
-  const r = await fetch(API.action, {method:'POST',
-    headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
-  const j = await r.json().catch(()=>({}));
-  toast(j.ok ? `✓ ${action}` : `✗ ${j.error||r.status}`);
-  refresh();
-}
-function confirmAct(action,msg,filename){ if(confirm(msg)) act(action,null,null,filename?{filename}:undefined); }
-
-async function uploadFile(ev){
-  ev.preventDefault();
-  const fd = new FormData();
-  fd.append('printer', printer);
-  fd.append('file', byId('upFile').files[0]);
-  if (byId('upPrint').checked) fd.append('start_print','1');
-  const r = await fetch(API.upload, {method:'POST', body:fd});
-  toast(r.ok ? '⇪ uploaded' : `✗ upload failed (${r.status})`);
-  setTimeout(refresh, 1500);
-  return false;
-}
-
-function renderFiles(){
-  const fs = byId('fileSel'), q = (byId('fileSearch').value||'').toLowerCase();
-  fs.innerHTML = '';
-  lastFiles.filter(f=>!q || f.path.toLowerCase().includes(q))
-    .forEach(f=>{ const o=document.createElement('option');
-      o.value=f.path; o.textContent=f.path; fs.appendChild(o); });
-  fs.value = selectedFile;
-}
-
-async function refresh(){
-  try {
-    const r = await fetch(API.data(printer));
-    const d = await r.json();
-    if (d.error) { toast(d.error); return; }
-    render(d);
-  } catch(e) { /* transient */ }
-}
-
-function render(d){
-  printer = d.entry_id || printer;
-  const sel = byId('printerSel');
-  if (!sel.options.length && d.entries) {
-    d.entries.forEach(e=>{ const o=document.createElement('option');
-      o.value=e.id; o.textContent=e.name; sel.appendChild(o); });
-    sel.value = printer;
-  }
-  const s = d.status||{}, meta = d.meta||{};
-  const ps = s.print_stats||{}, ds = s.display_status||{}, vs = s.virtual_sdcard||{};
-  const ex = s.extruder||{}, bed = s.heater_bed||{}, fan = s.fan||{};
-  const gm = s.gcode_move||{}, th = s.toolhead||{};
-
-  const st = (ps.state||'unknown').toUpperCase();
-  const chip = byId('stateChip'); chip.textContent = d.available? st : 'OFFLINE';
-  chip.className = 'statechip' + (d.available? '' : ' bad');
-  const kl = (d.printer_info||{}).klippy_state || '—';
-  byId('klippyChip').textContent = 'klippy ' + kl;
-  byId('tickerText').textContent =
-    `${d.printer}  ///  state:${st}  ///  klippy:${kl}  ///  file:${ps.filename||'none'}  ///  `+
-    `progress:${(((ds.progress??vs.progress)||0)*100).toFixed(1)}%  ///  `+
-    `ext:${fmt(ex.temperature,0)}°C bed:${fmt(bed.temperature,0)}°C  ///  `+
-    `${ps.message||ds.message||''}  ///  sysnom.sysnom.sysnom`;
-
-  // job
-  const prog = ds.progress ?? vs.progress ?? 0;
-  byId('ringFg').style.strokeDashoffset = 326.7*(1-Math.min(prog,1));
-  byId('pct').textContent = (prog*100).toFixed(1)+'%';
-  byId('thumb').src = API.thumb(printer)+'&_='+(ps.filename||'');
-  byId('fname').textContent = ps.filename || 'no active job';
-  const remaining = (meta.estimated_time||0) - (ps.print_duration||0);
-  byId('eta').textContent = remaining>0 ? 'ETA '+dur(remaining) : '—';
-  byId('elapsed').textContent = dur(ps.print_duration);
-  byId('remaining').textContent = dur(Math.max(remaining,0));
-  byId('totalEst').textContent = dur(ps.total_duration);
-  byId('slicerEst').textContent = dur(meta.estimated_time);
-  byId('filUsed').textContent = fmt(ps.filament_used/1000,2)+' m';
-  byId('filEst').textContent = fmt((meta.filament_total||0)/1000,2)+' m';
-  const z = (th.position||[])[2];
-  let layerTxt = '—', layerFrac = 0;
-  if (meta.layer_height && meta.first_layer_height && z!=null && meta.layer_count){
-    const cur = Math.min(Math.max(Math.round((z-meta.first_layer_height)/meta.layer_height)+1,1),meta.layer_count);
-    layerTxt = `${cur} / ${meta.layer_count}`; layerFrac = cur/meta.layer_count;
-  }
-  byId('layer').textContent = layerTxt;
-  byId('layerBar').style.width = (layerFrac*100)+'%';
-  byId('zpos').textContent = fmt(z,2)+' mm';
-
-  // temps + graph
-  byId('extNow').textContent = fmt(ex.temperature)+'°C → '+fmt(ex.target)+'°C';
-  byId('extBar').style.width = Math.min((ex.temperature||0)/300*100,100)+'%';
-  byId('extBarT').textContent = fmt(ex.temperature,0)+' / '+fmt(ex.target,0)+'°C';
-  byId('bedNow').textContent = fmt(bed.temperature)+'°C → '+fmt(bed.target)+'°C';
-  byId('bedBar').style.width = Math.min((bed.temperature||0)/130*100,100)+'%';
-  byId('bedBarT').textContent = fmt(bed.temperature,0)+' / '+fmt(bed.target,0)+'°C';
-  if (document.activeElement!==byId('extTarget'))
-    byId('extTarget').value = ex.target==null?'':Math.round(ex.target);
-  if (document.activeElement!==byId('bedTarget'))
-    byId('bedTarget').value = bed.target==null?'':Math.round(bed.target);
-  if (ex.temperature!=null){ extHist.push(ex.temperature); bedHist.push(bed.temperature||0);
-    if (extHist.length>150){ extHist.shift(); bedHist.shift(); } }
-  drawGraph(ex.target, bed.target);
-
-  // tune
-  if (document.activeElement!==byId('speed')) byId('speed').value = Math.round((gm.speed_factor||0)*100);
-  if (document.activeElement!==byId('flow')) byId('flow').value = Math.round((gm.extrude_factor||0)*100);
-  if (document.activeElement!==byId('fan')) byId('fan').value = Math.round((fan.speed||0)*100);
-  byId('speedVal').textContent = Math.round((gm.speed_factor||0)*100)+'%';
-  byId('flowVal').textContent = Math.round((gm.extrude_factor||0)*100)+'%';
-  byId('fanVal').textContent = Math.round((fan.speed||0)*100)+'%';
-  byId('speedFactor').textContent = Math.round((gm.speed_factor||0)*100)+'%';
-  byId('flowFactor').textContent = Math.round((gm.extrude_factor||0)*100)+'%';
-
-  // motion
-  const p = th.position||[];
-  byId('posX').textContent=fmt(p[0]); byId('posY').textContent=fmt(p[1]);
-  byId('posZ').textContent=fmt(p[2]); byId('posE').textContent=fmt(p[3]);
-  byId('moveSpeed').textContent = fmt(gm.speed,0)+' mm/s';
-  byId('printTime').textContent = dur(th.print_time);
-  byId('stateMsg').textContent = ps.message || ds.message || '—';
-
-  // files / queue
-  lastFiles = d.files||[]; selectedFile = d.selected_file || byId('fileSel').value;
-  renderFiles();
-  const q = d.queue||{};
-  byId('queueState').textContent = q.queue_state!=null ? `(${q.queue_state})` : '';
-  byId('queueList').innerHTML = (q.queued_jobs||[]).length
-    ? q.queued_jobs.map(j=>`<div class="queueitem">▸ ${j.filename||j}</div>`).join('')
-    : '<span class="muted">queue empty</span>';
-
-  // power
-  const pr = byId('powerRow');
-  pr.innerHTML = (d.power_devices||[]).length ? '' : '<span class="muted">no power devices</span>';
-  (d.power_devices||[]).forEach(dev=>{
-    const c=document.createElement('button');
-    c.className='powchip'+(dev.status==='on'?' on':''); c.type='button';
-    c.innerHTML=`<span class="dot"></span>${dev.device}`;
-    c.onclick=()=>act('power',null,null,{device:dev.device,
-      power_action:dev.status==='on'?'off':'on'});
-    pr.appendChild(c);
-  });
-
-  // macros
-  const mr = byId('macroRow');
-  mr.innerHTML = (d.macros||[]).length ? '' : '<span class="muted">—</span>';
-  (d.macros||[]).forEach(m=>{ const b=document.createElement('button');
-    b.type='button'; b.className='macchip'; b.textContent=m.toLowerCase();
-    b.onclick=()=>{ if(confirm(`Run macro ${m}?`))
-      act('run_macro',null,null,{script:m}); };
-    mr.appendChild(b); });
-
-  // console
-  const lines = d.gcode_responses||[];
-  if (lines.length !== consoleLen){
-    const c = byId('console');
-    c.textContent = lines.join('\n');
-    c.scrollTop = c.scrollHeight;
-    consoleLen = lines.length;
-  }
-
-  // webcam
-  const wc = (d.webcams||[])[0];
-  if (wc && wc.stream_url){
-    byId('webcamCard').style.display='';
-    if (!byId('webcam').src || !byId('webcam').src.startsWith(wc.stream_url))
-      byId('webcam').src = wc.stream_url;
-  }
-
-  // stats
-  const ht = (d.history||{}).job_totals||{};
-  byId('totJobs').textContent = ht.total_jobs ?? '—';
-  byId('totPrint').textContent = dur(ht.total_print_time);
-  byId('totFil').textContent = fmt((ht.total_filament_used||0)/1000,1)+' m';
-  byId('longJob').textContent = dur(ht.longest_print);
-  const sp = d.spoolman||{};
-  byId('spool').textContent = sp.spool_id!=null ? 'spool #'+sp.spool_id : '—';
-  const vi = (d.machine_update||{}).version_info||{};
-  const upd = Object.values(vi).filter(v=>v && v.current_version && v.remote_version
-    && v.current_version!==v.remote_version).length;
-  byId('updates').textContent = Object.keys(vi).length ? upd+' pending' : '—';
-}
-
-function drawGraph(extT, bedT){
-  const cv = byId('tempGraph'), ctx = cv.getContext('2d');
-  const W = cv.width, H = cv.height;
-  ctx.clearRect(0,0,W,H);
-  ctx.fillStyle = '#fdf8ff'; ctx.fillRect(0,0,W,H);
-  const max = Math.max(60, ...extHist, ...bedHist)*1.15;
-  function line(arr, color, dash){
-    if (!arr.length) return;
-    ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 2;
-    if (dash) ctx.setLineDash([4,3]);
-    arr.forEach((v,i)=>{
-      const x = i/(Math.max(arr.length-1,1))*W, y = H-(v/max)*H;
-      i? ctx.lineTo(x,y) : ctx.moveTo(x,y);
-    });
-    ctx.stroke(); ctx.setLineDash([]);
-  }
-  line(extHist,'#ff2fd6'); line(bedHist,'#00c2a8');
-  if (extT!=null){ ctx.setLineDash([3,3]); ctx.strokeStyle='#8a2bff';
-    ctx.beginPath(); ctx.moveTo(0,H-(extT/max)*H); ctx.lineTo(W,H-(extT/max)*H); ctx.stroke(); ctx.setLineDash([]); }
-  ctx.font = '10px monospace'; ctx.fillStyle='#241d2b';
-  ctx.fillText('E '+fmt(extHist.at(-1),0)+'°',6,12);
-  ctx.fillStyle='#00806c'; ctx.fillText('B '+fmt(bedHist.at(-1),0)+'°',60,12);
-}
-
-refresh();
-setInterval(refresh, 2000);
-</script>
+<script src="/api/moonraker/panel_client.js"></script>
 </body>
 </html>
