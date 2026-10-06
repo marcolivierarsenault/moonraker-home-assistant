@@ -22,7 +22,14 @@ from homeassistant.const import (
 )
 from homeassistant.core import callback
 
-from .const import DOMAIN, METHODS, OBJ, PRINTERSTATES, PRINTSTATES
+from .const import (
+    DOMAIN,
+    METHODS,
+    OBJ,
+    PRINTERSTATES,
+    PRINTSTATES,
+    SLOW_UPDATE_CYCLES,
+)
 from .entity import BaseMoonrakerEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -746,7 +753,7 @@ async def async_setup_history_sensors(coordinator, entry, async_add_entities):
         return
 
     coordinator.set_initial_data("history", history)
-    coordinator.add_data_updater(_history_updater)
+    coordinator.add_data_updater(_history_updater, every=SLOW_UPDATE_CYCLES)
 
     sensors = [
         MoonrakerSensorDescription(
@@ -810,7 +817,7 @@ async def async_setup_queue_sensors(coordinator, entry, async_add_entities):
         return
 
     coordinator.set_initial_data("queue", queue)
-    coordinator.add_data_updater(_queue_updater)
+    coordinator.add_data_updater(_queue_updater, every=SLOW_UPDATE_CYCLES)
 
     sensors = [
         MoonrakerSensorDescription(
@@ -851,7 +858,7 @@ async def async_setup_spoolman_sensors(coordinator, entry, async_add_entities):
         return
 
     coordinator.set_initial_data("spoolman", spoolman)
-    coordinator.add_data_updater(_spoolman_updater)
+    coordinator.add_data_updater(_spoolman_updater, every=SLOW_UPDATE_CYCLES)
 
     sensors = [
         MoonrakerSensorDescription(
@@ -879,7 +886,9 @@ async def async_setup_machine_update_sensors(coordinator, entry, async_add_entit
     if machine_status.get("error"):
         return
     coordinator.set_initial_data("machine_update", machine_status)
-    coordinator.add_data_updater(_machine_update_updater)
+    coordinator.add_data_updater(
+        _machine_update_updater, every=SLOW_UPDATE_CYCLES
+    )
     sensors = []
 
     for version_info in machine_status["version_info"]:

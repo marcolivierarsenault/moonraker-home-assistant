@@ -28,6 +28,9 @@ from .const import (
     CONF_OPTION_QUIET_UNREACHABLE,
     DEFAULT_POLLING_RATE,
     MIN_POLLING_RATE,
+    NOTIFY_KLIPPY_DISCONNECTED,
+    NOTIFY_KLIPPY_READY,
+    NOTIFY_KLIPPY_SHUTDOWN,
     NOTIFY_STATUS_UPDATE,
     PRINTING_POLLING_RATE,
     PUSH_UPDATE_INTERVAL,
@@ -419,6 +422,8 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         self._gcode_metadata_cache: dict[str, Any] | None = None
         self._subscribed_to_status = False
         self._push_unsub: Callable[[], None] | None = None
+        self._updater_every: dict[Any, int] = {}
+        self._update_cycle = 0
         client.notification_handler = self._async_handle_notification
         self.load_sensor_data(SENSORS)
         self.add_query_objects("virtual_sdcard", "file_path")
@@ -436,7 +441,9 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         data = dict(self.data or {})
 
         for updater in self.updaters:
-            data.update(await updater(self))
+            if self._update_cycle % self._updater_every.get(updater, 1) == 0:
+                data.update(await updater(self))
+        self._update_cycle += 1
 
         self._update_polling_interval(data)
 
@@ -448,7 +455,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         current_state = data.get("status", {}).get("print_stats", {}).get("state")
         if current_state == prev_state:
             return
-        if current_state == PRINTSTATES.PRINTING.value:
+        if current_state in (PRINTSTATES.PRINTING.value, PRINTSTATES.PAUSED.value):
             self.update_interval = _PRINTING_SCAN_INTERVAL
         else:
             self.update_interval = self.polling_interval
@@ -774,6 +781,13 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _async_handle_notification(self, method: str, data: Any) -> None:
         """Handle a Moonraker push notification."""
+        if method == NOTIFY_KLIPPY_READY:
+            await self.async_request_refresh()
+            return
+        if method in (NOTIFY_KLIPPY_DISCONNECTED, NOTIFY_KLIPPY_SHUTDOWN):
+            reason = method.removeprefix("notify_klippy_")
+            self.async_set_update_error(UpdateFailed(f"Klippy {reason}"))
+            return
         if method != NOTIFY_STATUS_UPDATE:
             return
         status_delta = self._status_delta(data)
@@ -844,9 +858,11 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             current_data["status"] = status
             self.data = current_data
 
-    def add_data_updater(self, updater):
-        """Update the data."""
+    def add_data_updater(self, updater, every: int = 1):
+        """Add a data updater; ``every`` runs it once per N poll cycles."""
         self.updaters.append(updater)
+        if every > 1:
+            self._updater_every[updater] = every
 
     def load_sensor_data(self, sensor_list):
         """Load sensor data, so we can poll the right object."""

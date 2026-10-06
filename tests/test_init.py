@@ -41,6 +41,9 @@ from custom_components.moonraker.const import (
     DEFAULT_PORT,
     DOMAIN,
     METHODS,
+    NOTIFY_KLIPPY_DISCONNECTED,
+    NOTIFY_KLIPPY_READY,
+    NOTIFY_KLIPPY_SHUTDOWN,
     NOTIFY_STATUS_UPDATE,
     OBJ,
     PUSH_UPDATE_INTERVAL,
@@ -548,6 +551,85 @@ async def test_shutdown_push_updates_detaches_handler(hass):
 
     assert coordinator._push_unsub is None
     assert coordinator.moonraker.notification_handler is None
+
+
+async def test_klippy_disconnect_marks_data_unavailable(hass):
+    """Klippy disconnect notifications should flag stale data immediately."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="klippy")
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=MagicMock(), config_entry=config_entry, api_device_name="printer"
+    )
+    coordinator.data = {"status": {}}
+    coordinator.last_update_success = True
+    coordinator.async_update_listeners = MagicMock()
+
+    await coordinator._async_handle_notification(NOTIFY_KLIPPY_DISCONNECTED, None)
+
+    assert not coordinator.last_update_success
+    coordinator.async_update_listeners.assert_called_once()
+
+
+async def test_klippy_shutdown_marks_data_unavailable(hass):
+    """Klippy shutdown notifications should flag stale data immediately."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="klippy")
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=MagicMock(), config_entry=config_entry, api_device_name="printer"
+    )
+    coordinator.data = {"status": {}}
+    coordinator.last_update_success = True
+    coordinator.async_update_listeners = MagicMock()
+
+    await coordinator._async_handle_notification(NOTIFY_KLIPPY_SHUTDOWN, None)
+
+    assert not coordinator.last_update_success
+    coordinator.async_update_listeners.assert_called_once()
+
+
+async def test_klippy_ready_requests_refresh(hass):
+    """Klippy ready notifications should trigger an immediate refresh."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="klippy")
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=MagicMock(), config_entry=config_entry, api_device_name="printer"
+    )
+    coordinator.async_request_refresh = AsyncMock()
+
+    await coordinator._async_handle_notification(NOTIFY_KLIPPY_READY, None)
+
+    coordinator.async_request_refresh.assert_awaited_once()
+
+
+async def test_staggered_updater_runs_every_n_cycles(hass):
+    """Updaters registered with every=N should only run on matching cycles."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="stagger")
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=MagicMock(), config_entry=config_entry, api_device_name="printer"
+    )
+    coordinator._async_fetch_data = AsyncMock(return_value={})
+    slow = AsyncMock(return_value={"slow": True})
+    coordinator.add_data_updater(slow, every=4)
+
+    for _ in range(5):
+        await coordinator._async_update_data()
+
+    assert slow.await_count == 2  # cycles 0 and 4
+
+
+async def test_paused_state_uses_printing_interval(hass):
+    """A paused print is still active and should keep the fast poll interval."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="paused")
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=MagicMock(), config_entry=config_entry, api_device_name="printer"
+    )
+    coordinator._async_fetch_data = AsyncMock(
+        return_value={
+            "status": {"print_stats": {"state": PRINTSTATES.PAUSED.value}},
+            "printer.info": {},
+        }
+    )
+
+    await coordinator._async_update_data()
+
+    assert coordinator.update_interval == _PRINTING_SCAN_INTERVAL
 
 
 async def test_setup_unload_and_reload_entry(hass):

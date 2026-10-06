@@ -85,7 +85,7 @@ async def async_setup_power_device(coordinator, entry, async_add_entities):
         return
 
     coordinator.set_initial_data("power_devices", power_devices)
-    coordinator.add_data_updater(_power_device_updater)
+    coordinator.add_data_updater(_power_device_updater, every=2)
 
     sensors = []
     for device in power_devices["devices"]:
