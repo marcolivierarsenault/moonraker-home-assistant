@@ -15,6 +15,7 @@ from custom_components.moonraker.const import DOMAIN, PRINTSTATES
 from custom_components.moonraker.sensor import (
     _get_progress_value,
     calculate_current_layer,
+    calculate_memory_used,
     calculate_pct_job,
     calculate_print_progress,
     calculate_total_layer,
@@ -88,7 +89,10 @@ DEFAULT_VALUES = [
 @pytest.fixture(name="bypass_connect_client", autouse=True)
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
-    with patch("custom_components.moonraker.MoonrakerApiClient.start"):
+    with (
+        patch("custom_components.moonraker.MoonrakerApiClient.start"),
+        patch("custom_components.moonraker.MoonrakerApiClient.stop"),
+    ):
         yield
 
 
@@ -532,6 +536,41 @@ async def test_calculate_print_progress_invalid_status():
     assert calculate_print_progress({}) == 0.0
     assert calculate_print_progress({"status": None}) == 0.0
     assert calculate_print_progress(None) == 0.0
+
+
+def test_calculate_memory_used():
+    """Calculate memory usage from Moonraker system information."""
+    assert (
+        calculate_memory_used(
+            {
+                "system_info": {"cpu_info": {"total_memory": 1000}},
+                "status": {"system_stats": {"memavail": 250}},
+            }
+        )
+        == 75
+    )
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        None,
+        {},
+        {"system_info": None, "status": {"system_stats": {"memavail": 1}}},
+        {
+            "system_info": {"cpu_info": {}},
+            "status": {"system_stats": {"memavail": 1}},
+        },
+        {"system_info": {"cpu_info": {"total_memory": 1}}, "status": None},
+        {
+            "system_info": {"cpu_info": {"total_memory": 1}},
+            "status": {"system_stats": {}},
+        },
+    ],
+)
+def test_calculate_memory_used_with_missing_data(data):
+    """Missing optional system fields should leave the sensor unavailable."""
+    assert calculate_memory_used(data) is None
 
 
 async def test_no_history_data(

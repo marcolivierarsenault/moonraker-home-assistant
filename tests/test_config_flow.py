@@ -1,8 +1,9 @@
 """Test moonraker config flow."""
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
+import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -13,6 +14,7 @@ from custom_components.moonraker.const import (
     CONF_PRINTER_NAME,
     CONF_TLS,
     CONF_URL,
+    CONF_OPTION_POLLING_RATE,
     CONF_OPTION_CAMERA_SNAPSHOT,
     CONF_OPTION_CAMERA_STREAM,
     DOMAIN,
@@ -24,16 +26,22 @@ from .const import MOCK_CONFIG, MOCK_OPTIONS
 @pytest.fixture(name="bypass_connect_client")
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
-    with patch("custom_components.moonraker.MoonrakerApiClient.start"):
+    with (
+        patch("custom_components.moonraker.MoonrakerApiClient.start"),
+        patch("custom_components.moonraker.MoonrakerApiClient.stop"),
+    ):
         yield
 
 
 @pytest.fixture(name="error_connect_client")
 def error_connect_client_fixture():
     """Throw error when trying to connect."""
-    with patch(
-        "custom_components.moonraker.MoonrakerApiClient.start",
-        side_effect=Exception,
+    with (
+        patch(
+            "custom_components.moonraker.MoonrakerApiClient.start",
+            side_effect=Exception,
+        ),
+        patch("custom_components.moonraker.MoonrakerApiClient.stop"),
     ):
         yield
 
@@ -50,9 +58,15 @@ async def test_successful_config_flow(hass):
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "user"
 
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], user_input=MOCK_CONFIG
-    )
+    with patch(
+        "custom_components.moonraker.MoonrakerApiClient.stop",
+        new_callable=AsyncMock,
+    ) as stop_client:
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], user_input=MOCK_CONFIG
+        )
+
+    stop_client.assert_awaited_once()
 
     # Check that the config flow is complete and a new entry is created with
     # the input data
@@ -429,3 +443,24 @@ async def test_option_config_camera_services(hass):
     await hass.async_block_till_done()
 
     assert result["type"] == FlowResultType.CREATE_ENTRY
+
+
+@pytest.mark.usefixtures("bypass_connect_client")
+async def test_polling_rate_options_enforce_minimum(hass):
+    """Polling-rate options should reject values below the safe minimum."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MOCK_CONFIG,
+        options={CONF_OPTION_POLLING_RATE: 2},
+        entry_id="polling_options",
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+
+    result = await hass.config_entries.options.async_init(config_entry.entry_id)
+    schema = result["data_schema"]
+
+    assert schema({})[CONF_OPTION_POLLING_RATE] == 5
+    assert schema({CONF_OPTION_POLLING_RATE: 5})[CONF_OPTION_POLLING_RATE] == 5
+    with pytest.raises(vol.Invalid):
+        schema({CONF_OPTION_POLLING_RATE: 4})

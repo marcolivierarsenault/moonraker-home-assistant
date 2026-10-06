@@ -1,6 +1,7 @@
 """Moonraker integration for Home Assistant."""
 
 import asyncio
+from collections.abc import Callable
 import logging
 from contextlib import suppress
 import os.path
@@ -13,6 +14,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -24,6 +26,11 @@ from .const import (
     CONF_PRINTER_NAME,
     CONF_OPTION_POLLING_RATE,
     CONF_OPTION_QUIET_UNREACHABLE,
+    DEFAULT_POLLING_RATE,
+    MIN_POLLING_RATE,
+    NOTIFY_STATUS_UPDATE,
+    PRINTING_POLLING_RATE,
+    PUSH_UPDATE_INTERVAL,
     CONF_TLS,
     CONF_URL,
     DEFAULT_PORT,
@@ -38,7 +45,7 @@ from .const import (
 )
 from .sensor import SENSORS
 
-SCAN_INTERVAL = timedelta(seconds=30)
+_PRINTING_SCAN_INTERVAL = timedelta(seconds=PRINTING_POLLING_RATE)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -70,6 +77,17 @@ def _normalize_moonraker_port(port: int | str | None) -> int:
 def _entry_port(entry: ConfigEntry) -> int:
     """Return the effective Moonraker port for a config entry."""
     return _normalize_moonraker_port(entry.data.get(CONF_PORT, DEFAULT_PORT))
+
+
+def _entry_polling_interval(entry: ConfigEntry) -> timedelta:
+    """Return a safe per-entry polling interval."""
+    try:
+        polling_rate = int(
+            entry.options.get(CONF_OPTION_POLLING_RATE, DEFAULT_POLLING_RATE)
+        )
+    except (TypeError, ValueError):
+        polling_rate = DEFAULT_POLLING_RATE
+    return timedelta(seconds=max(polling_rate, MIN_POLLING_RATE))
 
 
 async def _async_is_tcp_reachable(host: str, port: int | str | None) -> bool:
@@ -192,8 +210,6 @@ def get_user_name(hass: HomeAssistant, entry: ConfigEntry):
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Set up this integration using UI."""
 
-    global SCAN_INTERVAL
-
     if hass.data.get(DOMAIN) is None:
         hass.data.setdefault(DOMAIN, {})
 
@@ -206,8 +222,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     printer_name = (
         entry.data.get(CONF_PRINTER_NAME) if custom_name is None else custom_name
     )
-
-    SCAN_INTERVAL = timedelta(seconds=entry.options.get(CONF_OPTION_POLLING_RATE, 30))
 
     api = MoonrakerApiClient(
         url,
@@ -256,6 +270,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     await coordinator.async_refresh()
 
     if not coordinator.last_update_success:
+        await api.stop()
         raise ConfigEntryNotReady
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
@@ -264,6 +279,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
+
+    try:
+        await coordinator.async_subscribe_status_updates()
+    except UpdateFailed:
+        _LOGGER.warning(
+            "Could not subscribe to Moonraker status updates; polling only"
+        )
 
     async def send_gcode_service(service_call):
         """Handle the service call to send g-code."""
@@ -344,31 +366,26 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     return True
 
 
+def _extract_gcode_filename(status: dict[str, Any]) -> str:
+    """Return the active G-code filename from a status payload."""
+    print_stats = status.get("print_stats") or {}
+    filename = print_stats.get("filename") or ""
+    if not filename:
+        virtual_sdcard = status.get("virtual_sdcard") or {}
+        filename = virtual_sdcard.get("file_path") or ""
+    return filename
+
+
 async def _printer_objects_updater(coordinator):
-    return await coordinator._async_fetch_data(
-        METHODS.PRINTER_OBJECTS_QUERY, coordinator.query_obj
-    )
+    data = await coordinator._async_fetch_objects()
+    filename = _extract_gcode_filename(data.get("status") or {})
+    return {**data, **await coordinator._async_get_gcode_file_detail(filename)}
 
 
 async def _printer_info_updater(coordinator):
     return {
         "printer.info": await coordinator._async_fetch_data(METHODS.PRINTER_INFO, None)
     }
-
-
-async def _gcode_file_detail_updater(coordinator):
-    data = await coordinator._async_fetch_data(
-        METHODS.PRINTER_OBJECTS_QUERY, coordinator.query_obj
-    )
-    filename = ""
-    status = data.get("status") or {}
-    print_stats = status.get("print_stats") or {}
-    filename = print_stats.get("filename") or ""
-    if not filename:
-        virtual_sdcard = status.get("virtual_sdcard") or {}
-        filename = virtual_sdcard.get("file_path") or ""
-
-    return await coordinator._async_get_gcode_file_detail(filename)
 
 
 class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
@@ -384,15 +401,25 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         """Initialize."""
         self.moonraker = client
         self.platforms = []
-        self.updaters = [
-            _printer_objects_updater,
-            _printer_info_updater,
-            _gcode_file_detail_updater,
-        ]
+        self.updaters = [_printer_objects_updater, _printer_info_updater]
         self.hass = hass
         self.config_entry = config_entry
         self.api_device_name = api_device_name
+        self.polling_interval = _entry_polling_interval(config_entry)
         self.query_obj = {OBJ: {}}
+        self._queried_objects: dict[str, set[str] | None] = {}
+        self._query_refresh_lock = asyncio.Lock()
+        self._printer_objects_list: dict[str, Any] | None = None
+        self._printer_objects_lock = asyncio.Lock()
+        self._config_settings: dict[str, Any] | None = None
+        self._config_settings_lock = asyncio.Lock()
+        self._system_info: dict[str, Any] | None = None
+        self._system_info_lock = asyncio.Lock()
+        self._gcode_metadata_cache_key: tuple[str, str | None] | None = None
+        self._gcode_metadata_cache: dict[str, Any] | None = None
+        self._subscribed_to_status = False
+        self._push_unsub: Callable[[], None] | None = None
+        client.notification_handler = self._async_handle_notification
         self.load_sensor_data(SENSORS)
         self.add_query_objects("virtual_sdcard", "file_path")
 
@@ -400,30 +427,33 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=SCAN_INTERVAL,
+            update_interval=self.polling_interval,
             config_entry=config_entry,
         )
 
     async def _async_update_data(self):
         """Update data via library."""
-        data = {}
+        data = dict(self.data or {})
 
         for updater in self.updaters:
             data.update(await updater(self))
 
-        # --- Dynamic polling logic ---
-        prev_state = getattr(self, "_last_print_state", None)
-        current_state = data.get("status", {}).get("print_stats", {}).get("state")
-        if current_state != prev_state:
-            if current_state == PRINTSTATES.PRINTING.value:
-                self.update_interval = timedelta(seconds=2)
-            else:
-                self.update_interval = timedelta(seconds=30)
-            self._schedule_refresh()
-        self._last_print_state = current_state
-        # --- end dynamic polling logic ---
+        self._update_polling_interval(data)
 
         return data
+
+    def _update_polling_interval(self, data: dict[str, Any]) -> None:
+        """Adjust the poll cadence when the print state changes."""
+        prev_state = getattr(self, "_last_print_state", None)
+        current_state = data.get("status", {}).get("print_stats", {}).get("state")
+        if current_state == prev_state:
+            return
+        if current_state == PRINTSTATES.PRINTING.value:
+            self.update_interval = _PRINTING_SCAN_INTERVAL
+        else:
+            self.update_interval = self.polling_interval
+        self._schedule_refresh()
+        self._last_print_state = current_state
 
     async def _async_get_gcode_file_detail(self, gcode_filename):
         return_gcode = {
@@ -445,12 +475,24 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         if not normalized_filename:
             return return_gcode
 
-        dirname = os.path.dirname(normalized_filename)
+        cache_key = (normalized_filename, root)
+        if (
+            cache_key == self._gcode_metadata_cache_key
+            and self._gcode_metadata_cache is not None
+        ):
+            return self._gcode_metadata_cache.copy()
 
+        dirname = os.path.dirname(normalized_filename)
         query_object = {"filename": normalized_filename}
-        gcode = await self._async_fetch_data(
-            METHODS.SERVER_FILES_METADATA, query_object
-        )
+        try:
+            gcode = await self._async_fetch_data(
+                METHODS.SERVER_FILES_METADATA, query_object
+            )
+        except UpdateFailed:
+            _LOGGER.debug("Could not retrieve metadata for current G-code file")
+            self._gcode_metadata_cache_key = cache_key
+            self._gcode_metadata_cache = return_gcode
+            return return_gcode.copy()
         return_gcode["estimated_time"] = gcode.get("estimated_time", 0)
         return_gcode["object_height"] = gcode.get("object_height", 0)
         return_gcode["filament_total"] = gcode.get("filament_total", 0)
@@ -461,41 +503,40 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         return_gcode["gcode_end_byte"] = gcode.get("gcode_end_byte")
 
         thumbnails = gcode.get("thumbnails")
-        if not thumbnails or not isinstance(thumbnails, list):
-            return return_gcode
+        if isinstance(thumbnails, list):
+            best_path = None
+            best_size = -1.0
+            for thumbnail in thumbnails:
+                if not isinstance(thumbnail, dict):
+                    continue
+                relative_path = thumbnail.get("relative_path")
+                if not relative_path:
+                    continue
+                size = thumbnail.get("size")
+                size_value = None
+                if size is not None:
+                    try:
+                        size_value = float(size)
+                    except (TypeError, ValueError):
+                        size_value = None
 
-        best_path = None
-        best_size = -1.0
-        for thumbnail in thumbnails:
-            if not isinstance(thumbnail, dict):
-                continue
-            relative_path = thumbnail.get("relative_path")
-            if not relative_path:
-                continue
-            size = thumbnail.get("size")
-            size_value = None
-            if size is not None:
-                try:
-                    size_value = float(size)
-                except (TypeError, ValueError):
-                    size_value = None
+                if size_value is None:
+                    if best_path is None:
+                        best_path = relative_path
+                    continue
 
-            if size_value is None:
-                if best_path is None:
+                if size_value > best_size:
+                    best_size = size_value
                     best_path = relative_path
-                continue
 
-            if size_value > best_size:
-                best_size = size_value
-                best_path = relative_path
+            if best_path:
+                return_gcode["thumbnails_path"] = _build_thumbnail_path(
+                    dirname, best_path, root
+                )
 
-        if not best_path:
-            return return_gcode
-
-        return_gcode["thumbnails_path"] = _build_thumbnail_path(
-            dirname, best_path, root
-        )
-        return return_gcode
+        self._gcode_metadata_cache_key = cache_key
+        self._gcode_metadata_cache = return_gcode
+        return return_gcode.copy()
 
     async def _async_fetch_data(
         self, query_path: METHODS, query_object, quiet: bool = False
@@ -516,14 +557,20 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
                 )
                 raise UpdateFailed()
             _LOGGER.warning("connection to moonraker down, restarting")
-            await self.moonraker.start()
+            try:
+                async with async_timeout.timeout(TIMEOUT):
+                    await self.moonraker.start()
+                    await self._async_resubscribe()
+            except Exception as exception:
+                raise UpdateFailed() from exception
         try:
-            if query_object is None:
-                result = await self.moonraker.client.call_method(query_path.value)
-            else:
-                result = await self.moonraker.client.call_method(
-                    query_path.value, **query_object
-                )
+            async with async_timeout.timeout(TIMEOUT):
+                if query_object is None:
+                    result = await self.moonraker.client.call_method(query_path.value)
+                else:
+                    result = await self.moonraker.client.call_method(
+                        query_path.value, **query_object
+                    )
             if not quiet:
                 _LOGGER.debug(f"Query Result, uuid: {myuuid}: {result}")
             return result
@@ -544,7 +591,12 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
                 )
                 raise UpdateFailed()
             _LOGGER.warning("connection to moonraker down, restarting")
-            await self.moonraker.start()
+            try:
+                async with async_timeout.timeout(TIMEOUT):
+                    await self.moonraker.start()
+                    await self._async_resubscribe()
+            except Exception as exception:
+                raise UpdateFailed() from exception
         try:
             if query_obj is None:
                 await self.moonraker.client.call_method(query_path.value)
@@ -567,6 +619,230 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
     ):
         """Send data to moonraker."""
         return await self._async_send_data(query_path, query_obj)
+
+    async def async_get_printer_objects(self):
+        """Return the printer object list, fetching it at most once per setup."""
+        if self._printer_objects_list is None:
+            async with self._printer_objects_lock:
+                if self._printer_objects_list is None:
+                    self._printer_objects_list = await self._async_fetch_data(
+                        METHODS.PRINTER_OBJECTS_LIST, None
+                    )
+        return self._printer_objects_list
+
+    async def async_get_config_settings(self):
+        """Return printer configuration settings, fetching them once per setup."""
+        if self._config_settings is None:
+            async with self._config_settings_lock:
+                if self._config_settings is None:
+                    self._config_settings = await self._async_fetch_data(
+                        METHODS.PRINTER_OBJECTS_QUERY,
+                        {OBJ: {"configfile": ["settings"]}},
+                        quiet=True,
+                    )
+        return self._config_settings
+
+    async def async_get_system_info(self):
+        """Return Moonraker system information, fetching it once per setup."""
+        if self._system_info is None:
+            async with self._system_info_lock:
+                if self._system_info is None:
+                    self._system_info = await self._async_fetch_data(
+                        METHODS.MACHINE_SYSTEM_INFO, None, quiet=True
+                    )
+        return self._system_info
+
+    def set_initial_data(self, key: str, value: Any) -> None:
+        """Add setup-time data without triggering a full coordinator refresh."""
+        self.data = {**(self.data or {}), key: value}
+
+    async def _async_fetch_objects(
+        self, query_objects: dict[str, Any] | None = None, quiet: bool = False
+    ):
+        if query_objects is None:
+            query_objects = {
+                object_name: None if properties is None else list(properties)
+                for object_name, properties in self.query_obj[OBJ].items()
+            }
+        data = await self._async_fetch_data(
+            METHODS.PRINTER_OBJECTS_QUERY, {OBJ: query_objects}, quiet=quiet
+        )
+        self._record_queried_objects(query_objects)
+        return data
+
+    def _record_queried_objects(self, query_objects: dict[str, Any]) -> None:
+        for object_name, properties in query_objects.items():
+            if properties is None:
+                self._queried_objects[object_name] = None
+            elif object_name not in self._queried_objects:
+                self._queried_objects[object_name] = set(properties)
+            elif self._queried_objects[object_name] is not None:
+                self._queried_objects[object_name].update(properties)
+
+    def _get_unqueried_objects(self) -> dict[str, Any]:
+        query_objects = {}
+        for object_name, properties in self.query_obj[OBJ].items():
+            if object_name not in self._queried_objects:
+                query_objects[object_name] = (
+                    None if properties is None else list(properties)
+                )
+                continue
+            queried_properties = self._queried_objects[object_name]
+            if queried_properties is None:
+                continue
+            if properties is None:
+                query_objects[object_name] = None
+                continue
+            new_properties = [
+                property_name
+                for property_name in properties
+                if property_name not in queried_properties
+            ]
+            if new_properties:
+                query_objects[object_name] = new_properties
+        return query_objects
+
+    def _subscription_objects(self) -> dict[str, Any]:
+        """Return the object field map used for status subscriptions."""
+        return {
+            object_name: None if properties is None else list(properties)
+            for object_name, properties in self.query_obj[OBJ].items()
+        }
+
+    async def async_subscribe_status_updates(self) -> None:
+        """Subscribe to Moonraker status notifications for tracked objects."""
+        query_objects = self._subscription_objects()
+        if not query_objects:
+            return
+        result = await self._async_fetch_data(
+            METHODS.PRINTER_OBJECTS_SUBSCRIBE, {OBJ: query_objects}, quiet=True
+        )
+        self._subscribed_to_status = True
+        pushed = result.get("objects") if isinstance(result, dict) else None
+        if not isinstance(pushed, dict) and isinstance(result, dict):
+            pushed = result.get("status")
+        if isinstance(pushed, dict):
+            self._merge_status_update(pushed)
+
+    async def _async_resubscribe(self) -> None:
+        """Restore the status subscription after a reconnect."""
+        if not self._subscribed_to_status:
+            return
+        query_objects = self._subscription_objects()
+        if not query_objects:
+            return
+        try:
+            async with async_timeout.timeout(TIMEOUT):
+                await self.moonraker.client.call_method(
+                    METHODS.PRINTER_OBJECTS_SUBSCRIBE.value,
+                    objects=query_objects,
+                )
+        except Exception:
+            _LOGGER.debug("Could not restore Moonraker status subscription")
+
+    @staticmethod
+    def _status_delta(data: Any) -> dict[str, Any]:
+        """Extract changed status objects from a notification payload."""
+        if isinstance(data, list) and data and isinstance(data[0], dict):
+            return data[0]
+        if isinstance(data, dict):
+            status = data.get("status")
+            if isinstance(status, dict):
+                return status
+            return data
+        return {}
+
+    def _merge_status_update(self, status_delta: dict[str, Any]) -> bool:
+        """Merge pushed status changes into coordinator data."""
+        current_data = dict(self.data or {})
+        status = dict(current_data.get("status") or {})
+        changed = False
+        for object_name, object_data in status_delta.items():
+            current_object_data = status.get(object_name)
+            if isinstance(object_data, dict) and isinstance(current_object_data, dict):
+                merged = {**current_object_data, **object_data}
+                if merged != current_object_data:
+                    status[object_name] = merged
+                    changed = True
+            elif current_object_data != object_data:
+                status[object_name] = object_data
+                changed = True
+        if changed:
+            current_data["status"] = status
+            self.data = current_data
+        return changed
+
+    async def _async_handle_notification(self, method: str, data: Any) -> None:
+        """Handle a Moonraker push notification."""
+        if method != NOTIFY_STATUS_UPDATE:
+            return
+        status_delta = self._status_delta(data)
+        if not status_delta:
+            return
+        status = (self.data or {}).get("status") or {}
+        previous_state = (status.get("print_stats") or {}).get("state")
+        if not self._merge_status_update(status_delta):
+            return
+        new_state = ((self.data.get("status") or {}).get("print_stats") or {}).get(
+            "state"
+        )
+        if new_state != previous_state:
+            await self._async_flush_push_data()
+        else:
+            self._schedule_push_flush()
+
+    def _schedule_push_flush(self) -> None:
+        """Debounce pushed updates into a single entity dispatch."""
+        if self._push_unsub is not None:
+            return
+        self._push_unsub = async_call_later(
+            self.hass,
+            timedelta(seconds=PUSH_UPDATE_INTERVAL),
+            self._async_flush_push_data,
+        )
+
+    async def _async_flush_push_data(self, _now: Any = None) -> None:
+        """Dispatch merged push data to entities."""
+        if self._push_unsub is not None:
+            self._push_unsub()
+            self._push_unsub = None
+        if self.data is None:
+            return
+        self._update_polling_interval(self.data)
+        status = self.data.get("status") or {}
+        filename = _extract_gcode_filename(status)
+        cache_key = _normalize_gcode_path(filename) if filename else None
+        self.async_update_listeners()
+        if filename and cache_key != self._gcode_metadata_cache_key:
+            await self.async_request_refresh()
+
+    def async_shutdown_push_updates(self) -> None:
+        """Detach notification handling and cancel pending push dispatch."""
+        self.moonraker.notification_handler = None
+        if self._push_unsub is not None:
+            self._push_unsub()
+            self._push_unsub = None
+
+    async def async_refresh_query_data(self) -> None:
+        """Fetch newly requested status fields without refreshing unrelated data."""
+        async with self._query_refresh_lock:
+            query_objects = self._get_unqueried_objects()
+            if not query_objects:
+                return
+            query_data = await self._async_fetch_objects(query_objects, quiet=True)
+            current_data = dict(self.data or {})
+            status = dict(current_data.get("status") or {})
+            for object_name, object_data in (query_data.get("status") or {}).items():
+                current_object_data = status.get(object_name)
+                if isinstance(object_data, dict) and isinstance(
+                    current_object_data, dict
+                ):
+                    status[object_name] = {**current_object_data, **object_data}
+                else:
+                    status[object_name] = object_data
+            current_data.update(query_data)
+            current_data["status"] = status
+            self.data = current_data
 
     def add_data_updater(self, updater):
         """Update the data."""
@@ -609,6 +885,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
     )
     if unloaded:
+        coordinator.async_shutdown_push_updates()
+        await coordinator.moonraker.stop()
         hass.data[DOMAIN].pop(entry.entry_id)
 
     return unloaded

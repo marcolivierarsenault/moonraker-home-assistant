@@ -21,6 +21,8 @@ from .const import (
     DEFAULT_PORT,
     CONF_OPTION_POLLING_RATE,
     CONF_OPTION_QUIET_UNREACHABLE,
+    DEFAULT_POLLING_RATE,
+    MIN_POLLING_RATE,
     CONF_OPTION_CAMERA_STREAM,
     CONF_OPTION_CAMERA_SNAPSHOT,
     CONF_OPTION_CAMERA_PORT,
@@ -145,6 +147,8 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 return True
         except Exception:
             return False
+        finally:
+            await api.stop()
 
     @staticmethod
     @callback
@@ -163,16 +167,21 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
+        polling_rate = max(
+            MIN_POLLING_RATE,
+            self.config_entry.options.get(
+                CONF_OPTION_POLLING_RATE, DEFAULT_POLLING_RATE
+            ),
+        )
+
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
                 {
                     vol.Optional(
                         CONF_OPTION_POLLING_RATE,
-                        default=self.config_entry.options.get(
-                            CONF_OPTION_POLLING_RATE, 30
-                        ),
-                    ): int,
+                        default=polling_rate,
+                    ): vol.All(int, vol.Range(min=MIN_POLLING_RATE)),
                     vol.Optional(
                         CONF_OPTION_QUIET_UNREACHABLE,
                         default=self.config_entry.options.get(

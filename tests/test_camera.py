@@ -26,7 +26,10 @@ from custom_components.moonraker.const import (
 @pytest.fixture(name="bypass_connect_client", autouse=True)
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
-    with patch("custom_components.moonraker.MoonrakerApiClient.start"):
+    with (
+        patch("custom_components.moonraker.MoonrakerApiClient.start"),
+        patch("custom_components.moonraker.MoonrakerApiClient.stop"),
+    ):
         yield
 
 

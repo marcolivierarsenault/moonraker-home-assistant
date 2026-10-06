@@ -172,7 +172,7 @@ async def async_setup_basic_buttons(coordinator, entry, async_add_entities):
 async def async_setup_macros(coordinator, entry, async_add_entities):
     """Set optional button platform."""
     cmds = await coordinator.async_fetch_data(METHODS.PRINTER_GCODE_HELP)
-    object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
+    object_list = await coordinator.async_get_printer_objects()
     object_names = (
         set(object_list.get("objects", []))
         if isinstance(object_list, dict)
@@ -210,13 +210,15 @@ async def async_setup_macros(coordinator, entry, async_add_entities):
 
     async_add_entities([MoonrakerButton(coordinator, entry, desc) for desc in macros])
     if added_macro_objects:
-        await coordinator.async_request_refresh()
+        await coordinator.async_refresh_query_data()
 
 
 async def async_setup_services(coordinator, entry, async_add_entities):
     """Create Start, Stop, and Restart buttons for all allowed services."""
-    system_info = await coordinator.async_fetch_data(METHODS.MACHINE_SYSTEM_INFO)
-    available_services = system_info["system_info"].get("available_services", [])
+    system_info = await coordinator.async_get_system_info()
+    available_services = ((system_info or {}).get("system_info") or {}).get(
+        "available_services", []
+    )
 
     service_buttons = []
 

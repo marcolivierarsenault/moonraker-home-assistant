@@ -23,7 +23,10 @@ from .const import MOCK_CONFIG
 @pytest.fixture(name="bypass_connect_client", autouse=True)
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
-    with patch("custom_components.moonraker.MoonrakerApiClient.start"):
+    with (
+        patch("custom_components.moonraker.MoonrakerApiClient.start"),
+        patch("custom_components.moonraker.MoonrakerApiClient.stop"),
+    ):
         yield
 
 
@@ -583,6 +586,15 @@ async def test_heater_generic_number_config_fallbacks(hass):
                     ]
                 }
             raise AssertionError(f"Unexpected method: {method}")
+
+        async def async_get_config_settings(self):
+            return await self.async_fetch_data(METHODS.PRINTER_OBJECTS_QUERY)
+
+        async def async_get_printer_objects(self):
+            return await self.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
+
+        async def async_refresh_query_data(self):
+            return
 
         def add_query_objects(self, obj, field):
             self.query_obj.setdefault(obj, set()).add(field)

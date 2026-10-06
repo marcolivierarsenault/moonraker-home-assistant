@@ -1,5 +1,8 @@
 """moonraker Client."""
 
+from collections.abc import Awaitable, Callable
+from typing import Any
+
 from moonraker_api import MoonrakerClient, MoonrakerListener
 
 
@@ -16,6 +19,9 @@ class MoonrakerApiClient(MoonrakerListener):
     ):
         """Init."""
         self.running = False
+        self.notification_handler: Callable[[str, Any], Awaitable[None]] | None = (
+            None
+        )
         if api_key == "":
             api_key = None
         self.client = MoonrakerClient(
@@ -36,3 +42,8 @@ class MoonrakerApiClient(MoonrakerListener):
         """Stop the websocket connection."""
         self.running = False
         await self.client.disconnect()
+
+    async def on_notification(self, method: str, data: Any) -> None:
+        """Dispatch a Moonraker notification to the registered handler."""
+        if self.notification_handler is not None:
+            await self.notification_handler(method, data)
