@@ -5,8 +5,9 @@ class MoonrakerControlPanel extends HTMLElement {
     this._frame = document.createElement("iframe");
     this._frame.title = "Moonraker printer control deck";
     this._frame.setAttribute("loading", "eager");
-    this._frame.style.cssText = "display:block;width:100%;height:100%;border:0";
+    this._frame.style.cssText = "position:absolute;inset:0;display:block;width:100%;height:100%;border:0";
     this._frame.addEventListener("load", () => this._syncHass());
+    this._resizeHandler = () => this._resizeToViewport();
     this._root.append(this._frame);
   }
 
@@ -26,12 +27,31 @@ class MoonrakerControlPanel extends HTMLElement {
 
   connectedCallback() {
     this.style.display = "block";
+    this.style.position = "relative";
     this.style.width = "100%";
-    this.style.height = "100%";
+    this.style.minHeight = "320px";
+    this.style.overflow = "hidden";
+    window.addEventListener("resize", this._resizeHandler);
+    window.visualViewport?.addEventListener("resize", this._resizeHandler);
+    requestAnimationFrame(this._resizeHandler);
     if (!this._frame.src) {
       this._frame.src = "/api/moonraker/panel_embed";
     }
     this._syncHass();
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener("resize", this._resizeHandler);
+    window.visualViewport?.removeEventListener("resize", this._resizeHandler);
+  }
+
+  _resizeToViewport() {
+    const viewportHeight = Math.min(
+      window.innerHeight,
+      window.visualViewport?.height || window.innerHeight,
+    );
+    const top = Math.max(0, this.getBoundingClientRect().top);
+    this.style.height = `${Math.max(320, Math.floor(viewportHeight - top))}px`;
   }
 
   _syncHass() {
