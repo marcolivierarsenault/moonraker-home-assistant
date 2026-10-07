@@ -317,6 +317,21 @@ test("dashboard camera popup assigns sources, handles missing cameras, and persi
   assert.equal(document.getElementById("cameraConfig").hidden, true);
 });
 
+test("toolpath projection renders increasing Z upward on screen", () => {
+  const { context } = createPanelClient();
+  const read = expression => JSON.parse(vm.runInContext(`JSON.stringify(${expression})`, context));
+
+  for (const camera of [{ yaw: 0, pitch: 1.5 }, { yaw: -0.72, pitch: 0.7 }]) {
+    const low = read(`projectPoint([0,0,0], ${JSON.stringify(camera)}, 1, 0, 0, 800, 600)`);
+    const high = read(`projectPoint([0,0,50], ${JSON.stringify(camera)}, 1, 0, 0, 800, 600)`);
+    assert.ok(high.y < low.y, `z=50 must project above z=0 at pitch ${camera.pitch}`);
+  }
+
+  const topBack = read(`projectPoint([0,50,0], { yaw: 0, pitch: 0.035 }, 1, 0, 0, 800, 600)`);
+  const topFront = read(`projectPoint([0,0,0], { yaw: 0, pitch: 0.035 }, 1, 0, 0, 800, 600)`);
+  assert.ok(topBack.y < topFront.y, "top view should render +Y toward the top of the screen");
+});
+
 test("command history is bounded, per-printer, session-only, and only records successful sends", async () => {
   const { context, document, window } = createPanelClient();
   context.toast = () => {};

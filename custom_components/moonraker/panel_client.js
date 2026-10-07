@@ -1550,8 +1550,8 @@ function projectPoint(point, camera, scale, centerU, centerV, width, height) {
   const cosPitch = Math.cos(camera.pitch), sinPitch = Math.sin(camera.pitch);
   const u = point[0] * cosYaw - point[1] * sinYaw;
   const horizontal = point[0] * sinYaw + point[1] * cosYaw;
-  const v = horizontal * cosPitch - point[2] * sinPitch;
-  const depth = horizontal * sinPitch + point[2] * cosPitch;
+  const v = horizontal * cosPitch + point[2] * sinPitch;
+  const depth = -horizontal * sinPitch + point[2] * cosPitch;
   return { x: width / 2 + (u - centerU) * scale, y: height * .53 - (v - centerV) * scale, depth };
 }
 
@@ -1590,7 +1590,7 @@ function drawToolpath() {
   const transformed = corners.map(point => {
     const u = point[0] * cosYaw - point[1] * sinYaw;
     const horizontal = point[0] * sinYaw + point[1] * cosYaw;
-    return { u, v: horizontal * cosPitch - point[2] * sinPitch };
+    return { u, v: horizontal * cosPitch + point[2] * sinPitch };
   });
   const minU = Math.min(...transformed.map(point => point.u));
   const maxU = Math.max(...transformed.map(point => point.u));
