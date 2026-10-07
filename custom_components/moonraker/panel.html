@@ -162,13 +162,14 @@
   .camera-empty { display: grid; place-items: center; height: 210px; border: 1px dashed #17462f; color: #4f8065; background: #030b08; font: 8px var(--mono); text-align: center; }
   .camera-actions { display: flex; justify-content: space-between; align-items: center; gap: 5px; margin-top: 6px; }
   .camera-grid, .dashboard-camera-grid { display: grid; grid-template-columns: minmax(0,1fr); gap: 8px; }
-  .camera-grid[data-layout="1x2"], .camera-grid[data-layout="2x2"], .dashboard-camera-grid[data-layout="2"], .dashboard-camera-grid[data-layout="4"] { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .camera-grid[data-layout="1x2"], .camera-grid[data-layout="2x2"], .dashboard-camera-grid[data-layout="4"] { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .camera-tile, .dashboard-camera-tile { min-width: 0; overflow: hidden; border: 1px solid #164a31; background: #020604; }
   .camera-tile-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 5px; border-bottom: 1px solid #123d2a; }
   .camera-tile-head select { flex: 1; max-width: 220px; }
   .camera-tile img, .dashboard-camera-tile img { display: block; width: 100%; min-height: 150px; max-height: 48vh; aspect-ratio: 16 / 9; object-fit: contain; background: #010403; }
   .dashboard-camera-grid[data-layout="1"] img { height: clamp(240px,32vh,390px); }
-  .dashboard-camera-grid[data-layout="2"] img, .dashboard-camera-grid[data-layout="4"] img { min-height: 98px; }
+  .dashboard-camera-grid[data-layout="2"] img { min-height: 150px; }
+  .dashboard-camera-grid[data-layout="4"] img { min-height: 98px; }
   .camera-tile-empty { display: grid; place-items: center; min-height: 98px; padding: 8px; color: #4f8065; font: 8px var(--mono); text-align: center; }
   .camera-tile-actions { display: flex; justify-content: space-between; gap: 5px; padding: 5px; border-top: 1px solid #123d2a; }
   .camera-tile-actions button { min-height: 34px; }
@@ -293,7 +294,7 @@
       <div id="cameraConfigScrim" class="info-scrim" hidden data-camera-config-close></div>
       <section id="cameraConfig" class="camera-config" role="dialog" aria-modal="true" aria-labelledby="cameraConfigTitle" hidden>
         <div class="info-drawer-head"><div><div class="panel-kicker">Dashboard Camera Sources</div><h2 class="panel-title" id="cameraConfigTitle">CAMERA CONFIGURATION</h2></div><button class="subtle" data-camera-config-close>CLOSE</button></div>
-        <label class="config-row"><span>Dashboard Layout</span><select id="dashboardCameraLayout" aria-label="Dashboard camera layout"><option value="1">1 camera</option><option value="2">2 cameras</option><option value="4">4 cameras</option></select></label>
+        <label class="config-row"><span>Dashboard Layout</span><select id="dashboardCameraLayout" aria-label="Dashboard camera layout"><option value="1">1 camera</option><option value="2">2 cameras stacked</option><option value="4">4 cameras</option></select></label>
         <div id="dashboardCameraOptions" class="config-list"></div>
         <div class="notice">Dashboard streams start only while this screen is visible. Select NO CAMERA to leave a tile unused.</div>
         <div class="row-between" style="margin-top:9px"><span id="dashboardCameraSummary" class="micro">1 LIVE TILE</span><button class="primary" data-camera-config-close>DONE</button></div>

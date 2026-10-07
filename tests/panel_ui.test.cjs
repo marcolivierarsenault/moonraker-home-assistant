@@ -444,7 +444,7 @@ test("panel markup exposes the camera layouts, dashboard camera popup, wide cons
   assert.match(html, /<option value="2x2">/);
   assert.match(html, /id="dashboardCameraGrid"/);
   assert.match(html, /id="cameraConfig"[\s\S]*role="dialog"/);
-  assert.match(html, /id="dashboardCameraLayout"[\s\S]*<option value="1">1 camera<\/option>[\s\S]*<option value="2">2 cameras<\/option>[\s\S]*<option value="4">4 cameras<\/option>/);
+  assert.match(html, /id="dashboardCameraLayout"[\s\S]*<option value="1">1 camera<\/option>[\s\S]*<option value="2">2 cameras stacked<\/option>[\s\S]*<option value="4">4 cameras<\/option>/);
   assert.match(html, /id="dashboardCameraOptions"/);
   assert.match(html, /data-camera-config/);
   assert.match(html, /id="commandHistory"/);
