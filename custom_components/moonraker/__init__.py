@@ -547,6 +547,8 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         self._config_settings_lock = asyncio.Lock()
         self._system_info: dict[str, Any] | None = None
         self._system_info_lock = asyncio.Lock()
+        self._server_info: dict[str, Any] | None = None
+        self._server_info_lock = asyncio.Lock()
         self._webcams: dict[str, Any] | None = None
         self._webcams_lock = asyncio.Lock()
         self.gcode_responses: deque[str] = deque(maxlen=300)
@@ -792,6 +794,19 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
                         METHODS.MACHINE_SYSTEM_INFO, None, quiet=True
                     )
         return self._system_info
+
+    async def async_get_server_info(self):
+        """Return Moonraker server information, fetching it once per setup."""
+        if self._server_info is None:
+            async with self._server_info_lock:
+                if self._server_info is None:
+                    try:
+                        self._server_info = await self._async_fetch_data(
+                            METHODS.SERVER_INFO, None, quiet=True
+                        )
+                    except UpdateFailed:
+                        self._server_info = {}
+        return self._server_info
 
     async def async_get_webcams(self):
         """Return configured Moonraker webcams, fetching them once per setup."""

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
-set -e
+set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-pytest --durations=10 --cov-report term-missing --cov=custom_components.moonraker --cov-fail-under=100 tests
+scripts/test_panel_ui
+pytest --durations=10 --cov=custom_components.moonraker --cov-report=term-missing --cov-report=xml --cov-fail-under=100 tests

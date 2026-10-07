@@ -1,9 +1,12 @@
 """Tests for the authenticated Moonraker control panel."""
 
+import json
+from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from custom_components.moonraker import MoonrakerGcodeUploadView
 from custom_components.moonraker.panel import (
@@ -91,6 +94,100 @@ async def test_registers_custom_panel_with_ha_authenticated_connection():
     }
     assert PANEL_CLIENT_URL in registered_urls
     assert PANEL_GCODE_URL in registered_urls
+
+
+async def test_panel_data_returns_all_discovered_cameras():
+    """Expose every configured webcam so the camera page can build a grid."""
+    coordinator = SimpleNamespace(
+        config_entry=SimpleNamespace(
+            entry_id="printer-id",
+            data={"url": "printer.local", "port": 7125, "tls": False},
+            options={},
+        ),
+        data={"status": {}, "file_list": {"files": []}},
+        selected_file="",
+        api_device_name="Test Printer",
+        last_update_success=True,
+        gcode_responses=[],
+        query_obj={"objects": {}},
+        polling_interval=timedelta(seconds=30),
+        platforms=[],
+        _printer_objects_list={"objects": []},
+        async_get_webcams=AsyncMock(
+            return_value={
+                "webcams": [
+                    {
+                        "name": "Front",
+                        "stream_url": "webcam/?action=stream",
+                        "snapshot_url": "webcam/?action=snapshot",
+                    },
+                    {
+                        "name": "Side",
+                        "stream_url": "https://camera.local/side",
+                        "snapshot_url": None,
+                    },
+                ]
+            }
+        ),
+        async_get_system_info=AsyncMock(return_value={}),
+        async_get_server_info=AsyncMock(
+            return_value={
+                "moonraker_version": "v0.9.3",
+                "api_version": [1, 0, 0],
+                "components": ["application", "authorization"],
+                "failed_components": [],
+            }
+        ),
+    )
+    view = MoonrakerPanelDataView(MagicMock())
+    view._resolve = MagicMock(return_value=coordinator)
+    view._coordinators = MagicMock(return_value={"printer-id": coordinator})
+
+    response = await view.get(SimpleNamespace(query={"printer": "printer-id"}))
+
+    assert response.status == 200
+    payload = json.loads(response.text)
+    webcams = payload["webcams"]
+    assert payload["server_info"]["moonraker_version"] == "v0.9.3"
+    assert [webcam["name"] for webcam in webcams] == ["Front", "Side"]
+    assert webcams[0]["stream_url"] == "http://printer.local:7125/webcam/?action=stream"
+    assert webcams[1]["stream_url"] == "https://camera.local/side"
+
+
+@pytest.mark.parametrize("server_info_fails", [False, True])
+async def test_panel_data_handles_unavailable_server_info(server_info_fails):
+    """Keep system status usable when server.info is unavailable or malformed."""
+    server_info_call = (
+        AsyncMock(side_effect=UpdateFailed("server info unavailable"))
+        if server_info_fails
+        else AsyncMock(return_value=None)
+    )
+    coordinator = SimpleNamespace(
+        config_entry=SimpleNamespace(
+            entry_id="printer-id",
+            data={"url": "printer.local", "port": 7125, "tls": False},
+            options={},
+        ),
+        data={"status": {}, "file_list": []},
+        selected_file=None,
+        api_device_name="Test Printer",
+        last_update_success=True,
+        gcode_responses=[],
+        query_obj={"objects": {}},
+        polling_interval=timedelta(seconds=30),
+        platforms=[],
+        _printer_objects_list=None,
+        async_get_webcams=AsyncMock(return_value={}),
+        async_get_system_info=AsyncMock(return_value={}),
+        async_get_server_info=server_info_call,
+    )
+    view = MoonrakerPanelDataView(MagicMock())
+    view._resolve = MagicMock(return_value=coordinator)
+    view._coordinators = MagicMock(return_value={"printer-id": coordinator})
+
+    response = await view.get(SimpleNamespace(query={"printer": "printer-id"}))
+
+    assert json.loads(response.text)["server_info"] == {}
 
 
 @pytest.mark.parametrize(

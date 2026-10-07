@@ -38,8 +38,15 @@ let lastFiles = [];
 let selectedFile = "";
 let latestData = null;
 let consoleSignature = "";
+let sentCommandHistory = [];
+let activeScreen = "dashboard";
+let detailsOpen = false;
 let lastThumbnailKey = "";
 let thumbnailObjectUrl = null;
+let cameraLayout = "1x1";
+let cameraAssignments = [];
+let cameraGridSignature = "";
+let availableWebcams = [];
 let toolpathKey = "";
 let toolpathAbort = null;
 let toolpathRequested = false;
@@ -319,10 +326,10 @@ function render(data) {
   setText("moveStepValue", `${jogStep}`);
   setText("consoleFile", printStats.filename || "—");
   setText("consoleProgress", `${(progress * 100).toFixed(1)}%`);
-  setText("consoleX", fmt(position[0], 2));
-  setText("consoleY", fmt(position[1], 2));
+  setText("consoleXY", `${fmt(position[0], 2)} / ${fmt(position[1], 2)}`);
   setText("consoleZ", fmt(position[2], 2));
   setText("consoleLayer", layerLabel);
+  setText("consoleConnection", data.available ? "LIVE" : "UNAVAILABLE");
 
   setText("extrusionFilUsed", `${fmt((printStats.filament_used || 0) / 1000, 2)} m`);
   setText("extrusionFilEst", `${fmt((meta.filament_total || 0) / 1000, 2)} m`);
@@ -364,6 +371,7 @@ function render(data) {
   updateToolpath(data, progress);
   drawTemperatureGraph("tempGraph", extruder.target, bed.target);
   drawTemperatureGraph("tempGraphHistory", extruder.target, bed.target);
+  if (detailsOpen) renderPageDetails(data);
 }
 
 function renderSettings(data) {
@@ -390,12 +398,26 @@ function renderSystem(data, status, printState) {
   const klipper = versions.klipper || {};
   const moonraker = versions.moonraker || {};
   const hostTemp = findNamedStatus(status, /temperature_host|host_temperature|temperature_sensor.*(host|rpi)/i);
-  setText("sysPrinterState", printState);
-  setText("sysKlippy", printerInfo.klippy_state || "—");
-  setText("sysKlipperVersion", klipper.version || klipper.current_version || printerInfo.software_version || "—");
-  setText("sysMoonrakerVersion", moonraker.version || moonraker.current_version || data.server_info?.moonraker_version || "—");
-  setText("sysCpu", cpu.cpu_desc || cpu.model || cpu.processor || "—");
-  setText("sysHostTemp", hostTemp.temperature == null ? "—" : `${fmt(hostTemp.temperature, 1)}°C`);
+  const printerState = printerInfo.state || printState || "—";
+  const klippyState = printerInfo.klippy_state || "—";
+  const klipperVersion = klipper.version || klipper.current_version || printerInfo.software_version || "—";
+  const moonrakerVersion = moonraker.version || moonraker.current_version || data.server_info?.moonraker_version || "—";
+  const cpuModel = cpu.cpu_desc || cpu.model || cpu.processor || "—";
+  const hostTemperature = hostTemp.temperature ?? status.system_stats?.cpu_temp ?? status.system_stats?.cpu_temperature;
+  const hostTemperatureText = hostTemperature == null ? "NOT REPORTED" : `${fmt(hostTemperature, 1)}°C`;
+
+  setText("sysPrinterState", printerState);
+  setText("sysKlippy", klippyState);
+  setText("sysKlipperVersion", klipperVersion);
+  setText("sysMoonrakerVersion", moonrakerVersion);
+  setText("sysCpu", cpuModel);
+  setText("sysHostTemp", hostTemperatureText);
+  setText("systemPrinterState", printerState);
+  setText("systemKlippy", klippyState);
+  setText("systemKlipperVersion", klipperVersion);
+  setText("systemMoonrakerVersion", moonrakerVersion);
+  setText("systemCpu", cpuModel);
+  setText("systemHostTemp", hostTemperatureText);
   const live = byId("systemLive");
   live.textContent = data.available ? "ONLINE" : "OFFLINE";
   live.classList.toggle("bad-text", !data.available);
@@ -604,16 +626,123 @@ function emptyElement(text) {
 }
 
 function renderCamera(webcams) {
-  const camera = webcams[0];
-  const images = [byId("webcam"), byId("webcamLarge")];
-  const available = Boolean(camera?.stream_url);
-  byId("cameraEmpty").style.display = available ? "none" : "grid";
-  images.forEach(image => {
-    image.style.display = available ? "block" : "none";
-    if (available && (!image.src || !image.src.startsWith(camera.stream_url))) image.src = camera.stream_url;
+  availableWebcams = Array.isArray(webcams)
+    ? webcams.map((camera, index) => ({ ...(camera || {}), name: String(camera?.name || `Camera ${index + 1}`) }))
+    : [];
+  const cameraPageVisible = activeScreen === "camera";
+  const layoutSelect = byId("cameraLayout");
+  if (layoutSelect?.value) cameraLayout = layoutSelect.value;
+  const tileCount = cameraLayout === "2x2" ? 4 : cameraLayout === "1x2" ? 2 : 1;
+  for (let index = 0; index < tileCount; index++) {
+    if (cameraAssignments[index] === undefined || (cameraAssignments[index] && !availableWebcams.some(camera => camera.name === cameraAssignments[index]))) {
+      cameraAssignments[index] = availableWebcams[index]?.name || "";
+    }
+  }
+
+  const grid = byId("cameraGrid");
+  const sourceSignature = availableWebcams.map(camera => `${camera.name}:${camera.stream_url}:${camera.snapshot_url}`).join("|");
+  const signature = `${cameraLayout}/${sourceSignature}`;
+  grid.dataset.layout = cameraLayout;
+  grid.style.display = availableWebcams.length ? "grid" : "none";
+  grid.style.gridTemplateColumns = cameraLayout === "1x1" ? "minmax(0,1fr)" : "repeat(2,minmax(0,1fr))";
+  if (signature !== cameraGridSignature) {
+    cameraGridSignature = signature;
+    grid.replaceChildren();
+    for (let index = 0; index < tileCount; index++) {
+      const tile = document.createElement("section");
+      tile.className = "camera-tile";
+      const header = document.createElement("div");
+      header.className = "camera-tile-head";
+      const selector = document.createElement("select");
+      selector.dataset.cameraSlot = String(index);
+      selector.setAttribute("aria-label", `Camera tile ${index + 1}`);
+      const emptyOption = document.createElement("option");
+      emptyOption.value = "";
+      emptyOption.textContent = "NO CAMERA";
+      selector.appendChild(emptyOption);
+      availableWebcams.forEach(camera => {
+        const option = document.createElement("option");
+        option.value = camera.name;
+        option.textContent = camera.name;
+        selector.appendChild(option);
+      });
+      const fullscreen = document.createElement("button");
+      fullscreen.type = "button";
+      fullscreen.dataset.cameraFullscreen = "";
+      fullscreen.textContent = "FULLSCREEN";
+      header.append(selector, fullscreen);
+      const image = document.createElement("img");
+      image.alt = `Printer camera ${index + 1}`;
+      image.loading = "lazy";
+      const placeholder = document.createElement("div");
+      placeholder.className = "camera-tile-empty";
+      placeholder.textContent = "NO CAMERA ASSIGNED";
+      const footer = document.createElement("div");
+      footer.className = "camera-tile-actions";
+      const cameraStatus = document.createElement("span");
+      cameraStatus.className = "micro";
+      cameraStatus.dataset.cameraStatus = String(index);
+      const snapshot = document.createElement("button");
+      snapshot.type = "button";
+      snapshot.className = "subtle";
+      snapshot.dataset.cameraSnapshot = String(index);
+      snapshot.textContent = "SNAPSHOT";
+      footer.append(cameraStatus, snapshot);
+      tile.append(header, image, placeholder, footer);
+      grid.appendChild(tile);
+    }
+  }
+
+  const tiles = Array.from(grid.querySelectorAll(".camera-tile"));
+  tiles.forEach((tile, index) => {
+    const selector = tile.querySelector("[data-camera-slot]");
+    const camera = availableWebcams.find(item => item.name === cameraAssignments[index]);
+    selector.value = camera?.name || "";
+    const image = tile.querySelector("img");
+    const placeholder = tile.querySelector(".camera-tile-empty");
+    const streamActive = cameraPageVisible && Boolean(camera?.stream_url);
+    placeholder.textContent = !camera?.name
+      ? "NO CAMERA ASSIGNED"
+      : !camera.stream_url
+        ? "STREAM UNAVAILABLE"
+        : "STREAM PAUSED / OPEN CAMERA PAGE";
+    image.style.display = streamActive ? "block" : "none";
+    placeholder.style.display = streamActive ? "none" : "grid";
+    if (streamActive && image.dataset.streamUrl !== camera.stream_url) {
+      image.src = camera.stream_url;
+      image.dataset.streamUrl = camera.stream_url;
+    } else if (!streamActive) {
+      image.removeAttribute("src");
+      delete image.dataset.streamUrl;
+    }
+    const fullscreenButton = tile.querySelector("[data-camera-fullscreen]");
+    fullscreenButton.disabled = !streamActive;
+    const snapshotButton = tile.querySelector("[data-camera-snapshot]");
+    snapshotButton.disabled = !camera?.snapshot_url;
+    if (camera?.snapshot_url) snapshotButton.dataset.snapshotUrl = camera.snapshot_url;
+    else delete snapshotButton.dataset.snapshotUrl;
+    tile.querySelector("[data-camera-status]").textContent = camera?.name ? `SOURCE / ${camera.name}` : "UNASSIGNED";
   });
-  setText("cameraName", camera?.name ? `SOURCE / ${camera.name}` : "CAMERA SOURCE NOT CONFIGURED");
-  setText("networkCameras", String(webcams.length));
+
+  const primary = availableWebcams.find(camera => camera.name === cameraAssignments[0] && camera.stream_url)
+    || availableWebcams.find(camera => camera.stream_url)
+    || availableWebcams.find(camera => camera.name === cameraAssignments[0])
+    || availableWebcams[0];
+  const dashboardImage = byId("webcam");
+  const dashboardVisible = activeScreen === "dashboard" && Boolean(primary?.stream_url);
+  byId("webcamCard").style.display = dashboardVisible ? "" : "none";
+  dashboardImage.style.display = dashboardVisible ? "block" : "none";
+  if (dashboardVisible && dashboardImage.dataset.streamUrl !== primary.stream_url) {
+    dashboardImage.src = primary.stream_url;
+    dashboardImage.dataset.streamUrl = primary.stream_url;
+  } else if (!dashboardVisible) {
+    dashboardImage.removeAttribute("src");
+    delete dashboardImage.dataset.streamUrl;
+  }
+  byId("cameraEmpty").style.display = availableWebcams.length ? "none" : "grid";
+  setText("cameraName", primary?.name ? `PRIMARY / ${primary.name}` : "CAMERA SOURCE NOT CONFIGURED");
+  setText("cameraGridStatus", `${availableWebcams.length} CAMERAS / ${tileCount} TILES`);
+  setText("networkCameras", String(availableWebcams.length));
 }
 
 function renderConsole(lines) {
@@ -623,6 +752,36 @@ function renderConsole(lines) {
   output.textContent = signature;
   output.scrollTop = output.scrollHeight;
   consoleSignature = signature;
+}
+
+function recordSentCommand(command) {
+  const normalized = String(command || "").trim();
+  if (!normalized) return;
+  sentCommandHistory.unshift({ printer, time: new Date(), command: normalized });
+  sentCommandHistory = sentCommandHistory.slice(0, 100);
+  renderSentCommandHistory();
+}
+
+function renderSentCommandHistory() {
+  const history = byId("commandHistory");
+  if (!history) return;
+  history.replaceChildren();
+  const entries = sentCommandHistory.filter(entry => entry.printer === printer);
+  setText("commandHistoryCount", `${entries.length} COMMANDS`);
+  if (!entries.length) {
+    appendEmpty(history, "COMMANDS SENT FROM THIS PRINTER SESSION WILL APPEAR HERE");
+    return;
+  }
+  entries.forEach(entry => {
+    const row = document.createElement("div");
+    row.className = "command-entry";
+    const timestamp = document.createElement("time");
+    timestamp.textContent = entry.time.toLocaleTimeString([], { hour12: false });
+    const command = document.createElement("code");
+    command.textContent = entry.command;
+    row.append(timestamp, command);
+    history.appendChild(row);
+  });
 }
 
 async function act(action, value, preset, extra) {
@@ -639,6 +798,9 @@ async function act(action, value, preset, extra) {
   if (extra) Object.assign(body, extra);
   try {
     const result = await hassApi().callApi("POST", API.action, body);
+    if (result.ok && ["run_gcode", "run_macro"].includes(action)) {
+      recordSentCommand(extra?.script || value);
+    }
     toast(result.ok ? `COMMAND OK / ${action.toUpperCase()}` : `COMMAND ERROR / ${result.error || action}`);
     refresh();
   } catch (error) {
@@ -707,7 +869,12 @@ function sendGcode(event) {
 
 function switchPrinter() {
   printer = byId("printerSel").value;
+  renderSentCommandHistory();
   latestData = null;
+  availableWebcams = [];
+  cameraAssignments = [];
+  cameraGridSignature = "";
+  renderCamera(availableWebcams);
   selectedFile = "";
   lastThumbnailKey = "";
   toolpathKey = "";
@@ -722,12 +889,135 @@ function switchPrinter() {
   refresh();
 }
 
+function detailRowsForScreen(name, data) {
+  const status = data.status || {};
+  const printStats = status.print_stats || {};
+  const printerInfo = data.printer_info || {};
+  const meta = data.meta || {};
+  const rows = [];
+  const add = (label, value) => {
+    if (value === undefined || value === null || value === "") return;
+    const formatted = Array.isArray(value) ? value.join(", ") : String(value);
+    rows.push([label, formatted]);
+  };
+  const addObjects = pattern => {
+    Object.entries(status).forEach(([objectName, values]) => {
+      if (!pattern.test(objectName) || !values || typeof values !== "object") return;
+      const fields = Object.entries(values).filter(([key, value]) =>
+        /temperature|target|power|speed|rpm|position|state|status|offset|value/i.test(key) && value != null,
+      ).slice(0, 8);
+      if (fields.length) add(objectName, fields.map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(",") : value}`).join(" / "));
+    });
+  };
+
+  if (name === "dashboard" || name === "print") {
+    add("Print state", printStats.state);
+    add("Active file", printStats.filename || status.virtual_sdcard?.file_path);
+    add("Print duration", duration(printStats.print_duration));
+    add("Current / total layer", `${printStats.info?.current_layer ?? "—"} / ${printStats.info?.total_layer ?? meta.layer_count ?? "—"}`);
+    add("Estimated duration", duration(meta.estimated_time));
+    add("Object height", meta.object_height == null ? null : `${fmt(meta.object_height, 2)} mm`);
+    add("Filament estimate", meta.filament_total == null ? null : `${fmt(Number(meta.filament_total) / 1000, 2)} m`);
+    add("Toolhead XYZ", status.toolhead?.position?.slice(0, 3).map(value => fmt(value, 2)));
+    add("Homed axes", status.toolhead?.homed_axes);
+  } else if (name === "movement") {
+    add("Machine position", status.toolhead?.position?.slice(0, 3).map(value => fmt(value, 2)));
+    add("Homed axes", status.toolhead?.homed_axes);
+    add("Move speed", status.gcode_move?.speed);
+    add("Speed factor", status.gcode_move?.speed_factor);
+    add("Coordinate mode", status.gcode_move?.absolute_coordinates ? "ABSOLUTE" : "RELATIVE");
+    addObjects(/endstop|probe/i);
+  } else if (name === "thermal") {
+    addObjects(/^(extruder\d*|heater_bed|heater_generic|temperature_sensor|temperature_fan|fan|controller_fan|heater_fan)/i);
+  } else if (name === "extruder") {
+    addObjects(/^(extruder\d*|filament_switch_sensor|filament_motion_sensor)/i);
+    add("Flow factor", status.gcode_move?.extrude_factor);
+    add("Filament used", printStats.filament_used == null ? null : `${fmt(Number(printStats.filament_used) / 1000, 2)} m`);
+    add("Active tool", status.toolhead?.extruder);
+  } else if (name === "bedmesh") {
+    const mesh = status.bed_mesh || {};
+    const matrix = Array.isArray(mesh.mesh_matrix) ? mesh.mesh_matrix.flat().map(Number).filter(Number.isFinite) : [];
+    add("Profile", mesh.profile_name);
+    add("Mesh dimensions", mesh.mesh_matrix?.length ? `${mesh.mesh_matrix.length} × ${mesh.mesh_matrix[0]?.length || 0}` : null);
+    add("Mesh min / max", matrix.length ? `${fmt(Math.min(...matrix), 4)} / ${fmt(Math.max(...matrix), 4)}` : null);
+    add("Probe", status.probe?.last_query);
+    add("Homed axes", status.toolhead?.homed_axes);
+  } else if (name === "tuning") {
+    addObjects(/input_shaper|resonance_tester/i);
+    add("Speed factor", status.gcode_move?.speed_factor);
+    add("Flow factor", status.gcode_move?.extrude_factor);
+    add("Max velocity", status.toolhead?.max_velocity);
+    add("Max acceleration", status.toolhead?.max_accel);
+  } else if (name === "macros") {
+    add("Discovered macros", (data.macros || []).join(", ") || "None");
+    add("Klippy state", printerInfo.klippy_state);
+  } else if (name === "files") {
+    const selected = (data.files || []).find(file => file.path === data.selected_file);
+    add("G-code file count", data.files?.length ?? 0);
+    add("Selected file", data.selected_file);
+    add("Selected file size", selected?.size == null ? null : `${fmt(Number(selected.size) / 1048576, 2)} MB`);
+    add("Last modified", selected?.modified);
+  } else if (name === "history") {
+    Object.entries(data.history?.job_totals || {}).forEach(([key, value]) => add(key.replace(/_/g, " "), value));
+  } else if (name === "camera") {
+    add("Configured cameras", (data.webcams || []).length);
+    (data.webcams || []).forEach(camera => add(camera.name, `STREAM ${camera.stream_url ? "AVAILABLE" : "MISSING"} / SNAPSHOT ${camera.snapshot_url ? "AVAILABLE" : "MISSING"}`));
+  } else if (name === "console") {
+    add("Buffered G-code responses", data.gcode_responses?.length ?? 0);
+    add("Panel-session commands", sentCommandHistory.filter(entry => entry.printer === printer).length);
+    add("Klippy state", printerInfo.klippy_state);
+  } else if (name === "hardware") {
+    (data.power_devices || []).forEach(device => add(`POWER / ${device.device}`, `${device.status || "UNKNOWN"}${device.locked_while_printing ? " / LOCKED WHILE PRINTING" : ""}`));
+    addObjects(/mcu|stepper|probe|sensor|fan|heater/i);
+  } else if (name === "system") {
+    add("Klippy state", printerInfo.klippy_state);
+    add("Software version", printerInfo.software_version);
+    add("System provider", data.system_info?.provider);
+    add("CPU model", data.system_info?.cpu_info?.model || data.system_info?.cpu_info?.cpu_desc);
+    add("Integration version", data.integration_version);
+  } else if (name === "network") {
+    const settings = data.settings || {};
+    add("Printer endpoint", settings.host ? `${settings.host}:${settings.port}` : null);
+    add("TLS", settings.tls ? "ENABLED" : "DISABLED");
+    add("API key", data.api_key_configured ? "CONFIGURED / VALUE HIDDEN" : "NOT CONFIGURED");
+    add("WebSocket push", "Moonraker status subscription");
+  } else if (name === "settings") {
+    const settings = data.settings || {};
+    add("Idle refresh", settings.idle_poll_seconds == null ? null : `${settings.idle_poll_seconds}s`);
+    add("Print refresh", settings.print_poll_seconds == null ? null : `${settings.print_poll_seconds}s`);
+    add("Quiet unreachable logs", settings.quiet_unreachable ? "ON" : "OFF");
+    add("Connected platforms", (data.platforms || []).join(", "));
+  } else if (name === "components") {
+    add("Loaded platforms", (data.platforms || []).join(", "));
+    add("Available printer objects", (data.available_objects || []).length);
+    (data.tracked_objects || []).forEach(object => add(object.name, object.fields == null ? "ALL FIELDS" : object.fields.join(", ")));
+  }
+  return rows;
+}
+
+function renderPageDetails(data = latestData) {
+  if (!data) return;
+  const rows = detailRowsForScreen(activeScreen, data);
+  const drawer = byId("pageDetails");
+  const scrollTop = drawer.scrollTop;
+  setText("detailsTitle", `${SCREEN_TITLES[activeScreen][1]} / DETAILS`);
+  setText("detailsSummary", data.available ? `Snapshot received ${new Date().toLocaleTimeString([], { hour12: false })}. Optional fields are omitted when unsupported.` : "Printer state is unavailable; displayed details may be stale.");
+  const container = byId("detailsRows");
+  container.replaceChildren();
+  rows.forEach(([name, value]) => appendObjectRow(container, name, value));
+  if (!rows.length) appendEmpty(container, "NO ADDITIONAL DATA REPORTED");
+  drawer.scrollTop = scrollTop;
+}
+
 function setScreen(name) {
   if (!SCREEN_TITLES[name]) return;
+  activeScreen = name;
+  if (detailsOpen) renderPageDetails();
   document.querySelectorAll(".screen").forEach(screen => screen.classList.toggle("active", screen.dataset.screen === name));
   document.querySelectorAll(".nav-item").forEach(item => item.classList.toggle("active", item.dataset.screenTarget === name));
   setText("pageKicker", SCREEN_TITLES[name][0]);
   setText("screenTitle", SCREEN_TITLES[name][1]);
+  renderCamera(availableWebcams);
   if (name === "dashboard") requestAnimationFrame(drawToolpath);
 }
 
@@ -748,6 +1038,26 @@ function setToolpathView(view) {
 
 function bindInteractions() {
   document.addEventListener("click", event => {
+    if (event.target.closest("[data-details-toggle]")) {
+      detailsOpen = !detailsOpen;
+      byId("pageDetails").hidden = !detailsOpen;
+      byId("detailsScrim").hidden = !detailsOpen;
+      byId("pageDetails").setAttribute("aria-hidden", String(!detailsOpen));
+      if (detailsOpen) renderPageDetails();
+      return;
+    }
+    if (event.target.closest("[data-details-close]")) {
+      detailsOpen = false;
+      byId("pageDetails").hidden = true;
+      byId("detailsScrim").hidden = true;
+      byId("pageDetails").setAttribute("aria-hidden", "true");
+      return;
+    }
+    if (event.target.closest("[data-clear-command-history]")) {
+      sentCommandHistory = sentCommandHistory.filter(entry => entry.printer !== printer);
+      renderSentCommandHistory();
+      return;
+    }
     const nav = event.target.closest("[data-screen-target]");
     if (nav) {
       setScreen(nav.dataset.screenTarget);
@@ -774,8 +1084,15 @@ function bindInteractions() {
       return;
     }
     if (event.target.closest("[data-camera-fullscreen]")) {
-      const image = byId("webcamLarge").style.display !== "none" ? byId("webcamLarge") : byId("webcam");
-      if (image.requestFullscreen) image.requestFullscreen();
+      const tile = event.target.closest(".camera-tile");
+      const image = tile?.querySelector("img") || byId("webcam");
+      if (image?.requestFullscreen) image.requestFullscreen();
+      return;
+    }
+    const snapshotButton = event.target.closest("[data-camera-snapshot]");
+    if (snapshotButton) {
+      if (snapshotButton.dataset.snapshotUrl) window.open(snapshotButton.dataset.snapshotUrl, "_blank", "noopener");
+      else toast("NO SNAPSHOT URL CONFIGURED");
       return;
     }
     const fileOption = event.target.closest("[data-file-option]");
@@ -793,6 +1110,15 @@ function bindInteractions() {
   document.addEventListener("change", event => {
     const target = event.target;
     if (target.id === "printerSel") switchPrinter();
+    if (target.id === "cameraLayout") {
+      cameraLayout = target.value;
+      cameraGridSignature = "";
+      renderCamera(availableWebcams);
+    }
+    if (target.matches("[data-camera-slot]")) {
+      cameraAssignments[Number(target.dataset.cameraSlot)] = target.value;
+      renderCamera(availableWebcams);
+    }
     if (target.id === "fileSel") {
       selectedFile = target.value;
       act("select_file", selectedFile);
@@ -1242,6 +1568,8 @@ function bindToolpathCanvas() {
 function initializePanel() {
   bindInteractions();
   bindToolpathCanvas();
+  byId("pageDetails").setAttribute("aria-hidden", "true");
+  renderSentCommandHistory();
   setScreen("dashboard");
   refresh();
   if (!window.moonrakerRefreshTimer) window.moonrakerRefreshTimer = setInterval(refresh, 2000);

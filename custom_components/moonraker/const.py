@@ -90,6 +90,7 @@ class METHODS(Enum):
     SERVER_JOB_QUEUE_STATUS = "server.job_queue.status"
     SERVER_JOB_QUEUE_START = "server.job_queue.start"
     SERVER_JOB_QUEUE_POST_JOB = "server.job_queue.post_job"
+    SERVER_INFO = "server.info"
     SERVER_RESTART = "server.restart"
     SERVER_WEBCAMS_LIST = "server.webcams.list"
     SERVER_SPOOLMAN_ID = "server.spoolman.status"

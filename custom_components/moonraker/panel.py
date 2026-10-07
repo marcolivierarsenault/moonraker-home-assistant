@@ -321,6 +321,17 @@ class MoonrakerPanelDataView(_PanelViewBase):
                 key: raw_cpu_info[key] for key in safe_cpu_keys if key in raw_cpu_info
             },
         }
+        try:
+            raw_server_info = await coordinator.async_get_server_info()
+        except UpdateFailed:
+            raw_server_info = {}
+        if not isinstance(raw_server_info, dict):
+            raw_server_info = {}
+        server_info = {
+            key: raw_server_info[key]
+            for key in ("moonraker_version", "api_version", "components", "failed_components", "warnings")
+            if key in raw_server_info
+        }
         entry_options = coordinator.config_entry.options
         tracked_objects = [
             {
@@ -338,6 +349,7 @@ class MoonrakerPanelDataView(_PanelViewBase):
                 "selected_file": coordinator.selected_file,
                 "status": status,
                 "printer_info": data.get("printer.info") or {},
+                "server_info": server_info,
                 "system_info": system_info,
                 "meta": {key: data.get(key) for key in _META_KEYS},
                 "history": data.get("history") or {},

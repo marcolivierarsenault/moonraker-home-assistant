@@ -353,8 +353,9 @@ async def test_coordinator_caches_setup_lookups(hass):
     objects = {"objects": ["fan"]}
     settings = {"status": {"configfile": {"settings": {}}}}
     system_info = {"system_info": {"available_services": []}}
+    server_info = {"moonraker_version": "v0.9.0", "api_version": [1, 0, 0]}
     coordinator._async_fetch_data = AsyncMock(
-        side_effect=[objects, settings, system_info]
+        side_effect=[objects, settings, system_info, server_info]
     )
 
     assert await coordinator.async_get_printer_objects() == objects
@@ -363,7 +364,24 @@ async def test_coordinator_caches_setup_lookups(hass):
     assert await coordinator.async_get_config_settings() == settings
     assert await coordinator.async_get_system_info() == system_info
     assert await coordinator.async_get_system_info() == system_info
-    assert coordinator._async_fetch_data.await_count == 3
+    assert await coordinator.async_get_server_info() == server_info
+    assert await coordinator.async_get_server_info() == server_info
+    assert coordinator._async_fetch_data.await_count == 4
+
+
+async def test_coordinator_caches_unavailable_server_info(hass):
+    """Do not repeatedly request optional server info after an initial failure."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="server-info")
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=MagicMock(), config_entry=config_entry, api_device_name="printer"
+    )
+    coordinator._async_fetch_data = AsyncMock(side_effect=UpdateFailed("unavailable"))
+
+    assert await coordinator.async_get_server_info() == {}
+    assert await coordinator.async_get_server_info() == {}
+    coordinator._async_fetch_data.assert_awaited_once_with(
+        METHODS.SERVER_INFO, None, quiet=True
+    )
 
 
 async def test_coordinator_refreshes_only_unqueried_status_fields(hass):
