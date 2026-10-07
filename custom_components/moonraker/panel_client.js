@@ -46,6 +46,11 @@ let thumbnailObjectUrl = null;
 let cameraLayout = "1x1";
 let cameraAssignments = [];
 let cameraGridSignature = "";
+let dashboardCameraLayout = "1";
+let dashboardCameraAssignments = [];
+let dashboardCameraSignature = "";
+let dashboardCameraPrefsKey = "";
+let cameraConfigOpen = false;
 let availableWebcams = [];
 let toolpathKey = "";
 let toolpathAbort = null;
@@ -625,19 +630,176 @@ function emptyElement(text) {
   return element;
 }
 
+function resolveCameraAssignments(available, assignments, tileCount) {
+  for (let index = 0; index < tileCount; index++) {
+    if (assignments[index] === undefined || (assignments[index] && !available.some(camera => camera.name === assignments[index]))) {
+      assignments[index] = available[index]?.name || "";
+    }
+  }
+  return assignments;
+}
+
+function cameraFor(available, name) {
+  return available.find(camera => camera.name === name) || null;
+}
+
+function setCameraImage(image, camera, active) {
+  const streamActive = active && Boolean(camera?.stream_url);
+  image.style.display = streamActive ? "block" : "none";
+  if (streamActive && image.dataset.streamUrl !== camera.stream_url) {
+    image.src = camera.stream_url;
+    image.dataset.streamUrl = camera.stream_url;
+  } else if (!streamActive) {
+    image.removeAttribute("src");
+    delete image.dataset.streamUrl;
+  }
+  return streamActive;
+}
+
+function dashboardCameraCount() {
+  return Math.min(Number(dashboardCameraLayout) || 1, 4);
+}
+
+function dashboardCameraStorageKey() {
+  return `nexus-dashboard-cameras:${printer || "default"}`;
+}
+
+function loadDashboardCameraPrefs() {
+  const key = dashboardCameraStorageKey();
+  if (dashboardCameraPrefsKey === key) return;
+  dashboardCameraPrefsKey = key;
+  dashboardCameraLayout = "1";
+  dashboardCameraAssignments = [];
+  try {
+    const saved = JSON.parse(window.localStorage?.getItem(key) || "null");
+    if (["1", "2", "4"].includes(String(saved?.layout))) dashboardCameraLayout = String(saved.layout);
+    if (Array.isArray(saved?.assignments)) dashboardCameraAssignments = saved.assignments.slice(0, 4).map(String);
+  } catch (_error) {
+    // Preferences are optional; unavailable storage falls back to automatic selection.
+  }
+  dashboardCameraSignature = "";
+}
+
+function saveDashboardCameraPrefs() {
+  try {
+    resolveCameraAssignments(availableWebcams, dashboardCameraAssignments, dashboardCameraCount());
+    window.localStorage?.setItem(dashboardCameraStorageKey(), JSON.stringify({
+      layout: dashboardCameraLayout,
+      assignments: dashboardCameraAssignments.slice(0, 4),
+    }));
+  } catch (_error) {
+    // Dashboard camera choices still apply for this session if storage is unavailable.
+  }
+}
+
+function renderDashboardCameras() {
+  const panel = byId("webcamCard");
+  const grid = byId("dashboardCameraGrid");
+  if (!panel || !grid) return;
+  const dashboardVisible = activeScreen === "dashboard";
+  const tileCount = dashboardCameraCount();
+  resolveCameraAssignments(availableWebcams, dashboardCameraAssignments, tileCount);
+  const sourceSignature = availableWebcams.map(camera => `${camera.name}:${camera.stream_url}:${camera.snapshot_url}`).join("|");
+  const signature = `${dashboardCameraLayout}/${sourceSignature}`;
+  if (signature !== dashboardCameraSignature) {
+    dashboardCameraSignature = signature;
+    grid.replaceChildren();
+    for (let index = 0; index < tileCount; index++) {
+      const tile = document.createElement("section");
+      tile.className = "dashboard-camera-tile";
+      tile.dataset.dashboardTile = String(index);
+      const header = document.createElement("div");
+      header.className = "camera-tile-head";
+      const title = document.createElement("span");
+      title.className = "micro";
+      title.dataset.dashboardCameraTitle = String(index);
+      const fullscreen = document.createElement("button");
+      fullscreen.type = "button";
+      fullscreen.dataset.cameraFullscreen = "";
+      fullscreen.textContent = "FULLSCREEN";
+      header.append(title, fullscreen);
+      const image = document.createElement("img");
+      image.alt = `Printer camera ${index + 1}`;
+      image.loading = "lazy";
+      const placeholder = document.createElement("div");
+      placeholder.className = "camera-tile-empty";
+      tile.append(header, image, placeholder);
+      grid.appendChild(tile);
+    }
+  }
+  grid.dataset.layout = String(tileCount);
+  Array.from(grid.querySelectorAll(".dashboard-camera-tile")).forEach((tile, index) => {
+    const camera = cameraFor(availableWebcams, dashboardCameraAssignments[index]);
+    const streamActive = setCameraImage(tile.querySelector("img"), camera, dashboardVisible);
+    const placeholder = tile.querySelector(".camera-tile-empty");
+    placeholder.textContent = !camera?.name ? "NO CAMERA ASSIGNED" : !camera.stream_url ? "STREAM UNAVAILABLE" : "STREAM PAUSED / OPEN DASHBOARD";
+    placeholder.style.display = streamActive ? "none" : "grid";
+    tile.querySelector("[data-dashboard-camera-title]").textContent = camera?.name || "NO CAMERA";
+    tile.querySelector("[data-camera-fullscreen]").disabled = !streamActive;
+  });
+  panel.style.display = dashboardVisible && availableWebcams.length ? "" : "none";
+  setText("dashboardCameraStatus", availableWebcams.length ? `${availableWebcams.length} SOURCES / ${tileCount} TILES` : "CAMERA SOURCE NOT CONFIGURED");
+}
+
+function renderDashboardCameraConfig() {
+  const list = byId("dashboardCameraOptions");
+  if (!list) return;
+  const tileCount = dashboardCameraCount();
+  resolveCameraAssignments(availableWebcams, dashboardCameraAssignments, tileCount);
+  const layoutSelect = byId("dashboardCameraLayout");
+  if (layoutSelect) layoutSelect.value = dashboardCameraLayout;
+  list.replaceChildren();
+  for (let index = 0; index < tileCount; index++) {
+    const label = document.createElement("label");
+    label.className = "config-row";
+    const text = document.createElement("span");
+    text.textContent = `TILE ${index + 1}`;
+    const select = document.createElement("select");
+    select.dataset.dashboardCameraSlot = String(index);
+    select.setAttribute("aria-label", `Dashboard camera tile ${index + 1}`);
+    const emptyOption = document.createElement("option");
+    emptyOption.value = "";
+    emptyOption.textContent = "NO CAMERA";
+    select.appendChild(emptyOption);
+    availableWebcams.forEach(camera => {
+      const option = document.createElement("option");
+      option.value = camera.name;
+      option.textContent = camera.name;
+      select.appendChild(option);
+    });
+    select.value = cameraFor(availableWebcams, dashboardCameraAssignments[index])?.name || "";
+    label.append(text, select);
+    list.appendChild(label);
+  }
+  setText("dashboardCameraSummary", `${availableWebcams.length} SOURCES / ${tileCount} TILES`);
+}
+
+function openCameraConfig() {
+  cameraConfigOpen = true;
+  renderDashboardCameraConfig();
+  byId("cameraConfig").hidden = false;
+  byId("cameraConfigScrim").hidden = false;
+  byId("cameraConfig").setAttribute("aria-hidden", "false");
+  byId("dashboardCameraLayout")?.focus?.();
+}
+
+function closeCameraConfig() {
+  cameraConfigOpen = false;
+  byId("cameraConfig").hidden = true;
+  byId("cameraConfigScrim").hidden = true;
+  byId("cameraConfig").setAttribute("aria-hidden", "true");
+}
+
 function renderCamera(webcams) {
   availableWebcams = Array.isArray(webcams)
     ? webcams.map((camera, index) => ({ ...(camera || {}), name: String(camera?.name || `Camera ${index + 1}`) }))
     : [];
+  loadDashboardCameraPrefs();
   const cameraPageVisible = activeScreen === "camera";
   const layoutSelect = byId("cameraLayout");
   if (layoutSelect?.value) cameraLayout = layoutSelect.value;
   const tileCount = cameraLayout === "2x2" ? 4 : cameraLayout === "1x2" ? 2 : 1;
-  for (let index = 0; index < tileCount; index++) {
-    if (cameraAssignments[index] === undefined || (cameraAssignments[index] && !availableWebcams.some(camera => camera.name === cameraAssignments[index]))) {
-      cameraAssignments[index] = availableWebcams[index]?.name || "";
-    }
-  }
+  resolveCameraAssignments(availableWebcams, cameraAssignments, tileCount);
 
   const grid = byId("cameraGrid");
   const sourceSignature = availableWebcams.map(camera => `${camera.name}:${camera.stream_url}:${camera.snapshot_url}`).join("|");
@@ -700,21 +862,13 @@ function renderCamera(webcams) {
     selector.value = camera?.name || "";
     const image = tile.querySelector("img");
     const placeholder = tile.querySelector(".camera-tile-empty");
-    const streamActive = cameraPageVisible && Boolean(camera?.stream_url);
+    const streamActive = setCameraImage(image, camera, cameraPageVisible);
     placeholder.textContent = !camera?.name
       ? "NO CAMERA ASSIGNED"
       : !camera.stream_url
         ? "STREAM UNAVAILABLE"
         : "STREAM PAUSED / OPEN CAMERA PAGE";
-    image.style.display = streamActive ? "block" : "none";
     placeholder.style.display = streamActive ? "none" : "grid";
-    if (streamActive && image.dataset.streamUrl !== camera.stream_url) {
-      image.src = camera.stream_url;
-      image.dataset.streamUrl = camera.stream_url;
-    } else if (!streamActive) {
-      image.removeAttribute("src");
-      delete image.dataset.streamUrl;
-    }
     const fullscreenButton = tile.querySelector("[data-camera-fullscreen]");
     fullscreenButton.disabled = !streamActive;
     const snapshotButton = tile.querySelector("[data-camera-snapshot]");
@@ -724,21 +878,9 @@ function renderCamera(webcams) {
     tile.querySelector("[data-camera-status]").textContent = camera?.name ? `SOURCE / ${camera.name}` : "UNASSIGNED";
   });
 
-  const primary = availableWebcams.find(camera => camera.name === cameraAssignments[0] && camera.stream_url)
-    || availableWebcams.find(camera => camera.stream_url)
-    || availableWebcams.find(camera => camera.name === cameraAssignments[0])
-    || availableWebcams[0];
-  const dashboardImage = byId("webcam");
-  const dashboardVisible = activeScreen === "dashboard" && Boolean(primary?.stream_url);
-  byId("webcamCard").style.display = dashboardVisible ? "" : "none";
-  dashboardImage.style.display = dashboardVisible ? "block" : "none";
-  if (dashboardVisible && dashboardImage.dataset.streamUrl !== primary.stream_url) {
-    dashboardImage.src = primary.stream_url;
-    dashboardImage.dataset.streamUrl = primary.stream_url;
-  } else if (!dashboardVisible) {
-    dashboardImage.removeAttribute("src");
-    delete dashboardImage.dataset.streamUrl;
-  }
+  renderDashboardCameras();
+  if (cameraConfigOpen) renderDashboardCameraConfig();
+  const primary = cameraFor(availableWebcams, cameraAssignments[0]) || availableWebcams[0];
   byId("cameraEmpty").style.display = availableWebcams.length ? "none" : "grid";
   setText("cameraName", primary?.name ? `PRIMARY / ${primary.name}` : "CAMERA SOURCE NOT CONFIGURED");
   setText("cameraGridStatus", `${availableWebcams.length} CAMERAS / ${tileCount} TILES`);
@@ -1058,6 +1200,14 @@ function bindInteractions() {
       renderSentCommandHistory();
       return;
     }
+    if (event.target.closest("[data-camera-config]")) {
+      openCameraConfig();
+      return;
+    }
+    if (event.target.closest("[data-camera-config-close]")) {
+      closeCameraConfig();
+      return;
+    }
     const nav = event.target.closest("[data-screen-target]");
     if (nav) {
       setScreen(nav.dataset.screenTarget);
@@ -1084,8 +1234,8 @@ function bindInteractions() {
       return;
     }
     if (event.target.closest("[data-camera-fullscreen]")) {
-      const tile = event.target.closest(".camera-tile");
-      const image = tile?.querySelector("img") || byId("webcam");
+      const tile = event.target.closest(".camera-tile, .dashboard-camera-tile");
+      const image = tile?.querySelector("img");
       if (image?.requestFullscreen) image.requestFullscreen();
       return;
     }
@@ -1115,9 +1265,22 @@ function bindInteractions() {
       cameraGridSignature = "";
       renderCamera(availableWebcams);
     }
+    if (target.id === "dashboardCameraLayout") {
+      dashboardCameraLayout = target.value;
+      dashboardCameraSignature = "";
+      saveDashboardCameraPrefs();
+      renderCamera(availableWebcams);
+      renderDashboardCameraConfig();
+    }
     if (target.matches("[data-camera-slot]")) {
       cameraAssignments[Number(target.dataset.cameraSlot)] = target.value;
       renderCamera(availableWebcams);
+    }
+    if (target.matches("[data-dashboard-camera-slot]")) {
+      dashboardCameraAssignments[Number(target.dataset.dashboardCameraSlot)] = target.value;
+      saveDashboardCameraPrefs();
+      renderCamera(availableWebcams);
+      renderDashboardCameraConfig();
     }
     if (target.id === "fileSel") {
       selectedFile = target.value;
@@ -1127,6 +1290,10 @@ function bindInteractions() {
     if (target.id === "flow") act("set_flow", target.value);
     if (target.id === "fan") act("set_fan", Math.round(Number(target.value) * 2.55));
     if (target.id === "showFuturePath") drawToolpath();
+  });
+
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && cameraConfigOpen) closeCameraConfig();
   });
 
   document.addEventListener("input", event => {

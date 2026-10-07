@@ -55,9 +55,25 @@ class FakeElement {
   }
 
   appendChild(node) {
+    node.parentElement = this;
     this.children.push(node);
     return node;
   }
+
+  closest(selector) {
+    let current = this;
+    while (current) {
+      if (matches(current, selector)) return current;
+      current = current.parentElement;
+    }
+    return null;
+  }
+
+  matches(selector) {
+    return matches(this, selector);
+  }
+
+  focus() {}
 
   replaceChildren(...nodes) {
     this.children = [];
@@ -100,6 +116,7 @@ class FakeElement {
 }
 
 function matches(element, selector) {
+  if (selector.includes(",")) return selector.split(",").some(part => matches(element, part.trim()));
   if (selector.startsWith(".")) return element.className.split(/\s+/).includes(selector.slice(1));
   if (selector === "img") return element.tagName === "IMG";
   const attribute = selector.match(/^\[data-([\w-]+)\]$/);
@@ -136,8 +153,11 @@ class FakeDocument {
 
 function createPanelClient() {
   const ids = [
-    "cameraLayout", "cameraGrid", "webcam", "webcamCard", "cameraEmpty",
-    "cameraName", "cameraGridStatus", "networkCameras", "commandHistory",
+    "cameraLayout", "cameraGrid", "webcamCard", "cameraEmpty",
+    "cameraName", "cameraGridStatus", "dashboardCameraGrid",
+    "dashboardCameraLayout", "dashboardCameraOptions", "dashboardCameraStatus",
+    "dashboardCameraSummary", "cameraConfig", "cameraConfigScrim",
+    "networkCameras", "commandHistory",
     "commandHistoryCount", "detailsTitle", "detailsSummary", "detailsRows",
     "pageDetails", "detailsScrim", "detailsToggle", "console", "toast",
     "sysPrinterState", "sysKlippy", "sysKlipperVersion", "sysMoonrakerVersion",
@@ -147,7 +167,17 @@ function createPanelClient() {
   ];
   const document = new FakeDocument(ids);
   document.getElementById("cameraLayout").value = "1x1";
-  const window = { addEventListener() {}, removeEventListener() {} };
+  const storage = new Map();
+  const window = {
+    addEventListener() {},
+    removeEventListener() {},
+    localStorage: {
+      getItem: key => storage.get(key) ?? null,
+      setItem: (key, value) => storage.set(key, String(value)),
+      removeItem: key => storage.delete(key),
+      _storage: storage,
+    },
+  };
   const context = vm.createContext({
     document,
     window,
@@ -190,7 +220,7 @@ test("camera page supports 1x1, 1x2, and 2x2 layouts and pauses hidden streams",
   vm.runInContext('activeScreen = "files"; renderCamera(webcams);', context);
   const tiles = document.getElementById("cameraGrid").querySelectorAll(".camera-tile");
   assert.ok(tiles.every(tile => tile.querySelector("img").src === ""));
-  assert.equal(document.getElementById("webcam").src, "");
+  assert.ok(document.getElementById("dashboardCameraGrid").querySelectorAll("img").every(image => image.src === ""));
 });
 
 test("camera selectors can assign a source to a tile", () => {
@@ -206,6 +236,85 @@ test("camera selectors can assign a source to a tile", () => {
   secondSelector.value = "Front";
   vm.runInContext('cameraAssignments[1] = "Front"; renderCamera(webcams);', context);
   assert.equal(tiles[1].querySelector("img").src, "http://camera/front");
+});
+
+test("dashboard renders one, two, and four selected camera streams", () => {
+  const { context, document } = createPanelClient();
+  context.webcams = [
+    { name: "Front", stream_url: "http://camera/front" },
+    { name: "Side", stream_url: "http://camera/side" },
+    { name: "Top", stream_url: "http://camera/top" },
+    { name: "Chamber", stream_url: "http://camera/chamber" },
+  ];
+
+  for (const [layout, expectedTiles] of [["1", 1], ["2", 2], ["4", 4]]) {
+    vm.runInContext(
+      `activeScreen = "dashboard"; dashboardCameraLayout = ${JSON.stringify(layout)}; dashboardCameraSignature = ""; renderCamera(webcams);`,
+      context,
+    );
+    const grid = document.getElementById("dashboardCameraGrid");
+    const tiles = grid.querySelectorAll(".dashboard-camera-tile");
+    assert.equal(grid.dataset.layout, layout);
+    assert.equal(tiles.length, expectedTiles);
+    assert.equal(tiles[0].querySelector("img").src, "http://camera/front");
+  }
+
+  const fourTiles = document.getElementById("dashboardCameraGrid").querySelectorAll(".dashboard-camera-tile");
+  assert.equal(fourTiles[1].querySelector("img").src, "http://camera/side");
+  assert.equal(fourTiles[3].querySelector("img").src, "http://camera/chamber");
+
+  vm.runInContext('activeScreen = "files"; renderCamera(webcams);', context);
+  assert.ok(fourTiles.every(tile => tile.querySelector("img").src === ""));
+});
+
+test("dashboard camera popup assigns sources, handles missing cameras, and persists choices", () => {
+  const { context, document, window } = createPanelClient();
+  context.webcams = [
+    { name: "Front", stream_url: "http://camera/front" },
+    { name: "Side", stream_url: "http://camera/side" },
+  ];
+  vm.runInContext('printer = "printer-a"; activeScreen = "dashboard"; renderCamera(webcams); bindInteractions();', context);
+
+  const click = document.listeners.click;
+  click({ target: { closest: selector => selector === "[data-camera-config]" ? {} : null } });
+  assert.equal(document.getElementById("cameraConfig").hidden, false);
+  assert.equal(document.getElementById("cameraConfigScrim").hidden, false);
+
+  const change = document.listeners.change;
+  change({
+    target: {
+      id: "dashboardCameraLayout",
+      value: "4",
+      matches: () => false,
+    },
+  });
+  assert.equal(document.getElementById("dashboardCameraGrid").querySelectorAll(".dashboard-camera-tile").length, 4);
+  assert.equal(document.getElementById("dashboardCameraOptions").children.length, 4);
+
+  change({
+    target: {
+      id: "",
+      value: "Side",
+      dataset: { dashboardCameraSlot: "3" },
+      matches: selector => selector === "[data-dashboard-camera-slot]",
+    },
+  });
+  const tiles = document.getElementById("dashboardCameraGrid").querySelectorAll(".dashboard-camera-tile");
+  assert.equal(tiles[3].querySelector("img").src, "http://camera/side");
+  assert.equal(tiles[2].querySelector("img").src, "");
+  assert.match(tiles[2].querySelector(".camera-tile-empty").textContent, /NO CAMERA ASSIGNED/);
+
+  const saved = JSON.parse(window.localStorage.getItem("nexus-dashboard-cameras:printer-a"));
+  assert.equal(saved.layout, "4");
+  assert.equal(saved.assignments[3], "Side");
+
+  click({ target: { closest: selector => selector === "[data-camera-config-close]" ? {} : null } });
+  assert.equal(document.getElementById("cameraConfig").hidden, true);
+  assert.equal(document.getElementById("cameraConfigScrim").hidden, true);
+
+  context.openCameraConfig();
+  document.listeners.keydown({ key: "Escape" });
+  assert.equal(document.getElementById("cameraConfig").hidden, true);
 });
 
 test("command history is bounded, per-printer, session-only, and only records successful sends", async () => {
@@ -328,11 +437,16 @@ test("detail drawer opens and closes through its controls", () => {
   assert.equal(document.getElementById("detailsScrim").hidden, true);
 });
 
-test("panel markup exposes the camera layouts, wide console, and page details control", () => {
+test("panel markup exposes the camera layouts, dashboard camera popup, wide console, and page details control", () => {
   const html = fs.readFileSync(path.join(__dirname, "../custom_components/moonraker/panel.html"), "utf8");
   assert.match(html, /<option value="1x1">/);
   assert.match(html, /<option value="1x2">/);
   assert.match(html, /<option value="2x2">/);
+  assert.match(html, /id="dashboardCameraGrid"/);
+  assert.match(html, /id="cameraConfig"[\s\S]*role="dialog"/);
+  assert.match(html, /id="dashboardCameraLayout"[\s\S]*<option value="1">1 camera<\/option>[\s\S]*<option value="2">2 cameras<\/option>[\s\S]*<option value="4">4 cameras<\/option>/);
+  assert.match(html, /id="dashboardCameraOptions"/);
+  assert.match(html, /data-camera-config/);
   assert.match(html, /id="commandHistory"/);
   assert.match(html, /data-details-toggle/);
   assert.match(html, /id="screen-console"[\s\S]*?class="panel span-12"/);

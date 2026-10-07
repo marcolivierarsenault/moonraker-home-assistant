@@ -157,20 +157,19 @@
   .job-metric { display: grid; gap: 3px; }
   .job-metric span:first-child { color: #57846c; font: 6px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
   .job-metric span:last-child { color: #c4ebd4; font: 9px var(--mono); }
-  .camera-preview { display: block; width: 100%; height: 210px; min-height: 150px; object-fit: cover; border: 1px solid #164a31; background: #020604; }
-  .camera-panel .camera-preview { height: clamp(280px,44vh,560px); }
   .camera-large { height: min(68vh, 620px); object-fit: contain; background: #010403; }
   .gcode-thumb { display: block; width: 100%; max-height: 230px; object-fit: contain; margin-top: 8px; border: 1px solid #164a31; background: #030d0a; }
   .camera-empty { display: grid; place-items: center; height: 210px; border: 1px dashed #17462f; color: #4f8065; background: #030b08; font: 8px var(--mono); text-align: center; }
-  .camera-actions { display: flex; justify-content: space-between; gap: 5px; margin-top: 6px; }
-  .camera-grid { display: grid; grid-template-columns: minmax(0,1fr); gap: 8px; }
-  .camera-grid[data-layout="1x2"] { grid-template-columns: repeat(2,minmax(0,1fr)); }
-  .camera-grid[data-layout="2x2"] { grid-template-columns: repeat(2,minmax(0,1fr)); }
-  .camera-tile { min-width: 0; overflow: hidden; border: 1px solid #164a31; background: #020604; }
+  .camera-actions { display: flex; justify-content: space-between; align-items: center; gap: 5px; margin-top: 6px; }
+  .camera-grid, .dashboard-camera-grid { display: grid; grid-template-columns: minmax(0,1fr); gap: 8px; }
+  .camera-grid[data-layout="1x2"], .camera-grid[data-layout="2x2"], .dashboard-camera-grid[data-layout="2"], .dashboard-camera-grid[data-layout="4"] { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .camera-tile, .dashboard-camera-tile { min-width: 0; overflow: hidden; border: 1px solid #164a31; background: #020604; }
   .camera-tile-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 5px; border-bottom: 1px solid #123d2a; }
   .camera-tile-head select { flex: 1; max-width: 220px; }
-  .camera-tile img { display: block; width: 100%; min-height: 150px; max-height: 48vh; aspect-ratio: 16 / 9; object-fit: contain; background: #010403; }
-  .camera-tile-empty { display: grid; place-items: center; min-height: 150px; color: #4f8065; font: 8px var(--mono); }
+  .camera-tile img, .dashboard-camera-tile img { display: block; width: 100%; min-height: 150px; max-height: 48vh; aspect-ratio: 16 / 9; object-fit: contain; background: #010403; }
+  .dashboard-camera-grid[data-layout="1"] img { height: clamp(240px,32vh,390px); }
+  .dashboard-camera-grid[data-layout="2"] img, .dashboard-camera-grid[data-layout="4"] img { min-height: 98px; }
+  .camera-tile-empty { display: grid; place-items: center; min-height: 98px; padding: 8px; color: #4f8065; font: 8px var(--mono); text-align: center; }
   .camera-tile-actions { display: flex; justify-content: space-between; gap: 5px; padding: 5px; border-top: 1px solid #123d2a; }
   .camera-tile-actions button { min-height: 34px; }
   .temp-bar { height: 5px; overflow: hidden; background: #10241a; }
@@ -204,11 +203,16 @@
   .command-entry { display: grid; grid-template-columns: 68px 1fr; gap: 7px; padding: 6px 8px; background: #04100b; border: 1px solid #112f20; font: 7px/1.45 var(--mono); }
   .command-entry time { color: #548166; }
   .command-entry code { color: #98e9b3; white-space: pre-wrap; overflow-wrap: anywhere; }
-  .info-scrim[hidden], .info-drawer[hidden] { display: none; }
+  .info-scrim[hidden], .info-drawer[hidden], .camera-config[hidden] { display: none; }
   .info-scrim { position: fixed; inset: 0; z-index: 29; background: rgba(0,0,0,.55); }
   .info-drawer { position: fixed; z-index: 30; top: 8px; right: 8px; bottom: 8px; width: min(430px,calc(100vw - 16px)); padding: 12px; overflow: auto; background: #04100c; border: 1px solid var(--green); box-shadow: 0 0 28px rgba(0,239,145,.18); }
   .info-drawer-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 9px; }
   .info-rows { display: grid; gap: 3px; }
+  .camera-config { position: fixed; z-index: 32; top: 50%; left: 50%; transform: translate(-50%,-50%); width: min(460px,calc(100vw - 20px)); max-height: min(620px,calc(100vh - 20px)); padding: 12px; overflow: auto; background: #04100c; border: 1px solid var(--green); box-shadow: 0 0 30px rgba(0,239,145,.2); }
+  .config-list { display: grid; gap: 5px; margin: 9px 0; }
+  .config-row { display: grid; grid-template-columns: minmax(90px,.55fr) 1fr; align-items: center; gap: 8px; padding: 6px; border: 1px solid #123a29; background: #06130e; }
+  .config-row select { width: 100%; min-height: 38px; }
+  .config-row > span { color: #5e8d70; font: 7px var(--mono); letter-spacing: .1em; }
   .system-list { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; border: 1px solid #123a29; background: #123a29; }
   .system-item { min-height: 39px; display: grid; gap: 4px; padding: 6px; background: #06130e; }
   .system-item span:first-child { color: #5e8d70; font: 6px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
@@ -236,7 +240,7 @@
     .command-history { grid-template-columns: minmax(0,1fr); }
     .console-output { height: 48vh; min-height: 250px; }
     .progress-svg { width: 72px; height: 72px; } .toolpath-box { height: clamp(260px,52vh,420px); }
-    .camera-panel .camera-preview { height: clamp(220px,44vh,360px); }
+    .dashboard-camera-grid[data-layout="4"] { grid-template-columns: minmax(0,1fr); }
   }
 </style>
 </head>
@@ -286,6 +290,14 @@
         <div id="detailsRows" class="info-rows"></div>
       </aside>
       <div id="detailsScrim" class="info-scrim" hidden data-details-close></div>
+      <div id="cameraConfigScrim" class="info-scrim" hidden data-camera-config-close></div>
+      <section id="cameraConfig" class="camera-config" role="dialog" aria-modal="true" aria-labelledby="cameraConfigTitle" hidden>
+        <div class="info-drawer-head"><div><div class="panel-kicker">Dashboard Camera Sources</div><h2 class="panel-title" id="cameraConfigTitle">CAMERA CONFIGURATION</h2></div><button class="subtle" data-camera-config-close>CLOSE</button></div>
+        <label class="config-row"><span>Dashboard Layout</span><select id="dashboardCameraLayout" aria-label="Dashboard camera layout"><option value="1">1 camera</option><option value="2">2 cameras</option><option value="4">4 cameras</option></select></label>
+        <div id="dashboardCameraOptions" class="config-list"></div>
+        <div class="notice">Dashboard streams start only while this screen is visible. Select NO CAMERA to leave a tile unused.</div>
+        <div class="row-between" style="margin-top:9px"><span id="dashboardCameraSummary" class="micro">1 LIVE TILE</span><button class="primary" data-camera-config-close>DONE</button></div>
+      </section>
       <div class="ticker"><span class="ticker-label">LIVE FEED //</span><span id="tickerText">Awaiting printer telemetry…</span></div>
       <div class="pages">
         <section class="screen active" id="screen-dashboard" data-screen="dashboard">
@@ -306,7 +318,7 @@
               </div>
               <div class="divider"></div><div class="row-between"><div class="micro">SLICER EST. <span id="slicerEst" class="status-value">—</span></div><div class="micro">TOTAL ELAPSED <span id="totalEst" class="status-value">—</span></div><div class="micro">FILAMENT PLAN <span id="filEst" class="status-value">—</span></div></div><div class="temp-bar"><i id="layerBar" style="width:0%"></i></div>
             </article>
-            <article class="panel camera-panel span-4" id="webcamCard"><div class="panel-head"><div><div class="panel-kicker">Optical Feed / Primary Camera</div><h2 class="panel-title">LIVE CAMERA</h2></div><span class="pill"><i class="led"></i> LIVE</span></div><img id="webcam" class="camera-preview" alt="Printer webcam stream" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="><div class="camera-actions"><span class="micro">PRINTER VIEW</span><button class="subtle" data-camera-fullscreen>EXPAND</button><button class="subtle" data-screen-target="camera">CAMERA MODULE</button></div></article>
+            <article class="panel camera-panel span-4" id="webcamCard"><div class="panel-head"><div><div class="panel-kicker">Optical Feed / Selected Cameras</div><h2 class="panel-title">LIVE CAMERAS</h2></div><div class="panel-tools"><span class="pill"><i class="led"></i> LIVE</span><button class="subtle" data-camera-config>CONFIGURE</button></div></div><div id="dashboardCameraGrid" class="dashboard-camera-grid" data-layout="1"></div><div class="camera-actions"><span id="dashboardCameraStatus" class="micro">CAMERA SOURCE —</span><button class="subtle" data-camera-config>SELECT</button><button class="subtle" data-screen-target="camera">CAMERA MODULE</button></div></article>
             <article class="panel stat-tile span-2"><span class="stat-label">Nozzle</span><span class="stat-value" id="dashNozzle">—</span><span class="stat-foot">TARGET <span id="dashNozzleTarget">—</span></span></article>
             <article class="panel stat-tile span-2"><span class="stat-label">Bed</span><span class="stat-value" id="dashBed">—</span><span class="stat-foot">TARGET <span id="dashBedTarget">—</span></span></article>
             <article class="panel stat-tile span-2"><span class="stat-label">Chamber</span><span class="stat-value" id="dashChamber">—</span><span class="stat-foot" id="dashHumidity">SENSOR / NOT REPORTED</span></article>
