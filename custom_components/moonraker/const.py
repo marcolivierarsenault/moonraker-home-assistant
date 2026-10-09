@@ -85,6 +85,7 @@ class METHODS(Enum):
     SERVER_FILES_LIST = "server.files.list"
     SERVER_FILES_METADATA = "server.files.metadata"
     SERVER_FILES_DELETE_FILE = "server.files.delete_file"
+    SERVER_GCODE_STORE = "server.gcode_store"
     SERVER_HISTORY_TOTALS = "server.history.totals"
     SERVER_HISTORY_RESET_TOTALS = "server.history.reset_totals"
     SERVER_JOB_QUEUE_STATUS = "server.job_queue.status"

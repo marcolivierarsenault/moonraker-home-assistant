@@ -1,6 +1,7 @@
 const API = {
   data: printer => `moonraker/panel_data?printer=${encodeURIComponent(printer || "")}`,
   thumb: (printer, filename) => `/api/moonraker/panel_thumbnail?printer=${encodeURIComponent(printer || "")}${filename ? `&filename=${encodeURIComponent(filename)}` : ""}`,
+  snapshot: (printer, camera) => `/api/moonraker/panel_webcam_snapshot?printer=${encodeURIComponent(printer || "")}&camera=${encodeURIComponent(camera || "")}`,
   gcode: (printer, filename) => `/api/moonraker/panel_gcode?printer=${encodeURIComponent(printer || "")}&filename=${encodeURIComponent(filename || "")}`,
   action: "moonraker/panel_action",
   upload: "/api/moonraker/gcode_upload",
@@ -191,20 +192,39 @@ async function resetPanelPush() {
   panelPushLive = false;
 }
 
+async function loadAuthedImage(image, url) {
+  if (!image) return;
+  try {
+    const response = await hassApi().fetchWithAuth(url);
+    if (!response.ok) { image.hidden = true; return; }
+    image.src = URL.createObjectURL(await response.blob());
+    image.hidden = false;
+  } catch {
+    image.hidden = true;
+  }
+}
+
 async function updateThumbnail(data) {
   const filename = (data.status?.print_stats || {}).filename || "";
   const key = `${data.entry_id}:${filename}:${data.meta?.thumbnails_path || ""}`;
   if (key === lastThumbnailKey) return;
   lastThumbnailKey = key;
-  if (!filename || !data.meta?.thumbnails_path) return;
+  const image = byId("thumb");
+  if (!filename || !data.meta?.thumbnails_path) {
+    if (thumbnailObjectUrl) { URL.revokeObjectURL(thumbnailObjectUrl); thumbnailObjectUrl = null; }
+    if (image) { image.removeAttribute("src"); image.hidden = true; }
+    return;
+  }
   try {
     const response = await hassApi().fetchWithAuth(API.thumb(data.entry_id));
-    if (!response.ok) return;
+    if (!response.ok) {
+      if (image) { image.removeAttribute("src"); image.hidden = true; }
+      return;
+    }
     const blobUrl = URL.createObjectURL(await response.blob());
     if (thumbnailObjectUrl) URL.revokeObjectURL(thumbnailObjectUrl);
     thumbnailObjectUrl = blobUrl;
-    const image = byId("thumb");
-    if (image) image.src = blobUrl;
+    if (image) { image.src = blobUrl; image.hidden = false; }
   } catch (_error) {
     // A missing thumbnail should not interrupt the rest of the panel.
   }
@@ -305,7 +325,7 @@ function render(data) {
   stateLed.className = "led";
   stateChip.append(stateLed, document.createTextNode(data.available ? printState : "OFFLINE"));
   stateChip.classList.toggle("bad", !data.available);
-  setText("klippyChip", `KLIPPY ${(data.printer_info || {}).klippy_state || "—"}`);
+  setText("klippyChip", `KLIPPY ${(data.printer_info || {}).state || "—"}`);
   setText("tickerText", `${data.printer} // ${printState} // FILE ${printStats.filename || "NONE"} // ${(progress * 100).toFixed(1)}% // NOZZLE ${fmt(extruder.temperature, 0)}°C // BED ${fmt(bed.temperature, 0)}°C`);
 
   const ring = byId("ringFg");
@@ -320,8 +340,8 @@ function render(data) {
   setText("slicerEst", duration(meta.estimated_time));
   setText("filUsed", `${fmt((printStats.filament_used || 0) / 1000, 2)} m`);
   setText("filEst", `${fmt((meta.filament_total || 0) / 1000, 2)} m`);
-  const currentLayer = printStats.info?.current_layer ?? virtualSdcard.current_layer ?? "—";
-  const totalLayers = printStats.info?.total_layer ?? virtualSdcard.total_layer ?? meta.layer_count;
+  const currentLayer = printStats.info?.current_layer ?? virtualSdcard.current_layer ?? (data.layers?.current || "—");
+  const totalLayers = printStats.info?.total_layer ?? virtualSdcard.total_layer ?? data.layers?.total ?? meta.layer_count;
   const layerLabel = currentLayer === "—" ? "—" : `${currentLayer}${totalLayers ? ` / ${totalLayers}` : ""}`;
   setText("layer", layerLabel);
   const layerFraction = Number(currentLayer) > 0 && Number(totalLayers) > 0 ? Number(currentLayer) / Number(totalLayers) : progress;
@@ -419,7 +439,7 @@ function render(data) {
   setText("bedTempZ", `${fmt(bed.temperature, 0)}°C`);
   setText("networkState", data.available ? "CONNECTED" : "OFFLINE");
   setText("networkMoonraker", data.available ? "ONLINE" : "UNAVAILABLE");
-  setText("networkKlippy", (data.printer_info || {}).klippy_state || "—");
+  setText("networkKlippy", (data.printer_info || {}).state || "—");
   setText("networkPush", "WEBSOCKET / FALLBACK POLL");
   setText("networkCameras", String((data.webcams || []).length));
   renderSettings(data);
@@ -440,8 +460,15 @@ function render(data) {
   renderConsole(data.gcode_responses || []);
   updateThumbnail(data);
   updateToolpath(data, progress);
+  const extTemp = Number(extruder.temperature);
+  const bedTemp = Number(bed.temperature);
+  if (Number.isFinite(extTemp)) extHist.push(extTemp);
+  if (Number.isFinite(bedTemp)) bedHist.push(bedTemp);
+  if (extHist.length > 240) extHist.splice(0, extHist.length - 240);
+  if (bedHist.length > 240) bedHist.splice(0, bedHist.length - 240);
   drawTemperatureGraph("tempGraph", extruder.target, bed.target);
   drawTemperatureGraph("tempGraphHistory", extruder.target, bed.target);
+  maybeTimelapse(data, currentLayer);
   if (detailsOpen) renderPageDetails(data);
   populateAlertEntities();
   loadDisplayPrefs();
@@ -473,7 +500,7 @@ function renderSystem(data, status, printState) {
   const moonraker = versions.moonraker || {};
   const hostTemp = findNamedStatus(status, /temperature_host|host_temperature|temperature_sensor.*(host|rpi)/i);
   const printerState = printerInfo.state || printState || "—";
-  const klippyState = printerInfo.klippy_state || "—";
+  const klippyState = printerInfo.state || "—";
   const klipperVersion = klipper.version || klipper.current_version || printerInfo.software_version || "—";
   const moonrakerVersion = moonraker.version || moonraker.current_version || data.server_info?.moonraker_version || "—";
   const cpuModel = cpu.cpu_desc || cpu.model || cpu.processor || "—";
@@ -2242,7 +2269,7 @@ function checkAlerts(data) {
   loadAlertPrefs();
   const status = data?.status || {};
   const printState = String(status.print_stats?.state || "");
-  const klippy = String(data?.printer_info?.klippy_state || "");
+  const klippy = String(data?.printer_info?.state || "");
   const filename = status.print_stats?.filename || "the print";
   const active = printState === "printing" || printState === "paused";
   const runout = active && Object.entries(status).some(([name, value]) =>
@@ -2311,8 +2338,8 @@ function showJobDoneCard(data) {
   setText("jobDoneLayers", `${info.current_layer ?? "—"} / ${info.total_layer ?? meta.layer_count ?? "—"}`);
   const image = byId("jobDoneThumb");
   if (image) {
-    image.src = data.meta?.thumbnails_path ? `${API.thumb(data.entry_id)}&t=${Date.now()}` : "";
-    image.style.display = data.meta?.thumbnails_path ? "" : "none";
+    if (data.meta?.thumbnails_path) loadAuthedImage(image, `${API.thumb(data.entry_id)}&t=${Date.now()}`);
+    else { image.removeAttribute("src"); image.hidden = true; }
   }
   card.hidden = false;
 }
@@ -2448,8 +2475,8 @@ function renderFileAnalysis(meta) {
   }
   const thumb = byId("analysisThumb");
   if (thumb) {
-    thumb.style.display = meta.has_thumbnail ? "" : "none";
-    if (meta.has_thumbnail) thumb.src = `${API.thumb(printer)}&filename=${encodeURIComponent(analysisFile)}&t=${Date.now()}`;
+    if (meta.has_thumbnail) loadAuthedImage(thumb, `${API.thumb(printer)}&filename=${encodeURIComponent(analysisFile)}&t=${Date.now()}`);
+    else { thumb.removeAttribute("src"); thumb.hidden = true; }
   }
 }
 
@@ -2461,11 +2488,25 @@ function timelapseCamera() {
   return availableWebcams.find(candidate => candidate.snapshot_url) || null;
 }
 
+function maybeTimelapse(data, currentLayer) {
+  const layer = Number(currentLayer);
+  if (data?.status?.print_stats?.state !== "printing") {
+    if (liveLayer !== null) liveLayer = null;
+    return;
+  }
+  if (!Number.isFinite(layer) || layer <= 0) return;
+  if (liveLayer === null || liveLayer === undefined) { liveLayer = layer; return; }
+  if (layer > liveLayer) {
+    liveLayer = layer;
+    captureTimelapseFrame();
+  }
+}
+
 async function captureTimelapseFrame() {
   const camera = timelapseCamera();
   if (!camera) return;
   try {
-    const response = await hassApi().fetchWithAuth(camera.snapshot_url);
+    const response = await hassApi().fetchWithAuth(API.snapshot(printer, camera.name));
     if (!response?.ok) return;
     const url = URL.createObjectURL(await response.blob());
     timelapseFrames.push({ layer: liveLayer, url });

@@ -11,7 +11,7 @@ from homeassistant.helpers.update_coordinator import UpdateFailed
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.moonraker import MoonrakerGcodeUploadView
-from custom_components.moonraker.const import DOMAIN
+from custom_components.moonraker.const import DOMAIN, METHODS
 
 from .const import MOCK_CONFIG
 from custom_components.moonraker.panel import (
@@ -404,12 +404,17 @@ async def test_panel_payload_defensive_branches(hass):
     coordinator.data = {
         "status": {"gcode_macro A": {}, "other": {}},
         "file_list": "not-a-dict",
-        "power_devices": {"devices": [{"device": "led", "status": "on"}, "skip", {}]},
     }
 
     async def _boom():
         raise RuntimeError("webcams down")
 
+    async def _aux(method, params=None, quiet=False):
+        if method == METHODS.MACHINE_DEVICE_POWER_DEVICES:
+            return {"devices": [{"device": "led", "status": "on"}, "skip", {}]}
+        return {}
+
+    coordinator.async_fetch_data = AsyncMock(side_effect=_aux)
     coordinator.async_get_webcams = _boom
     coordinator.async_get_system_info = AsyncMock(
         return_value={"system_info": {"cpu_info": "nope"}}
@@ -981,7 +986,7 @@ async def test_panel_subscribe_websocket(hass):
     msg = {"id": 7, "type": "moonraker/panel_subscribe", "entry_id": "missing"}
     hass.data[DOMAIN] = {}
     _ws_panel_subscribe(hass, connection, msg)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     connection.send_error.assert_called_once_with(
         7, "not_found", "No printer configured"
     )
@@ -998,7 +1003,7 @@ async def test_panel_subscribe_websocket(hass):
     msg = {"id": 7, "type": "moonraker/panel_subscribe", "entry_id": "p"}
 
     _ws_panel_subscribe(hass, connection, msg)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     connection.send_result.assert_called_once_with(7)
     assert connection.send_message.called
     assert 7 in connection.subscriptions
@@ -1006,7 +1011,7 @@ async def test_panel_subscribe_websocket(hass):
     # A coordinator update fires the push task
     connection.send_message.reset_mock()
     coordinator.async_update_listeners()
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
     assert connection.send_message.called
 
     # A broken payload builder logs but never kills the subscription
@@ -1016,5 +1021,188 @@ async def test_panel_subscribe_websocket(hass):
         new=AsyncMock(side_effect=RuntimeError("boom")),
     ):
         coordinator.async_update_listeners()
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
     assert not connection.send_message.called
+
+
+async def test_panel_payload_includes_aux_data_and_console(hass):
+    """Power, queue, history, and gcode store feed the panel payload."""
+    from custom_components.moonraker.panel import _panel_payload
+
+    async def _fetch(method, params=None, quiet=False):
+        return {
+            "machine.device_power.devices": {
+                "devices": [{"device": "printer", "status": "on"}]
+            },
+            "server.job_queue.status": {
+                "queue_state": "ready",
+                "queued_jobs": [{"job_id": "1", "filename": "a.gcode"}],
+            },
+            "server.history.totals": {"job_totals": {"total_jobs": 4}},
+            "machine.update.status": {"version_info": {"klipper": {"version": "v1"}}},
+            "server.spoolman.status": {"spool_id": 12},
+            "server.gcode_store": {
+                "gcode_store": [
+                    {"message": "old line"},
+                    {"message": "dup"},
+                    "skip",
+                ]
+            },
+        }[method.value]
+
+    coordinator = _panel_coordinator(
+        hass,
+        async_fetch_data=AsyncMock(side_effect=_fetch),
+        gcode_responses=["dup", "new line"],
+    )
+
+    payload = await _panel_payload(hass, coordinator)
+
+    assert payload["power_devices"][0]["device"] == "printer"
+    assert payload["queue"]["queued_jobs"][0]["filename"] == "a.gcode"
+    assert payload["history"]["job_totals"]["total_jobs"] == 4
+    assert payload["machine_update"]["version_info"]["klipper"]["version"] == "v1"
+    assert payload["spoolman"]["spool_id"] == 12
+    assert payload["gcode_responses"] == ["old line", "dup", "new line"]
+
+    # Second call hits the aux cache rather than Moonraker again.
+    coordinator.async_fetch_data.reset_mock()
+    payload2 = await _panel_payload(hass, coordinator)
+    assert payload2["queue"]["queue_state"] == "ready"
+    coordinator.async_fetch_data.assert_not_awaited()
+
+
+async def test_panel_aux_data_failure_paths(hass):
+    """Aux fetch failures degrade to empty structures and cache."""
+    from custom_components.moonraker.panel import _panel_aux_data
+
+    calls = {"n": 0}
+
+    async def _flaky(method, params=None, quiet=False):
+        calls["n"] += 1
+        if method.value == "machine.device_power.devices":
+            raise UpdateFailed("down")
+        if method.value == "server.gcode_store":
+            raise RuntimeError("unexpected")
+        return "not-a-dict"
+
+    coordinator = _panel_coordinator(
+        hass, async_fetch_data=AsyncMock(side_effect=_flaky)
+    )
+    aux = await _panel_aux_data(coordinator)
+    assert aux == {}
+    assert calls["n"] == 6
+
+    # TTL cache serves a repeat call without touching Moonraker.
+    assert await _panel_aux_data(coordinator) == aux
+    assert calls["n"] == 6
+
+
+async def test_console_lines_merges_store_and_live(hass):
+    """Console output combines stored gcode lines with live pushes."""
+    from custom_components.moonraker.panel import _console_lines
+
+    coordinator = _panel_coordinator(hass, gcode_responses=["b", "c"])
+    assert _console_lines(
+        coordinator, {"gcode_store": [{"message": "a"}, {"message": "b"}]}
+    ) == ["a", "b", "c"]
+    assert _console_lines(coordinator, None) == ["b", "c"]
+    assert _console_lines(coordinator, {"gcode_store": "bad"}) == ["b", "c"]
+
+
+async def test_panel_payload_layers_and_klippy(hass):
+    """The payload exposes computed layer counters and printer state."""
+    from custom_components.moonraker.panel import _panel_payload
+
+    coordinator = _panel_coordinator(
+        hass,
+        data={
+            "status": {
+                "print_stats": {
+                    "state": "printing",
+                    "print_duration": 120,
+                    "filename": "job.gcode",
+                    "info": {},
+                },
+                "virtual_sdcard": {},
+                "toolhead": {"position": [1, 2, 4.2, 5]},
+            },
+            "file_list": {"files": []},
+            "printer.info": {"state": "ready"},
+            "layer_height": 0.2,
+            "first_layer_height": 0.2,
+            "object_height": 10,
+            "layer_count": 50,
+        },
+    )
+    payload = await _panel_payload(hass, coordinator)
+    assert payload["layers"]["current"] == 21
+    assert payload["layers"]["total"] == 50
+    assert payload["printer_info"]["state"] == "ready"
+
+
+async def test_webcam_snapshot_view(hass):
+    """The snapshot proxy serves the named webcam's latest frame."""
+    from custom_components.moonraker.panel import MoonrakerPanelSnapshotView
+
+    view = MoonrakerPanelSnapshotView(hass)
+    response = await view.get(SimpleNamespace(query={"printer": "x"}))
+    assert response.status == 404
+
+    session = MagicMock()
+    upstream = MagicMock()
+    upstream.status = 200
+    upstream.content_type = "image/jpeg"
+    upstream.read = AsyncMock(return_value=b"JPEG")
+    ctx = MagicMock()
+    ctx.__aenter__ = AsyncMock(return_value=upstream)
+    ctx.__aexit__ = AsyncMock(return_value=False)
+    session.get = MagicMock(return_value=ctx)
+
+    coordinator = _panel_coordinator(
+        hass,
+        async_get_webcams=AsyncMock(
+            return_value={
+                "webcams": [{"name": "Front", "snapshot_url": "webcam?action=snapshot"}]
+            }
+        ),
+    )
+    view._resolve = MagicMock(return_value=coordinator)
+
+    with patch(
+        "custom_components.moonraker.panel.async_get_clientsession",
+        return_value=session,
+    ):
+        missing = await view.get(SimpleNamespace(query={}))
+        assert missing.status == 400
+        response = await view.get(SimpleNamespace(query={"camera": "Front"}))
+    assert response.status == 200
+    assert response.body == b"JPEG"
+    session.get.assert_called_once()
+
+    response = await view.get(SimpleNamespace(query={"camera": "Nope"}))
+    assert response.status == 404
+
+    coordinator.async_get_webcams = AsyncMock(side_effect=RuntimeError("boom"))
+    response = await view.get(SimpleNamespace(query={"camera": "Front"}))
+    assert response.status == 502
+
+    coordinator.async_get_webcams = AsyncMock(
+        return_value={"webcams": [{"name": "Front", "snapshot_url": "x"}]}
+    )
+    session.get = MagicMock(side_effect=aiohttp.ClientError("down"))
+    with patch(
+        "custom_components.moonraker.panel.async_get_clientsession",
+        return_value=session,
+    ):
+        response = await view.get(SimpleNamespace(query={"camera": "Front"}))
+    assert response.status == 502
+
+    upstream.status = 500
+    session.get = MagicMock(return_value=ctx)
+    with patch(
+        "custom_components.moonraker.panel.async_get_clientsession",
+        return_value=session,
+    ):
+        response = await view.get(SimpleNamespace(query={"camera": "Front"}))
+    assert response.status == 404

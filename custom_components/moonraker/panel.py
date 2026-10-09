@@ -31,6 +31,7 @@ from .const import (
     TIMEOUT,
     VERSION,
 )
+from .sensor import calculate_current_layer, calculate_total_layer
 
 if TYPE_CHECKING:
     from . import MoonrakerDataUpdateCoordinator
@@ -44,6 +45,7 @@ PANEL_CLIENT_URL = "/api/moonraker/panel_client.js"
 PANEL_DATA_URL = "/api/moonraker/panel_data"
 PANEL_GCODE_URL = "/api/moonraker/panel_gcode"
 PANEL_THUMB_URL = "/api/moonraker/panel_thumbnail"
+PANEL_SNAPSHOT_URL = "/api/moonraker/panel_webcam_snapshot"
 PANEL_ACTION_URL = "/api/moonraker/panel_action"
 PANEL_FILE_META_URL = "/api/moonraker/panel_file_meta"
 PANEL_FRONTEND_PATH = "moonraker-control-deck"
@@ -51,6 +53,7 @@ UPLOAD_URL = "/api/moonraker/gcode_upload"
 
 _GCODE_ROOT = "gcodes"
 _MAX_TOOLPATH_BYTES = 128 * 1024 * 1024
+_AUX_CACHE_TTL = 10.0
 _TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "panel.html")
 _MODULE_PATH = os.path.join(os.path.dirname(__file__), "panel_module.js")
 _CLIENT_PATH = os.path.join(os.path.dirname(__file__), "panel_client.js")
@@ -149,9 +152,84 @@ def _resolve_coordinator(hass: HomeAssistant, entry_id: str | None):
     return next(iter(coordinators.values()), None)
 
 
+async def _panel_aux_data(coordinator) -> dict[str, Any]:
+    """Fetch slowly-changing Moonraker datasets the coordinator does not track.
+
+    The results are cached briefly so websocket pushes do not fan out into a
+    burst of extra Moonraker calls on every coordinator update.
+    """
+    cache = getattr(coordinator, "_panel_aux_cache", None)
+    now = time.monotonic()
+    if cache is not None and now - cache[0] < _AUX_CACHE_TTL:
+        return cache[1]
+
+    async def _fetch(method: METHODS, params=None):
+        try:
+            return await coordinator.async_fetch_data(method, params, quiet=True)
+        except UpdateFailed:
+            return None
+        except Exception:  # noqa: BLE001 - aux data must never break the panel
+            _LOGGER.debug("Panel aux fetch failed for %s", method, exc_info=True)
+            return None
+
+    keys = (
+        "power_devices",
+        "queue",
+        "history",
+        "machine_update",
+        "spoolman",
+        "gcode_store",
+    )
+    results = await asyncio.gather(
+        _fetch(METHODS.MACHINE_DEVICE_POWER_DEVICES),
+        _fetch(METHODS.SERVER_JOB_QUEUE_STATUS),
+        _fetch(METHODS.SERVER_HISTORY_TOTALS),
+        _fetch(METHODS.MACHINE_UPDATE_STATUS),
+        _fetch(METHODS.SERVER_SPOOLMAN_ID),
+        _fetch(METHODS.SERVER_GCODE_STORE, {"count": 200}),
+    )
+    aux = {
+        key: result
+        for key, result in zip(keys, results, strict=True)
+        if isinstance(result, dict)
+    }
+    coordinator._panel_aux_cache = (now, aux)
+    return aux
+
+
+def _console_lines(coordinator, gcode_store) -> list[str]:
+    """Merge Moonraker's gcode store with live responses for the console."""
+    entries = gcode_store.get("gcode_store") if isinstance(gcode_store, dict) else None
+    lines = [
+        entry["message"]
+        for entry in entries or []
+        if isinstance(entry, dict) and isinstance(entry.get("message"), str)
+    ]
+    live = list(coordinator.gcode_responses)
+    # Live responses may duplicate the store tail; skip the overlap.
+    window = lines[-len(live) :] if live else []
+    for line in live:
+        if line in window:
+            window.remove(line)
+        else:
+            lines.append(line)
+    return lines[-300:]
+
+
+def _layer_info(data: dict[str, Any]) -> dict[str, int]:
+    """Return computed layer counters for the panel."""
+    merged = dict(data)
+    merged.setdefault("status", {})
+    return {
+        "current": calculate_current_layer(merged),
+        "total": calculate_total_layer(merged),
+    }
+
+
 async def _panel_payload(hass: HomeAssistant, coordinator) -> dict[str, Any]:
     """Assemble the panel data payload for a coordinator."""
     data = coordinator.data or {}
+    aux = await _panel_aux_data(coordinator)
     status = data.get("status") or {}
     file_list = data.get("file_list") or {}
     files = file_list.get("files") if isinstance(file_list, dict) else file_list
@@ -175,7 +253,7 @@ async def _panel_payload(hass: HomeAssistant, coordinator) -> dict[str, Any]:
             }
         )
 
-    power = data.get("power_devices") or {}
+    power = aux.get("power_devices") or {}
     power_devices = [
         {
             "device": device.get("device"),
@@ -256,14 +334,15 @@ async def _panel_payload(hass: HomeAssistant, coordinator) -> dict[str, Any]:
         "server_info": server_info,
         "system_info": system_info,
         "meta": {key: data.get(key) for key in _META_KEYS},
-        "history": data.get("history") or {},
-        "queue": data.get("queue") or {},
-        "spoolman": data.get("spoolman") or {},
-        "machine_update": data.get("machine_update") or {},
+        "history": aux.get("history") or {},
+        "queue": aux.get("queue") or {},
+        "spoolman": aux.get("spoolman") or {},
+        "machine_update": aux.get("machine_update") or {},
+        "layers": _layer_info(data),
         "power_devices": power_devices,
         "macros": macros,
         "webcams": webcams,
-        "gcode_responses": list(coordinator.gcode_responses)[-80:],
+        "gcode_responses": _console_lines(coordinator, aux.get("gcode_store")),
         "files": [
             {
                 "path": file.get("path"),
@@ -669,6 +748,49 @@ class MoonrakerPanelThumbnailView(_PanelViewBase):
         return web.Response(body=body, content_type=response.content_type)
 
 
+class MoonrakerPanelSnapshotView(_PanelViewBase):
+    """Proxy a webcam snapshot so timelapse frames are same-origin."""
+
+    url = PANEL_SNAPSHOT_URL
+    name = "api:moonraker:panel_webcam_snapshot"
+
+    async def get(self, request):
+        """Return the latest snapshot for the named webcam."""
+        coordinator = self._resolve(request.query.get("printer"))
+        if coordinator is None:
+            return web.Response(status=404)
+        camera_name = str(request.query.get("camera") or "").strip()
+        if not camera_name:
+            return self.json({"error": "camera required"}, status_code=400)
+        try:
+            webcam_result = await coordinator.async_get_webcams()
+        except Exception:  # noqa: BLE001 - webcams are optional
+            return web.Response(status=502)
+        entry = coordinator.config_entry
+        snapshot_url = None
+        for webcam in (webcam_result or {}).get("webcams", []):
+            if isinstance(webcam, dict) and webcam.get("name") == camera_name:
+                snapshot_url = _webcam_url(entry, webcam.get("snapshot_url"))
+                break
+        if not snapshot_url:
+            return web.Response(status=404)
+        session = async_get_clientsession(self.hass, verify_ssl=False)
+        api_key = entry.data.get(CONF_API_KEY)
+        headers = {"X-Api-Key": api_key} if api_key else {}
+        try:
+            async with (
+                async_timeout.timeout(TIMEOUT),
+                session.get(snapshot_url, headers=headers) as response,
+            ):
+                if response.status != 200:
+                    return web.Response(status=404)
+                body = await response.read()
+        except (asyncio.TimeoutError, aiohttp.ClientError, OSError) as exception:
+            _LOGGER.debug("Could not fetch webcam snapshot: %s", exception)
+            return web.Response(status=502)
+        return web.Response(body=body, content_type=response.content_type)
+
+
 class MoonrakerPanelActionView(_PanelViewBase):
     """Execute panel control actions against the printer."""
 
@@ -866,6 +988,7 @@ async def register_panel_views(hass: HomeAssistant) -> None:
     hass.http.register_view(MoonrakerPanelDataView(hass))
     hass.http.register_view(MoonrakerPanelGcodeView(hass))
     hass.http.register_view(MoonrakerPanelThumbnailView(hass))
+    hass.http.register_view(MoonrakerPanelSnapshotView(hass))
     hass.http.register_view(MoonrakerPanelFileMetaView(hass))
     hass.http.register_view(MoonrakerPanelActionView(hass))
     await async_register_panel(
