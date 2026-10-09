@@ -192,15 +192,44 @@ async function resetPanelPush() {
   panelPushLive = false;
 }
 
-async function loadAuthedImage(image, url) {
+function clearAuthedImage(image) {
   if (!image) return;
+  const objectUrl = image === byId("thumb") ? thumbnailObjectUrl : image._objectUrl;
+  if (objectUrl) URL.revokeObjectURL(objectUrl);
+  if (image === byId("thumb")) thumbnailObjectUrl = null;
+  image._objectUrl = null;
+  image.removeAttribute("src");
+  image.hidden = true;
+  image.style.display = "none";
+}
+
+async function loadAuthedImage(image, url) {
+  if (!image) return false;
+  clearAuthedImage(image);
   try {
     const response = await hassApi().fetchWithAuth(url);
-    if (!response.ok) { image.hidden = true; return; }
-    image.src = URL.createObjectURL(await response.blob());
+    if (!response.ok) return false;
+    const blob = await response.blob();
+    if (!blob.size) return false;
+    const objectUrl = URL.createObjectURL(blob);
+    if (image === byId("thumb")) thumbnailObjectUrl = objectUrl;
+    else image._objectUrl = objectUrl;
+    let loadPromise;
+    if (typeof image.decode !== "function") {
+      loadPromise = new Promise((resolve, reject) => {
+        image.onload = () => { image.onload = null; image.onerror = null; resolve(); };
+        image.onerror = () => { image.onload = null; image.onerror = null; reject(new Error("Image decode failed")); };
+      });
+    }
+    image.src = objectUrl;
+    if (typeof image.decode === "function") await image.decode();
+    else await loadPromise;
     image.hidden = false;
+    image.style.display = "";
+    return true;
   } catch {
-    image.hidden = true;
+    clearAuthedImage(image);
+    return false;
   }
 }
 
@@ -211,23 +240,10 @@ async function updateThumbnail(data) {
   lastThumbnailKey = key;
   const image = byId("thumb");
   if (!filename || !data.meta?.thumbnails_path) {
-    if (thumbnailObjectUrl) { URL.revokeObjectURL(thumbnailObjectUrl); thumbnailObjectUrl = null; }
-    if (image) { image.removeAttribute("src"); image.hidden = true; }
+    clearAuthedImage(image);
     return;
   }
-  try {
-    const response = await hassApi().fetchWithAuth(API.thumb(data.entry_id));
-    if (!response.ok) {
-      if (image) { image.removeAttribute("src"); image.hidden = true; }
-      return;
-    }
-    const blobUrl = URL.createObjectURL(await response.blob());
-    if (thumbnailObjectUrl) URL.revokeObjectURL(thumbnailObjectUrl);
-    thumbnailObjectUrl = blobUrl;
-    if (image) { image.src = blobUrl; image.hidden = false; }
-  } catch (_error) {
-    // A missing thumbnail should not interrupt the rest of the panel.
-  }
+  await loadAuthedImage(image, API.thumb(data.entry_id));
 }
 
 function drawTemperatureGraph(canvasId, extruderTarget, bedTarget) {
@@ -2355,7 +2371,7 @@ function showJobDoneCard(data) {
   const image = byId("jobDoneThumb");
   if (image) {
     if (data.meta?.thumbnails_path) loadAuthedImage(image, `${API.thumb(data.entry_id)}&t=${Date.now()}`);
-    else { image.removeAttribute("src"); image.hidden = true; }
+    else clearAuthedImage(image);
   }
   card.hidden = false;
 }
@@ -2492,7 +2508,7 @@ function renderFileAnalysis(meta) {
   const thumb = byId("analysisThumb");
   if (thumb) {
     if (meta.has_thumbnail) loadAuthedImage(thumb, `${API.thumb(printer)}&filename=${encodeURIComponent(analysisFile)}&t=${Date.now()}`);
-    else { thumb.removeAttribute("src"); thumb.hidden = true; }
+    else clearAuthedImage(thumb);
   }
 }
 

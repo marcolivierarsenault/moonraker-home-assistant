@@ -749,3 +749,60 @@ test("toolpath sampling keeps the full build height when G-code exceeds the segm
   assert.equal(result.hasLayer173, true);
   assert.ok(Math.abs(result.maxZ - 49.4) < 0.001);
 });
+
+test("authenticated thumbnails stay hidden until the image decodes", async () => {
+  const { context, document, window } = createPanelClient();
+  const revoked = [];
+  let objectUrlIndex = 0;
+  context.URL = {
+    createObjectURL: () => `blob:thumbnail-${++objectUrlIndex}`,
+    revokeObjectURL: url => revoked.push(url),
+  };
+  window.hass = {
+    callApi: async () => ({}),
+    fetchWithAuth: async () => ({ ok: false }),
+  };
+  const image = document.getElementById("jobDoneThumb");
+  image._objectUrl = "blob:old-thumbnail";
+  image.src = "blob:old-thumbnail";
+  image.hidden = false;
+
+  assert.equal(await context.loadAuthedImage(image, "/thumbnail"), false);
+  assert.equal(image.hidden, true);
+  assert.equal(image.style.display, "none");
+  assert.equal(image.src, "");
+  assert.deepEqual(revoked, ["blob:old-thumbnail"]);
+
+  window.hass.fetchWithAuth = async () => ({
+    ok: true,
+    blob: async () => ({ size: 10 }),
+  });
+  image.decode = async () => {};
+  assert.equal(await context.loadAuthedImage(image, "/thumbnail"), true);
+  assert.equal(image.hidden, false);
+  assert.equal(image.style.display, "");
+  assert.equal(image.src, "blob:thumbnail-1");
+
+  image.decode = async () => { throw new Error("not an image"); };
+  assert.equal(await context.loadAuthedImage(image, "/invalid-image"), false);
+  assert.equal(image.hidden, true);
+  assert.equal(image.style.display, "none");
+  assert.equal(image.src, "");
+  assert.deepEqual(revoked, [
+    "blob:old-thumbnail",
+    "blob:thumbnail-1",
+    "blob:thumbnail-2",
+  ]);
+});
+
+test("completion card hides absent thumbnails with inline display state", () => {
+  const { context, document } = createPanelClient();
+  context.showJobDoneCard({
+    status: { print_stats: { filename: "part.gcode" } },
+    meta: {},
+  });
+  const image = document.getElementById("jobDoneThumb");
+  assert.equal(image.hidden, true);
+  assert.equal(image.style.display, "none");
+  assert.equal(image.src, "");
+});
