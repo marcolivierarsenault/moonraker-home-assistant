@@ -37,7 +37,7 @@ _LOGGER = logging.getLogger(__name__)
 class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for Moonraker."""
 
-    VERSION = 1
+    VERSION = 2
 
     def __init__(self):
         """Initialize."""

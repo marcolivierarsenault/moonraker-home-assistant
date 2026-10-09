@@ -30,6 +30,8 @@ const SCREEN_TITLES = {
 const MAX_TOOLPATH_SEGMENTS = 28000;
 const MAX_TOOLPATH_BYTES = 128 * 1024 * 1024;
 const AUTO_TOOLPATH_BYTES = 24 * 1024 * 1024;
+const PANEL_FALLBACK_POLL_MS = 2667;
+const PANEL_STALENESS_CHECK_MS = 1333;
 const byId = id => document.getElementById(id);
 const setText = (id, value) => { const element = byId(id); if (element) element.textContent = value; };
 
@@ -80,6 +82,9 @@ const CAMERA_VIEWS = {
 };
 let liveEntityIds = {};
 let liveSubscription = false;
+let liveSubscriptionUnsub = null;
+let liveSubscriptionGeneration = 0;
+let panelStopped = false;
 let liveHeadTarget = null;
 let liveHeadDrawn = null;
 let liveProgress = null;
@@ -87,7 +92,11 @@ let liveLayer = null;
 let headAnimFrame = null;
 let scrubZ = null;
 let timelapseFrames = [];
+let timelapseBytes = 0;
+let timelapseAbort = null;
+let timelapseGeneration = 0;
 const MAX_TIMELAPSE_FRAMES = 400;
+const MAX_TIMELAPSE_BYTES = 64 * 1024 * 1024;
 let analysisFile = "";
 let displayPrefsKey = "";
 
@@ -148,12 +157,18 @@ function handlePanelPayload(data) {
 
 async function refresh() {
   // Websocket push is the primary feed; polling only refills when push stalls.
-  if (panelPushLive && lastDataAt && Date.now() - lastDataAt < 12000) return;
+  if (panelStopped || (panelPushLive && lastDataAt && Date.now() - lastDataAt < 12000)) return;
+  if (panelRefreshInFlight) return;
+  panelRefreshInFlight = true;
+  const requestPrinter = printer;
   try {
-    const data = await hassApi().callApi("GET", API.data(printer));
-    handlePanelPayload(data);
+    const data = await hassApi().callApi("GET", API.data(requestPrinter));
+    if (requestPrinter === printer) handlePanelPayload(data);
   } catch (error) {
     if (error.message?.includes("Open the console")) toast(error.message);
+  } finally {
+    panelRefreshInFlight = false;
+    if (requestPrinter !== printer) refresh();
   }
 }
 
@@ -2065,13 +2080,34 @@ async function resolveLiveEntities() {
 }
 
 function ensureLiveSubscription() {
-  if (liveSubscription || !window.hass?.connection?.subscribeEvents) return;
+  const connection = window.hass?.connection;
+  if (liveSubscription || !connection?.subscribeEvents) return;
   liveSubscription = true;
+  const generation = ++liveSubscriptionGeneration;
   try {
-    Promise.resolve(window.hass.connection.subscribeEvents(handleLiveStateChanged, "state_changed"))
-      .catch(() => { liveSubscription = false; });
+    Promise.resolve(connection.subscribeEvents(handleLiveStateChanged, "state_changed"))
+      .then(unsubscribe => {
+        if (generation !== liveSubscriptionGeneration) {
+          if (typeof unsubscribe === "function") unsubscribe();
+          return;
+        }
+        liveSubscriptionUnsub = typeof unsubscribe === "function" ? unsubscribe : null;
+      })
+      .catch(() => {
+        if (generation === liveSubscriptionGeneration) liveSubscription = false;
+      });
   } catch {
-    liveSubscription = false;
+    if (generation === liveSubscriptionGeneration) liveSubscription = false;
+  }
+}
+
+function stopLiveSubscription() {
+  liveSubscriptionGeneration += 1;
+  liveSubscription = false;
+  const unsubscribe = liveSubscriptionUnsub;
+  liveSubscriptionUnsub = null;
+  if (typeof unsubscribe === "function") {
+    try { unsubscribe(); } catch {}
   }
 }
 
@@ -2150,6 +2186,7 @@ let alertPrefs = {
 let alertState = { seeded: false, state: "", milestone: -1, filamentOk: true, klippy: "", lastKey: "", lastAt: 0 };
 let alertPrefsKey = "";
 let lastDataAt = 0;
+let panelRefreshInFlight = false;
 let panelPushUnsub = null;
 let panelPushRequest = null;
 let panelPushLive = false;
@@ -2536,15 +2573,36 @@ function maybeTimelapse(data, currentLayer) {
 
 async function captureTimelapseFrame() {
   const camera = timelapseCamera();
-  if (!camera) return;
+  if (!camera || timelapseAbort) return;
+  const controller = new AbortController();
+  const generation = timelapseGeneration;
+  timelapseAbort = controller;
   try {
-    const response = await hassApi().fetchWithAuth(API.snapshot(printer, camera.name));
+    const response = await hassApi().fetchWithAuth(
+      API.snapshot(printer, camera.name),
+      { signal: controller.signal },
+    );
     if (!response?.ok) return;
-    const url = URL.createObjectURL(await response.blob());
-    timelapseFrames.push({ layer: liveLayer, url });
-    while (timelapseFrames.length > MAX_TIMELAPSE_FRAMES) URL.revokeObjectURL(timelapseFrames.shift().url);
+    const contentLength = Number(response.headers?.get?.("Content-Length"));
+    if (contentLength > MAX_TIMELAPSE_BYTES) {
+      await response.body?.cancel?.();
+      return;
+    }
+    const blob = await response.blob();
+    if (!blob.size || blob.size > MAX_TIMELAPSE_BYTES || generation !== timelapseGeneration) return;
+    const url = URL.createObjectURL(blob);
+    timelapseFrames.push({ layer: liveLayer, url, size: blob.size });
+    timelapseBytes += blob.size;
+    while (timelapseFrames.length > MAX_TIMELAPSE_FRAMES || timelapseBytes > MAX_TIMELAPSE_BYTES) {
+      const oldest = timelapseFrames.shift();
+      URL.revokeObjectURL(oldest.url);
+      timelapseBytes -= oldest.size;
+    }
     renderTimelapseStatus(true);
   } catch { /* camera snapshot optional */ }
+  finally {
+    if (timelapseAbort === controller) timelapseAbort = null;
+  }
 }
 
 function renderTimelapseStatus(showLatest = false) {
@@ -2575,7 +2633,13 @@ function renderTimelapseFrame() {
 }
 
 function clearTimelapse() {
+  timelapseGeneration += 1;
+  if (timelapseAbort) {
+    timelapseAbort.abort();
+    timelapseAbort = null;
+  }
   while (timelapseFrames.length) URL.revokeObjectURL(timelapseFrames.pop().url);
+  timelapseBytes = 0;
   const frame = byId("tlFrame");
   if (frame) { frame.removeAttribute("src"); frame.hidden = true; }
   renderTimelapseStatus();
@@ -2670,16 +2734,82 @@ function bindToolpathCanvas() {
   window.addEventListener("resize", drawToolpath);
 }
 
+function startPanelTimers() {
+  if (document.hidden) return;
+  if (!window.moonrakerRefreshTimer) {
+    window.moonrakerRefreshTimer = setInterval(refresh, PANEL_FALLBACK_POLL_MS);
+  }
+  if (!window.moonrakerStalenessTimer) {
+    window.moonrakerStalenessTimer = setInterval(updateStaleness, PANEL_STALENESS_CHECK_MS);
+  }
+}
+
+function stopPanelTimers() {
+  if (window.moonrakerRefreshTimer) {
+    clearInterval(window.moonrakerRefreshTimer);
+    window.moonrakerRefreshTimer = null;
+  }
+  if (window.moonrakerStalenessTimer) {
+    clearInterval(window.moonrakerStalenessTimer);
+    window.moonrakerStalenessTimer = null;
+  }
+}
+
+function handlePanelVisibilityChange() {
+  if (document.hidden) stopPanelTimers();
+  else {
+    startPanelTimers();
+    refresh();
+  }
+}
+
+function cleanupPanel() {
+  panelStopped = true;
+  stopPanelTimers();
+  stopLiveSubscription();
+  resetLiveTracking();
+  void resetPanelPush();
+  if (toolpathAbort) {
+    toolpathAbort.abort();
+    toolpathAbort = null;
+  }
+  for (const frame of [cameraAnimFrame, orbitInertiaFrame, headAnimFrame]) {
+    if (frame !== null) cancelAnimationFrame(frame);
+  }
+  cameraAnimFrame = null;
+  orbitInertiaFrame = null;
+  headAnimFrame = null;
+  cameraAnim = null;
+  clearTimelapse();
+  clearAuthedImage(byId("thumb"));
+  clearAuthedImage(byId("jobDoneThumb"));
+  clearAuthedImage(byId("analysisThumb"));
+  const toastTimer = byId("toast")?._timer;
+  if (toastTimer) clearTimeout(toastTimer);
+  latestData = null;
+  toolpathSegments = [];
+  toolpathBounds = null;
+  lastFiles = [];
+  availableWebcams = [];
+  sentCommandHistory = [];
+}
+
+function handlePanelPageHide(event) {
+  if (!event.persisted) cleanupPanel();
+}
+
 function initializePanel() {
+  panelStopped = false;
   bindInteractions();
   bindToolpathCanvas();
   bindAlertSettings();
+  document.addEventListener("visibilitychange", handlePanelVisibilityChange);
+  window.addEventListener("pagehide", handlePanelPageHide);
   byId("pageDetails").setAttribute("aria-hidden", "true");
   renderSentCommandHistory();
   setScreen("dashboard");
   refresh();
-  if (!window.moonrakerRefreshTimer) window.moonrakerRefreshTimer = setInterval(refresh, 2000);
-  if (!window.moonrakerStalenessTimer) window.moonrakerStalenessTimer = setInterval(updateStaleness, 1000);
+  startPanelTimers();
 }
 
 function startPanel() {

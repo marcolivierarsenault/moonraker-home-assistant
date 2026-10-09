@@ -1,5 +1,6 @@
 """Tests for the authenticated Moonraker control panel."""
 
+import asyncio
 import json
 from datetime import timedelta
 from types import SimpleNamespace
@@ -1096,6 +1097,28 @@ async def test_panel_aux_data_failure_paths(hass):
     # TTL cache serves a repeat call without touching Moonraker.
     assert await _panel_aux_data(coordinator) == aux
     assert calls["n"] == 6
+
+
+async def test_panel_aux_data_coalesces_concurrent_fetches(hass):
+    """Concurrent panel connections share one batch of auxiliary requests."""
+    from custom_components.moonraker.panel import _panel_aux_data
+
+    calls = 0
+
+    async def _fetch(method, params=None, quiet=False):
+        nonlocal calls
+        calls += 1
+        await asyncio.sleep(0)
+        return {"method": method.value}
+
+    coordinator = _panel_coordinator(
+        hass, async_fetch_data=AsyncMock(side_effect=_fetch)
+    )
+    first, second = await asyncio.gather(
+        _panel_aux_data(coordinator), _panel_aux_data(coordinator)
+    )
+    assert first == second
+    assert calls == 6
 
 
 async def test_console_lines_merges_store_and_live(hass):

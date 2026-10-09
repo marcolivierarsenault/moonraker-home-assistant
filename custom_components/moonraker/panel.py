@@ -53,7 +53,7 @@ UPLOAD_URL = "/api/moonraker/gcode_upload"
 
 _GCODE_ROOT = "gcodes"
 _MAX_TOOLPATH_BYTES = 128 * 1024 * 1024
-_AUX_CACHE_TTL = 10.0
+_AUX_CACHE_TTL = 40 / 3
 _TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "panel.html")
 _MODULE_PATH = os.path.join(os.path.dirname(__file__), "panel_module.js")
 _CLIENT_PATH = os.path.join(os.path.dirname(__file__), "panel_client.js")
@@ -158,43 +158,47 @@ async def _panel_aux_data(coordinator) -> dict[str, Any]:
     The results are cached briefly so websocket pushes do not fan out into a
     burst of extra Moonraker calls on every coordinator update.
     """
-    cache = getattr(coordinator, "_panel_aux_cache", None)
-    now = time.monotonic()
-    if cache is not None and now - cache[0] < _AUX_CACHE_TTL:
-        return cache[1]
+    lock = getattr(coordinator, "_panel_aux_lock", None)
+    if lock is None:
+        lock = coordinator._panel_aux_lock = asyncio.Lock()
+    async with lock:
+        cache = getattr(coordinator, "_panel_aux_cache", None)
+        now = time.monotonic()
+        if cache is not None and now - cache[0] < _AUX_CACHE_TTL:
+            return cache[1]
 
-    async def _fetch(method: METHODS, params=None):
-        try:
-            return await coordinator.async_fetch_data(method, params, quiet=True)
-        except UpdateFailed:
-            return None
-        except Exception:  # noqa: BLE001 - aux data must never break the panel
-            _LOGGER.debug("Panel aux fetch failed for %s", method, exc_info=True)
-            return None
+        async def _fetch(method: METHODS, params=None):
+            try:
+                return await coordinator.async_fetch_data(method, params, quiet=True)
+            except UpdateFailed:
+                return None
+            except Exception:  # noqa: BLE001 - aux data must never break the panel
+                _LOGGER.debug("Panel aux fetch failed for %s", method, exc_info=True)
+                return None
 
-    keys = (
-        "power_devices",
-        "queue",
-        "history",
-        "machine_update",
-        "spoolman",
-        "gcode_store",
-    )
-    results = await asyncio.gather(
-        _fetch(METHODS.MACHINE_DEVICE_POWER_DEVICES),
-        _fetch(METHODS.SERVER_JOB_QUEUE_STATUS),
-        _fetch(METHODS.SERVER_HISTORY_TOTALS),
-        _fetch(METHODS.MACHINE_UPDATE_STATUS),
-        _fetch(METHODS.SERVER_SPOOLMAN_ID),
-        _fetch(METHODS.SERVER_GCODE_STORE, {"count": 200}),
-    )
-    aux = {
-        key: result
-        for key, result in zip(keys, results, strict=True)
-        if isinstance(result, dict)
-    }
-    coordinator._panel_aux_cache = (now, aux)
-    return aux
+        keys = (
+            "power_devices",
+            "queue",
+            "history",
+            "machine_update",
+            "spoolman",
+            "gcode_store",
+        )
+        results = await asyncio.gather(
+            _fetch(METHODS.MACHINE_DEVICE_POWER_DEVICES),
+            _fetch(METHODS.SERVER_JOB_QUEUE_STATUS),
+            _fetch(METHODS.SERVER_HISTORY_TOTALS),
+            _fetch(METHODS.MACHINE_UPDATE_STATUS),
+            _fetch(METHODS.SERVER_SPOOLMAN_ID),
+            _fetch(METHODS.SERVER_GCODE_STORE, {"count": 200}),
+        )
+        aux = {
+            key: result
+            for key, result in zip(keys, results, strict=True)
+            if isinstance(result, dict)
+        }
+        coordinator._panel_aux_cache = (time.monotonic(), aux)
+        return aux
 
 
 def _console_lines(coordinator, gcode_store) -> list[str]:
@@ -362,7 +366,7 @@ async def _panel_payload(hass: HomeAssistant, coordinator) -> dict[str, Any]:
             "port": _entry_port(entry),
             "tls": bool(entry.data.get(CONF_TLS, False)),
             "idle_poll_seconds": coordinator.polling_interval.total_seconds(),
-            "print_poll_seconds": PRINTING_POLLING_RATE,
+            "print_poll_seconds": round(PRINTING_POLLING_RATE, 1),
             "quiet_unreachable": bool(
                 entry_options.get(CONF_OPTION_QUIET_UNREACHABLE, False)
             ),

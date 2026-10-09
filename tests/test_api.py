@@ -41,6 +41,7 @@ async def test_disconnect_client():
         moonraker_api = MoonrakerApiClient("notaURL", None, port=7125, api_key="1dd2")
     moonraker_api.client.disconnect = AsyncMock()
     await moonraker_api.stop()
+    await moonraker_api.stop()
     moonraker_api.client.disconnect.assert_awaited_once()
     assert moonraker_api.running is False
 

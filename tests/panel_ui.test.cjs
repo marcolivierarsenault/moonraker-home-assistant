@@ -806,3 +806,129 @@ test("completion card hides absent thumbnails with inline display state", () => 
   assert.equal(image.style.display, "none");
   assert.equal(image.src, "");
 });
+
+test("panel polling uses the reduced cadence and unload releases subscriptions", async () => {
+  const { context, document, window } = createPanelClient();
+  const intervals = [];
+  const cleared = [];
+  let unsubscribed = 0;
+  context.setInterval = (_callback, milliseconds) => {
+    intervals.push(milliseconds);
+    return intervals.length;
+  };
+  context.clearInterval = id => cleared.push(id);
+  window.hass = {
+    callApi: async () => ({}),
+    fetchWithAuth: async () => ({}),
+    connection: {
+      subscribeEvents: async (_callback, eventType) => {
+        assert.equal(eventType, "state_changed");
+        return () => { unsubscribed += 1; };
+      },
+    },
+  };
+
+  context.startPanelTimers();
+  context.ensureLiveSubscription();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.deepEqual(intervals, [2667, 1333]);
+
+  document.hidden = true;
+  context.handlePanelVisibilityChange();
+  assert.deepEqual(cleared, [1, 2]);
+  context.cleanupPanel();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(unsubscribed, 1);
+  assert.equal(window.moonrakerRefreshTimer, null);
+  assert.equal(window.moonrakerStalenessTimer, null);
+});
+
+test("timelapse captures are serialized and bounded by retained image bytes", async () => {
+  const { context, window } = createPanelClient();
+  const revoked = [];
+  let objectUrlIndex = 0;
+  const pending = [];
+  context.AbortController = AbortController;
+  context.URL = {
+    createObjectURL: () => `blob:frame-${++objectUrlIndex}`,
+    revokeObjectURL: url => revoked.push(url),
+  };
+  window.hass = {
+    callApi: async () => ({}),
+    fetchWithAuth: () => new Promise(resolve => pending.push(resolve)),
+  };
+  vm.runInContext(`printer = "p";
+    availableWebcams = [{ name: "Front", snapshot_url: "/snapshot" }];
+    dashboardCameraAssignments = ["Front"];
+    liveLayer = 1;`, context);
+
+  const firstCapture = context.captureTimelapseFrame();
+  await context.captureTimelapseFrame();
+  assert.equal(pending.length, 1);
+  pending.shift()({
+    ok: true,
+    headers: { get: () => null },
+    blob: async () => ({ size: 40 * 1024 * 1024 }),
+  });
+  await firstCapture;
+
+  vm.runInContext("liveLayer = 2", context);
+  const secondCapture = context.captureTimelapseFrame();
+  pending.shift()({
+    ok: true,
+    headers: { get: () => null },
+    blob: async () => ({ size: 40 * 1024 * 1024 }),
+  });
+  await secondCapture;
+
+  assert.equal(vm.runInContext("timelapseFrames.length", context), 1);
+  assert.equal(vm.runInContext("timelapseBytes", context), 40 * 1024 * 1024);
+  assert.deepEqual(revoked, ["blob:frame-1"]);
+
+  context.clearTimelapse();
+  assert.equal(vm.runInContext("timelapseBytes", context), 0);
+  assert.deepEqual(revoked, ["blob:frame-1", "blob:frame-2"]);
+
+  let responseCanceled = false;
+  window.hass.fetchWithAuth = async () => ({
+    ok: true,
+    headers: { get: () => String(65 * 1024 * 1024) },
+    body: { cancel: async () => { responseCanceled = true; } },
+  });
+  await context.captureTimelapseFrame();
+  assert.equal(responseCanceled, true);
+  assert.equal(vm.runInContext("timelapseFrames.length", context), 0);
+});
+
+test("refresh dedupes in-flight polls, drops stale responses, and stops on cleanup", async () => {
+  const { context, window } = createPanelClient();
+  let calls = 0;
+  const pending = [];
+  window.hass = {
+    callApi: () => {
+      calls += 1;
+      return new Promise(resolve => pending.push(resolve));
+    },
+    fetchWithAuth: async () => ({}),
+  };
+  vm.runInContext('printer = "p1";', context);
+
+  const first = context.refresh();
+  context.refresh();
+  assert.equal(calls, 1);
+
+  // A printer switch mid-request drops the stale payload and re-polls.
+  vm.runInContext('printer = "p2";', context);
+  pending.shift()({});
+  await first;
+  assert.equal(calls, 2);
+  pending.shift()({ status: {}, printer_info: {} });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  context.cleanupPanel();
+  assert.equal(vm.runInContext("panelStopped", context), true);
+  await context.refresh();
+  assert.equal(calls, 2);
+});
