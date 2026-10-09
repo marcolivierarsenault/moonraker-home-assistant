@@ -93,6 +93,28 @@ def _entry_polling_interval(entry: ConfigEntry) -> timedelta:
     return timedelta(seconds=max(polling_rate, MIN_POLLING_RATE))
 
 
+def _migrated_polling_rate(value: Any) -> int:
+    """Increase a saved polling interval to reduce its polling frequency by 25%."""
+    try:
+        polling_rate = int(value)
+    except (TypeError, ValueError):
+        return DEFAULT_POLLING_RATE
+    return max(MIN_POLLING_RATE, (polling_rate * 4 + 2) // 3)
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate existing polling options to the lower-traffic cadence."""
+    if entry.version > 1:
+        return False
+    options = dict(entry.options)
+    if CONF_OPTION_POLLING_RATE in options:
+        options[CONF_OPTION_POLLING_RATE] = _migrated_polling_rate(
+            options[CONF_OPTION_POLLING_RATE]
+        )
+    hass.config_entries.async_update_entry(entry, options=options, version=2)
+    return True
+
+
 async def _async_is_tcp_reachable(host: str, port: int | str | None) -> bool:
     """Return whether a TCP connection to the Moonraker endpoint can be opened."""
     writer: asyncio.StreamWriter | None = None
@@ -246,6 +268,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
         async with async_timeout.timeout(TIMEOUT):
             await api.start()
+            entry.async_on_unload(api.stop)
             printer_info = await api.client.call_method("printer.info")
             _LOGGER.debug(printer_info)
 

@@ -27,6 +27,7 @@ from custom_components.moonraker import (
     _async_is_tcp_reachable,
     _build_thumbnail_path,
     _entry_polling_interval,
+    async_migrate_entry,
     _normalize_gcode_path,
     _normalize_moonraker_port,
     _strip_gcode_root,
@@ -82,21 +83,58 @@ def test_normalize_moonraker_port_converts_configured_values():
 @pytest.mark.parametrize(
     ("options", "expected"),
     [
-        ({}, 30),
-        ({CONF_OPTION_POLLING_RATE: 0}, 5),
-        ({CONF_OPTION_POLLING_RATE: 2}, 5),
+        ({}, 40),
+        ({CONF_OPTION_POLLING_RATE: 0}, 7),
+        ({CONF_OPTION_POLLING_RATE: 2}, 7),
         ({CONF_OPTION_POLLING_RATE: 45}, 45),
-        ({CONF_OPTION_POLLING_RATE: "invalid"}, 30),
-        ({CONF_OPTION_POLLING_RATE: None}, 30),
+        ({CONF_OPTION_POLLING_RATE: "invalid"}, 40),
+        ({CONF_OPTION_POLLING_RATE: None}, 40),
     ],
 )
 def test_entry_polling_interval_is_safe(options, expected):
-    """Polling intervals should be per-entry and never fall below five seconds."""
+    """Polling intervals should be per-entry and never fall below seven seconds."""
     config_entry = MockConfigEntry(
         domain=DOMAIN, data=MOCK_CONFIG, options=options, entry_id="polling"
     )
 
     assert _entry_polling_interval(config_entry) == timedelta(seconds=expected)
+
+
+@pytest.mark.parametrize(
+    ("polling_rate", "expected"),
+    [(30, 40), (5, 7), (45, 60), ("invalid", 40), (None, 40)],
+)
+async def test_migrate_polling_options(hass, polling_rate, expected):
+    """Existing polling options migrate to intervals with 25% fewer polls."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MOCK_CONFIG,
+        options={CONF_OPTION_POLLING_RATE: polling_rate},
+        entry_id="polling-migration",
+        version=1,
+    )
+    config_entry.add_to_hass(hass)
+
+    assert await async_migrate_entry(hass, config_entry)
+    assert config_entry.version == 2
+    assert config_entry.options[CONF_OPTION_POLLING_RATE] == expected
+
+
+async def test_migrate_polling_options_missing_and_future_versions(hass):
+    """Missing polling options use the new default; future versions are untouched."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, entry_id="polling-migration", version=1
+    )
+    config_entry.add_to_hass(hass)
+    assert await async_migrate_entry(hass, config_entry)
+    assert CONF_OPTION_POLLING_RATE not in config_entry.options
+    assert config_entry.version == 2
+
+    future_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, entry_id="polling-future", version=2
+    )
+    assert not await async_migrate_entry(hass, future_entry)
+    assert future_entry.version == 2
 
 
 def test_normalize_gcode_path_empty():
@@ -1366,14 +1404,14 @@ async def test_polling_interval_changes_on_print_state(hass, get_data):
     await hass.config_entries.async_setup(config_entry.entry_id)
     coordinator = hass.data[DOMAIN][config_entry.entry_id]
 
-    # Default should be 30 seconds
-    assert coordinator.update_interval == timedelta(seconds=30)
+    # Default should be 40 seconds
+    assert coordinator.update_interval == timedelta(seconds=40)
 
     with patch.object(coordinator, "_schedule_refresh") as mock_refresh:
         # Simulate a state change to printing
         get_data["status"]["print_stats"]["state"] = PRINTSTATES.PRINTING.value
         await coordinator._async_update_data()
-        assert coordinator.update_interval == timedelta(seconds=10)
+        assert coordinator.update_interval == _PRINTING_SCAN_INTERVAL
         assert mock_refresh.called
 
         mock_refresh.reset_mock()
@@ -1381,7 +1419,7 @@ async def test_polling_interval_changes_on_print_state(hass, get_data):
         # Simulate a state change back to standby
         get_data["status"]["print_stats"]["state"] = PRINTSTATES.STANDBY.value
         await coordinator._async_update_data()
-        assert coordinator.update_interval == timedelta(seconds=30)
+        assert coordinator.update_interval == timedelta(seconds=40)
         assert mock_refresh.called
 
         mock_refresh.reset_mock()
@@ -1411,7 +1449,7 @@ async def test_polling_interval_no_change_on_same_state(hass, get_data):
         # Call update with the same state
         await coordinator._async_update_data()
         assert not mock_refresh.called
-        assert coordinator.update_interval == timedelta(seconds=30)
+        assert coordinator.update_interval == timedelta(seconds=40)
 
 
 async def test_polling_interval_uses_per_entry_option(hass, get_data):
@@ -1427,13 +1465,143 @@ async def test_polling_interval_uses_per_entry_option(hass, get_data):
     await hass.config_entries.async_setup(config_entry.entry_id)
     coordinator = hass.data[DOMAIN][config_entry.entry_id]
 
-    assert coordinator.update_interval == timedelta(seconds=45)
+    assert coordinator.update_interval == timedelta(seconds=60)
 
     with patch.object(coordinator, "_schedule_refresh"):
         get_data["status"]["print_stats"]["state"] = PRINTSTATES.PRINTING.value
         await coordinator._async_update_data()
-        assert coordinator.update_interval == timedelta(seconds=10)
+        assert coordinator.update_interval == _PRINTING_SCAN_INTERVAL
 
         get_data["status"]["print_stats"]["state"] = PRINTSTATES.STANDBY.value
         await coordinator._async_update_data()
-        assert coordinator.update_interval == timedelta(seconds=45)
+        assert coordinator.update_interval == timedelta(seconds=60)
+
+
+
+def test_normalize_gcode_path_rejects_traversal():
+    """Traversal and empty path segments never reach Moonraker."""
+    assert _normalize_gcode_path("../x.gcode") == ("", None)
+    assert _normalize_gcode_path("a//b.gcode") == ("", None)
+    assert _normalize_gcode_path("./a.gcode") == ("", None)
+    assert _normalize_gcode_path("gcodes/sub/a.gcode") == ("sub/a.gcode", "gcodes")
+
+
+async def test_setup_entry_tolerates_optional_refresh_failures(hass):
+    """Bed-mesh prefetch and status subscription failures don't block setup."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="x")
+    config_entry.add_to_hass(hass)
+
+    with (
+        patch.object(
+            MoonrakerDataUpdateCoordinator,
+            "async_get_printer_objects",
+            new=AsyncMock(return_value={"objects": ["bed_mesh", "extruder"]}),
+        ),
+        patch.object(
+            MoonrakerDataUpdateCoordinator,
+            "async_refresh_query_data",
+            new=AsyncMock(side_effect=UpdateFailed("mesh")),
+        ),
+        patch.object(
+            MoonrakerDataUpdateCoordinator,
+            "async_subscribe_status_updates",
+            new=AsyncMock(side_effect=UpdateFailed("sub")),
+        ),
+    ):
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert config_entry.state.name == "LOADED"
+
+
+async def test_fetch_and_send_resubscribe_failure_raises(hass):
+    """A failed resubscribe during reconnect surfaces as UpdateFailed."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="x")
+    client = MagicMock()
+    client.start = AsyncMock()
+    client.client.is_connected = False
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=client, config_entry=config_entry, api_device_name="p"
+    )
+    coordinator._subscribed_to_status = True
+    coordinator._async_resubscribe = AsyncMock(side_effect=RuntimeError("nope"))
+
+    with pytest.raises(UpdateFailed):
+        await coordinator._async_fetch_data(METHODS.PRINTER_INFO, None)
+    with pytest.raises(UpdateFailed):
+        await coordinator._async_send_data(METHODS.PRINTER_INFO, None)
+
+
+async def test_empty_subscriptions_are_noops(hass):
+    """Empty subscription maps short-circuit both subscribe and resubscribe."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="x")
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=MagicMock(), config_entry=config_entry, api_device_name="p"
+    )
+    coordinator.query_obj = {OBJ: {}}
+    coordinator._async_fetch_data = AsyncMock()
+
+    await coordinator.async_subscribe_status_updates()
+    coordinator._async_fetch_data.assert_not_awaited()
+
+    coordinator._subscribed_to_status = True
+    await coordinator._async_resubscribe()
+    coordinator._async_fetch_data.assert_not_awaited()
+    coordinator.moonraker.client.call_method.assert_not_called()
+
+
+async def test_status_delta_accepts_dict_and_list(hass):
+    """_status_delta unwraps dict replies and ignores empty data."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="x")
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=MagicMock(), config_entry=config_entry, api_device_name="p"
+    )
+
+    assert coordinator._status_delta([{"a": 1}, 2.0]) == {"a": 1}
+    assert coordinator._status_delta({"status": {"a": 1}}) == {"a": 1}
+    assert coordinator._status_delta({"x": 1}) == {"x": 1}
+    assert coordinator._status_delta([]) == {}
+
+
+async def test_notification_guards(hass):
+    """Empty deltas and unchanged merges short-circuit notification handling."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="x")
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=MagicMock(), config_entry=config_entry, api_device_name="p"
+    )
+    coordinator.data = {"status": {"print_stats": {"state": "printing"}}}
+    coordinator.async_update_listeners = MagicMock()
+
+    # Empty delta -> nothing happens
+    await coordinator._async_handle_notification(NOTIFY_STATUS_UPDATE, [])
+    coordinator.async_update_listeners.assert_not_called()
+
+    # Unchanged merge -> nothing happens
+    await coordinator._async_handle_notification(
+        NOTIFY_STATUS_UPDATE, [{"print_stats": {"state": "printing"}}, 1.0]
+    )
+    coordinator.async_update_listeners.assert_not_called()
+
+
+async def test_push_flush_with_no_data_returns(hass):
+    """The push flush bails cleanly when no data exists yet."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="x")
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=MagicMock(), config_entry=config_entry, api_device_name="p"
+    )
+    coordinator.data = None
+    await coordinator._async_flush_push_data()
+
+
+async def test_push_flush_filename_change_triggers_refresh(hass):
+    """A new filename in pushed data schedules a metadata refresh."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="x")
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=MagicMock(), config_entry=config_entry, api_device_name="p"
+    )
+    coordinator.data = {"status": {"print_stats": {"filename": "new.gcode"}}}
+    coordinator.async_update_listeners = MagicMock()
+    coordinator.async_request_refresh = AsyncMock()
+
+    await coordinator._async_flush_push_data()
+    coordinator.async_request_refresh.assert_awaited_once()

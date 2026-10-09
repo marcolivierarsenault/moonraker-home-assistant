@@ -460,7 +460,7 @@ async def test_polling_rate_options_enforce_minimum(hass):
     result = await hass.config_entries.options.async_init(config_entry.entry_id)
     schema = result["data_schema"]
 
-    assert schema({})[CONF_OPTION_POLLING_RATE] == 5
-    assert schema({CONF_OPTION_POLLING_RATE: 5})[CONF_OPTION_POLLING_RATE] == 5
+    assert schema({})[CONF_OPTION_POLLING_RATE] == 7
+    assert schema({CONF_OPTION_POLLING_RATE: 7})[CONF_OPTION_POLLING_RATE] == 7
     with pytest.raises(vol.Invalid):
-        schema({CONF_OPTION_POLLING_RATE: 4})
+        schema({CONF_OPTION_POLLING_RATE: 6})
