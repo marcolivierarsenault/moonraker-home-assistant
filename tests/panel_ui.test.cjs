@@ -697,3 +697,55 @@ test("custom panel sizes its iframe to the available viewport and responds to re
   assert.equal(listeners.has("resize"), false);
   assert.equal(viewportListeners.has("resize"), false);
 });
+
+test("toolpath sampling keeps the full build height when G-code exceeds the segment cap", () => {
+  const { context } = createPanelClient();
+  const result = vm.runInContext(`(() => {
+    const state = {
+      xyzAbsolute: true,
+      eAbsolute: true,
+      unit: 1,
+      position: { x: 0, y: 0, z: 0, e: 0 },
+      extrusions: 0,
+      sampleStride: 1,
+    };
+    const segments = [];
+    const bounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, minZ: Infinity, maxZ: -Infinity };
+    parseGcodeLine("G90", state, 0, 1);
+    parseGcodeLine("M83", state, 0, 1);
+    let lastLayer172Index = 0;
+    let hasLayer173 = false;
+    for (let layer = 0; layer < 298; layer++) {
+      const z = layer < 172
+        ? ((layer + 1) * 24.2 / 172).toFixed(6)
+        : (24.2 + (layer - 171) * 25.2 / 126).toFixed(6);
+      parseGcodeLine("G1 Z" + z, state, layer / 298, 1);
+      parseGcodeLine("G92 E0", state, layer / 298, 1);
+      const moves = layer < 54 ? 162 : layer < 171 ? 161 : layer === 171 ? 488 : layer < 190 ? 151 : 150;
+      for (let move = 0; move < moves; move++) {
+        const x = state.extrusions % 2 === 0 ? 11 : 10;
+        const segment = parseGcodeLine("G1 X" + x + " Y" + (layer + 1) + " E0.2", state, state.extrusions / 46991, 1);
+        if (segment) {
+          addToolpathSegment(segments, bounds, segment, state);
+          if (layer === 171) lastLayer172Index = Math.max(lastLayer172Index, segment.extrusionIndex);
+          if (layer === 172) hasLayer173 = true;
+        }
+      }
+    }
+    return {
+      count: segments.length,
+      extrusions: state.extrusions,
+      maxZ: Math.max(...segments.map(segment => segment.b[2])),
+      lastLayer172Index,
+      hasLayer173,
+      stride: state.sampleStride,
+    };
+  })()`, context);
+
+  assert.ok(result.count <= 28000);
+  assert.equal(result.stride, 2);
+  assert.equal(result.extrusions, 46991);
+  assert.ok(result.lastLayer172Index > 28000);
+  assert.equal(result.hasLayer173, true);
+  assert.ok(Math.abs(result.maxZ - 49.4) < 0.001);
+});

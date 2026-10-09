@@ -1573,8 +1573,14 @@ function parseGcodeLine(line, state, fraction, stride) {
   const distance = Math.hypot(next.x - previous.x, next.y - previous.y, next.z - previous.z);
   if (extrusionDelta <= 0.0005 || distance <= 0.0001) return null;
   state.extrusions += 1;
-  if (state.extrusions % stride !== 0) return null;
-  return { a: [previous.x, previous.y, previous.z], b: [next.x, next.y, next.z], fraction };
+  const sampleStride = state.sampleStride || stride || 1;
+  if (state.extrusions % sampleStride !== 0) return null;
+  return {
+    a: [previous.x, previous.y, previous.z],
+    b: [next.x, next.y, next.z],
+    fraction,
+    extrusionIndex: state.extrusions,
+  };
 }
 
 function beginToolpathLoad(data, filename, key) {
@@ -1681,7 +1687,7 @@ async function loadToolpath(data, filename, key, signal) {
       ? Math.max(0, Math.min((offset - rangeStart) / rangeBytes, 1))
       : 0;
     const stride = Math.max(1, Math.ceil(totalBytes / (MAX_TOOLPATH_SEGMENTS * 70)));
-    const state = { xyzAbsolute: true, eAbsolute: true, unit: 1, position: { x: 0, y: 0, z: 0, e: 0 }, extrusions: 0 };
+    const state = { xyzAbsolute: true, eAbsolute: true, unit: 1, position: { x: 0, y: 0, z: 0, e: 0 }, extrusions: 0, sampleStride: stride };
     const bounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, minZ: Infinity, maxZ: -Infinity };
     const segments = [];
     const decoder = new TextDecoder();
@@ -1693,7 +1699,7 @@ async function loadToolpath(data, filename, key, signal) {
       for (let index = 0; index < lines.length; index++) {
         offset += lines[index].length + 1;
         const segment = parseGcodeLine(lines[index], state, fractionAt(offset), stride);
-        if (segment && offset >= rangeStart && offset <= rangeEnd) addToolpathSegment(segments, bounds, segment);
+        if (segment && offset >= rangeStart && offset <= rangeEnd) addToolpathSegment(segments, bounds, segment, state);
         if (index > 0 && index % 6000 === 0) await new Promise(requestAnimationFrame);
       }
     } else {
@@ -1710,7 +1716,7 @@ async function loadToolpath(data, filename, key, signal) {
           const line = rawLine.replace(/\r$/, "");
           parsedChars += line.length + 1;
           const segment = parseGcodeLine(line, state, fractionAt(parsedChars), stride);
-          if (segment && parsedChars >= rangeStart && parsedChars <= rangeEnd) addToolpathSegment(segments, bounds, segment);
+          if (segment && parsedChars >= rangeStart && parsedChars <= rangeEnd) addToolpathSegment(segments, bounds, segment, state);
           lineCount += 1;
         }
         if (lineCount && lineCount % 7000 < lines.length) {
@@ -1722,7 +1728,7 @@ async function loadToolpath(data, filename, key, signal) {
       if (buffer) {
         parsedChars += buffer.length;
         const segment = parseGcodeLine(buffer, state, fractionAt(parsedChars), stride);
-        if (segment && parsedChars >= rangeStart && parsedChars <= rangeEnd) addToolpathSegment(segments, bounds, segment);
+        if (segment && parsedChars >= rangeStart && parsedChars <= rangeEnd) addToolpathSegment(segments, bounds, segment, state);
       }
     }
     if (key !== toolpathKey) return;
@@ -1744,8 +1750,18 @@ async function loadToolpath(data, filename, key, signal) {
   }
 }
 
-function addToolpathSegment(segments, bounds, segment) {
-  if (segments.length >= MAX_TOOLPATH_SEGMENTS) return;
+function addToolpathSegment(segments, bounds, segment, state) {
+  if (segments.length >= MAX_TOOLPATH_SEGMENTS) {
+    state.sampleStride = (state.sampleStride || 1) * 2;
+    let kept = 0;
+    for (const existing of segments) {
+      if (existing.extrusionIndex % state.sampleStride === 0) {
+        segments[kept++] = existing;
+      }
+    }
+    segments.length = kept;
+  }
+  if (segment.extrusionIndex % (state.sampleStride || 1) !== 0) return;
   segments.push(segment);
   for (const point of [segment.a, segment.b]) {
     bounds.minX = Math.min(bounds.minX, point[0]);
