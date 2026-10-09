@@ -5,4 +5,25 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 scripts/test_panel_ui
-pytest --durations=10 --cov=custom_components.moonraker --cov-report=term-missing --cov-report=xml --cov-fail-under=100 tests
+
+# Prefer the project virtualenv so the test extras (pytest-cov,
+# pytest-socket, pytest-homeassistant-custom-component) are available.
+PY_BIN=""
+for candidate in .venv/bin/python .venv/Scripts/python; do
+  if [ -x "$candidate" ]; then
+    PY_BIN="$candidate"
+    break
+  fi
+done
+if [ -z "$PY_BIN" ]; then
+  PY_BIN="$(command -v python || command -v python3 || true)"
+fi
+
+# Windows lacks POSIX modules that Home Assistant imports at plugin load
+# time (fcntl, resource); provide no-op stubs for the test run only.
+if [ -n "$PY_BIN" ] && ! "$PY_BIN" -c 'import fcntl' >/dev/null 2>&1; then
+  SEP="$("$PY_BIN" -c 'import os; print(os.pathsep)')"
+  export PYTHONPATH="tests/posix_compat${PYTHONPATH:+${SEP}${PYTHONPATH}}"
+fi
+
+"$PY_BIN" -m pytest --durations=10 --cov=custom_components.moonraker --cov-report=term-missing --cov-report=xml --cov-fail-under=100 tests

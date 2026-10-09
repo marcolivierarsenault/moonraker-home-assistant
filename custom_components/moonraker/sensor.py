@@ -453,7 +453,10 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
         if split_obj[0] in temperature_keys and len(split_obj) > 1:
             # If we already have a temperature_sensor <name>, don't also create a Temp entity
             # from bme280/aht10/etc for the same <name>.
-            if not (split_obj[0] in environmental_keys and split_obj[1] in generic_temp_names):
+            if not (
+                split_obj[0] in environmental_keys
+                and split_obj[1] in generic_temp_names
+            ):
                 desc = MoonrakerSensorDescription(
                     key=f"{split_obj[0]}_{split_obj[1]}",
                     status_key=obj,
@@ -844,11 +847,7 @@ async def async_setup_queue_sensors(coordinator, entry, async_add_entities):
 
 
 async def _spoolman_updater(coordinator):
-    return {
-        "spoolman": await coordinator.async_fetch_data(
-            METHODS.SERVER_SPOOLMAN_ID
-        )
-    }
+    return {"spoolman": await coordinator.async_fetch_data(METHODS.SERVER_SPOOLMAN_ID)}
 
 
 async def async_setup_spoolman_sensors(coordinator, entry, async_add_entities):
@@ -886,9 +885,7 @@ async def async_setup_machine_update_sensors(coordinator, entry, async_add_entit
     if machine_status.get("error"):
         return
     coordinator.set_initial_data("machine_update", machine_status)
-    coordinator.add_data_updater(
-        _machine_update_updater, every=SLOW_UPDATE_CYCLES
-    )
+    coordinator.add_data_updater(_machine_update_updater, every=SLOW_UPDATE_CYCLES)
     sensors = []
 
     for version_info in machine_status["version_info"]:
@@ -1040,6 +1037,7 @@ def _coerce_positive_int(value) -> int | None:
 
     return int(round(number, 0))
 
+
 def _as_float(value) -> float | None:
     try:
         return float(value)
@@ -1166,9 +1164,7 @@ def calculate_current_layer(data):
     print_duration = print_stats.get("print_duration")
     filename = print_stats.get("filename") or ""
     if not filename:
-        filename = (
-            data["status"].get("virtual_sdcard", {}).get("file_path") or ""
-        )
+        filename = data["status"].get("virtual_sdcard", {}).get("file_path") or ""
 
     if (
         print_stats.get("state") != PRINTSTATES.PRINTING.value

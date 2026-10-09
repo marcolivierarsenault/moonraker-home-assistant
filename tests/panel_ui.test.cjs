@@ -75,6 +75,12 @@ class FakeElement {
 
   focus() {}
 
+  getBoundingClientRect() {
+    return { x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0 };
+  }
+
+  setPointerCapture() {}
+
   replaceChildren(...nodes) {
     this.children = [];
     this.append(...nodes);
@@ -183,6 +189,8 @@ function createPanelClient() {
     window,
     console,
     requestAnimationFrame: callback => callback(),
+    setTimeout: () => 0,
+    clearTimeout: () => {},
   });
   const source = fs.readFileSync(
     path.join(__dirname, "../custom_components/moonraker/panel_client.js"),
@@ -332,6 +340,143 @@ test("toolpath projection renders increasing Z upward on screen", () => {
   assert.ok(topBack.y < topFront.y, "top view should render +Y toward the top of the screen");
 });
 
+test("toolpath view presets cover seven angles and settle on target", () => {
+  const { context } = createPanelClient();
+  const views = JSON.parse(vm.runInContext("JSON.stringify(CAMERA_VIEWS)", context));
+  assert.deepEqual(Object.keys(views).sort(), ["back", "front", "iso", "iso2", "left", "right", "top"]);
+
+  vm.runInContext('toolpathCamera.panX = 30; toolpathCamera.zoom = 2; setToolpathView("back");', context);
+  const settled = JSON.parse(vm.runInContext("JSON.stringify({ yaw: toolpathCamera.yaw, pitch: toolpathCamera.pitch, zoom: toolpathCamera.zoom, panX: toolpathCamera.panX, anim: cameraAnim })", context));
+  assert.equal(settled.anim, null);
+  assert.equal(settled.yaw, Math.PI);
+  assert.equal(settled.pitch, 1.5);
+  assert.equal(settled.zoom, 1);
+  assert.equal(settled.panX, 0);
+});
+
+test("live entity pushes update toolhead target and progress", async () => {
+  const { context, window } = createPanelClient();
+  context.toast = () => {};
+  const subscriptions = [];
+  window.hass = {
+    callApi: async () => ({}),
+    fetchWithAuth: async () => null,
+    entities: {
+      "sensor.p5_toolhead_position_x": { entity_id: "sensor.p5_toolhead_position_x", unique_id: "entry-1_toolhead_position_x" },
+      "sensor.p5_toolhead_position_y": { entity_id: "sensor.p5_toolhead_position_y", unique_id: "entry-1_toolhead_position_y" },
+      "sensor.p5_toolhead_position_z": { entity_id: "sensor.p5_toolhead_position_z", unique_id: "entry-1_toolhead_position_z" },
+      "sensor.p5_progress": { entity_id: "sensor.p5_progress", unique_id: "entry-1_progress" },
+      "sensor.other_toolhead_position_x": { entity_id: "sensor.other_toolhead_position_x", unique_id: "entry-2_toolhead_position_x" },
+    },
+    connection: {
+      subscribeEvents: async (callback, eventType) => {
+        subscriptions.push({ callback, eventType });
+        return () => {};
+      },
+      sendMessagePromise: async () => [],
+    },
+  };
+  vm.runInContext('printer = "entry-1"; latestData = { status: { toolhead: { position: [10, 20, 5, 0] } } };', context);
+  await context.resolveLiveEntities();
+  context.ensureLiveSubscription();
+  assert.equal(subscriptions.length, 1);
+  assert.equal(subscriptions[0].eventType, "state_changed");
+  const read = expression => JSON.parse(vm.runInContext(`JSON.stringify(${expression})`, context));
+  assert.deepEqual(read("liveEntityIds"), {
+    "sensor.p5_toolhead_position_x": 0,
+    "sensor.p5_toolhead_position_y": 1,
+    "sensor.p5_toolhead_position_z": 2,
+    "sensor.p5_progress": "progress",
+  });
+
+  const callback = subscriptions[0].callback;
+  callback({ data: { entity_id: "sensor.other_toolhead_position_x", new_state: { state: "999" } } });
+  assert.equal(read("liveHeadTarget"), null);
+
+  callback({ data: { entity_id: "sensor.p5_toolhead_position_x", new_state: { state: "42.5" } } });
+  assert.deepEqual(read("liveHeadTarget"), [42.5, 20, 5]);
+  callback({ data: { entity_id: "sensor.p5_toolhead_position_x", new_state: { state: "unavailable" } } });
+  assert.deepEqual(read("liveHeadTarget"), [42.5, 20, 5]);
+
+  callback({ data: { entity_id: "sensor.p5_progress", new_state: { state: "55.5" } } });
+  assert.equal(vm.runInContext("getLiveProgress({})", context), 0.555);
+
+  vm.runInContext("resetLiveTracking()", context);
+  assert.equal(read("liveHeadTarget"), null);
+  assert.equal(read("liveProgress"), null);
+});
+
+test("tts alerts respect quiet hours, event toggles, and announce transitions", () => {
+  const { context, window } = createPanelClient();
+  const spoken = [];
+  window.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; } };
+  window.speechSynthesis = { speak: utterance => spoken.push(utterance.text) };
+
+  vm.runInContext(`printer = "entry-1";
+    alertPrefs.engine = "browser";
+    alertPrefs.quietStart = "22:00"; alertPrefs.quietEnd = "07:00";`, context);
+  const quiet = (minutes) => vm.runInContext(`isQuietTime(${minutes})`, context);
+  assert.equal(quiet(23 * 60), true);
+  assert.equal(quiet(6 * 60), true);
+  assert.equal(quiet(12 * 60), false);
+  assert.equal(quiet(22 * 60), true);
+  assert.equal(quiet(7 * 60), false);
+  vm.runInContext('alertPrefs.quietStart = "08:00"; alertPrefs.quietEnd = "17:00";', context);
+  assert.equal(quiet(9 * 60), true);
+  assert.equal(quiet(20 * 60), false);
+
+  const data = state => ({
+    printer_info: { klippy_state: "ready" },
+    status: { print_stats: { state, filename: "part.gcode" }, display_status: { progress: .1 }, virtual_sdcard: {} },
+  });
+  vm.runInContext('alertPrefs.quietStart = ""; alertPrefs.quietEnd = ""; alertPrefsKey = "seed"; checkAlerts(' + JSON.stringify(data("standby")) + ')', context);
+  assert.equal(spoken.length, 0);
+
+  vm.runInContext('checkAlerts(' + JSON.stringify(data("printing")) + ')', context);
+  assert.deepEqual(spoken, ["Print started: part.gcode"]);
+
+  vm.runInContext('checkAlerts(' + JSON.stringify(data("paused")) + ')', context);
+  assert.match(spoken[1], /paused/);
+
+  vm.runInContext('checkAlerts(' + JSON.stringify(data("complete")) + ')', context);
+  assert.match(spoken[2], /complete/);
+
+  const runoutData = { printer_info: {}, status: { print_stats: { state: "printing", filename: "x" }, "filament_switch_sensor runout": { filament_detected: false } } };
+  vm.runInContext('checkAlerts(' + JSON.stringify(runoutData) + ')', context);
+  assert.ok(spoken.some(text => /runout/i.test(text)));
+
+  const before = spoken.length;
+  vm.runInContext('alertPrefs.events.progress = false; checkAlerts(' + JSON.stringify(data("printing")) + ')', context);
+  assert.ok(!spoken.slice(before).some(text => /percent/i.test(text)));
+
+  vm.runInContext('alertPrefs.quietStart = "00:00"; alertPrefs.quietEnd = "23:59";', context);
+  vm.runInContext('checkAlerts(' + JSON.stringify({ printer_info: { klippy_state: "shutdown" }, status: { print_stats: { state: "error", filename: "x" } } }) + ')', context);
+  assert.ok(spoken.some(text => /fault|error/i.test(text)), "errors bypass quiet hours");
+});
+
+test("tts announcements fan out to every selected media player", () => {
+  const { context, window } = createPanelClient();
+  const calls = [];
+  window.hass = {
+    callApi: async (method, path, body) => { calls.push({ method, path, body }); return {}; },
+    fetchWithAuth: async () => null,
+  };
+  vm.runInContext(`alertPrefs.engine = "tts.google_translate_en_com";
+    alertPrefs.players = ["media_player.kitchen", "media_player.living_room"];
+    alertPrefs.quietStart = ""; alertPrefs.quietEnd = "";`, context);
+  context.speak("Print complete");
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].path, "services/tts/speak");
+  assert.equal(calls[0].body.media_player_entity_id, "media_player.kitchen");
+  assert.equal(calls[1].body.media_player_entity_id, "media_player.living_room");
+  assert.equal(calls[0].body.message, "Print complete");
+
+  calls.length = 0;
+  vm.runInContext('alertPrefs.players = [];', context);
+  context.speak("Print complete");
+  assert.equal(calls.length, 0);
+});
+
 test("command history is bounded, per-printer, session-only, and only records successful sends", async () => {
   const { context, document, window } = createPanelClient();
   context.toast = () => {};
@@ -345,6 +490,7 @@ test("command history is bounded, per-printer, session-only, and only records su
     callApi: async () => ({ ok: true }),
     fetchWithAuth: async () => null,
   };
+  vm.runInContext('lastDataAt = Date.now(); latestData = { available: true };', context);
   await context.act("run_gcode", null, null, { script: "M105" });
   assert.equal(document.getElementById("commandHistoryCount").textContent, "100 COMMANDS");
   assert.match(deepText(document.getElementById("commandHistory")), /M105/);
@@ -355,6 +501,36 @@ test("command history is bounded, per-printer, session-only, and only records su
 
   vm.runInContext('printer = "printer-b"; renderSentCommandHistory();', context);
   assert.equal(document.getElementById("commandHistoryCount").textContent, "0 COMMANDS");
+});
+
+test("stale telemetry holds mutating commands but never blocks emergency stop", async () => {
+  const { context, document, window } = createPanelClient();
+  const calls = [];
+  const toasts = [];
+  window.hass = { callApi: async (method, path) => { calls.push(path); return { ok: true }; }, fetchWithAuth: async () => null };
+  context.toast = message => toasts.push(message);
+  context.refresh = () => {};
+
+  vm.runInContext('latestData = { available: true, settings: { idle_poll_seconds: 5 }, status: {} }; lastDataAt = Date.now() - 30000;', context);
+  assert.equal(context.updateStaleness(), true);
+  assert.equal(document.getElementById("staleBanner").hidden, false);
+
+  await context.act("jog", null, null, { axis: "X", dist: 1 });
+  assert.equal(calls.length, 0);
+  assert.ok(toasts.some(text => /STALE/i.test(text)));
+
+  await context.act("emergency_stop");
+  assert.deepEqual(calls, ["moonraker/panel_action"]);
+  assert.ok(toasts.some(text => /EMERGENCY STOP DELIVERED/i.test(text)));
+
+  vm.runInContext('lastDataAt = Date.now(); latestData = { available: true };', context);
+  assert.equal(context.updateStaleness(), false);
+  assert.equal(document.getElementById("staleBanner").hidden, true);
+  await context.act("jog", null, null, { axis: "X", dist: 1 });
+  assert.equal(calls.length, 2);
+
+  vm.runInContext('latestData = { available: false };', context);
+  assert.equal(context.updateStaleness(), true);
 });
 
 test("system status binds printer, firmware, server, CPU, and host temperature values", () => {

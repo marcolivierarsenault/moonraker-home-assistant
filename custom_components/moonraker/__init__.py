@@ -104,7 +104,9 @@ class MoonrakerGcodeUploadView(HomeAssistantView):
         if coordinator is None:
             return self.json({"error": "unknown printer"}, status_code=404)
         if not data or not filename:
-            return self.json({"error": "select a gcode file to upload"}, status_code=400)
+            return self.json(
+                {"error": "select a gcode file to upload"}, status_code=400
+            )
 
         filename = os.path.basename(filename.replace("\\", "/"))
         try:
@@ -171,9 +173,7 @@ def _read_file_bytes(path: str) -> bytes:
         return file.read()
 
 
-def _async_resolve_entry_ids(
-    hass: HomeAssistant, raw_device_ids: Any
-) -> list[str]:
+def _async_resolve_entry_ids(hass: HomeAssistant, raw_device_ids: Any) -> list[str]:
     """Resolve service device selectors into loaded moonraker entry ids."""
     dev_reg = dr.async_get(hass)
     domain_entries = hass.data.get(DOMAIN, {})
@@ -272,6 +272,9 @@ def _normalize_gcode_path(filename: str | None) -> tuple[str, str | None]:
             root = _GCODE_ROOT
             normalized = normalized[idx + len(marker) :]
 
+    if any(part in ("", ".", "..") for part in normalized.split("/")):
+        return "", root
+
     return normalized, root
 
 
@@ -328,7 +331,8 @@ def _build_thumbnail_path(
     if normalized.startswith(f"{gcode_dir}/"):
         return normalized
 
-    return os.path.join(gcode_dir, normalized)
+    # Thumbnails are addressed by a forward-slash URL path, not an OS path.
+    return f"{gcode_dir}/{normalized.lstrip('/')}"
 
 
 def get_user_name(hass: HomeAssistant, entry: ConfigEntry):
@@ -416,7 +420,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
     object_list = await coordinator.async_get_printer_objects()
-    if isinstance(object_list, dict) and "bed_mesh" in (object_list.get("objects") or []):
+    if isinstance(object_list, dict) and "bed_mesh" in (
+        object_list.get("objects") or []
+    ):
         coordinator.add_query_objects("bed_mesh", None)
         try:
             await coordinator.async_refresh_query_data()
@@ -426,9 +432,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     try:
         await coordinator.async_subscribe_status_updates()
     except UpdateFailed:
-        _LOGGER.warning(
-            "Could not subscribe to Moonraker status updates; polling only"
-        )
+        _LOGGER.warning("Could not subscribe to Moonraker status updates; polling only")
 
     async def send_gcode_service(service_call):
         """Handle the service call to send g-code."""
@@ -443,9 +447,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             _LOGGER.warning("Received empty G-code payload, skipping send")
             return
 
-        for entry_id in _async_resolve_entry_ids(
-            hass, service_call.data["device_id"]
-        ):
+        for entry_id in _async_resolve_entry_ids(hass, service_call.data["device_id"]):
             _LOGGER.debug("Sending G-code via entry %s", entry_id)
             await hass.data[DOMAIN][entry_id].async_send_data(
                 METHODS.PRINTER_GCODE_SCRIPT,
@@ -458,9 +460,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         if not filename:
             raise HomeAssistantError("A filename is required to start a print")
 
-        for entry_id in _async_resolve_entry_ids(
-            hass, service_call.data["device_id"]
-        ):
+        for entry_id in _async_resolve_entry_ids(hass, service_call.data["device_id"]):
             await hass.data[DOMAIN][entry_id].async_send_data(
                 METHODS.PRINTER_PRINT_START,
                 {"filename": filename},
@@ -475,9 +475,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 "allowlist_external_dirs"
             )
 
-        for entry_id in _async_resolve_entry_ids(
-            hass, service_call.data["device_id"]
-        ):
+        for entry_id in _async_resolve_entry_ids(hass, service_call.data["device_id"]):
             await hass.data[DOMAIN][entry_id].async_upload_gcode(path)
 
     # Register the new service

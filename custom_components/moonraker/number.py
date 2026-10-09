@@ -88,7 +88,11 @@ async def async_setup_temperature_target(coordinator, entry, async_add_entities)
 
         elif obj.startswith("heater_generic"):
             _, _, heater_name = obj.partition(" ")
-            display_name = heater_name.replace("_", " ").title() if heater_name else "Heater Generic"
+            display_name = (
+                heater_name.replace("_", " ").title()
+                if heater_name
+                else "Heater Generic"
+            )
 
             settings = config_settings.get(obj)
             if settings is None:
@@ -303,6 +307,7 @@ async def async_setup_fan_speed(coordinator, entry, async_add_entities):
     await coordinator.async_refresh_query_data()
     async_add_entities(entities)
 
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -384,14 +389,10 @@ class MoonrakerNumber(BaseMoonrakerEntity, NumberEntity):
         self._attr_has_entity_name = True
         self._attr_icon = description.icon
         self._attr_native_max_value = (
-            float(description.max_value)
-            if description.max_value is not None
-            else None
+            float(description.max_value) if description.max_value is not None else None
         )
         self._attr_native_min_value = (
-            float(description.min_value)
-            if description.min_value is not None
-            else 0.0
+            float(description.min_value) if description.min_value is not None else 0.0
         )
         self._attr_device_class = description.device_class
         self._attr_native_unit_of_measurement = description.unit

@@ -1,6 +1,6 @@
 const API = {
   data: printer => `moonraker/panel_data?printer=${encodeURIComponent(printer || "")}`,
-  thumb: printer => `/api/moonraker/panel_thumbnail?printer=${encodeURIComponent(printer || "")}`,
+  thumb: (printer, filename) => `/api/moonraker/panel_thumbnail?printer=${encodeURIComponent(printer || "")}${filename ? `&filename=${encodeURIComponent(filename)}` : ""}`,
   gcode: (printer, filename) => `/api/moonraker/panel_gcode?printer=${encodeURIComponent(printer || "")}&filename=${encodeURIComponent(filename || "")}`,
   action: "moonraker/panel_action",
   upload: "/api/moonraker/gcode_upload",
@@ -62,13 +62,33 @@ let toolpathLoading = false;
 let toolpathError = "";
 let extHist = [];
 let bedHist = [];
-let toolpathCamera = { yaw: -0.72, pitch: 0.7, zoom: 1, dragX: 0, dragY: 0, dragging: false };
+let toolpathCamera = { yaw: -0.72, pitch: 0.7, zoom: 1, panX: 0, panY: 0, dragX: 0, dragY: 0, dragging: false };
+let cameraAnim = null;
+let cameraAnimFrame = null;
+let orbitVelocityX = 0;
+let orbitVelocityY = 0;
+let orbitInertiaFrame = null;
 const CAMERA_VIEWS = {
   iso: { yaw: -0.72, pitch: 0.7 },
+  iso2: { yaw: 2.42, pitch: 0.7 },
   top: { yaw: 0, pitch: 0.035 },
   front: { yaw: 0, pitch: 1.5 },
-  side: { yaw: Math.PI / 2, pitch: 1.5 },
+  back: { yaw: Math.PI, pitch: 1.5 },
+  left: { yaw: -Math.PI / 2, pitch: 1.5 },
+  right: { yaw: Math.PI / 2, pitch: 1.5 },
 };
+let liveEntityIds = {};
+let liveSubscription = false;
+let liveHeadTarget = null;
+let liveHeadDrawn = null;
+let liveProgress = null;
+let liveLayer = null;
+let headAnimFrame = null;
+let scrubZ = null;
+let timelapseFrames = [];
+const MAX_TIMELAPSE_FRAMES = 400;
+let analysisFile = "";
+let displayPrefsKey = "";
 
 function hassApi() {
   const api = window.hass;
@@ -113,17 +133,62 @@ function showScreen(name) {
   if (name === "dashboard") requestAnimationFrame(drawToolpath);
 }
 
+function handlePanelPayload(data) {
+  if (data?.error) {
+    toast(data.error);
+    return;
+  }
+  lastDataAt = Date.now();
+  updateStaleness();
+  render(data);
+  if (!Object.keys(liveEntityIds).length) resolveLiveEntities();
+  ensureLiveSubscription();
+}
+
 async function refresh() {
+  // Websocket push is the primary feed; polling only refills when push stalls.
+  if (panelPushLive && lastDataAt && Date.now() - lastDataAt < 12000) return;
   try {
     const data = await hassApi().callApi("GET", API.data(printer));
-    if (data.error) {
-      toast(data.error);
-      return;
-    }
-    render(data);
+    handlePanelPayload(data);
   } catch (error) {
     if (error.message?.includes("Open the console")) toast(error.message);
   }
+}
+
+async function subscribePanelPush() {
+  const connection = window.hass?.connection;
+  if (!connection?.subscribeMessage || panelPushUnsub || panelPushRequest) return;
+  const request = connection.subscribeMessage(
+    { type: "moonraker/panel_subscribe", entry_id: printer || undefined },
+    data => { panelPushLive = true; handlePanelPayload(data); },
+  );
+  panelPushRequest = request;
+  try {
+    panelPushUnsub = await request;
+  } catch {
+    panelPushLive = false;
+  } finally {
+    panelPushRequest = null;
+  }
+}
+
+async function resetPanelPush() {
+  if (panelPushRequest) {
+    const request = panelPushRequest;
+    panelPushRequest = null;
+    try {
+      const unsub = await request;
+      unsub();
+    } catch { /* subscription never established */ }
+    return;
+  }
+  if (panelPushUnsub) {
+    const unsub = panelPushUnsub;
+    panelPushUnsub = null;
+    try { unsub(); } catch { /* already closed */ }
+  }
+  panelPushLive = false;
 }
 
 async function updateThumbnail(data) {
@@ -205,6 +270,7 @@ function findNamedStatus(status, pattern) {
 function render(data) {
   latestData = data;
   printer = data.entry_id || printer;
+  subscribePanelPush();
   const printerSelect = byId("printerSel");
   if (!printerSelect.options.length && data.entries) {
     data.entries.forEach(entry => {
@@ -377,6 +443,9 @@ function render(data) {
   drawTemperatureGraph("tempGraph", extruder.target, bed.target);
   drawTemperatureGraph("tempGraphHistory", extruder.target, bed.target);
   if (detailsOpen) renderPageDetails(data);
+  populateAlertEntities();
+  loadDisplayPrefs();
+  checkAlerts(data);
 }
 
 function renderSettings(data) {
@@ -468,25 +537,33 @@ function renderBedMesh(status) {
   const matrix = mesh.mesh_matrix || mesh.probed_matrix || [];
   const profile = mesh.profile_name || mesh.profile || "NO PROFILE";
   setText("meshProfile", String(profile).toUpperCase());
+  const probe = byId("probeMeshBtn");
+  if (probe) {
+    const state = String(status.print_stats?.state || "");
+    probe.hidden = state === "printing" || state === "paused";
+  }
   const container = byId("bedMeshMap");
   container.replaceChildren();
   if (Array.isArray(matrix) && matrix.length && Array.isArray(matrix[0])) {
     const values = matrix.flat().map(Number).filter(Number.isFinite);
     const min = Math.min(...values);
     const max = Math.max(...values);
+    const spread = Math.max(1e-6, max - min);
     container.style.gridTemplateColumns = `repeat(${matrix[0].length}, minmax(0, 1fr))`;
     matrix.forEach(row => row.forEach(value => {
       const cell = document.createElement("div");
       const numeric = Number(value);
-      const ratio = max === min ? .15 : (numeric - min) / (max - min);
+      const ratio = Number.isFinite(numeric) ? (numeric - min) / spread : 0;
+      // Blue (low) → green (mid) → red (high) deviation scale.
+      const hue = Math.round(215 - 215 * ratio);
       cell.className = "mesh-cell";
-      cell.style.background = `rgba(0,239,145,${.04 + ratio * .22})`;
+      cell.style.background = `hsl(${hue} 72% ${Math.round(26 + 20 * (1 - Math.abs(ratio - .5) * 2))}%)`;
       cell.textContent = Number.isFinite(numeric) ? numeric.toFixed(3) : "—";
       container.appendChild(cell);
     }));
     const minPoint = (mesh.mesh_min || []).join(", ");
     const maxPoint = (mesh.mesh_max || []).join(", ");
-    setText("meshBounds", `PROBED ${matrix.length} × ${matrix[0].length} / MIN ${minPoint || "—"} / MAX ${maxPoint || "—"}`);
+    setText("meshBounds", `PROBED ${matrix.length} × ${matrix[0].length} / MIN ${fmt(min, 3)} / MAX ${fmt(max, 3)} / Δ ${fmt(spread, 3)} MM / AREA ${minPoint || "—"} → ${maxPoint || "—"}`);
   } else {
     container.style.gridTemplateColumns = "1fr";
     appendEmpty(container, "BED MESH MATRIX NOT REPORTED BY PRINTER");
@@ -548,7 +625,33 @@ function renderQueue(queue) {
   const container = byId("queueList");
   container.replaceChildren();
   const jobs = queue.queued_jobs || [];
-  jobs.forEach((job, index) => appendObjectRow(container, `${String(index + 1).padStart(2, "0")} / ${job.filename || job}`, job.job_id || job.status || "QUEUED"));
+  jobs.forEach((job, index) => {
+    const row = document.createElement("div");
+    row.className = "queue-row";
+    const label = document.createElement("span");
+    label.className = "queue-name";
+    label.textContent = `${String(index + 1).padStart(2, "0")} / ${job.filename || job}`;
+    const actions = document.createElement("span");
+    actions.className = "queue-actions";
+    if (job.job_id && index > 0) {
+      const jump = document.createElement("button");
+      jump.type = "button";
+      jump.className = "subtle";
+      jump.dataset.queueJump = job.job_id;
+      jump.textContent = "TOP";
+      actions.appendChild(jump);
+    }
+    if (job.job_id) {
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "subtle";
+      remove.dataset.queueRemove = job.job_id;
+      remove.textContent = "REMOVE";
+      actions.appendChild(remove);
+    }
+    row.append(label, actions);
+    container.appendChild(row);
+  });
   if (!jobs.length) appendEmpty(container, "QUEUE EMPTY");
 }
 
@@ -927,6 +1030,10 @@ function renderSentCommandHistory() {
 }
 
 async function act(action, value, preset, extra) {
+  if (updateStaleness() && !STALE_EXEMPT_ACTIONS.has(action)) {
+    toast("TELEMETRY STALE — COMMANDS HELD UNTIL THE LINK RESTORES");
+    return;
+  }
   const body = { entry_id: printer, action };
   if (["set_speed", "set_flow", "set_fan", "set_extruder", "set_bed", "z_adjust", "z_set"].includes(action)) {
     if (value === "" || value == null || Number.isNaN(Number(value))) {
@@ -943,10 +1050,14 @@ async function act(action, value, preset, extra) {
     if (result.ok && ["run_gcode", "run_macro"].includes(action)) {
       recordSentCommand(extra?.script || value);
     }
-    toast(result.ok ? `COMMAND OK / ${action.toUpperCase()}` : `COMMAND ERROR / ${result.error || action}`);
+    if (action === "emergency_stop") {
+      toast(result.ok ? "EMERGENCY STOP DELIVERED" : `E-STOP DELIVERY FAILED / ${result.error || "REQUEST REJECTED"}`, 6000);
+    } else {
+      toast(result.ok ? `COMMAND OK / ${action.toUpperCase()}` : `COMMAND ERROR / ${result.error || action}`);
+    }
     refresh();
   } catch (error) {
-    toast(`COMMAND ERROR / ${error.message || "request failed"}`);
+    toast(action === "emergency_stop" ? `E-STOP DELIVERY FAILED / ${error.message || "request failed"}` : `COMMAND ERROR / ${error.message || "request failed"}`, action === "emergency_stop" ? 6000 : 3200);
   }
 }
 
@@ -1025,6 +1136,10 @@ function switchPrinter() {
   toolpathRequested = false;
   toolpathSegments = [];
   if (toolpathAbort) toolpathAbort.abort();
+  resetPanelPush();
+  resetLiveTracking();
+  alertState = { seeded: false, state: "", milestone: -1, filamentOk: true, klippy: "", lastKey: "", lastAt: 0 };
+  alertPrefsKey = "";
   extHist = [];
   bedHist = [];
   renderToolpathStatus("WAITING FOR PRINTER DATA");
@@ -1172,10 +1287,67 @@ function setJogStep(button) {
 function setToolpathView(view) {
   const preset = CAMERA_VIEWS[view];
   if (!preset) return;
-  toolpathCamera.yaw = preset.yaw;
-  toolpathCamera.pitch = preset.pitch;
   document.querySelectorAll("[data-toolpath-view]").forEach(button => button.classList.toggle("is-active", button.dataset.toolpathView === view));
+  animateCameraTo({ yaw: preset.yaw, pitch: preset.pitch, zoom: 1, panX: 0, panY: 0 });
+}
+
+function animateCameraTo(target, durationMs = 380) {
+  if (reducedMotionPreferred()) {
+    for (const key of ["yaw", "pitch", "zoom", "panX", "panY"]) {
+      if (target[key] !== undefined) toolpathCamera[key] = target[key];
+    }
+    drawToolpath();
+    return;
+  }
+  cameraAnim = {
+    from: { yaw: toolpathCamera.yaw, pitch: toolpathCamera.pitch, zoom: toolpathCamera.zoom, panX: toolpathCamera.panX, panY: toolpathCamera.panY },
+    to: target,
+    start: Date.now(),
+    duration: durationMs,
+    frames: 0,
+  };
+  orbitVelocityX = 0;
+  orbitVelocityY = 0;
+  if (cameraAnimFrame === null) cameraAnimFrame = requestAnimationFrame(stepCameraAnimation);
+}
+
+function stepCameraAnimation() {
+  cameraAnimFrame = null;
+  if (!cameraAnim) return;
+  const t = Math.min(1, (Date.now() - cameraAnim.start) / cameraAnim.duration);
+  const eased = 1 - Math.pow(1 - t, 3);
+  for (const key of ["yaw", "pitch", "zoom", "panX", "panY"]) {
+    if (cameraAnim.to[key] !== undefined) {
+      toolpathCamera[key] = cameraAnim.from[key] + (cameraAnim.to[key] - cameraAnim.from[key]) * eased;
+    }
+  }
   drawToolpath();
+  if (t < 1 && ++cameraAnim.frames < 900) {
+    cameraAnimFrame = requestAnimationFrame(stepCameraAnimation);
+    return;
+  }
+  for (const key of ["yaw", "pitch", "zoom", "panX", "panY"]) {
+    if (cameraAnim.to[key] !== undefined) toolpathCamera[key] = cameraAnim.to[key];
+  }
+  cameraAnim = null;
+  drawToolpath();
+}
+
+function startOrbitInertia() {
+  if (orbitInertiaFrame !== null || reducedMotionPreferred()) return;
+  orbitInertiaFrame = requestAnimationFrame(stepOrbitInertia);
+}
+
+function stepOrbitInertia() {
+  orbitInertiaFrame = null;
+  if (toolpathCamera.dragging || cameraAnim) return;
+  orbitVelocityX *= .9;
+  orbitVelocityY *= .9;
+  if (Math.abs(orbitVelocityX) < .0015 && Math.abs(orbitVelocityY) < .0015) return;
+  toolpathCamera.yaw += orbitVelocityX;
+  toolpathCamera.pitch = Math.max(.025, Math.min(1.55, toolpathCamera.pitch + orbitVelocityY));
+  drawToolpath();
+  orbitInertiaFrame = requestAnimationFrame(stepOrbitInertia);
 }
 
 function bindInteractions() {
@@ -1220,8 +1392,6 @@ function bindInteractions() {
     }
     if (event.target.closest("[data-toolpath-reset]")) {
       setToolpathView("iso");
-      toolpathCamera.zoom = 1;
-      drawToolpath();
       return;
     }
     if (event.target.closest("[data-toolpath-load]")) {
@@ -1250,7 +1420,20 @@ function bindInteractions() {
       selectedFile = fileOption.dataset.fileOption;
       byId("fileSel").value = selectedFile;
       renderFiles();
+      loadFileAnalysis(selectedFile);
       act("select_file", selectedFile);
+      return;
+    }
+    if (event.target.id === "jobDoneDismiss") { hideJobDoneCard(); return; }
+    if (event.target.id === "tlClear") { clearTimelapse(); return; }
+    const queueJump = event.target.closest("[data-queue-jump]");
+    if (queueJump) {
+      act("jump_queue_job", null, null, { job_id: queueJump.dataset.queueJump });
+      return;
+    }
+    const queueRemove = event.target.closest("[data-queue-remove]");
+    if (queueRemove) {
+      act("delete_queue_job", null, null, { job_id: queueRemove.dataset.queueRemove });
       return;
     }
     const action = event.target.closest("[data-action]");
@@ -1284,12 +1467,20 @@ function bindInteractions() {
     }
     if (target.id === "fileSel") {
       selectedFile = target.value;
+      loadFileAnalysis(selectedFile);
       act("select_file", selectedFile);
     }
     if (target.id === "speed") act("set_speed", target.value);
     if (target.id === "flow") act("set_flow", target.value);
     if (target.id === "fan") act("set_fan", Math.round(Number(target.value) * 2.55));
-    if (target.id === "showFuturePath") drawToolpath();
+    if (target.id === "showFuturePath" || target.id === "clipFutureLayers") drawToolpath();
+    if (target.id === "layerFollow") drawToolpath();
+    if (target.id === "displayLargeTouch" || target.id === "displayReduceMotion") {
+      displayPrefs.largeTouch = byId("displayLargeTouch")?.checked === true;
+      displayPrefs.reduceMotion = byId("displayReduceMotion")?.checked === true;
+      saveDisplayPrefs();
+      applyDisplayPrefs();
+    }
   });
 
   document.addEventListener("keydown", event => {
@@ -1299,6 +1490,13 @@ function bindInteractions() {
   document.addEventListener("input", event => {
     const target = event.target;
     if (target.id === "fileSearch") renderFiles();
+    if (target.id === "layerScrub") {
+      scrubZ = Number(target.value);
+      const follow = byId("layerFollow");
+      if (follow) follow.checked = false;
+      drawToolpath();
+    }
+    if (target.id === "tlScrub") renderTimelapseFrame();
     if (["speed", "flow", "fan"].includes(target.id)) {
       const label = byId(`${target.id}Val`);
       if (label) label.textContent = `${Math.round(Number(target.value))}%`;
@@ -1552,7 +1750,7 @@ function projectPoint(point, camera, scale, centerU, centerV, width, height) {
   const horizontal = point[0] * sinYaw + point[1] * cosYaw;
   const v = horizontal * cosPitch + point[2] * sinPitch;
   const depth = -horizontal * sinPitch + point[2] * cosPitch;
-  return { x: width / 2 + (u - centerU) * scale, y: height * .53 - (v - centerV) * scale, depth };
+  return { x: width / 2 + (u - centerU) * scale + (camera.panX || 0), y: height * .53 - (v - centerV) * scale + (camera.panY || 0), depth };
 }
 
 function drawToolpath() {
@@ -1590,7 +1788,7 @@ function drawToolpath() {
   const transformed = corners.map(point => {
     const u = point[0] * cosYaw - point[1] * sinYaw;
     const horizontal = point[0] * sinYaw + point[1] * cosYaw;
-    return { u, v: horizontal * cosPitch + point[2] * sinPitch };
+    return { u, v: horizontal * cosPitch + point[2] * sinPitch, d: -horizontal * sinPitch + point[2] * cosPitch };
   });
   const minU = Math.min(...transformed.map(point => point.u));
   const maxU = Math.max(...transformed.map(point => point.u));
@@ -1603,40 +1801,99 @@ function drawToolpath() {
   drawBuildPlate(ctx, project, bounds);
   const progress = getLiveProgress(latestData);
   const showFuture = byId("showFuturePath")?.checked !== false;
+  const depthMin = Math.min(...transformed.map(point => point.d));
+  const depthSpan = Math.max(1e-6, Math.max(...transformed.map(point => point.d)) - depthMin);
+  const zSpan = Math.max(1e-6, bounds.maxZ - bounds.minZ);
+  const position = liveHeadDrawn || currentToolheadPosition();
+  const headZ = position ? position[2] : Number.NaN;
+  const clipFuture = byId("clipFutureLayers")?.checked === true && Number.isFinite(headZ);
+
+  const scrubControl = byId("layerScrub");
+  const followControl = byId("layerFollow");
+  if (scrubControl) {
+    scrubControl.disabled = false;
+    const lo = bounds.minZ, hi = Math.max(bounds.maxZ, bounds.minZ + .1);
+    if (Number(scrubControl.max) !== hi || Number(scrubControl.min) !== lo) {
+      scrubControl.min = lo;
+      scrubControl.max = hi;
+      scrubControl.step = Math.max(.05, (hi - lo) / 400);
+    }
+  }
+  if (followControl && followControl.checked && Number.isFinite(headZ)) scrubZ = headZ;
+  if (scrubControl && document.activeElement !== scrubControl && Number.isFinite(scrubZ)) {
+    scrubControl.value = Math.min(Math.max(scrubZ, Number(scrubControl.min)), Number(scrubControl.max));
+  }
+  setText("layerScrubLabel", Number.isFinite(scrubZ) ? `Z ${fmt(scrubZ, 2)}` : "Z —");
+  const splitZ = Number.isFinite(scrubZ) ? scrubZ : null;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  ctx.lineWidth = 1.2;
-  if (showFuture) {
-    ctx.beginPath();
-    for (const segment of toolpathSegments) {
-      if ((segment.fraction ?? 0) <= progress) continue;
-      const a = project(segment.a), b = project(segment.b);
-      ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
-    }
-    ctx.strokeStyle = "rgba(15, 108, 66, .48)";
-    ctx.stroke();
-  }
-  ctx.beginPath();
-  for (const segment of toolpathSegments) {
-    if ((segment.fraction ?? 0) > progress) continue;
-    const a = project(segment.a), b = project(segment.b);
-    ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
-  }
-  ctx.strokeStyle = "#00ef91";
-  ctx.shadowColor = "rgba(0,239,145,.3)";
-  ctx.shadowBlur = 3;
-  ctx.stroke();
-  ctx.shadowBlur = 0;
 
-  const position = latestData?.status?.toolhead?.position || [];
-  if (position.length >= 3 && position.slice(0,3).every(value => Number.isFinite(Number(value)))) {
-    const head = project([Number(position[0]), Number(position[1]), Number(position[2])]);
-    ctx.beginPath(); ctx.arc(head.x, head.y, 4, 0, Math.PI * 2);
+  const drawPass = futureMode => {
+    const buckets = new Map();
+    for (const segment of toolpathSegments) {
+      const midZ = (segment.a[2] + segment.b[2]) / 2;
+      const isFuture = splitZ != null ? midZ > splitZ : (segment.fraction ?? 0) > progress;
+      if (isFuture !== futureMode) continue;
+      if (futureMode && clipFuture && midZ > headZ + .5) continue;
+      const a = project(segment.a), b = project(segment.b);
+      const depthNorm = Math.max(0, Math.min(((a.depth + b.depth) / 2 - depthMin) / depthSpan, 1));
+      const zNorm = Math.max(0, Math.min((midZ - bounds.minZ) / zSpan, 1));
+      const activeLayer = !futureMode && Number.isFinite(headZ) && Math.abs(midZ - headZ) <= .45;
+      const key = activeLayer ? 900 + Math.round(depthNorm * 7) : Math.round(depthNorm * 7) * 16 + Math.round(zNorm * 15);
+      let bucket = buckets.get(key);
+      if (!bucket) buckets.set(key, bucket = { depthNorm, zNorm, activeLayer, lines: [] });
+      bucket.lines.push(a.x, a.y, b.x, b.y);
+    }
+    const ordered = [...buckets.values()].sort((left, right) => left.depthNorm - right.depthNorm);
+    for (const bucket of ordered) {
+      if (bucket.activeLayer) {
+        ctx.lineWidth = 1.6;
+        ctx.strokeStyle = `rgba(247,203,100,${(.55 + .45 * bucket.depthNorm).toFixed(3)})`;
+        ctx.shadowColor = "rgba(247,203,100,.4)";
+        ctx.shadowBlur = 4;
+      } else if (futureMode) {
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = `rgba(22,130,82,${(.08 + .42 * bucket.depthNorm).toFixed(3)})`;
+        ctx.shadowBlur = 0;
+      } else {
+        ctx.lineWidth = 1.35;
+        const r = Math.round(53 * (1 - bucket.zNorm));
+        const g = Math.round(232 + 7 * bucket.zNorm);
+        const b = Math.round(189 - 44 * bucket.zNorm);
+        ctx.strokeStyle = `rgba(${r},${g},${b},${(.42 + .58 * bucket.depthNorm).toFixed(3)})`;
+        ctx.shadowColor = "rgba(0,239,145,.28)";
+        ctx.shadowBlur = 3;
+      }
+      ctx.beginPath();
+      const lines = bucket.lines;
+      for (let index = 0; index < lines.length; index += 4) {
+        ctx.moveTo(lines[index], lines[index + 1]);
+        ctx.lineTo(lines[index + 2], lines[index + 3]);
+      }
+      ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+  };
+  if (showFuture) drawPass(true);
+  drawPass(false);
+
+  if (position) {
+    const head = project(position);
+    const foot = project([position[0], position[1], 0]);
+    ctx.setLineDash([4, 4]);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(247,203,100,.35)";
+    ctx.beginPath(); ctx.moveTo(head.x, head.y); ctx.lineTo(foot.x, foot.y); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(foot.x, foot.y, 6, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(247,203,100,.5)"; ctx.stroke();
+    ctx.beginPath(); ctx.arc(head.x, head.y, 4.5, 0, Math.PI * 2);
     ctx.fillStyle = "#f7cb64"; ctx.shadowColor = "#f7cb64"; ctx.shadowBlur = 10; ctx.fill(); ctx.shadowBlur = 0;
     ctx.beginPath(); ctx.moveTo(head.x - 8, head.y); ctx.lineTo(head.x + 8, head.y); ctx.moveTo(head.x, head.y - 8); ctx.lineTo(head.x, head.y + 8);
     ctx.strokeStyle = "#f7cb64"; ctx.lineWidth = 1; ctx.stroke();
   }
-  renderToolpathStatus(toolpathReady ? `SIMULATED EXTRUSION PATH / ${toolpathSegments.length.toLocaleString()} SAMPLES / ${(progress * 100).toFixed(1)}%` : (toolpathError || "LOADING ACTIVE G-CODE"));
+  const headText = position ? ` / HEAD X${fmt(position[0], 1)} Y${fmt(position[1], 1)} Z${fmt(position[2], 1)}` : "";
+  renderToolpathStatus(toolpathReady ? `SIMULATED EXTRUSION PATH / ${toolpathSegments.length.toLocaleString()} SAMPLES / ${(progress * 100).toFixed(1)}%${headText}` : (toolpathError || "LOADING ACTIVE G-CODE"));
 }
 
 function drawBuildPlate(ctx, project, bounds) {
@@ -1690,6 +1947,7 @@ function drawEmptyBuildPlate(ctx, width, height) {
 }
 
 function getLiveProgress(data) {
+  if (Number.isFinite(liveProgress)) return liveProgress;
   const status = data?.status || {};
   const card = status.virtual_sdcard || {};
   const position = Number(card.file_position);
@@ -1706,24 +1964,631 @@ function getLiveProgress(data) {
   return Number.isFinite(fallback) ? Math.max(0, Math.min(fallback, 1)) : 0;
 }
 
+const LIVE_ENTITY_KINDS = {
+  toolhead_position_x: 0,
+  toolhead_position_y: 1,
+  toolhead_position_z: 2,
+  progress: "progress",
+  current_layer: "layer",
+};
+
+async function resolveLiveEntities() {
+  const hass = window.hass;
+  let entries = Object.values(hass?.entities || {});
+  if (!entries.length && hass?.connection?.sendMessagePromise) {
+    try {
+      entries = await hass.connection.sendMessagePromise({ type: "config/entity_registry/list" });
+    } catch {
+      entries = [];
+    }
+  }
+  liveEntityIds = {};
+  if (printer && entries.length) {
+    for (const entry of entries) {
+      const uniqueId = String(entry?.unique_id || "");
+      if (!uniqueId.startsWith(`${printer}_`) || !entry?.entity_id) continue;
+      const kind = LIVE_ENTITY_KINDS[uniqueId.slice(printer.length + 1)];
+      if (kind !== undefined) liveEntityIds[entry.entity_id] = kind;
+    }
+  }
+  if (!Object.keys(liveEntityIds).length) {
+    const candidates = {};
+    for (const entityId of Object.keys(hass?.states || {})) {
+      for (const [suffix, kind] of Object.entries(LIVE_ENTITY_KINDS)) {
+        if (!entityId.startsWith("sensor.") || !entityId.endsWith(`_${suffix}`)) continue;
+        (candidates[kind] = candidates[kind] || []).push(entityId);
+      }
+    }
+    for (const [kind, ids] of Object.entries(candidates)) {
+      if (ids.length === 1) liveEntityIds[ids[0]] = kind;
+    }
+  }
+}
+
+function ensureLiveSubscription() {
+  if (liveSubscription || !window.hass?.connection?.subscribeEvents) return;
+  liveSubscription = true;
+  try {
+    Promise.resolve(window.hass.connection.subscribeEvents(handleLiveStateChanged, "state_changed"))
+      .catch(() => { liveSubscription = false; });
+  } catch {
+    liveSubscription = false;
+  }
+}
+
+function currentToolheadPosition() {
+  const position = latestData?.status?.toolhead?.position;
+  if (!Array.isArray(position) || position.length < 3) return null;
+  const xyz = position.slice(0, 3).map(Number);
+  return xyz.every(Number.isFinite) ? xyz : null;
+}
+
+function handleLiveStateChanged(event) {
+  const kind = liveEntityIds[event?.data?.entity_id];
+  if (kind === undefined) return;
+  const value = Number(event.data.new_state?.state);
+  if (!Number.isFinite(value)) return;
+  if (kind === "progress") {
+    liveProgress = Math.max(0, Math.min(value / 100, 1));
+  } else if (kind === "layer") {
+    const layer = Math.round(value);
+    if (liveLayer !== null && layer > liveLayer
+        && latestData?.status?.print_stats?.state === "printing") {
+      captureTimelapseFrame();
+    }
+    liveLayer = layer;
+    return;
+  } else {
+    if (!liveHeadTarget) liveHeadTarget = currentToolheadPosition() || [0, 0, 0];
+    liveHeadTarget[kind] = value;
+  }
+  scheduleHeadAnimation();
+}
+
+function scheduleHeadAnimation() {
+  if (headAnimFrame !== null) return;
+  headAnimFrame = requestAnimationFrame(stepHeadAnimation);
+}
+
+function stepHeadAnimation() {
+  headAnimFrame = null;
+  const rect = byId("toolpathCanvas")?.getBoundingClientRect?.();
+  if (!rect || rect.width < 8 || rect.height < 8) {
+    liveHeadDrawn = null;
+    return;
+  }
+  if (liveHeadTarget) {
+    const previous = liveHeadDrawn || liveHeadTarget;
+    const next = previous.map((value, index) => value + (liveHeadTarget[index] - value) * .38);
+    liveHeadDrawn = next.every((value, index) => Math.abs(value - liveHeadTarget[index]) < .05)
+      ? liveHeadTarget.slice() : next;
+    const toolhead = latestData?.status?.toolhead;
+    if (toolhead) {
+      const base = Array.isArray(toolhead.position) ? toolhead.position : [];
+      toolhead.position = [...liveHeadDrawn, ...base.slice(3)];
+    }
+  }
+  drawToolpath();
+  if (liveHeadDrawn && liveHeadTarget && liveHeadDrawn.some((value, index) => Math.abs(value - liveHeadTarget[index]) >= .05)) {
+    scheduleHeadAnimation();
+  }
+}
+
+function resetLiveTracking() {
+  liveEntityIds = {};
+  liveHeadTarget = null;
+  liveHeadDrawn = null;
+  liveProgress = null;
+  liveLayer = null;
+  scrubZ = null;
+}
+
+const ALERT_EVENT_KEYS = ["start", "progress", "pause", "finish", "error", "runout"];
+let alertPrefs = {
+  engine: "off", players: [], quietStart: "", quietEnd: "", quietBypass: true,
+  events: { start: true, progress: true, pause: true, finish: true, error: true, runout: true },
+};
+let alertState = { seeded: false, state: "", milestone: -1, filamentOk: true, klippy: "", lastKey: "", lastAt: 0 };
+let alertPrefsKey = "";
+let lastDataAt = 0;
+let panelPushUnsub = null;
+let panelPushRequest = null;
+let panelPushLive = false;
+const STALE_AFTER_MS = 8000;
+const STALE_EXEMPT_ACTIONS = new Set(["emergency_stop", "refresh_files"]);
+
+function updateStaleness() {
+  const printing = ["printing", "paused"].includes(String(latestData?.status?.print_stats?.state));
+  const intervalSeconds = printing
+    ? Number(latestData?.settings?.print_poll_seconds) || 10
+    : Number(latestData?.settings?.idle_poll_seconds) || 30;
+  const limit = Math.max(STALE_AFTER_MS, intervalSeconds * 1000 * 1.6 + 3000);
+  const age = lastDataAt ? Date.now() - lastDataAt : Number.POSITIVE_INFINITY;
+  const stale = !Number.isFinite(age) || age > limit || latestData?.available === false;
+  document.body?.classList?.toggle?.("stale-data", stale);
+  const banner = byId("staleBanner");
+  if (banner) {
+    banner.hidden = !stale;
+    if (stale) setText("staleAge", lastDataAt ? `${Math.floor(age / 1000)}S` : "—");
+  }
+  return stale;
+}
+
+function alertStorageKey() {
+  return `nexus-alerts:${printer || "default"}`;
+}
+
+function alertEventInputId(key) {
+  return `alert${key[0].toUpperCase()}${key.slice(1)}`;
+}
+
+function loadAlertPrefs() {
+  const key = alertStorageKey();
+  if (alertPrefsKey === key) return;
+  alertPrefsKey = key;
+  try {
+    const saved = JSON.parse(window.localStorage?.getItem(key) || "null");
+    if (saved && typeof saved === "object") {
+      alertPrefs.engine = String(saved.engine || "off");
+      alertPrefs.players = Array.isArray(saved.players) ? saved.players.map(String) : (saved.player ? [String(saved.player)] : []);
+      alertPrefs.quietStart = String(saved.quietStart || "");
+      alertPrefs.quietEnd = String(saved.quietEnd || "");
+      alertPrefs.quietBypass = saved.quietBypass !== false;
+      for (const event of ALERT_EVENT_KEYS) {
+        if (typeof saved.events?.[event] === "boolean") alertPrefs.events[event] = saved.events[event];
+      }
+    }
+  } catch { /* ignore corrupt prefs */ }
+  applyAlertPrefs();
+}
+
+function applyAlertPrefs() {
+  const assign = (id, value, prop = "value") => {
+    const element = byId(id);
+    if (element) element[prop] = value;
+  };
+  assign("ttsEngine", alertPrefs.engine);
+  const playerSelect = byId("ttsPlayer");
+  if (playerSelect) {
+    for (const option of playerSelect.children || []) option.selected = alertPrefs.players.includes(option.value);
+  }
+  assign("ttsQuietStart", alertPrefs.quietStart);
+  assign("ttsQuietEnd", alertPrefs.quietEnd);
+  assign("ttsQuietBypass", alertPrefs.quietBypass, "checked");
+  for (const event of ALERT_EVENT_KEYS) assign(alertEventInputId(event), alertPrefs.events[event] !== false, "checked");
+}
+
+function saveAlertPrefs() {
+  alertPrefs.engine = byId("ttsEngine")?.value || "off";
+  alertPrefs.players = [...(byId("ttsPlayer")?.children || [])].filter(option => option.selected).map(option => option.value);
+  alertPrefs.quietStart = byId("ttsQuietStart")?.value || "";
+  alertPrefs.quietEnd = byId("ttsQuietEnd")?.value || "";
+  alertPrefs.quietBypass = byId("ttsQuietBypass")?.checked !== false;
+  for (const event of ALERT_EVENT_KEYS) {
+    alertPrefs.events[event] = byId(alertEventInputId(event))?.checked !== false;
+  }
+  window.localStorage?.setItem(alertStorageKey(), JSON.stringify(alertPrefs));
+}
+
+function populateAlertEntities() {
+  const engine = byId("ttsEngine");
+  const player = byId("ttsPlayer");
+  if (!engine || !player || engine.dataset.populated) return;
+  const states = window.hass?.states || {};
+  for (const entityId of Object.keys(states).sort()) {
+    if (entityId.startsWith("tts.")) {
+      const option = document.createElement("option");
+      option.value = entityId;
+      option.textContent = states[entityId]?.attributes?.friendly_name || entityId;
+      engine.appendChild(option);
+    } else if (entityId.startsWith("media_player.")) {
+      const option = document.createElement("option");
+      option.value = entityId;
+      option.textContent = states[entityId]?.attributes?.friendly_name || entityId;
+      player.appendChild(option);
+    }
+  }
+  engine.dataset.populated = "1";
+  engine.value = alertPrefs.engine;
+  for (const option of player.children || []) option.selected = alertPrefs.players.includes(option.value);
+}
+
+function isQuietTime(minutes) {
+  if (!alertPrefs.quietStart || !alertPrefs.quietEnd) return false;
+  const parse = text => {
+    const [hours, mins] = String(text).split(":").map(Number);
+    return Number.isFinite(hours) && Number.isFinite(mins) ? hours * 60 + mins : null;
+  };
+  const start = parse(alertPrefs.quietStart);
+  const end = parse(alertPrefs.quietEnd);
+  if (start === null || end === null) return false;
+  const now = minutes ?? (() => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); })();
+  return start <= end ? (now >= start && now < end) : (now >= start || now < end);
+}
+
+function speak(message) {
+  if (alertPrefs.engine === "browser") {
+    try {
+      const Utterance = window.SpeechSynthesisUtterance;
+      if (window.speechSynthesis?.speak && Utterance) window.speechSynthesis.speak(new Utterance(message));
+    } catch { /* speech unavailable */ }
+    return;
+  }
+  if (!alertPrefs.engine || alertPrefs.engine === "off" || !alertPrefs.players.length) return;
+  for (const player of alertPrefs.players) {
+    try {
+      hassApi().callApi("POST", "services/tts/speak", {
+        entity_id: alertPrefs.engine,
+        media_player_entity_id: player,
+        message,
+      }).catch(() => {});
+    } catch { /* no hass api */ }
+  }
+}
+
+function announce(kind, message) {
+  if (!alertPrefs.events[kind]) return;
+  const severe = kind === "error" || kind === "runout";
+  if (isQuietTime() && !(severe && alertPrefs.quietBypass)) return;
+  const key = `${kind}:${message}`;
+  const now = Date.now();
+  if (key === alertState.lastKey && now - alertState.lastAt < 60000) return;
+  alertState.lastKey = key;
+  alertState.lastAt = now;
+  speak(message);
+}
+
+function checkAlerts(data) {
+  loadAlertPrefs();
+  const status = data?.status || {};
+  const printState = String(status.print_stats?.state || "");
+  const klippy = String(data?.printer_info?.klippy_state || "");
+  const filename = status.print_stats?.filename || "the print";
+  const active = printState === "printing" || printState === "paused";
+  const runout = active && Object.entries(status).some(([name, value]) =>
+    name.startsWith("filament_switch_sensor") && value?.filament_detected === false);
+
+  if (!alertState.seeded) {
+    alertState.seeded = true;
+    alertState.state = printState;
+    alertState.klippy = klippy;
+    alertState.filamentOk = !runout;
+    return;
+  }
+
+  if (printState !== alertState.state) {
+    const previous = alertState.state;
+    alertState.state = printState;
+    if (printState === "printing" && previous === "paused") announce("start", "Print resumed");
+    else if (printState === "printing") { alertState.milestone = -1; clearTimelapse(); announce("start", `Print started: ${filename}`); }
+    else if (printState === "paused") announce("pause", "Print paused");
+    else if (printState === "complete") { announce("finish", `Print complete: ${filename}`); showJobDoneCard(data); }
+    else if (printState === "cancelled") announce("finish", `Print cancelled: ${filename}`);
+    else if (printState === "error") announce("error", `Print error: ${filename}`);
+    const transitionToast = {
+      printing: previous === "paused" ? "PRINT RESUMED" : `PRINT STARTED / ${filename}`,
+      paused: "PRINT PAUSED",
+      complete: `BUILD COMPLETE / ${filename}`,
+      cancelled: `PRINT CANCELLED / ${filename}`,
+      error: `PRINT ERROR / ${filename}`,
+    }[printState];
+    if (transitionToast) toast(transitionToast, 6000);
+  }
+
+  if (printState === "printing") {
+    const percent = getLiveProgress(data) * 100;
+    for (const mark of [25, 50, 75, 90]) {
+      if (percent >= mark && alertState.milestone < mark) {
+        alertState.milestone = mark;
+        announce("progress", `Print is ${mark} percent complete`);
+        break;
+      }
+    }
+  }
+
+  if (runout && alertState.filamentOk) {
+    alertState.filamentOk = false;
+    announce("runout", "Filament runout detected");
+  } else if (!runout) {
+    alertState.filamentOk = true;
+  }
+
+  if (klippy && klippy !== alertState.klippy) {
+    alertState.klippy = klippy;
+    if (klippy === "error" || klippy === "shutdown") announce("error", `Printer fault: Klippy reports ${klippy}`);
+  }
+}
+
+function showJobDoneCard(data) {
+  const card = byId("jobDoneCard");
+  if (!card) return;
+  const stats = data?.status?.print_stats || {};
+  const info = stats.info || {};
+  const meta = data?.meta || {};
+  setText("jobDoneName", String(stats.filename || "—").toUpperCase());
+  setText("jobDoneTime", duration(stats.print_duration ?? stats.total_duration));
+  setText("jobDoneFil", `${fmt((stats.filament_used || 0) / 1000, 2)} m`);
+  setText("jobDoneLayers", `${info.current_layer ?? "—"} / ${info.total_layer ?? meta.layer_count ?? "—"}`);
+  const image = byId("jobDoneThumb");
+  if (image) {
+    image.src = data.meta?.thumbnails_path ? `${API.thumb(data.entry_id)}&t=${Date.now()}` : "";
+    image.style.display = data.meta?.thumbnails_path ? "" : "none";
+  }
+  card.hidden = false;
+}
+
+function hideJobDoneCard() {
+  const card = byId("jobDoneCard");
+  if (card) card.hidden = true;
+}
+
+let displayPrefs = { largeTouch: false, reduceMotion: false };
+
+function loadDisplayPrefs() {
+  const key = `nexus-display:${printer}`;
+  if (key === displayPrefsKey) return;
+  displayPrefsKey = key;
+  try {
+    displayPrefs = { largeTouch: false, reduceMotion: false, ...(JSON.parse(window.localStorage?.getItem(key) || "null") || {}) };
+  } catch {
+    displayPrefs = { largeTouch: false, reduceMotion: false };
+  }
+  applyDisplayPrefs();
+}
+
+function saveDisplayPrefs() {
+  try { window.localStorage?.setItem(displayPrefsKey, JSON.stringify(displayPrefs)); } catch { /* storage unavailable */ }
+}
+
+function reducedMotionPreferred() {
+  if (displayPrefs.reduceMotion) return true;
+  try { return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true; }
+  catch { return false; }
+}
+
+function applyDisplayPrefs() {
+  document.body?.classList?.toggle?.("large-touch", displayPrefs.largeTouch);
+  document.body?.classList?.toggle?.("reduced-motion", reducedMotionPreferred());
+  const largeTouch = byId("displayLargeTouch");
+  if (largeTouch) largeTouch.checked = displayPrefs.largeTouch;
+  const reduceMotion = byId("displayReduceMotion");
+  if (reduceMotion) reduceMotion.checked = displayPrefs.reduceMotion;
+}
+
+async function loadFileAnalysis(filename) {
+  const card = byId("fileAnalysis");
+  const empty = byId("analysisEmpty");
+  if (!card) return;
+  analysisFile = filename || "";
+  if (!filename) {
+    card.hidden = true;
+    if (empty) empty.hidden = false;
+    setText("analysisStatus", "SELECT A FILE");
+    setText("analysisName", "FILE ANALYSIS");
+    return;
+  }
+  if (empty) empty.hidden = true;
+  card.hidden = false;
+  setText("analysisName", String(filename).toUpperCase());
+  setText("analysisStatus", "READING SLICER METADATA…");
+  byId("analysisStats")?.replaceChildren();
+  byId("analysisWarnings")?.replaceChildren();
+  try {
+    const meta = await hassApi().callApi("GET", `moonraker/panel_file_meta?printer=${encodeURIComponent(printer)}&filename=${encodeURIComponent(filename)}`);
+    if (analysisFile !== filename) return;
+    renderFileAnalysis(meta);
+  } catch (_error) {
+    if (analysisFile === filename) setText("analysisStatus", "METADATA UNAVAILABLE");
+  }
+}
+
+function renderFileAnalysis(meta) {
+  const empty = byId("analysisEmpty");
+  if (empty) empty.hidden = true;
+  if (!meta || meta.error) {
+    setText("analysisStatus", meta?.error ? String(meta.error).toUpperCase() : "METADATA UNAVAILABLE");
+    return;
+  }
+  const warnings = [];
+  const status = latestData?.status || {};
+  const axisMax = status.toolhead?.axis_maximum;
+  const hasBounds = [meta.x_min, meta.x_max, meta.y_min, meta.y_max].every(value => Number.isFinite(Number(value)));
+  const stats = [
+    ["ESTIMATED TIME", duration(meta.estimated_time)],
+    ["FILAMENT", meta.filament_total != null ? `${fmt(Number(meta.filament_total) / 1000, 2)} m` : "—"],
+    ["LAYERS", meta.layer_count ?? "—"],
+    ["OBJECT HEIGHT", meta.object_height != null ? `${fmt(meta.object_height)} mm` : "—"],
+    ["SLICER", [meta.slicer, meta.slicer_version].filter(Boolean).join(" ") || "—"],
+    ["FIRST LAYER", meta.first_layer_height != null ? `${meta.first_layer_height} mm` : "—"],
+    ["NOZZLE / BED", `${meta.first_layer_extr_temp ?? "—"}° / ${meta.first_layer_bed_temp ?? "—"}°`],
+  ];
+  if (hasBounds) {
+    stats.push(["OBJECT BOUNDS", `X ${fmt(meta.x_min, 0)}–${fmt(meta.x_max, 0)} · Y ${fmt(meta.y_min, 0)}–${fmt(meta.y_max, 0)}`]);
+    if (Number.isFinite(axisMax?.[0]) && (meta.x_min < -.5 || meta.x_max > axisMax[0] + .5)) {
+      warnings.push(`OBJECT EXCEEDS BED X RANGE (0–${fmt(axisMax[0], 0)} MM)`);
+    }
+    if (Number.isFinite(axisMax?.[1]) && (meta.y_min < -.5 || meta.y_max > axisMax[1] + .5)) {
+      warnings.push(`OBJECT EXCEEDS BED Y RANGE (0–${fmt(axisMax[1], 0)} MM)`);
+    }
+  } else {
+    warnings.push("OBJECT BOUNDS NOT REPORTED BY SLICER");
+  }
+  if (!meta.has_thumbnail) warnings.push("NO EMBEDDED THUMBNAIL");
+  if (!meta.layer_count) warnings.push("LAYER COUNT NOT REPORTED");
+  if (!meta.estimated_time) warnings.push("PRINT TIME NOT ESTIMATED BY SLICER");
+  const spool = latestData?.spoolman || {};
+  const remaining = Number(spool.remaining_filament ?? spool.filament_remaining);
+  if (Number.isFinite(remaining) && Number.isFinite(Number(meta.filament_total)) && Number(meta.filament_total) > remaining) {
+    warnings.push(`FILAMENT ESTIMATE ${fmt(meta.filament_total / 1000, 1)} M EXCEEDS SPOOL REMAINING ${fmt(remaining / 1000, 1)} M`);
+  }
+  setText("analysisStatus", `${meta.size ? `${(meta.size / 1048576).toFixed(1)} MB · ` : ""}READY`);
+  const statsContainer = byId("analysisStats");
+  if (statsContainer) {
+    statsContainer.replaceChildren();
+    stats.forEach(([key, value]) => {
+      const row = document.createElement("div");
+      row.className = "system-item";
+      const label = document.createElement("span");
+      label.textContent = key;
+      const text = document.createElement("span");
+      text.textContent = value;
+      row.append(label, text);
+      statsContainer.appendChild(row);
+    });
+  }
+  const warningsContainer = byId("analysisWarnings");
+  if (warningsContainer) {
+    warningsContainer.replaceChildren();
+    warnings.forEach(text => {
+      const item = document.createElement("div");
+      item.className = "analysis-warning";
+      item.textContent = `⚠ ${text}`;
+      warningsContainer.appendChild(item);
+    });
+  }
+  const thumb = byId("analysisThumb");
+  if (thumb) {
+    thumb.style.display = meta.has_thumbnail ? "" : "none";
+    if (meta.has_thumbnail) thumb.src = `${API.thumb(printer)}&filename=${encodeURIComponent(analysisFile)}&t=${Date.now()}`;
+  }
+}
+
+function timelapseCamera() {
+  for (const name of dashboardCameraAssignments.filter(Boolean)) {
+    const camera = availableWebcams.find(candidate => candidate.name === name);
+    if (camera?.snapshot_url) return camera;
+  }
+  return availableWebcams.find(candidate => candidate.snapshot_url) || null;
+}
+
+async function captureTimelapseFrame() {
+  const camera = timelapseCamera();
+  if (!camera) return;
+  try {
+    const response = await hassApi().fetchWithAuth(camera.snapshot_url);
+    if (!response?.ok) return;
+    const url = URL.createObjectURL(await response.blob());
+    timelapseFrames.push({ layer: liveLayer, url });
+    while (timelapseFrames.length > MAX_TIMELAPSE_FRAMES) URL.revokeObjectURL(timelapseFrames.shift().url);
+    renderTimelapseStatus(true);
+  } catch { /* camera snapshot optional */ }
+}
+
+function renderTimelapseStatus(showLatest = false) {
+  const count = timelapseFrames.length;
+  setText("tlStatus", `${count} FRAME${count === 1 ? "" : "S"}`);
+  const scrub = byId("tlScrub");
+  if (scrub) {
+    scrub.disabled = !count;
+    scrub.max = Math.max(0, count - 1);
+    if (showLatest || !count) scrub.value = Math.max(0, count - 1);
+  }
+  const empty = byId("tlEmpty");
+  if (empty) empty.hidden = count > 0;
+  const frame = byId("tlFrame");
+  if (frame) frame.hidden = !count;
+  if (count) renderTimelapseFrame();
+}
+
+function renderTimelapseFrame() {
+  const scrub = byId("tlScrub");
+  const frame = byId("tlFrame");
+  if (!frame || !timelapseFrames.length) return;
+  const index = Math.min(Math.max(Number(scrub?.value) || 0, 0), timelapseFrames.length - 1);
+  const entry = timelapseFrames[index];
+  if (frame.getAttribute("src") !== entry.url) frame.src = entry.url;
+  frame.hidden = false;
+  setText("tlLayer", entry.layer != null ? `LAYER ${entry.layer}` : `FRAME ${index + 1}`);
+}
+
+function clearTimelapse() {
+  while (timelapseFrames.length) URL.revokeObjectURL(timelapseFrames.pop().url);
+  const frame = byId("tlFrame");
+  if (frame) { frame.removeAttribute("src"); frame.hidden = true; }
+  renderTimelapseStatus();
+}
+
+function bindAlertSettings() {
+  loadAlertPrefs();
+  for (const id of ["ttsEngine", "ttsPlayer", "ttsQuietStart", "ttsQuietEnd", "ttsQuietBypass", ...ALERT_EVENT_KEYS.map(alertEventInputId)]) {
+    byId(id)?.addEventListener?.("change", saveAlertPrefs);
+  }
+  byId("ttsTest")?.addEventListener?.("click", () => {
+    if (alertPrefs.engine !== "browser" && alertPrefs.engine !== "off" && !alertPrefs.players.length) {
+      toast("SELECT A MEDIA PLAYER FOR TTS OUTPUT");
+      return;
+    }
+    speak("Nexus control voice alert test");
+  });
+}
+
 function bindToolpathCanvas() {
   const canvas = byId("toolpathCanvas");
-  let startX = 0, startY = 0;
+  byId("clipFutureLayers")?.addEventListener?.("change", drawToolpath);
+  byId("showFuturePath")?.addEventListener?.("change", drawToolpath);
+  const pointers = new Map();
+  let lastPinchDistance = 0;
+  let panMode = false;
+
   canvas.addEventListener("pointerdown", event => {
-    toolpathCamera.dragging = true; startX = event.clientX; startY = event.clientY;
-    canvas.setPointerCapture(event.pointerId);
+    canvas.setPointerCapture?.(event.pointerId);
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    cameraAnim = null;
+    orbitVelocityX = 0;
+    orbitVelocityY = 0;
+    if (pointers.size === 1) {
+      panMode = event.button === 2 || event.shiftKey;
+      toolpathCamera.dragging = true;
+      toolpathCamera.dragX = event.clientX;
+      toolpathCamera.dragY = event.clientY;
+    } else if (pointers.size === 2) {
+      toolpathCamera.dragging = false;
+      const [first, second] = [...pointers.values()];
+      lastPinchDistance = Math.hypot(first.x - second.x, first.y - second.y);
+    }
   });
   canvas.addEventListener("pointermove", event => {
+    if (!pointers.has(event.pointerId)) return;
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pointers.size === 2) {
+      const [first, second] = [...pointers.values()];
+      const distance = Math.hypot(first.x - second.x, first.y - second.y);
+      if (lastPinchDistance > 0 && distance > 0) {
+        toolpathCamera.zoom = Math.max(.45, Math.min(3.5, toolpathCamera.zoom * distance / lastPinchDistance));
+        drawToolpath();
+      }
+      lastPinchDistance = distance;
+      return;
+    }
     if (!toolpathCamera.dragging) return;
-    const deltaX = event.clientX - startX, deltaY = event.clientY - startY;
-    startX = event.clientX; startY = event.clientY;
-    toolpathCamera.yaw += deltaX * .009;
-    toolpathCamera.pitch = Math.max(.025, Math.min(1.55, toolpathCamera.pitch + deltaY * .008));
+    const deltaX = event.clientX - toolpathCamera.dragX;
+    const deltaY = event.clientY - toolpathCamera.dragY;
+    toolpathCamera.dragX = event.clientX;
+    toolpathCamera.dragY = event.clientY;
+    if (panMode) {
+      toolpathCamera.panX += deltaX;
+      toolpathCamera.panY += deltaY;
+    } else {
+      toolpathCamera.yaw += deltaX * .009;
+      toolpathCamera.pitch = Math.max(.025, Math.min(1.55, toolpathCamera.pitch + deltaY * .008));
+      orbitVelocityX = deltaX * .009;
+      orbitVelocityY = deltaY * .008;
+    }
     drawToolpath();
   });
-  const stopDrag = () => { toolpathCamera.dragging = false; };
-  canvas.addEventListener("pointerup", stopDrag);
-  canvas.addEventListener("pointercancel", stopDrag);
+  const endPointer = event => {
+    pointers.delete(event.pointerId);
+    if (pointers.size < 2) lastPinchDistance = 0;
+    if (pointers.size === 0) {
+      toolpathCamera.dragging = false;
+      if (!panMode && (Math.abs(orbitVelocityX) > .004 || Math.abs(orbitVelocityY) > .004)) startOrbitInertia();
+      panMode = false;
+    }
+  };
+  canvas.addEventListener("pointerup", endPointer);
+  canvas.addEventListener("pointercancel", endPointer);
+  canvas.addEventListener("contextmenu", event => event.preventDefault());
+  canvas.addEventListener("dblclick", () => setToolpathView("iso"));
   canvas.addEventListener("wheel", event => {
     event.preventDefault();
     toolpathCamera.zoom = Math.max(.45, Math.min(3.5, toolpathCamera.zoom * (event.deltaY < 0 ? 1.1 : .91)));
@@ -1735,11 +2600,13 @@ function bindToolpathCanvas() {
 function initializePanel() {
   bindInteractions();
   bindToolpathCanvas();
+  bindAlertSettings();
   byId("pageDetails").setAttribute("aria-hidden", "true");
   renderSentCommandHistory();
   setScreen("dashboard");
   refresh();
   if (!window.moonrakerRefreshTimer) window.moonrakerRefreshTimer = setInterval(refresh, 2000);
+  if (!window.moonrakerStalenessTimer) window.moonrakerStalenessTimer = setInterval(updateStaleness, 1000);
 }
 
 function startPanel() {

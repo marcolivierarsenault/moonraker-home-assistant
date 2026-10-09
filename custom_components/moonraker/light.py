@@ -92,6 +92,7 @@ async def async_setup_light(coordinator, entry, async_add_entities):
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
     """Moonraker LED class."""
 
@@ -175,7 +176,9 @@ class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
 
     def _set_attributes_from_coordinator(self) -> None:
         try:
-            color_data = self.coordinator.data["status"][self.sensor_name]["color_data"][0]
+            color_data = self.coordinator.data["status"][self.sensor_name][
+                "color_data"
+            ][0]
             r = int(color_data[0] * 255)
             g = int(color_data[1] * 255)
             b = int(color_data[2] * 255)

@@ -3,15 +3,18 @@
 import asyncio
 import logging
 import os
+import time
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
 import aiohttp
 import async_timeout
+import voluptuous as vol
 from aiohttp import web
 
+from homeassistant.components import websocket_api
 from homeassistant.components.http import HomeAssistantView
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
@@ -42,6 +45,7 @@ PANEL_DATA_URL = "/api/moonraker/panel_data"
 PANEL_GCODE_URL = "/api/moonraker/panel_gcode"
 PANEL_THUMB_URL = "/api/moonraker/panel_thumbnail"
 PANEL_ACTION_URL = "/api/moonraker/panel_action"
+PANEL_FILE_META_URL = "/api/moonraker/panel_file_meta"
 PANEL_FRONTEND_PATH = "moonraker-control-deck"
 UPLOAD_URL = "/api/moonraker/gcode_upload"
 
@@ -86,11 +90,14 @@ _GCODE_ACTIONS = {
     "z_set": "SET_GCODE_OFFSET Z={}",
     "motors_off": "M84",
     "cooldown": "M104 S0\nM140 S0\nM107",
+    "probe_mesh": "BED_MESH_CALIBRATE",
     "home_x": "G28 X",
     "home_y": "G28 Y",
     "home_z": "G28 Z",
     "home_all": "G28",
 }
+
+_QUEUE_ACTIONS = {"pause_queue", "delete_queue_job", "jump_queue_job"}
 
 _PREHEAT_PRESETS = {
     "pla": (200, 60),
@@ -123,6 +130,176 @@ def _webcam_url(entry, url: str | None) -> str | None:
     return f"{scheme}://{host}:{port}/{url.lstrip('/')}"
 
 
+def _coordinators(hass: HomeAssistant) -> dict[str, "MoonrakerDataUpdateCoordinator"]:
+    """Return all configured Moonraker coordinators by entry id."""
+    from . import MoonrakerDataUpdateCoordinator
+
+    return {
+        entry_id: coordinator
+        for entry_id, coordinator in hass.data.get(DOMAIN, {}).items()
+        if isinstance(coordinator, MoonrakerDataUpdateCoordinator)
+    }
+
+
+def _resolve_coordinator(hass: HomeAssistant, entry_id: str | None):
+    """Resolve a coordinator by entry id, or the first configured one."""
+    coordinators = _coordinators(hass)
+    if entry_id:
+        return coordinators.get(entry_id)
+    return next(iter(coordinators.values()), None)
+
+
+async def _panel_payload(hass: HomeAssistant, coordinator) -> dict[str, Any]:
+    """Assemble the panel data payload for a coordinator."""
+    data = coordinator.data or {}
+    status = data.get("status") or {}
+    file_list = data.get("file_list") or {}
+    files = file_list.get("files") if isinstance(file_list, dict) else file_list
+    if not isinstance(files, list):
+        files = []
+
+    webcams = []
+    try:
+        webcam_result = await coordinator.async_get_webcams()
+    except Exception:  # noqa: BLE001 - webcams are optional
+        webcam_result = {}
+    entry = coordinator.config_entry
+    for webcam in (webcam_result or {}).get("webcams", []):
+        if not isinstance(webcam, dict):
+            continue
+        webcams.append(
+            {
+                "name": webcam.get("name"),
+                "stream_url": _webcam_url(entry, webcam.get("stream_url")),
+                "snapshot_url": _webcam_url(entry, webcam.get("snapshot_url")),
+            }
+        )
+
+    power = data.get("power_devices") or {}
+    power_devices = [
+        {
+            "device": device.get("device"),
+            "status": device.get("status"),
+            "locked_while_printing": device.get("locked_while_printing"),
+        }
+        for device in power.get("devices", [])
+        if isinstance(device, dict) and device.get("device")
+    ]
+
+    macros = sorted(
+        obj.partition(" ")[2] for obj in status if obj.startswith("gcode_macro ")
+    )
+    try:
+        system_info_response = await coordinator.async_get_system_info()
+    except UpdateFailed:
+        system_info_response = {}
+    raw_system_info = (
+        system_info_response.get("system_info")
+        if isinstance(system_info_response, dict)
+        else {}
+    ) or {}
+    if not isinstance(raw_system_info, dict):
+        raw_system_info = {}
+    raw_cpu_info = raw_system_info.get("cpu_info") or {}
+    if not isinstance(raw_cpu_info, dict):
+        raw_cpu_info = {}
+    safe_cpu_keys = (
+        "cpu_count",
+        "bits",
+        "processor",
+        "cpu_desc",
+        "hardware_desc",
+        "model",
+        "total_memory",
+        "memory_units",
+    )
+    system_info = {
+        "provider": raw_system_info.get("provider"),
+        "cpu_info": {
+            key: raw_cpu_info[key] for key in safe_cpu_keys if key in raw_cpu_info
+        },
+    }
+    try:
+        raw_server_info = await coordinator.async_get_server_info()
+    except UpdateFailed:
+        raw_server_info = {}
+    if not isinstance(raw_server_info, dict):
+        raw_server_info = {}
+    server_info = {
+        key: raw_server_info[key]
+        for key in (
+            "moonraker_version",
+            "api_version",
+            "components",
+            "failed_components",
+            "warnings",
+        )
+        if key in raw_server_info
+    }
+    entry_options = coordinator.config_entry.options
+    tracked_objects = [
+        {
+            "name": object_name,
+            "fields": None if fields is None else sorted(fields),
+        }
+        for object_name, fields in coordinator.query_obj.get("objects", {}).items()
+    ]
+
+    return {
+        "entry_id": coordinator.config_entry.entry_id,
+        "printer": coordinator.api_device_name,
+        "available": coordinator.last_update_success,
+        "generated_at": time.time(),
+        "selected_file": coordinator.selected_file,
+        "status": status,
+        "printer_info": data.get("printer.info") or {},
+        "server_info": server_info,
+        "system_info": system_info,
+        "meta": {key: data.get(key) for key in _META_KEYS},
+        "history": data.get("history") or {},
+        "queue": data.get("queue") or {},
+        "spoolman": data.get("spoolman") or {},
+        "machine_update": data.get("machine_update") or {},
+        "power_devices": power_devices,
+        "macros": macros,
+        "webcams": webcams,
+        "gcode_responses": list(coordinator.gcode_responses)[-80:],
+        "files": [
+            {
+                "path": file.get("path"),
+                "size": file.get("size"),
+                "modified": file.get("modified"),
+            }
+            for file in files
+            if isinstance(file, dict) and file.get("path")
+        ],
+        "entries": [
+            {"id": entry_id, "name": other.api_device_name}
+            for entry_id, other in _coordinators(hass).items()
+        ],
+        "api_key_configured": bool(entry.data.get(CONF_API_KEY)),
+        "settings": {
+            "host": entry.data.get(CONF_URL),
+            "port": _entry_port(entry),
+            "tls": bool(entry.data.get(CONF_TLS, False)),
+            "idle_poll_seconds": coordinator.polling_interval.total_seconds(),
+            "print_poll_seconds": PRINTING_POLLING_RATE,
+            "quiet_unreachable": bool(
+                entry_options.get(CONF_OPTION_QUIET_UNREACHABLE, False)
+            ),
+        },
+        "platforms": [
+            getattr(platform, "value", str(platform))
+            for platform in coordinator.platforms
+        ],
+        "tracked_objects": tracked_objects,
+        "available_objects": (coordinator._printer_objects_list or {}).get(
+            "objects", []
+        ),
+        "integration_version": VERSION,
+    }
+
+
 class _PanelViewBase(HomeAssistantView):
     """Shared helpers for panel views."""
 
@@ -133,19 +310,10 @@ class _PanelViewBase(HomeAssistantView):
         self.hass = hass
 
     def _coordinators(self) -> dict[str, "MoonrakerDataUpdateCoordinator"]:
-        from . import MoonrakerDataUpdateCoordinator
-
-        return {
-            entry_id: coordinator
-            for entry_id, coordinator in self.hass.data.get(DOMAIN, {}).items()
-            if isinstance(coordinator, MoonrakerDataUpdateCoordinator)
-        }
+        return _coordinators(self.hass)
 
     def _resolve(self, entry_id: str | None):
-        coordinators = self._coordinators()
-        if entry_id:
-            return coordinators.get(entry_id)
-        return next(iter(coordinators.values()), None)
+        return _resolve_coordinator(self.hass, entry_id)
 
 
 class MoonrakerPanelView(HomeAssistantView):
@@ -157,9 +325,7 @@ class MoonrakerPanelView(HomeAssistantView):
 
     async def get(self, request):
         """Redirect to the Home Assistant frontend panel."""
-        return web.Response(
-            status=302, headers={"Location": f"/{PANEL_FRONTEND_PATH}"}
-        )
+        return web.Response(status=302, headers={"Location": f"/{PANEL_FRONTEND_PATH}"})
 
 
 class MoonrakerPanelEmbedView(HomeAssistantView):
@@ -234,9 +400,7 @@ class MoonrakerUploadRedirectView(HomeAssistantView):
 
     async def get(self, request):
         """Redirect to the authenticated Home Assistant panel."""
-        return web.Response(
-            status=302, headers={"Location": f"/{PANEL_FRONTEND_PATH}"}
-        )
+        return web.Response(status=302, headers={"Location": f"/{PANEL_FRONTEND_PATH}"})
 
 
 class MoonrakerPanelDataView(_PanelViewBase):
@@ -250,151 +414,7 @@ class MoonrakerPanelDataView(_PanelViewBase):
         coordinator = self._resolve(request.query.get("printer"))
         if coordinator is None:
             return self.json({"error": "no printer configured"}, status_code=404)
-
-        data = coordinator.data or {}
-        status = data.get("status") or {}
-        file_list = data.get("file_list") or {}
-        files = file_list.get("files") if isinstance(file_list, dict) else file_list
-        if not isinstance(files, list):
-            files = []
-
-        webcams = []
-        try:
-            webcam_result = await coordinator.async_get_webcams()
-        except Exception:  # noqa: BLE001 - webcams are optional
-            webcam_result = {}
-        entry = coordinator.config_entry
-        for webcam in (webcam_result or {}).get("webcams", []):
-            if not isinstance(webcam, dict):
-                continue
-            webcams.append(
-                {
-                    "name": webcam.get("name"),
-                    "stream_url": _webcam_url(entry, webcam.get("stream_url")),
-                    "snapshot_url": _webcam_url(entry, webcam.get("snapshot_url")),
-                }
-            )
-
-        power = data.get("power_devices") or {}
-        power_devices = [
-            {
-                "device": device.get("device"),
-                "status": device.get("status"),
-                "locked_while_printing": device.get("locked_while_printing"),
-            }
-            for device in power.get("devices", [])
-            if isinstance(device, dict) and device.get("device")
-        ]
-
-        macros = sorted(
-            obj.partition(" ")[2]
-            for obj in status
-            if obj.startswith("gcode_macro ")
-        )
-        try:
-            system_info_response = await coordinator.async_get_system_info()
-        except UpdateFailed:
-            system_info_response = {}
-        raw_system_info = (
-            system_info_response.get("system_info")
-            if isinstance(system_info_response, dict)
-            else {}
-        ) or {}
-        if not isinstance(raw_system_info, dict):
-            raw_system_info = {}
-        raw_cpu_info = raw_system_info.get("cpu_info") or {}
-        if not isinstance(raw_cpu_info, dict):
-            raw_cpu_info = {}
-        safe_cpu_keys = (
-            "cpu_count",
-            "bits",
-            "processor",
-            "cpu_desc",
-            "hardware_desc",
-            "model",
-            "total_memory",
-            "memory_units",
-        )
-        system_info = {
-            "provider": raw_system_info.get("provider"),
-            "cpu_info": {
-                key: raw_cpu_info[key] for key in safe_cpu_keys if key in raw_cpu_info
-            },
-        }
-        try:
-            raw_server_info = await coordinator.async_get_server_info()
-        except UpdateFailed:
-            raw_server_info = {}
-        if not isinstance(raw_server_info, dict):
-            raw_server_info = {}
-        server_info = {
-            key: raw_server_info[key]
-            for key in ("moonraker_version", "api_version", "components", "failed_components", "warnings")
-            if key in raw_server_info
-        }
-        entry_options = coordinator.config_entry.options
-        tracked_objects = [
-            {
-                "name": object_name,
-                "fields": None if fields is None else sorted(fields),
-            }
-            for object_name, fields in coordinator.query_obj.get("objects", {}).items()
-        ]
-
-        return self.json(
-            {
-                "entry_id": coordinator.config_entry.entry_id,
-                "printer": coordinator.api_device_name,
-                "available": coordinator.last_update_success,
-                "selected_file": coordinator.selected_file,
-                "status": status,
-                "printer_info": data.get("printer.info") or {},
-                "server_info": server_info,
-                "system_info": system_info,
-                "meta": {key: data.get(key) for key in _META_KEYS},
-                "history": data.get("history") or {},
-                "queue": data.get("queue") or {},
-                "spoolman": data.get("spoolman") or {},
-                "machine_update": data.get("machine_update") or {},
-                "power_devices": power_devices,
-                "macros": macros,
-                "webcams": webcams,
-                "gcode_responses": list(coordinator.gcode_responses)[-80:],
-                "files": [
-                    {
-                        "path": file.get("path"),
-                        "size": file.get("size"),
-                        "modified": file.get("modified"),
-                    }
-                    for file in files
-                    if isinstance(file, dict) and file.get("path")
-                ],
-                "entries": [
-                    {"id": entry_id, "name": other.api_device_name}
-                    for entry_id, other in self._coordinators().items()
-                ],
-                "api_key_configured": bool(entry.data.get(CONF_API_KEY)),
-                "settings": {
-                    "host": entry.data.get(CONF_URL),
-                    "port": _entry_port(entry),
-                    "tls": bool(entry.data.get(CONF_TLS, False)),
-                    "idle_poll_seconds": coordinator.polling_interval.total_seconds(),
-                    "print_poll_seconds": PRINTING_POLLING_RATE,
-                    "quiet_unreachable": bool(
-                        entry_options.get(CONF_OPTION_QUIET_UNREACHABLE, False)
-                    ),
-                },
-                "platforms": [
-                    getattr(platform, "value", str(platform))
-                    for platform in coordinator.platforms
-                ],
-                "tracked_objects": tracked_objects,
-                "available_objects": (coordinator._printer_objects_list or {}).get(
-                    "objects", []
-                ),
-                "integration_version": VERSION,
-            }
-        )
+        return self.json(await _panel_payload(self.hass, coordinator))
 
 
 def _relative_gcode_path(filename: str | None) -> str | None:
@@ -411,7 +431,7 @@ def _relative_gcode_path(filename: str | None) -> str | None:
         marker = f"/{_GCODE_ROOT}/"
         index = lowered.find(marker)
         if index >= 0:
-            normalized = normalized[index + len(marker):]
+            normalized = normalized[index + len(marker) :]
     if not normalized or any(part in ("", ".", "..") for part in normalized.split("/")):
         return None
     return normalized
@@ -437,7 +457,10 @@ class MoonrakerPanelGcodeView(_PanelViewBase):
         )
         requested_path = _relative_gcode_path(request.query.get("filename"))
         if not requested_path or requested_path != active_path:
-            return self.json({"error": "only the active gcode file can be previewed"}, status_code=404)
+            return self.json(
+                {"error": "only the active gcode file can be previewed"},
+                status_code=404,
+            )
 
         file_list = (coordinator.data or {}).get("file_list") or {}
         files = file_list.get("files") if isinstance(file_list, dict) else file_list
@@ -447,7 +470,9 @@ class MoonrakerPanelGcodeView(_PanelViewBase):
             if isinstance(file, dict)
         }
         if requested_path not in allowed_paths:
-            return self.json({"error": "gcode file is not in the printer file list"}, status_code=404)
+            return self.json(
+                {"error": "gcode file is not in the printer file list"}, status_code=404
+            )
 
         entry = coordinator.config_entry
         scheme = "https" if entry.data.get(CONF_TLS, False) else "http"
@@ -465,7 +490,10 @@ class MoonrakerPanelGcodeView(_PanelViewBase):
             async with session.get(url, headers=headers, timeout=timeout) as upstream:
                 if upstream.status != 200:
                     return web.Response(status=404)
-                if upstream.content_length and upstream.content_length > _MAX_TOOLPATH_BYTES:
+                if (
+                    upstream.content_length
+                    and upstream.content_length > _MAX_TOOLPATH_BYTES
+                ):
                     return self.json(
                         {"error": "gcode file exceeds the interactive preview limit"},
                         status_code=413,
@@ -489,26 +517,132 @@ class MoonrakerPanelGcodeView(_PanelViewBase):
                 await response.write_eof()
                 return response
         except (asyncio.TimeoutError, aiohttp.ClientError, OSError) as exception:
-            _LOGGER.debug("Could not stream active gcode to the dashboard: %s", exception)
+            _LOGGER.debug(
+                "Could not stream active gcode to the dashboard: %s", exception
+            )
             if response_started and response is not None:
                 response.force_close()
                 return response
             return web.Response(status=502)
 
 
+def _best_thumbnail_relative_path(meta) -> str | None:
+    """Pick the largest thumbnail relative path from a metadata response."""
+    thumbnails = meta.get("thumbnails") if isinstance(meta, dict) else None
+    if not isinstance(thumbnails, list):
+        return None
+    best_path = None
+    best_size = -1.0
+    for thumbnail in thumbnails:
+        if not isinstance(thumbnail, dict):
+            continue
+        relative_path = thumbnail.get("relative_path")
+        if not relative_path:
+            continue
+        size = thumbnail.get("size")
+        try:
+            size_value = float(size) if size is not None else None
+        except (TypeError, ValueError):
+            size_value = None
+        if size_value is None:
+            if best_path is None:
+                best_path = relative_path
+            continue
+        if size_value > best_size:
+            best_size = size_value
+            best_path = relative_path
+    return best_path
+
+
+class MoonrakerPanelFileMetaView(_PanelViewBase):
+    """Return slicer metadata for an arbitrary G-code file."""
+
+    url = PANEL_FILE_META_URL
+    name = "api:moonraker:panel_file_meta"
+
+    _META_WHITELIST = (
+        "estimated_time",
+        "filament_total",
+        "filament_weight_total",
+        "filament_type",
+        "filament_name",
+        "layer_count",
+        "layer_height",
+        "first_layer_height",
+        "object_height",
+        "slicer",
+        "slicer_version",
+        "nozzle_diameter",
+        "first_layer_extr_temp",
+        "first_layer_bed_temp",
+        "chamber_temp",
+        "x_min",
+        "x_max",
+        "y_min",
+        "y_max",
+        "z_min",
+        "z_max",
+        "size",
+        "modified",
+    )
+
+    async def get(self, request):
+        """Fetch and whitelist metadata for the requested file."""
+        coordinator = self._resolve(request.query.get("printer"))
+        if coordinator is None:
+            return self.json({"error": "no printer configured"}, status_code=404)
+        filename = str(request.query.get("filename") or "").strip()
+        if not filename:
+            return self.json({"error": "filename required"}, status_code=400)
+        from . import _normalize_gcode_path
+
+        normalized, _root = _normalize_gcode_path(filename)
+        if not normalized:
+            return self.json({"error": "invalid filename"}, status_code=400)
+        try:
+            meta = await coordinator.async_fetch_data(
+                METHODS.SERVER_FILES_METADATA, {"filename": normalized}
+            )
+        except UpdateFailed:
+            return self.json({"error": "metadata unavailable"}, status_code=502)
+        if not isinstance(meta, dict):
+            meta = {}
+        payload = {key: meta[key] for key in self._META_WHITELIST if key in meta}
+        payload["has_thumbnail"] = _best_thumbnail_relative_path(meta) is not None
+        return self.json(payload)
+
+
 class MoonrakerPanelThumbnailView(_PanelViewBase):
-    """Proxy the current job's thumbnail from Moonraker."""
+    """Proxy a G-code thumbnail from Moonraker."""
 
     url = PANEL_THUMB_URL
     name = "api:moonraker:panel_thumbnail"
 
     async def get(self, request):
-        """Return the thumbnail image for the active job."""
+        """Return the thumbnail image for the active job or a named file."""
         coordinator = self._resolve(request.query.get("printer"))
         if coordinator is None:
             return web.Response(status=404)
 
+        filename = str(request.query.get("filename") or "").strip()
         thumbnail_path = (coordinator.data or {}).get("thumbnails_path")
+        if filename:
+            from . import _build_thumbnail_path, _normalize_gcode_path
+
+            normalized, root = _normalize_gcode_path(filename)
+            thumbnail_path = None
+            if normalized:
+                try:
+                    meta = await coordinator.async_fetch_data(
+                        METHODS.SERVER_FILES_METADATA, {"filename": normalized}
+                    )
+                except UpdateFailed:
+                    meta = {}
+                best = _best_thumbnail_relative_path(meta)
+                if best:
+                    thumbnail_path = _build_thumbnail_path(
+                        os.path.dirname(normalized), best, root
+                    )
         if not thumbnail_path:
             return web.Response(status=404)
 
@@ -644,6 +778,9 @@ class MoonrakerPanelActionView(_PanelViewBase):
             )
             return None
 
+        if action in _QUEUE_ACTIONS:
+            return await self._run_queue_action(coordinator, action, payload)
+
         if action == "refresh_files":
             await coordinator.async_refresh_files()
             return None
@@ -665,10 +802,61 @@ class MoonrakerPanelActionView(_PanelViewBase):
 
         return "unknown action"
 
+    async def _run_queue_action(self, coordinator, action: str, payload) -> str | None:
+        """Execute a job-queue action; return an error string or None."""
+        if action == "pause_queue":
+            await coordinator.async_send_data(METHODS.SERVER_JOB_QUEUE_PAUSE)
+            return None
+        job_id = str(payload.get("job_id") or "").strip()
+        if not job_id:
+            return "job_id required"
+        if action == "delete_queue_job":
+            await coordinator.async_send_data(
+                METHODS.SERVER_JOB_QUEUE_DELETE_JOB, {"job_ids": [job_id]}
+            )
+            return None
+        await coordinator.async_send_data(
+            METHODS.SERVER_JOB_QUEUE_JUMP, {"job_id": job_id}
+        )
+        return None
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "moonraker/panel_subscribe",
+        vol.Optional("entry_id"): str,
+    }
+)
+@websocket_api.async_response
+async def _ws_panel_subscribe(hass, connection, msg) -> None:
+    """Push panel data snapshots whenever the coordinator updates."""
+    coordinator = _resolve_coordinator(hass, msg.get("entry_id"))
+    if coordinator is None:
+        connection.send_error(msg["id"], "not_found", "No printer configured")
+        return
+
+    async def _push() -> None:
+        try:
+            payload = await _panel_payload(hass, coordinator)
+        except Exception:  # noqa: BLE001 - a bad snapshot must not kill the subscription
+            _LOGGER.exception("Failed to assemble Moonraker panel payload")
+            return
+        connection.send_message(websocket_api.event_message(msg["id"], payload))
+
+    @callback
+    def _on_update() -> None:
+        hass.async_create_task(_push())
+
+    connection.send_result(msg["id"])
+    connection.subscriptions[msg["id"]] = coordinator.async_add_listener(_on_update)
+    await _push()
+
 
 async def register_panel_views(hass: HomeAssistant) -> None:
-    """Register panel HTTP views and the authenticated HA sidebar panel."""
+    """Register panel HTTP views, the websocket feed, and the sidebar panel."""
     from homeassistant.components.panel_custom import async_register_panel
+
+    websocket_api.async_register_command(hass, _ws_panel_subscribe)
 
     hass.http.register_view(MoonrakerPanelView())
     hass.http.register_view(MoonrakerPanelEmbedView(hass))
@@ -678,6 +866,7 @@ async def register_panel_views(hass: HomeAssistant) -> None:
     hass.http.register_view(MoonrakerPanelDataView(hass))
     hass.http.register_view(MoonrakerPanelGcodeView(hass))
     hass.http.register_view(MoonrakerPanelThumbnailView(hass))
+    hass.http.register_view(MoonrakerPanelFileMetaView(hass))
     hass.http.register_view(MoonrakerPanelActionView(hass))
     await async_register_panel(
         hass,

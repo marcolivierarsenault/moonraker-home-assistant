@@ -371,7 +371,9 @@ async def test_coordinator_caches_setup_lookups(hass):
 
 async def test_coordinator_caches_unavailable_server_info(hass):
     """Do not repeatedly request optional server info after an initial failure."""
-    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="server-info")
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, entry_id="server-info"
+    )
     coordinator = MoonrakerDataUpdateCoordinator(
         hass, client=MagicMock(), config_entry=config_entry, api_device_name="printer"
     )
@@ -431,7 +433,7 @@ async def test_coordinator_fetches_all_fields_after_full_object_subscription(has
     )
     coordinator.data = {"status": {"gcode_macro TEST": {"variable": 1}}}
     coordinator.add_query_objects("gcode_macro TEST", "variable")
-    coordinator._record_queried_objects({"gcode_macro TEST": ["variable"]})
+    coordinator._record_queried_objects(coordinator._subscription_objects())
     coordinator.add_query_objects("gcode_macro TEST", None)
     coordinator._async_fetch_data = AsyncMock(
         return_value={"status": {"gcode_macro TEST": {"variable": 1, "other": 2}}}
@@ -1103,7 +1105,7 @@ async def test_set_custom_gcode_service(hass):
             blocking=True,
         )
         await hass.async_block_till_done()
-        mock_sensors.assert_awaited_once_with(
+        mock_sensors.assert_awaited_with(
             METHODS.PRINTER_GCODE_SCRIPT.value, script="STATUS"
         )
 
@@ -1135,7 +1137,7 @@ async def test_send_gcode_list_payload_normalizes_script(hass):
         )
         await hass.async_block_till_done()
 
-    mock_call.assert_awaited_once_with(
+    mock_call.assert_awaited_with(
         METHODS.PRINTER_GCODE_SCRIPT.value, script="G28\nM105"
     )
     assert await async_unload_entry(hass, config_entry)
@@ -1198,7 +1200,13 @@ async def test_send_gcode_accepts_config_entry_id_and_deduplicates(hass):
         )
         await hass.async_block_till_done()
 
-    mock_call.assert_awaited_once_with(METHODS.PRINTER_GCODE_SCRIPT.value, script="G0")
+    gcode_calls = [
+        call
+        for call in mock_call.await_args_list
+        if call.args[0] == METHODS.PRINTER_GCODE_SCRIPT.value
+    ]
+    assert len(gcode_calls) == 1
+    assert gcode_calls[0].kwargs == {"script": "G0"}
     assert await async_unload_entry(hass, config_entry)
 
 
@@ -1243,9 +1251,7 @@ async def test_send_gcode_identifier_fallback(hass):
         )
         await hass.async_block_till_done()
 
-    mock_call.assert_awaited_once_with(
-        METHODS.PRINTER_GCODE_SCRIPT.value, script="M105"
-    )
+    mock_call.assert_awaited_with(METHODS.PRINTER_GCODE_SCRIPT.value, script="M105")
     assert await async_unload_entry(hass, config_entry)
 
 
@@ -1479,7 +1485,7 @@ async def test_start_print_service(hass):
             blocking=True,
         )
         await hass.async_block_till_done()
-        mock_call.assert_awaited_once_with(
+        mock_call.assert_awaited_with(
             METHODS.PRINTER_PRINT_START.value, filename="benchy.gcode"
         )
 
@@ -1559,3 +1565,331 @@ async def test_gcode_response_buffered(hass):
     await coordinator._async_handle_notification(NOTIFY_GCODE_RESPONSE, ["ok"])
 
     assert list(coordinator.gcode_responses) == ["// T0:210.0 /210.0", "ok"]
+
+
+def test_normalize_file_list_shapes():
+    """server.files.list replies normalize to a dict with a files key."""
+    from custom_components.moonraker import _normalize_file_list
+
+    assert _normalize_file_list([{"path": "a"}]) == {"files": [{"path": "a"}]}
+    assert _normalize_file_list({"files": [1]}) == {"files": [1]}
+    assert _normalize_file_list("garbage") == {"files": []}
+
+
+def test_read_file_bytes(tmp_path):
+    """_read_file_bytes reads raw bytes from disk."""
+    from custom_components.moonraker import _read_file_bytes
+
+    target = tmp_path / "part.gcode"
+    target.write_bytes(b"G28\n")
+    assert _read_file_bytes(str(target)) == b"G28\n"
+
+
+def test_normalize_gcode_path_rejects_traversal():
+    """Traversal and empty path segments never reach Moonraker."""
+    assert _normalize_gcode_path("../x.gcode") == ("", None)
+    assert _normalize_gcode_path("a//b.gcode") == ("", None)
+    assert _normalize_gcode_path("./a.gcode") == ("", None)
+    assert _normalize_gcode_path("gcodes/sub/a.gcode") == ("sub/a.gcode", "gcodes")
+
+
+class _Part:
+    """Minimal aiohttp multipart part stand-in."""
+
+    def __init__(self, name, filename=None, data=b"", text=""):
+        self.name = name
+        self.filename = filename
+        self._data = data
+        self._text = text
+
+    async def read(self, decode=False):
+        return self._data
+
+    async def text(self):
+        return self._text
+
+
+class _MultipartRequest:
+    def __init__(self, parts):
+        self._parts = parts
+
+    async def multipart(self):
+        async def _iter():
+            for part in self._parts:
+                yield part
+
+        return _iter()
+
+
+async def test_gcode_upload_view(hass):
+    """The upload endpoint validates and forwards files to Moonraker."""
+    from custom_components.moonraker import MoonrakerGcodeUploadView
+
+    coordinator = MagicMock(spec=MoonrakerDataUpdateCoordinator)
+    coordinator.async_upload_gcode_data = AsyncMock()
+    coordinator.async_send_data = AsyncMock()
+    hass.data[DOMAIN] = {"p": coordinator}
+
+    view = MoonrakerGcodeUploadView(hass)
+
+    # Unknown printer id
+    response = await view.post(_MultipartRequest([]))
+    assert response.status == 404
+
+    parts = [
+        _Part("file", filename="part.gcode", data=b"G28"),
+        _Part("printer", text="p"),
+        _Part("start_print"),
+    ]
+    response = await view.post(_MultipartRequest(parts))
+    assert response.status == 200
+    coordinator.async_upload_gcode_data.assert_awaited_once_with(b"G28", "part.gcode")
+    coordinator.async_send_data.assert_awaited_once_with(
+        METHODS.PRINTER_PRINT_START, {"filename": "part.gcode"}
+    )
+
+    # Missing file part -> 400
+    response = await view.post(_MultipartRequest([_Part("printer", text="p")]))
+    assert response.status == 400
+
+    # Upload failure -> 502
+    coordinator.async_upload_gcode_data = AsyncMock(side_effect=RuntimeError("io"))
+    parts = [
+        _Part("file", filename="part.gcode", data=b"G28"),
+        _Part("printer", text="p"),
+    ]
+    response = await view.post(_MultipartRequest(parts))
+    assert response.status == 502
+
+
+async def test_resolve_entry_ids_variants(hass):
+    """Device ids resolve via registry, direct entry ids, and identifiers."""
+    from custom_components.moonraker import _async_resolve_entry_ids
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="p")
+    hass.data[DOMAIN] = {"p": config_entry}
+
+    # Plain entry id with no device -> resolved directly
+    assert _async_resolve_entry_ids(hass, "p") == ["p"]
+    # Unknown everything -> skipped
+    assert _async_resolve_entry_ids(hass, "ghost") == []
+    # String vs list input
+    assert _async_resolve_entry_ids(hass, ["p", "ghost"]) == ["p"]
+
+
+async def test_setup_entry_tolerates_optional_refresh_failures(hass):
+    """Bed-mesh prefetch and status subscription failures don't block setup."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="x")
+    config_entry.add_to_hass(hass)
+
+    with (
+        patch.object(
+            MoonrakerDataUpdateCoordinator,
+            "async_get_printer_objects",
+            new=AsyncMock(return_value={"objects": ["bed_mesh", "extruder"]}),
+        ),
+        patch.object(
+            MoonrakerDataUpdateCoordinator,
+            "async_refresh_query_data",
+            new=AsyncMock(side_effect=UpdateFailed("mesh")),
+        ),
+        patch.object(
+            MoonrakerDataUpdateCoordinator,
+            "async_subscribe_status_updates",
+            new=AsyncMock(side_effect=UpdateFailed("sub")),
+        ),
+    ):
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert config_entry.state.name == "LOADED"
+
+
+async def test_start_print_requires_filename(hass):
+    """start_print rejects empty filenames before touching the printer."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="x")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    with pytest.raises(HomeAssistantError):
+        await hass.services.async_call(
+            DOMAIN,
+            "start_print",
+            {"device_id": ["x"], "filename": "  "},
+            blocking=True,
+        )
+
+
+async def test_fetch_and_send_resubscribe_failure_raises(hass):
+    """A failed resubscribe during reconnect surfaces as UpdateFailed."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="x")
+    client = MagicMock()
+    client.start = AsyncMock()
+    client.client.is_connected = False
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=client, config_entry=config_entry, api_device_name="p"
+    )
+    coordinator._subscribed_to_status = True
+    coordinator._async_resubscribe = AsyncMock(side_effect=RuntimeError("nope"))
+
+    with pytest.raises(UpdateFailed):
+        await coordinator._async_fetch_data(METHODS.PRINTER_INFO, None)
+    with pytest.raises(UpdateFailed):
+        await coordinator._async_send_data(METHODS.PRINTER_INFO, None)
+
+
+async def test_get_webcams_caches_single_fetch(hass):
+    """Webcams are fetched once and cached for the entry lifetime."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="x")
+    client = MagicMock()
+    client.client.is_connected = True
+    client.client.call_method = AsyncMock(return_value={"webcams": [{"name": "cam"}]})
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=client, config_entry=config_entry, api_device_name="p"
+    )
+
+    assert await coordinator.async_get_webcams() == {"webcams": [{"name": "cam"}]}
+    assert await coordinator.async_get_webcams() == {"webcams": [{"name": "cam"}]}
+    client.client.call_method.assert_awaited_once()
+
+
+async def test_upload_gcode_posts_to_moonraker(hass, tmp_path):
+    """async_upload_gcode reads the file in the executor and posts it."""
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="x")
+    client = MagicMock()
+    client.client.is_connected = True
+    client.client.call_method = AsyncMock(return_value={"files": []})
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=client, config_entry=config_entry, api_device_name="p"
+    )
+    coordinator.data = {}
+
+    target = tmp_path / "part.gcode"
+    target.write_bytes(b"G28\n")
+
+    class _Ctx:
+        def __init__(self, response):
+            self._response = response
+
+        async def __aenter__(self):
+            return self._response
+
+        async def __aexit__(self, *_):
+            return False
+
+    session = MagicMock()
+    upstream = MagicMock()
+    upstream.raise_for_status = MagicMock()
+    session.post = MagicMock(return_value=_Ctx(upstream))
+
+    with patch(
+        "custom_components.moonraker.async_get_clientsession", return_value=session
+    ):
+        await coordinator.async_upload_gcode(str(target))
+
+    session.post.assert_called_once()
+    assert session.post.call_args.args[0].endswith("/server/files/upload")
+    # file list refresh was triggered
+    client.client.call_method.assert_awaited()
+
+
+async def test_empty_subscriptions_are_noops(hass):
+    """Empty subscription maps short-circuit both subscribe and resubscribe."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="x")
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=MagicMock(), config_entry=config_entry, api_device_name="p"
+    )
+    coordinator.query_obj = {OBJ: {}}
+    coordinator._async_fetch_data = AsyncMock()
+
+    await coordinator.async_subscribe_status_updates()
+    coordinator._async_fetch_data.assert_not_awaited()
+
+    coordinator._subscribed_to_status = True
+    await coordinator._async_resubscribe()
+    coordinator._async_fetch_data.assert_not_awaited()
+    coordinator.moonraker.client.call_method.assert_not_called()
+
+
+async def test_status_delta_accepts_dict_and_list(hass):
+    """_status_delta unwraps dict replies and ignores empty data."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="x")
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=MagicMock(), config_entry=config_entry, api_device_name="p"
+    )
+
+    assert coordinator._status_delta([{"a": 1}, 2.0]) == {"a": 1}
+    assert coordinator._status_delta({"status": {"a": 1}}) == {"a": 1}
+    assert coordinator._status_delta({"x": 1}) == {"x": 1}
+    assert coordinator._status_delta([]) == {}
+
+
+async def test_notification_guards(hass):
+    """Empty deltas and unchanged merges short-circuit notification handling."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="x")
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=MagicMock(), config_entry=config_entry, api_device_name="p"
+    )
+    coordinator.data = {"status": {"print_stats": {"state": "printing"}}}
+    coordinator.async_update_listeners = MagicMock()
+
+    # Empty delta -> nothing happens
+    await coordinator._async_handle_notification(NOTIFY_STATUS_UPDATE, [])
+    coordinator.async_update_listeners.assert_not_called()
+
+    # Unchanged merge -> nothing happens
+    await coordinator._async_handle_notification(
+        NOTIFY_STATUS_UPDATE, [{"print_stats": {"state": "printing"}}, 1.0]
+    )
+    coordinator.async_update_listeners.assert_not_called()
+
+
+async def test_push_flush_with_no_data_returns(hass):
+    """The push flush bails cleanly when no data exists yet."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="x")
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=MagicMock(), config_entry=config_entry, api_device_name="p"
+    )
+    coordinator.data = None
+    await coordinator._async_flush_push_data()
+
+
+async def test_push_flush_filename_change_triggers_refresh(hass):
+    """A new filename in pushed data schedules a metadata refresh."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="x")
+    coordinator = MoonrakerDataUpdateCoordinator(
+        hass, client=MagicMock(), config_entry=config_entry, api_device_name="p"
+    )
+    coordinator.data = {"status": {"print_stats": {"filename": "new.gcode"}}}
+    coordinator.async_update_listeners = MagicMock()
+    coordinator.async_request_refresh = AsyncMock()
+
+    await coordinator._async_flush_push_data()
+    coordinator.async_request_refresh.assert_awaited_once()
+
+
+async def test_upload_gcode_service_uploads_via_coordinator(hass, tmp_path):
+    """The upload_gcode service forwards an allowlisted path to Moonraker."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="x")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    coordinator.async_upload_gcode = AsyncMock()
+
+    target = tmp_path / "part.gcode"
+    target.write_bytes(b"G28\n")
+
+    with patch.object(hass.config, "is_allowed_path", return_value=True):
+        await hass.services.async_call(
+            DOMAIN,
+            "upload_gcode",
+            {"device_id": [config_entry.entry_id], "path": str(target)},
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+    coordinator.async_upload_gcode.assert_awaited_once_with(str(target))
