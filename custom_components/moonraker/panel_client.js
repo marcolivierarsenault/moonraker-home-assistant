@@ -63,6 +63,8 @@ let toolpathBounds = null;
 let toolpathReady = false;
 let toolpathLoading = false;
 let toolpathError = "";
+let toolpathLayerStats = [];
+let toolpathSimSeconds = 0;
 let extHist = [];
 let bedHist = [];
 let toolpathCamera = { yaw: -0.72, pitch: 0.7, zoom: 1, panX: 0, panY: 0, dragX: 0, dragY: 0, dragging: false };
@@ -1127,6 +1129,11 @@ function dispatchAction(button) {
   const action = button.dataset.action;
   if (!action) return;
   if (button.dataset.confirm && !confirm(button.dataset.confirm)) return;
+  if (action === "start_queue" && isQuietTime() && Date.now() > queueQuietOverrideUntil) {
+    queueQuietOverrideUntil = Date.now() + 8000;
+    toast("QUIET HOURS ACTIVE — PRESS START QUEUE AGAIN TO OVERRIDE", 6000);
+    return;
+  }
   let value = button.dataset.value;
   const preset = button.dataset.preset;
   const extra = {};
@@ -1197,6 +1204,8 @@ function switchPrinter() {
   toolpathLoading = false;
   toolpathRequested = false;
   toolpathSegments = [];
+  toolpathLayerStats = [];
+  toolpathSimSeconds = 0;
   if (toolpathAbort) toolpathAbort.abort();
   void resetPanelPush();
   resetLiveTracking();
@@ -1535,6 +1544,10 @@ function bindInteractions() {
     if (target.id === "speed") act("set_speed", target.value);
     if (target.id === "flow") act("set_flow", target.value);
     if (target.id === "fan") act("set_fan", Math.round(Number(target.value) * 2.55));
+    if (target.id === "bedCleared") {
+      const reprint = byId("jobDoneReprint");
+      if (reprint) reprint.disabled = !target.checked;
+    }
     if (target.id === "showFuturePath" || target.id === "clipFutureLayers") drawToolpath();
     if (target.id === "layerFollow") drawToolpath();
     if (target.id === "displayLargeTouch" || target.id === "displayReduceMotion") {
@@ -1557,6 +1570,7 @@ function bindInteractions() {
       const follow = byId("layerFollow");
       if (follow) follow.checked = false;
       drawToolpath();
+      syncTimelapseToScrub();
     }
     if (target.id === "tlScrub") renderTimelapseFrame();
     if (["speed", "flow", "fan"].includes(target.id)) {
@@ -1583,10 +1597,15 @@ function parseGcodeLine(line, state, fraction, stride) {
   if (/\bG21\b/.test(clean)) state.unit = 1;
 
   const words = {};
-  for (const match of clean.matchAll(/([XYZEF])\s*(-?(?:\d+\.?\d*|\.\d+))/g)) words[match[1]] = Number(match[2]);
+  for (const match of clean.matchAll(/([XYZEFPS])\s*(-?(?:\d+\.?\d*|\.\d+))/g)) words[match[1]] = Number(match[2]);
   if (/\bG92\b/.test(clean)) {
     for (const axis of ["X", "Y", "Z"]) if (words[axis] != null) state.position[axis.toLowerCase()] = words[axis] * state.unit;
     if (words.E != null) state.position.e = words.E * state.unit;
+    return null;
+  }
+  if (/\bG4\b/.test(clean)) {
+    const dwellMs = words.P != null ? words.P : (words.S != null ? words.S * 1000 : 0);
+    if (dwellMs > 0) state.simSeconds = (state.simSeconds || 0) + dwellMs / 1000;
     return null;
   }
   const command = clean.match(/(?:^|\s)(G0?0|G0?1|G0?2|G0?3)\b/);
@@ -1604,8 +1623,19 @@ function parseGcodeLine(line, state, fraction, stride) {
     next.e = state.eAbsolute ? extrusion : previous.e + extrusion;
     extrusionDelta = state.eAbsolute ? next.e - previous.e : extrusion;
   }
+  if (words.F != null) state.feedrate = (words.F * state.unit) / 60;
   state.position = next;
   const distance = Math.hypot(next.x - previous.x, next.y - previous.y, next.z - previous.z);
+  const moveDistance = Math.hypot(distance, next.e - previous.e);
+  if (moveDistance > 0) {
+    // Distance/feedrate plus a short-move accel penalty approximates move time.
+    const speed = state.feedrate || 20;
+    const seconds = Math.max(moveDistance / speed, Math.sqrt((2 * moveDistance) / 2500));
+    state.simSeconds = (state.simSeconds || 0) + seconds;
+    if (!state.layerTimes) state.layerTimes = new Map();
+    const zKey = Number(next.z.toFixed(2));
+    state.layerTimes.set(zKey, (state.layerTimes.get(zKey) || 0) + seconds);
+  }
   if (extrusionDelta <= 0.0005 || distance <= 0.0001) return null;
   state.extrusions += 1;
   const sampleStride = state.sampleStride || stride || 1;
@@ -1672,6 +1702,8 @@ async function updateToolpath(data) {
     toolpathRequested = false;
     toolpathSegments = [];
     toolpathBounds = null;
+    toolpathLayerStats = [];
+    toolpathSimSeconds = 0;
     const button = byId("toolpathLoadButton");
     button.disabled = true;
     button.textContent = "LOAD TOOLPATH";
@@ -1687,6 +1719,8 @@ async function updateToolpath(data) {
     toolpathError = "";
     toolpathSegments = [];
     toolpathBounds = null;
+    toolpathLayerStats = [];
+    toolpathSimSeconds = 0;
     const fileSize = Number(virtualSdcard.file_size) || 0;
     toolpathRequested = fileSize > 0 && fileSize <= MAX_TOOLPATH_BYTES;
     const button = byId("toolpathLoadButton");
@@ -1729,7 +1763,7 @@ async function loadToolpath(data, filename, key, signal) {
       ? Math.max(0, Math.min((offset - rangeStart) / rangeBytes, 1))
       : 0;
     const stride = Math.max(1, Math.ceil(totalBytes / (MAX_TOOLPATH_SEGMENTS * 70)));
-    const state = { xyzAbsolute: true, eAbsolute: true, unit: 1, position: { x: 0, y: 0, z: 0, e: 0 }, extrusions: 0, sampleStride: stride };
+    const state = { xyzAbsolute: true, eAbsolute: true, unit: 1, position: { x: 0, y: 0, z: 0, e: 0 }, extrusions: 0, sampleStride: stride, feedrate: 0, simSeconds: 0, layerTimes: new Map() };
     const bounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, minZ: Infinity, maxZ: -Infinity };
     const segments = [];
     const decoder = new TextDecoder();
@@ -1779,6 +1813,10 @@ async function loadToolpath(data, filename, key, signal) {
     }
     toolpathSegments = segments;
     toolpathBounds = normalizeBounds(bounds);
+    toolpathLayerStats = [...state.layerTimes]
+      .map(([z, seconds]) => ({ z, seconds }))
+      .sort((a, b) => a.z - b.z);
+    toolpathSimSeconds = state.simSeconds;
     toolpathReady = segments.length > 0;
     toolpathError = segments.length ? "" : "NO EXTRUSION MOVES COULD BE PARSED FROM THIS FILE";
     renderToolpathStatus(toolpathReady ? `SIMULATED PATH / ${segments.length.toLocaleString()} SAMPLED MOVES` : toolpathError);
@@ -1979,6 +2017,45 @@ function drawToolpath() {
   }
   const headText = position ? ` / HEAD X${fmt(position[0], 1)} Y${fmt(position[1], 1)} Z${fmt(position[2], 1)}` : "";
   renderToolpathStatus(toolpathReady ? `SIMULATED EXTRUSION PATH / ${toolpathSegments.length.toLocaleString()} SAMPLES / ${(progress * 100).toFixed(1)}%${headText}` : (toolpathError || "LOADING ACTIVE G-CODE"));
+  drawLayerSpark();
+}
+
+function drawLayerSpark() {
+  const canvas = byId("layerSpark");
+  const ctx = canvas?.getContext?.("2d");
+  if (!toolpathLayerStats.length) {
+    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setText("layerEta", "LAYER —");
+    setText("simEta", "SIM ETA —");
+    return;
+  }
+  const position = liveHeadDrawn || currentToolheadPosition();
+  const printing = ["printing", "paused"].includes(String(latestData?.status?.print_stats?.state));
+  const headZ = printing && position ? position[2] : Number.NaN;
+  const maxSeconds = Math.max(...toolpathLayerStats.map(layer => layer.seconds));
+  let layerSeconds = null;
+  let currentIndex = -1;
+  let remaining = toolpathSimSeconds;
+  toolpathLayerStats.forEach((layer, index) => {
+    if (Number.isFinite(headZ) && layer.z <= headZ + 0.001) {
+      layerSeconds = layer.seconds;
+      remaining -= layer.seconds;
+      currentIndex = index;
+    }
+  });
+  if (ctx) {
+    const width = canvas.width, height = canvas.height;
+    ctx.clearRect(0, 0, width, height);
+    const barWidth = Math.max(1, width / toolpathLayerStats.length);
+    toolpathLayerStats.forEach((layer, index) => {
+      const barHeight = Math.max(1, (layer.seconds / (maxSeconds || 1)) * (height - 4));
+      ctx.fillStyle = index === currentIndex ? "#f7cb64"
+        : Number.isFinite(headZ) && index > currentIndex ? "#1c6844" : "#00ef91";
+      ctx.fillRect(index * barWidth, height - barHeight, Math.max(1, barWidth - 0.5), barHeight);
+    });
+  }
+  setText("layerEta", `LAYER ${Number.isFinite(layerSeconds) ? duration(layerSeconds) : "—"}`);
+  setText("simEta", `SIM ETA ${duration(Math.max(0, remaining))}`);
 }
 
 function drawBuildPlate(ctx, project, bounds) {
@@ -2196,6 +2273,7 @@ let alertPrefs = {
 };
 let alertState = { seeded: false, state: "", milestone: -1, filamentOk: true, klippy: "", lastKey: "", lastAt: 0 };
 let alertPrefsKey = "";
+let queueQuietOverrideUntil = 0;
 let lastDataAt = 0;
 let panelRefreshInFlight = false;
 let panelPushUnsub = null;
@@ -2414,6 +2492,11 @@ function showJobDoneCard(data) {
   const meta = data?.meta || {};
   setText("jobDoneName", String(stats.filename || "—").toUpperCase());
   setText("jobDoneTime", duration(stats.print_duration ?? stats.total_duration));
+  const estimate = Number(meta.estimated_time);
+  const actual = Number(stats.print_duration);
+  setText("jobDoneDelta", Number.isFinite(estimate) && estimate > 0 && Number.isFinite(actual)
+    ? `${actual >= estimate ? "+" : "−"}${Math.abs((actual - estimate) / estimate * 100).toFixed(0)}%`
+    : "—");
   setText("jobDoneFil", `${fmt((stats.filament_used || 0) / 1000, 2)} m`);
   setText("jobDoneLayers", `${info.current_layer ?? "—"} / ${info.total_layer ?? meta.layer_count ?? "—"}`);
   const image = byId("jobDoneThumb");
@@ -2421,6 +2504,19 @@ function showJobDoneCard(data) {
     if (data.meta?.thumbnails_path) loadAuthedImage(image, `${API.thumb(data.entry_id)}&t=${Date.now()}`);
     else clearAuthedImage(image);
   }
+  const photo = byId("jobDonePhoto");
+  if (photo) {
+    const camera = timelapseCamera();
+    if (camera) loadAuthedImage(photo, API.snapshot(printer, camera.name));
+    else clearAuthedImage(photo);
+  }
+  const reprint = byId("jobDoneReprint");
+  if (reprint) {
+    reprint.dataset.value = stats.filename || "";
+    reprint.disabled = true;
+  }
+  const cleared = byId("bedCleared");
+  if (cleared) cleared.checked = false;
   card.hidden = false;
 }
 
@@ -2602,7 +2698,8 @@ async function captureTimelapseFrame() {
     const blob = await response.blob();
     if (!blob.size || blob.size > MAX_TIMELAPSE_BYTES || generation !== timelapseGeneration) return;
     const url = URL.createObjectURL(blob);
-    timelapseFrames.push({ layer: liveLayer, url, size: blob.size });
+    const headPosition = currentToolheadPosition();
+    timelapseFrames.push({ layer: liveLayer, z: headPosition ? headPosition[2] : null, url, size: blob.size });
     timelapseBytes += blob.size;
     while (timelapseFrames.length > MAX_TIMELAPSE_FRAMES || timelapseBytes > MAX_TIMELAPSE_BYTES) {
       const oldest = timelapseFrames.shift();
@@ -2614,6 +2711,23 @@ async function captureTimelapseFrame() {
   finally {
     if (timelapseAbort === controller) timelapseAbort = null;
   }
+}
+
+function syncTimelapseToScrub() {
+  if (!timelapseFrames.length || !Number.isFinite(scrubZ)) return;
+  let best = 0;
+  let bestDelta = Infinity;
+  timelapseFrames.forEach((frame, index) => {
+    if (frame.z == null) return;
+    const delta = Math.abs(frame.z - scrubZ);
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      best = index;
+    }
+  });
+  const scrub = byId("tlScrub");
+  if (scrub) scrub.value = best;
+  renderTimelapseFrame();
 }
 
 function renderTimelapseStatus(showLatest = false) {
@@ -2794,12 +2908,15 @@ function cleanupPanel() {
   clearTimelapse();
   clearAuthedImage(byId("thumb"));
   clearAuthedImage(byId("jobDoneThumb"));
+  clearAuthedImage(byId("jobDonePhoto"));
   clearAuthedImage(byId("analysisThumb"));
   const toastTimer = byId("toast")?._timer;
   if (toastTimer) clearTimeout(toastTimer);
   latestData = null;
   toolpathSegments = [];
   toolpathBounds = null;
+  toolpathLayerStats = [];
+  toolpathSimSeconds = 0;
   lastFiles = [];
   availableWebcams = [];
   sentCommandHistory = [];

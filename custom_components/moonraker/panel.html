@@ -150,7 +150,8 @@
   #toolpathCanvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
   #toolpathCanvas:active { cursor: grabbing; }
   .toolpath-status { position: absolute; left: 7px; bottom: 6px; max-width: 88%; color: #55a477; font: 7px var(--mono); text-shadow: 0 1px #020706; pointer-events: none; }
-  .toolpath-controls { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-top: 5px; }
+  .toolpath-controls { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-top: 5px; flex-wrap: wrap; }
+  #layerSpark { flex: 1; min-width: 140px; height: 26px; }
   .scrub-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
   .scrub-row input[type="range"] { flex: 1; accent-color: var(--amber); min-width: 60px; }
   .scrub-row .micro { white-space: nowrap; }
@@ -339,7 +340,7 @@
                   <div class="job-file" id="fname">NO ACTIVE G-CODE</div>
                   <div class="toolpath-box"><canvas id="toolpathCanvas" aria-label="Interactive 3D G-code toolpath"></canvas><div class="toolpath-status" id="toolpathStatus">WAITING FOR ACTIVE G-CODE</div></div>
                   <div class="scrub-row"><span class="micro">LAYER</span><input type="range" id="layerScrub" min="0" max="1" step="0.1" value="0" aria-label="Layer height scrubber" disabled><label class="micro"><input type="checkbox" id="layerFollow" checked> FOLLOW</label><span class="micro" id="layerScrubLabel">Z —</span></div>
-                  <div class="toolpath-controls"><div class="row"><button class="is-active" data-toolpath-view="iso">ISO</button><button data-toolpath-view="iso2">ISO-2</button><button data-toolpath-view="top">TOP</button><button data-toolpath-view="front">FRONT</button><button data-toolpath-view="back">BACK</button><button data-toolpath-view="left">LEFT</button><button data-toolpath-view="right">RIGHT</button><button class="subtle" data-toolpath-reset>RESET</button><button id="toolpathLoadButton" class="subtle" data-toolpath-load>LOAD 3D PREVIEW</button></div><label class="micro"><input type="checkbox" id="showFuturePath" checked> FUTURE</label><label class="micro"><input type="checkbox" id="clipFutureLayers"> CLIP</label><span class="micro">DRAG/ORBIT · SHIFT-DRAG/PAN · PINCH/ZOOM · 2×CLICK/RESET</span></div>
+                  <div class="toolpath-controls"><div class="row"><button class="is-active" data-toolpath-view="iso">ISO</button><button data-toolpath-view="iso2">ISO-2</button><button data-toolpath-view="top">TOP</button><button data-toolpath-view="front">FRONT</button><button data-toolpath-view="back">BACK</button><button data-toolpath-view="left">LEFT</button><button data-toolpath-view="right">RIGHT</button><button class="subtle" data-toolpath-reset>RESET</button><button id="toolpathLoadButton" class="subtle" data-toolpath-load>LOAD 3D PREVIEW</button></div><label class="micro"><input type="checkbox" id="showFuturePath" checked> FUTURE</label><label class="micro"><input type="checkbox" id="clipFutureLayers"> CLIP</label><span class="micro">DRAG/ORBIT · SHIFT-DRAG/PAN · PINCH/ZOOM · 2×CLICK/RESET</span></div><div class="row" style="margin-top:4px;align-items:center"><canvas id="layerSpark" width="360" height="24" aria-label="Simulated seconds per layer"></canvas><span class="micro" id="layerEta">LAYER —</span><span class="micro" id="simEta">SIM ETA —</span></div>
                 </div>
                 <div class="job-metrics"><div class="job-metric"><span>Elapsed</span><span id="elapsed">—</span></div><div class="job-metric"><span>Remaining</span><span id="remaining">—</span></div><div class="job-metric"><span>Layer</span><span id="layer">—</span></div><div class="job-metric"><span>Layer Height</span><span id="zpos">—</span></div><div class="job-metric"><span>Filament Used</span><span id="filUsed">—</span></div></div>
               </div>
@@ -408,8 +409,9 @@
   <article class="panel overlay-card">
     <div class="panel-head"><div><div class="panel-kicker">Build Finished</div><h2 class="panel-title">PRINT COMPLETE</h2></div><button class="subtle" id="jobDoneDismiss">DISMISS</button></div>
     <div class="job-file" id="jobDoneName">—</div>
-    <img id="jobDoneThumb" class="gcode-thumb" alt="Completed print thumbnail">
-    <div class="kv"><b>Duration</b><span id="jobDoneTime">—</span><b>Filament</b><span id="jobDoneFil">—</span><b>Layers</b><span id="jobDoneLayers">—</span></div>
+    <div class="row" style="gap:8px;align-items:flex-start"><img id="jobDoneThumb" class="gcode-thumb" alt="Completed print thumbnail" hidden><img id="jobDonePhoto" class="gcode-thumb" alt="Live camera photo of completed print" hidden></div>
+    <div class="kv"><b>Duration</b><span id="jobDoneTime">—</span><b>Estimate Δ</b><span id="jobDoneDelta">—</span><b>Filament</b><span id="jobDoneFil">—</span><b>Layers</b><span id="jobDoneLayers">—</span></div>
+    <div class="row" style="margin-top:8px;align-items:center"><button class="primary" id="jobDoneReprint" data-action="enqueue_file" disabled>PRINT AGAIN</button><label class="micro"><input type="checkbox" id="bedCleared"> BED CLEARED</label></div>
   </article>
 </div>
 <script src="/api/moonraker/panel_client.js"></script>

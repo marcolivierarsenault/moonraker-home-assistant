@@ -99,6 +99,10 @@ class FakeElement {
     return this.attributes[name] ?? null;
   }
 
+  hasAttribute(name) {
+    return Object.hasOwn(this.attributes, name);
+  }
+
   removeAttribute(name) {
     delete this.attributes[name];
     if (name === "src") this.src = "";
@@ -989,4 +993,120 @@ test("refresh dedupes in-flight polls, drops stale responses, and stops on clean
   assert.equal(vm.runInContext("panelStopped", context), true);
   await context.refresh();
   assert.equal(calls, 2);
+});
+
+test("parser accumulates simulated time per layer including dwells", () => {
+  const { context } = createPanelClient();
+  const state = {
+    xyzAbsolute: true, eAbsolute: true, unit: 1,
+    position: { x: 0, y: 0, z: 0, e: 0 },
+    extrusions: 0, sampleStride: 1, feedrate: 0, simSeconds: 0, layerTimes: new Map(),
+  };
+  // 14.14 mm move at F1500 (25 mm/s) ≈ 0.57 s; a pure retract takes time too.
+  context.parseGcodeLine("G1 X10 Y10 E0.5 F1500", state, 0, 1);
+  const afterMove = state.simSeconds;
+  assert.ok(afterMove > 0.4 && afterMove < 1);
+  assert.ok(state.layerTimes.get(0) > 0);
+  context.parseGcodeLine("G1 E-2 F1800", state, 0, 1); // retraction, no segment but still timed
+  assert.ok(state.simSeconds > afterMove);
+  context.parseGcodeLine("G4 P2000", state, 0, 1);
+  assert.ok(Math.abs(state.simSeconds - (afterMove + 2 + (state.simSeconds - afterMove - 2))) >= 0);
+  assert.ok(state.simSeconds > afterMove + 1.9);
+  context.parseGcodeLine("G1 Z0.2", state, 0, 1);
+  context.parseGcodeLine("G1 X5 Y5 E0.2", state, 0, 1);
+  assert.ok(state.layerTimes.get(0.2) > 0);
+});
+
+test("layer spark shows current layer time and remaining simulated ETA", () => {
+  const { context, document } = createPanelClient();
+  vm.runInContext(`toolpathLayerStats = [
+      { z: 0.2, seconds: 60 }, { z: 0.4, seconds: 60 }, { z: 0.6, seconds: 60 }
+    ];
+    toolpathSimSeconds = 180;
+    latestData = { status: { print_stats: { state: "standby" } } };`, context);
+  context.drawLayerSpark();
+  assert.ok(document.getElementById("simEta").textContent.includes("3m"));
+
+  vm.runInContext(`latestData = { status: { print_stats: { state: "printing" },
+    toolhead: { position: [0, 0, 0.35, 0] } } };`, context);
+  context.drawLayerSpark();
+  assert.ok(document.getElementById("layerEta").textContent.includes("1m"));
+  assert.ok(document.getElementById("simEta").textContent.includes("2m"));
+});
+
+test("toolpath scrubber syncs the timelapse frame to the scrubbed layer", () => {
+  const { context, document } = createPanelClient();
+  vm.runInContext(`timelapseFrames = [
+      { layer: 2, z: 0.4, url: "blob:a", size: 10 },
+      { layer: 8, z: 1.6, url: "blob:b", size: 10 },
+      { layer: 20, z: 4.0, url: "blob:c", size: 10 }
+    ];
+    scrubZ = 1.55;`, context);
+  context.syncTimelapseToScrub();
+  const scrub = document.getElementById("tlScrub");
+  assert.equal(Number(scrub.value), 1);
+  assert.equal(document.getElementById("tlFrame").src, "blob:b");
+});
+
+test("completion card shows estimate delta, live photo, and gated reprint", async () => {
+  const { context, document, window } = createPanelClient();
+  context.AbortController = AbortController;
+  let urls = 0;
+  context.URL = { createObjectURL: () => `blob:photo-${++urls}`, revokeObjectURL: () => {} };
+  window.hass = {
+    callApi: async () => ({}),
+    fetchWithAuth: async () => ({ ok: true, blob: async () => ({ size: 100 }) }),
+  };
+  document.getElementById("jobDonePhoto").decode = async () => {};
+  document.getElementById("jobDoneThumb").decode = async () => {};
+  vm.runInContext(`printer = "p";
+    availableWebcams = [{ name: "Front", snapshot_url: "/snap" }];
+    dashboardCameraAssignments = ["Front"];`, context);
+  context.bindInteractions();
+
+  context.showJobDoneCard({
+    entry_id: "p",
+    status: { print_stats: { filename: "job.gcode", print_duration: 660, filament_used: 1200, info: { current_layer: 10, total_layer: 10 } } },
+    meta: { estimated_time: 600, thumbnails_path: "sub/.thumbs/job.png", layer_count: 10 },
+  });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  const card = document.getElementById("jobDoneCard");
+  assert.equal(card.hidden, false);
+  assert.ok(document.getElementById("jobDoneDelta").textContent.includes("10%"));
+  assert.equal(document.getElementById("jobDonePhoto").hidden, false);
+  assert.ok(document.getElementById("jobDonePhoto").src.startsWith("blob:photo-"));
+  const reprint = document.getElementById("jobDoneReprint");
+  assert.equal(reprint.disabled, true);
+  assert.equal(reprint.dataset.value, "job.gcode");
+  const cleared = document.getElementById("bedCleared");
+  cleared.id = "bedCleared";
+  cleared.checked = true;
+  document.listeners.change({ target: cleared });
+  assert.equal(reprint.disabled, false);
+});
+
+test("start_queue is held during quiet hours until pressed again", async () => {
+  const { context, document, window } = createPanelClient();
+  let posts = 0;
+  window.hass = {
+    callApi: async method => { if (method === "POST") posts += 1; return { ok: true }; },
+    fetchWithAuth: async () => ({}),
+  };
+  vm.runInContext(`printer = "p";
+    alertPrefs.quietStart = "00:00"; alertPrefs.quietEnd = "23:59";
+    latestData = { status: { print_stats: { state: "standby" } }, settings: {} };
+    lastDataAt = Date.now();`, context);
+
+  const button = document.createElement("button");
+  button.dataset.action = "start_queue";
+  context.dispatchAction(button);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(posts, 0);
+  assert.ok(document.getElementById("toast").textContent.includes("QUIET"));
+
+  context.dispatchAction(button);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(posts, 1);
 });
