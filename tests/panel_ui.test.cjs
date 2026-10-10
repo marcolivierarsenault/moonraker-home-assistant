@@ -935,6 +935,30 @@ test("resetPanelPush clears the live flag while a subscription request is pendin
   assert.equal(vm.runInContext("panelPushLive", context), false);
 });
 
+test("toolpath auto-loads files up to the 128MB cap and rejects larger", async () => {
+  const { context, window } = createPanelClient();
+  context.AbortController = AbortController;
+  window.hass = {
+    callApi: async () => ({}),
+    fetchWithAuth: async () => ({ ok: false, status: 502, json: async () => ({ error: "upstream" }) }),
+  };
+  vm.runInContext('printer = "p";', context);
+
+  await vm.runInContext(
+    `updateToolpath({ entry_id: "p", status: { print_stats: { filename: "big.gcode" }, virtual_sdcard: { file_size: 78710369, progress: 0 } } })`,
+    context,
+  );
+  assert.equal(vm.runInContext("toolpathRequested", context), true);
+  assert.equal(vm.runInContext("toolpathKey", context), "p:big.gcode");
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  await vm.runInContext(
+    `updateToolpath({ entry_id: "p", status: { print_stats: { filename: "huge.gcode" }, virtual_sdcard: { file_size: 140 * 1024 * 1024, progress: 0 } } })`,
+    context,
+  );
+  assert.equal(vm.runInContext("toolpathRequested", context), false);
+});
+
 test("refresh dedupes in-flight polls, drops stale responses, and stops on cleanup", async () => {
   const { context, window } = createPanelClient();
   let calls = 0;

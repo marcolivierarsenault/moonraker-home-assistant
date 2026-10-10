@@ -29,7 +29,7 @@ const SCREEN_TITLES = {
 
 const MAX_TOOLPATH_SEGMENTS = 28000;
 const MAX_TOOLPATH_BYTES = 128 * 1024 * 1024;
-const AUTO_TOOLPATH_BYTES = 24 * 1024 * 1024;
+
 const PANEL_FALLBACK_POLL_MS = 2667;
 const PANEL_STALENESS_CHECK_MS = 1333;
 const byId = id => document.getElementById(id);
@@ -1688,7 +1688,7 @@ async function updateToolpath(data) {
     toolpathSegments = [];
     toolpathBounds = null;
     const fileSize = Number(virtualSdcard.file_size) || 0;
-    toolpathRequested = fileSize > 0 && fileSize <= AUTO_TOOLPATH_BYTES;
+    toolpathRequested = fileSize > 0 && fileSize <= MAX_TOOLPATH_BYTES;
     const button = byId("toolpathLoadButton");
     button.disabled = fileSize > MAX_TOOLPATH_BYTES;
     button.textContent = fileSize > MAX_TOOLPATH_BYTES
