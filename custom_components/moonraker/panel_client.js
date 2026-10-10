@@ -174,7 +174,7 @@ async function refresh() {
 
 async function subscribePanelPush() {
   const connection = window.hass?.connection;
-  if (!connection?.subscribeMessage || panelPushUnsub || panelPushRequest) return;
+  if (!connection?.subscribeMessage || panelPushUnsub || panelPushRequest || panelStopped) return;
   const request = connection.subscribeMessage(
     { type: "moonraker/panel_subscribe", entry_id: printer || undefined },
     data => { panelPushLive = true; handlePanelPayload(data); },
@@ -190,6 +190,7 @@ async function subscribePanelPush() {
 }
 
 async function resetPanelPush() {
+  panelPushLive = false;
   if (panelPushRequest) {
     const request = panelPushRequest;
     panelPushRequest = null;
@@ -221,11 +222,12 @@ function clearAuthedImage(image) {
 async function loadAuthedImage(image, url) {
   if (!image) return false;
   clearAuthedImage(image);
+  const generation = (image._loadGen = (image._loadGen || 0) + 1);
   try {
     const response = await hassApi().fetchWithAuth(url);
-    if (!response.ok) return false;
+    if (!response.ok || generation !== image._loadGen) return false;
     const blob = await response.blob();
-    if (!blob.size) return false;
+    if (!blob.size || generation !== image._loadGen) return false;
     const objectUrl = URL.createObjectURL(blob);
     if (image === byId("thumb")) thumbnailObjectUrl = objectUrl;
     else image._objectUrl = objectUrl;
@@ -239,10 +241,12 @@ async function loadAuthedImage(image, url) {
     image.src = objectUrl;
     if (typeof image.decode === "function") await image.decode();
     else await loadPromise;
+    if (generation !== image._loadGen) return false;
     image.hidden = false;
     image.style.display = "";
     return true;
   } catch {
+    if (generation !== image._loadGen) return false;
     clearAuthedImage(image);
     return false;
   }
@@ -1194,7 +1198,7 @@ function switchPrinter() {
   toolpathRequested = false;
   toolpathSegments = [];
   if (toolpathAbort) toolpathAbort.abort();
-  resetPanelPush();
+  void resetPanelPush();
   resetLiveTracking();
   alertState = { seeded: false, state: "", milestone: -1, filamentOk: true, klippy: "", lastKey: "", lastAt: 0 };
   alertPrefsKey = "";
@@ -1629,10 +1633,18 @@ function beginToolpathLoad(data, filename, key) {
   });
 }
 
+function activeGcodeFilename(status) {
+  const name = status?.print_stats?.filename || "";
+  if (name) return name;
+  const path = status?.virtual_sdcard?.file_path || "";
+  if (path.includes("/gcodes/")) return path.split("/gcodes/").pop();
+  return path.split("/").filter(Boolean).pop() || "";
+}
+
 function requestToolpath() {
   const data = latestData;
   const status = data?.status || {};
-  const filename = status.print_stats?.filename || status.virtual_sdcard?.file_path || "";
+  const filename = activeGcodeFilename(status);
   if (!data || !filename) {
     toast("NO ACTIVE G-CODE FILE");
     return;
@@ -1649,9 +1661,8 @@ function requestToolpath() {
 
 async function updateToolpath(data) {
   const status = data.status || {};
-  const printStats = status.print_stats || {};
   const virtualSdcard = status.virtual_sdcard || {};
-  const filename = printStats.filename || virtualSdcard.file_path || "";
+  const filename = activeGcodeFilename(status);
   const key = `${data.entry_id}:${filename}`;
   if (!filename) {
     if (toolpathAbort) toolpathAbort.abort();
@@ -2196,8 +2207,8 @@ const STALE_EXEMPT_ACTIONS = new Set(["emergency_stop", "refresh_files"]);
 function updateStaleness() {
   const printing = ["printing", "paused"].includes(String(latestData?.status?.print_stats?.state));
   const intervalSeconds = printing
-    ? Number(latestData?.settings?.print_poll_seconds) || 10
-    : Number(latestData?.settings?.idle_poll_seconds) || 30;
+    ? Number(latestData?.settings?.print_poll_seconds) || 40 / 3
+    : Number(latestData?.settings?.idle_poll_seconds) || 40;
   const limit = Math.max(STALE_AFTER_MS, intervalSeconds * 1000 * 1.6 + 3000);
   const age = lastDataAt ? Date.now() - lastDataAt : Number.POSITIVE_INFINITY;
   const stale = !Number.isFinite(age) || age > limit || latestData?.available === false;

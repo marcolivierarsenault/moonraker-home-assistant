@@ -901,6 +901,40 @@ test("timelapse captures are serialized and bounded by retained image bytes", as
   assert.equal(vm.runInContext("timelapseFrames.length", context), 0);
 });
 
+test("active G-code filename falls back to virtual sdcard path tail", () => {
+  const { context } = createPanelClient();
+  const filename = status => vm.runInContext(
+    `activeGcodeFilename(${JSON.stringify(status)})`, context,
+  );
+  assert.equal(filename({ print_stats: { filename: "job.gcode" } }), "job.gcode");
+  assert.equal(
+    filename({ virtual_sdcard: { file_path: "/home/pi/printer_data/gcodes/sub/job.gcode" } }),
+    "sub/job.gcode",
+  );
+  assert.equal(
+    filename({ virtual_sdcard: { file_path: "/home/pi/printer_data/gcodes/job.gcode" } }),
+    "job.gcode",
+  );
+  assert.equal(filename({}), "");
+});
+
+test("resetPanelPush clears the live flag while a subscription request is pending", async () => {
+  const { context, window } = createPanelClient();
+  let resolveRequest;
+  window.hass = {
+    callApi: async () => ({}),
+    fetchWithAuth: async () => ({}),
+    connection: {
+      subscribeMessage: () => new Promise(resolve => { resolveRequest = resolve; }),
+    },
+  };
+  vm.runInContext("panelPushLive = true; subscribePanelPush();", context);
+  const reset = context.resetPanelPush();
+  resolveRequest(() => {});
+  await reset;
+  assert.equal(vm.runInContext("panelPushLive", context), false);
+});
+
 test("refresh dedupes in-flight polls, drops stale responses, and stops on cleanup", async () => {
   const { context, window } = createPanelClient();
   let calls = 0;
