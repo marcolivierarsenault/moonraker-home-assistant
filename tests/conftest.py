@@ -185,14 +185,19 @@ def get_data_fixture():
                 "temperature": 32.43,
             },
             "temperature_fan fan_temp": {
+                "speed": 0.5,
+                "rpm": 1500.0,
                 "temperature": 32.43,
                 "target": 35.0,
             },
             "temperature_fan FAN_CASE": {
+                "speed": 1.0,
+                "rpm": None,
                 "temperature": 34.0,
                 "target": 40.0,
             },
             "temperature_fan missing_config": {
+                "speed": 0.25,
                 "temperature": 28.5,
                 "target": 33.0,
             },

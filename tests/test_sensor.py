@@ -47,6 +47,10 @@ DEFAULT_VALUES = [
     ("mainsail_extruder_power", "66.6710806392505"),
     ("mainsail_fan_rpm", "3000.12321"),
     ("mainsail_fan_temp", "32.43"),
+    ("mainsail_fan_temp_speed", "50.0"),
+    ("mainsail_fan_temp_rpm", "1500.0"),
+    ("mainsail_fan_case_speed", "100.0"),
+    ("mainsail_missing_config_speed", "25.0"),
     ("mainsail_tmc2240_stepper_x_temp", "32.43"),
     ("mainsail_bme280_temp", "32.43"),
     ("mainsail_htu21d_temp", "32.43"),
@@ -618,6 +622,10 @@ async def test_no_fan_rpm(hass, get_data, get_printer_objects_list):
 
     # Already None in the data
     assert hass.states.get("sensor.mainsail_heater_fan_rpm") is None
+    assert hass.states.get("sensor.mainsail_fan_case_rpm") is None
+
+    # Field missing from the data
+    assert hass.states.get("sensor.mainsail_missing_config_rpm") is None
 
 
 async def test_multi_mcu_sensor_data(hass, get_data, get_printer_objects_list):
