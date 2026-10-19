@@ -326,6 +326,59 @@ async def test_setup_unload_and_reload_entry_with_name(hass):
     assert config_entry.entry_id not in hass.data[DOMAIN]
 
 
+@pytest.mark.parametrize(
+    ("printer_info", "expected_name"),
+    [
+        (
+            {
+                "device_type": "Anycubic Kobra 2 Pro",
+                "state": "ready",
+                "state_message": "Printer is ready",
+                "software_version": "",
+            },
+            "Anycubic Kobra 2 Pro",
+        ),
+        (
+            {
+                "state": "ready",
+                "state_message": "Printer is ready",
+                "software_version": "",
+            },
+            MOCK_CONFIG["url"],
+        ),
+    ],
+)
+async def test_setup_entry_without_hostname_uses_fallback_name(
+    hass, get_default_api_response, printer_info, expected_name
+):
+    """Use compatible names when printer.info does not include a hostname."""
+
+    async def load_data(endpoint, *args, **kwargs):
+        if endpoint == METHODS.PRINTER_INFO.value:
+            return printer_info
+
+        return get_default_api_response
+
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MOCK_CONFIG,
+        entry_id=f"missing_hostname_{expected_name}",
+    )
+    config_entry.add_to_hass(hass)
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        new_callable=AsyncMock,
+        side_effect=load_data,
+    ):
+        assert await hass.config_entries.async_setup(config_entry.entry_id)
+
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    assert config_entry.title == expected_name
+    assert coordinator.api_device_name == expected_name
+    assert await async_unload_entry(hass, config_entry)
+
+
 async def test_async_send_data_exception(hass):
     """Test async_post_exception."""
 
