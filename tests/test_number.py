@@ -64,6 +64,12 @@ async def test_number_set_value(hass, number, get_default_api_response):
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
+    state = hass.states.get(f"number.{number}")
+    assert state is not None
+    assert state.attributes["min"] == 0.0
+    assert state.attributes["max"] == 100.0
+    assert state.attributes["step"] == 1.0
+
     with patch(
         "moonraker_api.MoonrakerClient.call_method",
         return_value={**get_default_api_response},
@@ -600,8 +606,8 @@ async def test_heater_generic_number_config_fallbacks(hass):
 
     await async_setup_temperature_target(coordinator, entry, capture_entities)
 
-    assert len(coordinator.loaded) == 2
-    assert len(added_entities) == 2
+    assert len(coordinator.loaded) == 1
+    assert len(added_entities) == 1
     added_by_name = {
         entity.entity_description.name: entity for entity in added_entities
     }
@@ -614,16 +620,8 @@ async def test_heater_generic_number_config_fallbacks(hass):
         mixed_entity.update_string == "SET_HEATER_TEMPERATURE HEATER=MIXED_CASE TARGET="
     )
 
-    orphan_entity = added_by_name["Orphan Heater Target"]
-    assert orphan_entity.native_value == 40.0
-    assert orphan_entity.native_max_value is None
-    assert orphan_entity.native_min_value == 0.0
-    assert (
-        orphan_entity.update_string
-        == "SET_HEATER_TEMPERATURE HEATER=orphan_heater TARGET="
-    )
     assert coordinator.query_obj["heater_generic MIXED_CASE"] == {"target"}
-    assert coordinator.query_obj["heater_generic orphan_heater"] == {"target"}
+    assert "heater_generic orphan_heater" not in coordinator.query_obj
 
 
 def test_coerce_float_handles_invalid_input():
