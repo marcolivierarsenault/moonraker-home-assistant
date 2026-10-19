@@ -38,6 +38,7 @@ For issue-started work that has no existing PR, open AI-authored changes as a dr
 ### Moonraker compatibility
 
 - Flag assumptions that optional or implementation-specific Moonraker response fields always exist. Safe path: preserve compatibility with standard Moonraker while handling known variants explicitly and cover each response shape with tests.
+- Treat numeric zero as a valid value, not as missing data. Distinguish `None` or absent fields from zero and add regression tests for both cases.
 
 ### Runtime lifecycle
 
@@ -46,6 +47,11 @@ For issue-started work that has no existing PR, open AI-authored changes as a dr
 ### Printer command safety
 
 - Flag any read, discovery, setup, coordinator, or camera path that can send a mutating printer command. Safe path: keep passive paths read-only and restrict mutations to explicit user-triggered entities or services with regression coverage.
+
+### HTTP authorization and untrusted data
+
+- Require Home Assistant authentication for custom HTTP views and enforce action-appropriate authorization before exposing printer controls. Cover unauthenticated and unauthorized requests with tests.
+- Treat Moonraker values such as filenames and device names as untrusted input in frontend code. Build DOM nodes safely and assign text with `textContent`; do not interpolate these values into `innerHTML`.
 
 ## Security & Configuration Tips
 
