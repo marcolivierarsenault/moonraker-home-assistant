@@ -181,24 +181,25 @@ async def async_setup_output_pin(coordinator, entry, async_add_entities):
     )
 
     config_settings = (
-        settings.get("status", {})
-        .get("configfile", {})
-        .get("settings", {})
+        settings.get("status", {}).get("configfile", {}).get("settings", {})
     )
 
     numbers = []
 
     for obj in object_list["objects"]:
-        if "output_pin" not in obj:
+        if not obj.startswith("output_pin "):
             continue
 
         output_pin_config = config_settings.get(obj.lower())
 
-        if not output_pin_config or not output_pin_config.get("pwm", False):
+        if not output_pin_config:
             _LOGGER.debug(
-                "Skipping output pin '%s': no matching configfile setting or not PWM",
+                "Skipping output pin '%s': no matching configfile setting",
                 obj,
             )
+            continue
+
+        if not output_pin_config.get("pwm", False):
             continue
 
         desc = MoonrakerNumberSensorDescription(
@@ -215,6 +216,7 @@ async def async_setup_output_pin(coordinator, entry, async_add_entities):
     async_add_entities(
         [MoonrakerPWMOutputPin(coordinator, entry, desc) for desc in numbers]
     )
+
 
 async def async_setup_speed_factor(coordinator, entry, async_add_entities):
     """Set up speed factor number entity."""
@@ -306,6 +308,7 @@ async def async_setup_fan_speed(coordinator, entry, async_add_entities):
     await coordinator.async_refresh()
     async_add_entities(entities)
 
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -319,6 +322,7 @@ def _coerce_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
 
 class MoonrakerPWMOutputPin(BaseMoonrakerEntity, NumberEntity):
     """Moonraker PWM output pin class."""
@@ -389,14 +393,10 @@ class MoonrakerNumber(BaseMoonrakerEntity, NumberEntity):
         self._attr_has_entity_name = True
         self._attr_icon = description.icon
         self._attr_native_max_value = (
-            float(description.max_value)
-            if description.max_value is not None
-            else None
+            float(description.max_value) if description.max_value is not None else None
         )
         self._attr_native_min_value = (
-            float(description.min_value)
-            if description.min_value is not None
-            else 0.0
+            float(description.min_value) if description.min_value is not None else 0.0
         )
         self._attr_device_class = description.device_class
         self._attr_native_unit_of_measurement = description.unit
