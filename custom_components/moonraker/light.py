@@ -7,7 +7,7 @@ from homeassistant.components.light import LightEntity, LightEntityDescription
 from homeassistant.components.light.const import ColorMode
 from homeassistant.core import callback
 
-from .const import DOMAIN, METHODS, OBJ
+from .const import DOMAIN, METHODS
 from .entity import BaseMoonrakerEntity
 from custom_components.moonraker.__init__ import MoonrakerDataUpdateCoordinator
 
@@ -32,12 +32,9 @@ async def async_setup_entry(hass, entry, async_add_devices):
 async def async_setup_light(coordinator, entry, async_add_entities):
     """Set optional light platform."""
 
-    object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
+    object_list = await coordinator.async_get_printer_objects()
 
-    query_obj = {OBJ: {"configfile": ["settings"]}}
-    settings = await coordinator.async_fetch_data(
-        METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
-    )
+    settings = await coordinator.async_get_config_settings()
 
     lights = []
     for obj in object_list["objects"]:
@@ -89,11 +86,12 @@ async def async_setup_light(coordinator, entry, async_add_entities):
         lights.append(desc)
 
     coordinator.load_sensor_data(lights)
-    await coordinator.async_refresh()
+    await coordinator.async_refresh_query_data()
     async_add_entities([MoonrakerLED(coordinator, entry, desc) for desc in lights])
 
 
 _LOGGER = logging.getLogger(__name__)
+
 
 class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
     """Moonraker LED class."""
@@ -178,7 +176,9 @@ class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
 
     def _set_attributes_from_coordinator(self) -> None:
         try:
-            color_data = self.coordinator.data["status"][self.sensor_name]["color_data"][0]
+            color_data = self.coordinator.data["status"][self.sensor_name][
+                "color_data"
+            ][0]
             r = int(color_data[0] * 255)
             g = int(color_data[1] * 255)
             b = int(color_data[2] * 255)

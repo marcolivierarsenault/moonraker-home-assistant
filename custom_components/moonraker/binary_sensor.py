@@ -9,7 +9,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntityDescription,
 )
 
-from .const import DOMAIN, METHODS
+from .const import DOMAIN
 from .entity import BaseMoonrakerEntity
 
 
@@ -35,7 +35,7 @@ async def async_setup_optional_binary_sensors(coordinator, entry, async_add_enti
     """Set optional binary sensor platform."""
 
     sensors = []
-    object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
+    object_list = await coordinator.async_get_printer_objects()
     for obj in object_list["objects"]:
         split_obj = obj.split()
 
@@ -75,7 +75,7 @@ async def async_setup_optional_binary_sensors(coordinator, entry, async_add_enti
             )
 
     coordinator.load_sensor_data(sensors)
-    await coordinator.async_refresh()
+    await coordinator.async_refresh_query_data()
     async_add_entities(
         [MoonrakerBinarySensor(coordinator, entry, desc) for desc in sensors]
     )
@@ -89,14 +89,12 @@ async def async_setup_update_binary_sensors(coordinator, entry, async_add_entiti
         sensor_name="update_available",
         is_on_fn=update_available_fn,
         name="Update Available",
-        subscriptions=[("status", "update_available")],
+        subscriptions=[],
         icon="mdi:update",
         device_class=BinarySensorDeviceClass.UPDATE,
         entity_registry_enabled_default=False,
     )
 
-    coordinator.load_sensor_data([desc])
-    await coordinator.async_refresh()
     async_add_entities([MoonrakerBinarySensor(coordinator, entry, desc)])
 
 

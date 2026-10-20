@@ -23,7 +23,10 @@ from .const import MOCK_CONFIG
 @pytest.fixture(name="bypass_connect_client", autouse=True)
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
-    with patch("custom_components.moonraker.MoonrakerApiClient.start"):
+    with (
+        patch("custom_components.moonraker.MoonrakerApiClient.start"),
+        patch("custom_components.moonraker.MoonrakerApiClient.stop"),
+    ):
         yield
 
 
@@ -112,7 +115,7 @@ async def test_set_target(hass, get_default_api_response):
         )
 
         await hass.async_block_till_done()
-        mock_api.assert_called_once_with(
+        mock_api.assert_called_with(
             METHODS.PRINTER_GCODE_SCRIPT.value,
             script="M104 T0 S50.0",
         )
@@ -129,7 +132,7 @@ async def test_set_target(hass, get_default_api_response):
         )
 
         await hass.async_block_till_done()
-        mock_api.assert_called_once_with(
+        mock_api.assert_called_with(
             METHODS.PRINTER_GCODE_SCRIPT.value,
             script="M104 T1 S60.0",
         )
@@ -146,7 +149,7 @@ async def test_set_target(hass, get_default_api_response):
         )
 
         await hass.async_block_till_done()
-        mock_api.assert_called_once_with(
+        mock_api.assert_called_with(
             METHODS.PRINTER_GCODE_SCRIPT.value,
             script="M140 S70.0",
         )
@@ -163,7 +166,7 @@ async def test_set_target(hass, get_default_api_response):
         )
 
         await hass.async_block_till_done()
-        mock_api.assert_called_once_with(
+        mock_api.assert_called_with(
             METHODS.PRINTER_GCODE_SCRIPT.value,
             script="SET_TEMPERATURE_FAN_TARGET FAN=fan_temp TARGET=45.0",
         )
@@ -180,7 +183,7 @@ async def test_set_target(hass, get_default_api_response):
         )
 
         await hass.async_block_till_done()
-        mock_api.assert_called_once_with(
+        mock_api.assert_called_with(
             METHODS.PRINTER_GCODE_SCRIPT.value,
             script="SET_HEATER_TEMPERATURE HEATER=my_super_heater TARGET=45.0",
         )
@@ -197,7 +200,7 @@ async def test_set_target(hass, get_default_api_response):
         )
 
         await hass.async_block_till_done()
-        mock_api.assert_called_once_with(
+        mock_api.assert_called_with(
             METHODS.PRINTER_GCODE_SCRIPT.value,
             script="SET_HEATER_TEMPERATURE HEATER=MIXED_CASE TARGET=55.0",
         )
@@ -255,7 +258,7 @@ async def test_speed_factor_set_value(hass, get_default_api_response):
         )
 
         await hass.async_block_till_done()
-        mock_api.assert_called_once_with(
+        mock_api.assert_called_with(
             METHODS.PRINTER_GCODE_SCRIPT.value, script="M220 S150.0"
         )
 
@@ -323,7 +326,7 @@ async def test_fan_speed_set_value(hass, get_default_api_response):
         )
 
         await hass.async_block_till_done()
-        mock_api.assert_called_once_with(
+        mock_api.assert_called_with(
             METHODS.PRINTER_GCODE_SCRIPT.value, script="M106 S127"
         )
 
@@ -421,7 +424,7 @@ async def test_fan_generic_speed_set_value(
         )
         await hass.async_block_till_done()
 
-        mock_api.assert_called_once_with(
+        mock_api.assert_called_with(
             METHODS.PRINTER_GCODE_SCRIPT.value,
             script=f"SET_FAN_SPEED FAN={fan_name} SPEED={expected_speed}",
         )
@@ -583,6 +586,15 @@ async def test_heater_generic_number_config_fallbacks(hass):
                     ]
                 }
             raise AssertionError(f"Unexpected method: {method}")
+
+        async def async_get_config_settings(self):
+            return await self.async_fetch_data(METHODS.PRINTER_OBJECTS_QUERY)
+
+        async def async_get_printer_objects(self):
+            return await self.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
+
+        async def async_refresh_query_data(self):
+            return
 
         def add_query_objects(self, obj, field):
             self.query_obj.setdefault(obj, set()).add(field)

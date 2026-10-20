@@ -22,7 +22,14 @@ from homeassistant.const import (
 )
 from homeassistant.core import callback
 
-from .const import DOMAIN, METHODS, OBJ, PRINTERSTATES, PRINTSTATES
+from .const import (
+    DOMAIN,
+    METHODS,
+    OBJ,
+    PRINTERSTATES,
+    PRINTSTATES,
+    SLOW_UPDATE_CYCLES,
+)
 from .entity import BaseMoonrakerEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -359,19 +366,35 @@ async def async_setup_entry(hass, entry, async_add_entities):
     await async_setup_spoolman_sensors(coordinator, entry, async_add_entities)
 
 
-async def _machine_system_info_updater(coordinator):
-    return {
-        "system_info": (
-            await coordinator.async_fetch_data(METHODS.MACHINE_SYSTEM_INFO)
-        )["system_info"]
-    }
-
-
 async def async_setup_basic_sensor(coordinator, entry, async_add_entities):
     """Set basic sensor platform."""
-    coordinator.add_data_updater(_machine_system_info_updater)
     coordinator.load_sensor_data(SENSORS)
+    system_info = await coordinator.async_get_system_info()
+    machine_info = (system_info or {}).get("system_info")
+    if (
+        isinstance(machine_info, dict)
+        and isinstance(machine_info.get("cpu_info"), dict)
+        and machine_info["cpu_info"].get("total_memory")
+    ):
+        coordinator.set_initial_data("system_info", machine_info)
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in SENSORS])
+
+
+def _sensor_capability_query(objects, environmental_keys, fan_keys):
+    """Select fields needed to discover optional sensor capabilities."""
+    capability_objects = {}
+    for obj in objects:
+        split_obj = obj.split()
+        if not split_obj:
+            continue
+        if (
+            split_obj[0] in environmental_keys
+            or split_obj[0] == "hall_filament_width_sensor"
+        ):
+            capability_objects[obj] = None
+        elif split_obj[0] in fan_keys or obj == "fan":
+            capability_objects[obj] = ["rpm"]
+    return capability_objects
 
 
 async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
@@ -400,7 +423,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
     fan_keys = ["heater_fan", "controller_fan", "fan_generic", "chamber_fan"]
 
     sensors = []
-    object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
+    object_list = await coordinator.async_get_printer_objects()
     objects = set(object_list["objects"])
 
     # Build a set of names that already have a generic temperature_sensor <name>
@@ -412,6 +435,16 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
         if len(parts) == 2 and parts[0] == "temperature_sensor":
             generic_temp_names.add(parts[1])
 
+    capability_objects = _sensor_capability_query(
+        object_list["objects"], environmental_keys, fan_keys
+    )
+    capability_status = {}
+    if capability_objects:
+        capabilities = await coordinator.async_fetch_data(
+            METHODS.PRINTER_OBJECTS_QUERY, {OBJ: capability_objects}, quiet=True
+        )
+        capability_status = capabilities.get("status") or {}
+
     for obj in object_list["objects"]:
         split_obj = obj.split()
 
@@ -420,7 +453,10 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
         if split_obj[0] in temperature_keys and len(split_obj) > 1:
             # If we already have a temperature_sensor <name>, don't also create a Temp entity
             # from bme280/aht10/etc for the same <name>.
-            if not (split_obj[0] in environmental_keys and split_obj[1] in generic_temp_names):
+            if not (
+                split_obj[0] in environmental_keys
+                and split_obj[1] in generic_temp_names
+            ):
                 desc = MoonrakerSensorDescription(
                     key=f"{split_obj[0]}_{split_obj[1]}",
                     status_key=obj,
@@ -438,12 +474,8 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 sensors.append(desc)
 
             if split_obj[0] in environmental_keys:
-                query_obj = {OBJ: {obj: None}}
-                result = await coordinator.async_fetch_data(
-                    METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
-                )
-
-                if "pressure" in result["status"][obj]:
+                capabilities = capability_status.get(obj) or {}
+                if "pressure" in capabilities:
                     desc = MoonrakerSensorDescription(
                         key=f"{split_obj[0]}_{split_obj[1]}_pressure",
                         status_key=obj,
@@ -459,7 +491,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                     )
                     sensors.append(desc)
 
-                if "humidity" in result["status"][obj]:
+                if "humidity" in capabilities:
                     desc = MoonrakerSensorDescription(
                         key=f"{split_obj[0]}_{split_obj[1]}_humidity",
                         status_key=obj,
@@ -475,7 +507,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                     )
                     sensors.append(desc)
 
-                if "gas" in result["status"][obj]:
+                if "gas" in capabilities:
                     desc = MoonrakerSensorDescription(
                         key=f"{split_obj[0]}_{split_obj[1]}_gas",
                         status_key=obj,
@@ -562,12 +594,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
             )
             sensors.append(desc)
 
-            query_obj = {OBJ: {obj: ["rpm"]}}
-            fan_data = await coordinator.async_fetch_data(
-                METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
-            )
-
-            if fan_data["status"][obj]["rpm"]:
+            if (capability_status.get(obj) or {}).get("rpm"):
                 desc = MoonrakerSensorDescription(
                     key=f"{split_obj[0]}_{split_obj[1]}_rpm",
                     status_key=obj,
@@ -583,12 +610,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 )
                 sensors.append(desc)
         elif obj == "fan":
-            query_obj = {OBJ: {"fan": ["rpm"]}}
-            fan_data = await coordinator.async_fetch_data(
-                METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
-            )
-
-            if fan_data["status"]["fan"]["rpm"]:
+            if (capability_status.get("fan") or {}).get("rpm"):
                 desc = MoonrakerSensorDescription(
                     key="fan_rpm",
                     name="Fan RPM",
@@ -604,11 +626,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 sensors.append(desc)
         elif split_obj[0] == "hall_filament_width_sensor":
             # Hall filament width sensor: expose Diameter (mm) and Raw readings
-            query_obj = {OBJ: {obj: None}}
-            result = await coordinator.async_fetch_data(
-                METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
-            )
-            status = result["status"].get(obj, {})
+            status = capability_status.get(obj) or {}
 
             base_key = obj.replace(" ", "_")
             base_name = (
@@ -721,7 +739,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
             sensors.append(desc)
 
     coordinator.load_sensor_data(sensors)
-    await coordinator.async_refresh()
+    await coordinator.async_refresh_query_data()
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
 
 
@@ -737,7 +755,8 @@ async def async_setup_history_sensors(coordinator, entry, async_add_entities):
     if history.get("error"):
         return
 
-    coordinator.add_data_updater(_history_updater)
+    coordinator.set_initial_data("history", history)
+    coordinator.add_data_updater(_history_updater, every=SLOW_UPDATE_CYCLES)
 
     sensors = [
         MoonrakerSensorDescription(
@@ -785,8 +804,6 @@ async def async_setup_history_sensors(coordinator, entry, async_add_entities):
         ),
     ]
 
-    coordinator.load_sensor_data(sensors)
-    await coordinator.async_refresh()
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
 
 
@@ -802,14 +819,15 @@ async def async_setup_queue_sensors(coordinator, entry, async_add_entities):
     if queue.get("queue_state") is None or queue.get("queued_jobs") is None:
         return
 
-    coordinator.add_data_updater(_queue_updater)
+    coordinator.set_initial_data("queue", queue)
+    coordinator.add_data_updater(_queue_updater, every=SLOW_UPDATE_CYCLES)
 
     sensors = [
         MoonrakerSensorDescription(
             key="queue_state",
             name="Queue State",
             value_fn=lambda sensor: sensor.coordinator.data["queue"]["queue_state"],
-            subscriptions=[("queue_state")],
+            subscriptions=[],
         ),
         MoonrakerSensorDescription(
             key="queue_count",
@@ -817,7 +835,7 @@ async def async_setup_queue_sensors(coordinator, entry, async_add_entities):
             value_fn=lambda sensor: len(
                 sensor.coordinator.data["queue"]["queued_jobs"]
             ),
-            subscriptions=[("queued_jobs")],
+            subscriptions=[],
             icon="mdi:numeric",
             unit="Jobs",
             state_class=SensorStateClass.MEASUREMENT,
@@ -825,17 +843,11 @@ async def async_setup_queue_sensors(coordinator, entry, async_add_entities):
         ),
     ]
 
-    coordinator.load_sensor_data(sensors)
-    await coordinator.async_refresh()
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
 
 
 async def _spoolman_updater(coordinator):
-    return {
-        "spoolman": await coordinator.async_fetch_data(
-            METHODS.SERVER_SPOOLMAN_ID
-        )
-    }
+    return {"spoolman": await coordinator.async_fetch_data(METHODS.SERVER_SPOOLMAN_ID)}
 
 
 async def async_setup_spoolman_sensors(coordinator, entry, async_add_entities):
@@ -844,19 +856,18 @@ async def async_setup_spoolman_sensors(coordinator, entry, async_add_entities):
     if spoolman.get("error"):
         return
 
-    coordinator.add_data_updater(_spoolman_updater)
+    coordinator.set_initial_data("spoolman", spoolman)
+    coordinator.add_data_updater(_spoolman_updater, every=SLOW_UPDATE_CYCLES)
 
     sensors = [
         MoonrakerSensorDescription(
             key="spool_id",
             name="Spool ID",
             value_fn=lambda sensor: sensor.coordinator.data["spoolman"]["spool_id"],
-            subscriptions=[("spool_id")],
+            subscriptions=[],
         ),
     ]
 
-    coordinator.load_sensor_data(sensors)
-    await coordinator.async_refresh()
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
 
 
@@ -873,7 +884,8 @@ async def async_setup_machine_update_sensors(coordinator, entry, async_add_entit
     machine_status = await coordinator.async_fetch_data(METHODS.MACHINE_UPDATE_STATUS)
     if machine_status.get("error"):
         return
-    coordinator.add_data_updater(_machine_update_updater)
+    coordinator.set_initial_data("machine_update", machine_status)
+    coordinator.add_data_updater(_machine_update_updater, every=SLOW_UPDATE_CYCLES)
     sensors = []
 
     for version_info in machine_status["version_info"]:
@@ -913,8 +925,6 @@ async def async_setup_machine_update_sensors(coordinator, entry, async_add_entit
                 )
             )
     if len(sensors) > 0:
-        coordinator.load_sensor_data(sensors)
-        await coordinator.async_refresh()
         async_add_entities(
             [MoonrakerSensor(coordinator, entry, desc) for desc in sensors]
         )
@@ -1026,6 +1036,7 @@ def _coerce_positive_int(value) -> int | None:
         return None
 
     return int(round(number, 0))
+
 
 def _as_float(value) -> float | None:
     try:
@@ -1153,9 +1164,7 @@ def calculate_current_layer(data):
     print_duration = print_stats.get("print_duration")
     filename = print_stats.get("filename") or ""
     if not filename:
-        filename = (
-            data["status"].get("virtual_sdcard", {}).get("file_path") or ""
-        )
+        filename = data["status"].get("virtual_sdcard", {}).get("file_path") or ""
 
     if (
         print_stats.get("state") != PRINTSTATES.PRINTING.value
@@ -1252,10 +1261,17 @@ def convert_time(time_s):
 
 def calculate_memory_used(data):
     """Calculate memory used."""
-
-    if "system_info" not in data or data["status"]["system_stats"]["memavail"] is None:
+    if not isinstance(data, dict):
         return None
 
-    total_memory = data["system_info"]["cpu_info"]["total_memory"]
-    memory_used = total_memory - data["status"]["system_stats"]["memavail"]
+    system_info = data.get("system_info")
+    cpu_info = system_info.get("cpu_info") if isinstance(system_info, dict) else None
+    status = data.get("status")
+    system_stats = status.get("system_stats") if isinstance(status, dict) else None
+    total_memory = cpu_info.get("total_memory") if isinstance(cpu_info, dict) else None
+    memavail = system_stats.get("memavail") if isinstance(system_stats, dict) else None
+    if not total_memory or memavail is None:
+        return None
+
+    memory_used = total_memory - memavail
     return memory_used / total_memory * 100

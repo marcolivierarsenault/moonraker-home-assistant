@@ -19,6 +19,7 @@ PLATFORMS = [
     Platform.SWITCH,
     Platform.NUMBER,
     Platform.LIGHT,
+    Platform.SELECT,
 ]
 
 CONF_API_KEY = "api_key"
@@ -29,6 +30,16 @@ CONF_PRINTER_NAME = "printer_name"
 CONF_OPTION_CAMERA_STREAM = "camera_stream_url"
 CONF_OPTION_CAMERA_SNAPSHOT = "camera_snapshot_url"
 CONF_OPTION_POLLING_RATE = "polling_rate"
+DEFAULT_POLLING_RATE = 40
+MIN_POLLING_RATE = 7
+PRINTING_POLLING_RATE = 40 / 3
+PUSH_UPDATE_INTERVAL = 5
+SLOW_UPDATE_CYCLES = 4
+NOTIFY_STATUS_UPDATE = "notify_status_update"
+NOTIFY_KLIPPY_DISCONNECTED = "notify_klippy_disconnected"
+NOTIFY_KLIPPY_SHUTDOWN = "notify_klippy_shutdown"
+NOTIFY_KLIPPY_READY = "notify_klippy_ready"
+NOTIFY_GCODE_RESPONSE = "notify_gcode_response"
 CONF_OPTION_QUIET_UNREACHABLE = "quiet_unreachable_devices"
 CONF_OPTION_CAMERA_PORT = "camera_port"
 CONF_OPTION_THUMBNAIL_PORT = "thumbnail_port"
@@ -61,6 +72,7 @@ class METHODS(Enum):
     MACHINE_SYSTEM_INFO = "machine.system_info"
     PRINTER_EMERGENCY_STOP = "printer.emergency_stop"
     PRINTER_INFO = "printer.info"
+    PRINTER_PRINT_START = "printer.print.start"
     PRINTER_GCODE_HELP = "printer.gcode.help"
     PRINTER_GCODE_SCRIPT = "printer.gcode.script"
     PRINTER_OBJECTS_LIST = "printer.objects.list"
@@ -70,11 +82,19 @@ class METHODS(Enum):
     PRINTER_PRINT_PAUSE = "printer.print.pause"
     PRINTER_PRINT_RESUME = "printer.print.resume"
     PRINTER_FIRMWARE_RESTART = "printer.firmware_restart"
+    SERVER_FILES_LIST = "server.files.list"
     SERVER_FILES_METADATA = "server.files.metadata"
+    SERVER_FILES_DELETE_FILE = "server.files.delete_file"
+    SERVER_GCODE_STORE = "server.gcode_store"
     SERVER_HISTORY_TOTALS = "server.history.totals"
     SERVER_HISTORY_RESET_TOTALS = "server.history.reset_totals"
     SERVER_JOB_QUEUE_STATUS = "server.job_queue.status"
     SERVER_JOB_QUEUE_START = "server.job_queue.start"
+    SERVER_JOB_QUEUE_PAUSE = "server.job_queue.pause"
+    SERVER_JOB_QUEUE_POST_JOB = "server.job_queue.post_job"
+    SERVER_JOB_QUEUE_DELETE_JOB = "server.job_queue.delete_job"
+    SERVER_JOB_QUEUE_JUMP = "server.job_queue.jump"
+    SERVER_INFO = "server.info"
     SERVER_RESTART = "server.restart"
     SERVER_WEBCAMS_LIST = "server.webcams.list"
     SERVER_SPOOLMAN_ID = "server.spoolman.status"

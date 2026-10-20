@@ -16,3 +16,39 @@ send_gcode:
       example: "G28"
       selector:
         text:
+start_print:
+  name: "Start Print"
+  description: "Start printing a G-code file already stored on the printer"
+  fields:
+    device_id:
+      name: "Printer"
+      description: "Moonraker device that should start the print"
+      required: true
+      selector:
+        device:
+          integration: moonraker
+    filename:
+      name: "Filename"
+      description: "G-code file to print, relative to the printer's gcodes root"
+      required: true
+      example: "subdir/print.gcode"
+      selector:
+        text:
+upload_gcode:
+  name: "Upload G-code"
+  description: "Upload a G-code file from a Home Assistant-accessible path to the printer. The directory must be listed in allowlist_external_dirs."
+  fields:
+    device_id:
+      name: "Printer"
+      description: "Moonraker device that should receive the file"
+      required: true
+      selector:
+        device:
+          integration: moonraker
+    path:
+      name: "Path"
+      description: "Local file path on the Home Assistant host, inside an allowlisted directory"
+      required: true
+      example: "/config/www/print.gcode"
+      selector:
+        text:

@@ -9,6 +9,15 @@
 
 Non official integration for Moonraker and Klipper in Home Assistant (via HACS).
 
+## Development enhancements and attribution
+
+This repository builds on [the original Moonraker Home Assistant integration](https://github.com/marcolivierarsenault/moonraker-home-assistant); its original code and history remain credited to that project's original maintainer. Development additions in this repository are provided by [Thalia Montreux](https://github.com/thaliamontreux/moonraker-home-assistant), including:
+
+- Reduced polling and Moonraker WebSocket push updates.
+- Live print controls, G-code file selection, browser uploads, and print queue actions.
+- The authenticated NEXUS Control Deck with movement, thermal, macro, console, and system controls.
+- The bounded active-file G-code proxy and interactive toolpath preview.
+
 # Supported Entities
 
 This allows you home assistant to connect to your 3D printer and display:

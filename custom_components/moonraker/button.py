@@ -5,9 +5,20 @@ from dataclasses import dataclass
 
 
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
+from homeassistant.exceptions import HomeAssistantError
 
 from .const import DOMAIN, METHODS
 from .entity import BaseMoonrakerEntity
+
+
+async def _async_print_selected_file(button):
+    """Start printing the file chosen in the select entity."""
+    filename = getattr(button.coordinator, "selected_file", None)
+    if not filename:
+        raise HomeAssistantError("Select a file to print first")
+    await button.coordinator.async_send_data(
+        METHODS.PRINTER_PRINT_START, {"filename": filename}
+    )
 
 
 @dataclass(frozen=True)
@@ -110,6 +121,13 @@ BUTTONS: tuple[MoonrakerButtonDescription, ...] = (
         icon="mdi:history",
     ),
     MoonrakerButtonDescription(
+        key="print_selected_file",
+        name="Print Selected File",
+        press_fn=_async_print_selected_file,
+        icon="mdi:file-play-outline",
+        entity_registry_enabled_default=True,
+    ),
+    MoonrakerButtonDescription(
         key="start_print_from_queue",
         name="Start Print from Queue",
         press_fn=lambda button: button.coordinator.async_send_data(
@@ -172,11 +190,9 @@ async def async_setup_basic_buttons(coordinator, entry, async_add_entities):
 async def async_setup_macros(coordinator, entry, async_add_entities):
     """Set optional button platform."""
     cmds = await coordinator.async_fetch_data(METHODS.PRINTER_GCODE_HELP)
-    object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
+    object_list = await coordinator.async_get_printer_objects()
     object_names = (
-        set(object_list.get("objects", []))
-        if isinstance(object_list, dict)
-        else set()
+        set(object_list.get("objects", [])) if isinstance(object_list, dict) else set()
     )
     macro_objects = {obj for obj in object_names if obj.startswith("gcode_macro ")}
 
@@ -210,13 +226,15 @@ async def async_setup_macros(coordinator, entry, async_add_entities):
 
     async_add_entities([MoonrakerButton(coordinator, entry, desc) for desc in macros])
     if added_macro_objects:
-        await coordinator.async_request_refresh()
+        await coordinator.async_refresh_query_data()
 
 
 async def async_setup_services(coordinator, entry, async_add_entities):
     """Create Start, Stop, and Restart buttons for all allowed services."""
-    system_info = await coordinator.async_fetch_data(METHODS.MACHINE_SYSTEM_INFO)
-    available_services = system_info["system_info"].get("available_services", [])
+    system_info = await coordinator.async_get_system_info()
+    available_services = ((system_info or {}).get("system_info") or {}).get(
+        "available_services", []
+    )
 
     service_buttons = []
 

@@ -1,0 +1,3398 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NEXUS CONTROL // Moonraker</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #020706;
+        --panel: #06110d;
+        --panel-hi: #0a1a13;
+        --line: #164432;
+        --line-hi: #19754a;
+        --green: #00ef91;
+        --green-soft: #9bffc7;
+        --cyan: #39e8bd;
+        --red: #ff536b;
+        --amber: #e6c165;
+        --text: #c9e8d7;
+        --muted: #5e8871;
+        --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+        --sans: "Arial Narrow", "Segoe UI", Arial, sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+      }
+      body {
+        color: var(--text);
+        background: radial-gradient(
+            ellipse at 52% -20%,
+            rgba(0, 239, 145, 0.12),
+            transparent 48%
+          ),
+          linear-gradient(rgba(0, 110, 66, 0.055) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0, 110, 66, 0.045) 1px, transparent 1px),
+          var(--bg);
+        background-size: auto, 32px 32px, 32px 32px, auto;
+        font-family: var(--sans);
+        font-size: 13px;
+      }
+      button,
+      input,
+      select {
+        color: inherit;
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      .shell {
+        height: 100%;
+        min-width: 320px;
+        display: flex;
+        flex-direction: column;
+      }
+      .topbar {
+        height: 48px;
+        min-height: 48px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 0 16px;
+        position: relative;
+        z-index: 5;
+        background: rgba(2, 9, 7, 0.98);
+        border-bottom: 1px solid var(--line-hi);
+        box-shadow: 0 2px 20px rgba(0, 239, 145, 0.08);
+      }
+      .brand {
+        min-width: 190px;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        color: var(--green);
+      }
+      .brand-mark {
+        width: 20px;
+        height: 20px;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--green);
+        font: 900 12px var(--mono);
+        box-shadow: 0 0 10px rgba(0, 239, 145, 0.22);
+      }
+      .brand-name {
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: 0.19em;
+      }
+      .brand-name small {
+        margin-left: 5px;
+        color: #5f8a70;
+        font: 8px var(--mono);
+        letter-spacing: 0.17em;
+      }
+      .topline {
+        flex: 1;
+        height: 2px;
+        position: relative;
+        background: linear-gradient(
+          90deg,
+          var(--green),
+          rgba(0, 239, 145, 0.02)
+        );
+      }
+      .topline:after {
+        content: "";
+        position: absolute;
+        right: 16%;
+        top: -2px;
+        width: 48px;
+        height: 6px;
+        background: var(--green);
+        box-shadow: 0 0 12px var(--green);
+      }
+      .top-stat {
+        min-width: 75px;
+        display: grid;
+        gap: 2px;
+        font-family: var(--mono);
+      }
+      .top-stat span:first-child {
+        color: var(--muted);
+        font-size: 7px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+      .top-stat span:last-child {
+        color: var(--green-soft);
+        font-size: 9px;
+        text-transform: uppercase;
+      }
+      .top-select,
+      .top-chip {
+        min-height: 27px;
+        padding: 4px 8px;
+        border: 1px solid var(--line-hi);
+        border-radius: 2px;
+        background: #06120e;
+        color: var(--green-soft);
+        font: 9px var(--mono);
+      }
+      .top-select {
+        max-width: 190px;
+      }
+      .top-select:focus {
+        outline: none;
+        border-color: var(--green);
+      }
+      .top-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .led {
+        width: 6px;
+        height: 6px;
+        flex: 0 0 auto;
+        border-radius: 50%;
+        background: var(--green);
+        box-shadow: 0 0 8px var(--green);
+      }
+      .top-chip.bad {
+        color: var(--red);
+        border-color: #73323b;
+      }
+      .top-chip.bad .led {
+        background: var(--red);
+        box-shadow: 0 0 8px var(--red);
+      }
+
+      .app {
+        flex: 1;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: 190px minmax(0, 1fr);
+      }
+      .sidebar {
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        padding: 12px 8px 9px;
+        background: rgba(3, 11, 9, 0.98);
+        border-right: 1px solid var(--line);
+      }
+      .nav-label {
+        padding: 7px 10px 8px;
+        color: #3c7259;
+        font: 8px var(--mono);
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+      }
+      .nav-list {
+        display: grid;
+        gap: 3px;
+        overflow: auto;
+        scrollbar-width: thin;
+        scrollbar-color: var(--line-hi) transparent;
+      }
+      .nav-item {
+        min-height: 31px;
+        width: 100%;
+        display: grid;
+        grid-template-columns: 19px 1fr auto;
+        align-items: center;
+        gap: 7px;
+        padding: 5px 9px;
+        text-align: left;
+        border: 1px solid transparent;
+        border-radius: 2px;
+        background: transparent;
+        color: #779985;
+        font: 8px var(--mono);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .nav-item:hover {
+        color: var(--green-soft);
+        border-color: #174733;
+        background: #071711;
+      }
+      .nav-item.active {
+        color: var(--green);
+        border-color: #218052;
+        background: linear-gradient(
+          90deg,
+          rgba(0, 239, 145, 0.16),
+          rgba(0, 239, 145, 0.015)
+        );
+        box-shadow: inset 2px 0 var(--green), 0 0 11px rgba(0, 239, 145, 0.06);
+      }
+      .nav-icon {
+        color: var(--green);
+        text-align: center;
+        font: 13px var(--mono);
+      }
+      .nav-num {
+        color: #365d49;
+        font-size: 7px;
+      }
+      .side-bottom {
+        margin-top: auto;
+        padding: 9px 9px 0;
+        border-top: 1px solid #102d20;
+        color: #4b765f;
+        font: 7px/1.7 var(--mono);
+      }
+      .side-bottom strong {
+        display: block;
+        color: var(--green);
+        font-size: 8px;
+        letter-spacing: 0.13em;
+      }
+
+      .main {
+        min-height: 0;
+        overflow: auto;
+        padding: 0 14px 16px;
+        scrollbar-width: thin;
+        scrollbar-color: var(--line-hi) var(--bg);
+      }
+      .pagebar {
+        min-height: 56px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+        border-bottom: 1px solid #123d2a;
+      }
+      .page-kicker {
+        color: var(--muted);
+        font: 7px var(--mono);
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+      }
+      .page-title {
+        margin: 3px 0 0;
+        color: var(--green);
+        font-size: 17px;
+        line-height: 1;
+        font-weight: 900;
+        letter-spacing: 0.17em;
+        text-transform: uppercase;
+      }
+      .page-tools {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .micro {
+        color: var(--muted);
+        font: 7px/1.5 var(--mono);
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+      .attribution-link {
+        display: inline-block;
+        margin-top: 5px;
+        color: var(--green-soft);
+        font: 8px var(--mono);
+        text-decoration: none;
+        border-bottom: 1px solid var(--line-hi);
+      }
+      .attribution-link:hover {
+        color: var(--green);
+        border-color: var(--green);
+      }
+      .ticker {
+        height: 22px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        overflow: hidden;
+        white-space: nowrap;
+        margin-bottom: 10px;
+        padding: 0 8px;
+        border: 1px solid #143e2a;
+        background: rgba(4, 17, 12, 0.9);
+        color: #74ab8a;
+        font: 8px var(--mono);
+      }
+      .ticker-label {
+        flex: 0 0 auto;
+        color: var(--green);
+      }
+      #tickerText {
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .pages {
+        padding-bottom: 18px;
+      }
+      .screen {
+        display: none;
+      }
+      .screen.active {
+        display: block;
+        animation: page-in 0.14s ease-out;
+      }
+      @keyframes page-in {
+        from {
+          opacity: 0.65;
+          transform: translateY(3px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        gap: 8px;
+        align-content: start;
+      }
+      .span-12 {
+        grid-column: span 12;
+      }
+      .span-8 {
+        grid-column: span 8;
+      }
+      .span-7 {
+        grid-column: span 7;
+      }
+      .span-6 {
+        grid-column: span 6;
+      }
+      .span-5 {
+        grid-column: span 5;
+      }
+      .span-4 {
+        grid-column: span 4;
+      }
+      .span-3 {
+        grid-column: span 3;
+      }
+      .span-2 {
+        grid-column: span 2;
+      }
+      .panel {
+        min-width: 0;
+        position: relative;
+        overflow: hidden;
+        padding: 9px 10px 10px;
+        background: linear-gradient(
+          145deg,
+          rgba(8, 27, 20, 0.97),
+          rgba(3, 13, 10, 0.98)
+        );
+        border: 1px solid var(--line);
+        border-radius: 3px;
+        box-shadow: inset 0 0 20px rgba(0, 120, 72, 0.035);
+      }
+      .panel:before {
+        content: "";
+        position: absolute;
+        top: -1px;
+        left: -1px;
+        width: 25px;
+        height: 2px;
+        background: var(--green);
+        box-shadow: 0 0 8px rgba(0, 239, 145, 0.35);
+      }
+      .panel-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .panel-kicker {
+        margin-bottom: 3px;
+        color: #4d8265;
+        font: 7px var(--mono);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+      .panel-title {
+        margin: 0;
+        color: #b8e5ce;
+        font-size: 9px;
+        line-height: 1.35;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+      .panel-tools {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 4px;
+        flex-wrap: wrap;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .mono {
+        font-family: var(--mono);
+      }
+      .big-number {
+        color: var(--green-soft);
+        font: 700 23px var(--mono);
+        letter-spacing: -0.06em;
+      }
+      .small-number {
+        color: var(--green-soft);
+        font: 600 13px var(--mono);
+      }
+      .status-value {
+        color: var(--green-soft);
+        font: 9px var(--mono);
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 6px;
+        border: 1px solid #1b5036;
+        color: var(--green-soft);
+        font: 7px var(--mono);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+      }
+      .row-between {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .kv {
+        display: grid;
+        grid-template-columns: minmax(70px, auto) 1fr;
+        gap: 5px 9px;
+        align-items: baseline;
+        font: 8px var(--mono);
+      }
+      .kv b {
+        color: #57846c;
+        font-weight: 400;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .kv span {
+        color: #b6d9c5;
+        text-align: right;
+        overflow-wrap: anywhere;
+      }
+      .divider {
+        height: 1px;
+        margin: 8px 0;
+        border: 0;
+        background: #123a29;
+      }
+      .notice {
+        padding: 6px 8px;
+        border-left: 2px solid var(--amber);
+        color: #b9a76e;
+        background: rgba(247, 203, 100, 0.04);
+        font: 8px/1.45 var(--mono);
+      }
+      .empty-state {
+        padding: 13px;
+        border: 1px dashed #17442e;
+        color: #547e65;
+        text-align: center;
+        font: 8px var(--mono);
+      }
+      .bad-text {
+        color: var(--red) !important;
+      }
+      .ok-text {
+        color: var(--green) !important;
+      }
+
+      button,
+      input,
+      select {
+        border: 1px solid #1a5739;
+        border-radius: 2px;
+        outline: none;
+        background: #06140f;
+        color: #bfe7d0;
+        font: 8px var(--mono);
+      }
+      button {
+        padding: 5px 8px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      button:hover {
+        color: var(--green-soft);
+        border-color: var(--green);
+        background: #0b2419;
+        box-shadow: 0 0 9px rgba(0, 239, 145, 0.09);
+      }
+      button:active {
+        transform: translateY(1px);
+      }
+      button:disabled {
+        opacity: 0.42;
+        cursor: not-allowed;
+      }
+      button.primary {
+        color: #00150b;
+        border-color: var(--green);
+        background: var(--green);
+        font-weight: 900;
+      }
+      button.primary:hover {
+        background: var(--green-soft);
+      }
+      button.danger {
+        color: var(--red);
+        border-color: #75313a;
+      }
+      button.danger:hover {
+        background: rgba(255, 83, 107, 0.12);
+        border-color: var(--red);
+      }
+      button.subtle {
+        color: #71a187;
+        border-color: #164331;
+        background: #04100c;
+      }
+      button.is-active {
+        color: #00180c;
+        border-color: var(--green);
+        background: var(--green);
+      }
+      input,
+      select {
+        min-width: 0;
+        padding: 6px 8px;
+      }
+      input:focus,
+      select:focus {
+        border-color: var(--green);
+        box-shadow: 0 0 8px rgba(0, 239, 145, 0.12);
+      }
+      input[type="range"] {
+        width: 100%;
+        padding: 0;
+        accent-color: var(--green);
+      }
+      input[type="number"] {
+        width: 95px;
+      }
+      input[type="file"] {
+        max-width: 220px;
+      }
+      label {
+        color: #6f9b81;
+        font: 7px var(--mono);
+        text-transform: uppercase;
+      }
+      .control-row {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+      }
+      .range-row {
+        display: grid;
+        gap: 4px;
+        margin: 8px 0;
+      }
+      .range-label {
+        display: flex;
+        justify-content: space-between;
+        color: #7fb095;
+        font: 7px var(--mono);
+        text-transform: uppercase;
+      }
+      .stat-tile {
+        min-height: 67px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      .stat-tile .stat-label {
+        color: #5b8d70;
+        font: 7px var(--mono);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .stat-tile .stat-value {
+        color: var(--green-soft);
+        font: 600 16px var(--mono);
+      }
+      .stat-tile .stat-foot {
+        color: #4c745e;
+        font: 7px var(--mono);
+      }
+
+      .job-hero {
+        min-height: 276px;
+      }
+      .job-hero-content {
+        display: grid;
+        grid-template-columns: 100px minmax(0, 1fr) 130px;
+        gap: 10px;
+        min-height: 208px;
+      }
+      .progress-wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+      }
+      .progress-svg {
+        width: 92px;
+        height: 92px;
+        transform: rotate(-90deg);
+      }
+      .progress-track {
+        fill: none;
+        stroke: #10281c;
+        stroke-width: 11;
+      }
+      .progress-ring {
+        fill: none;
+        stroke: var(--green);
+        stroke-linecap: square;
+        stroke-width: 11;
+        filter: drop-shadow(0 0 5px rgba(0, 239, 145, 0.35));
+      }
+      .progress-text {
+        fill: #ccffe3;
+        font: 700 16px var(--mono);
+        text-anchor: middle;
+        dominant-baseline: middle;
+        transform: rotate(90deg);
+        transform-origin: center;
+      }
+      .progress-readout {
+        color: var(--green-soft);
+        font: 7px var(--mono);
+        text-align: center;
+        text-transform: uppercase;
+      }
+      .toolpath-box {
+        position: relative;
+        height: clamp(280px, 44vh, 560px);
+        overflow: hidden;
+        border: 1px solid #14452d;
+        background: linear-gradient(rgba(0, 112, 66, 0.13) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0, 112, 66, 0.13) 1px, transparent 1px),
+          #030d0a;
+        background-size: 18px 18px;
+      }
+      #toolpathCanvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        cursor: grab;
+        touch-action: none;
+      }
+      #toolpathCanvas:active {
+        cursor: grabbing;
+      }
+      .toolpath-status {
+        position: absolute;
+        left: 7px;
+        bottom: 6px;
+        max-width: 88%;
+        color: #55a477;
+        font: 7px var(--mono);
+        text-shadow: 0 1px #020706;
+        pointer-events: none;
+      }
+      .toolpath-controls {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 4px;
+        margin-top: 5px;
+        flex-wrap: wrap;
+      }
+      #layerSpark {
+        flex: 1;
+        min-width: 140px;
+        height: 26px;
+      }
+      .scrub-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-top: 6px;
+      }
+      .scrub-row input[type="range"] {
+        flex: 1;
+        accent-color: var(--amber);
+        min-width: 60px;
+      }
+      .scrub-row .micro {
+        white-space: nowrap;
+      }
+      .toolpath-controls button {
+        padding: 3px 5px;
+        font-size: 6px;
+      }
+      .job-file {
+        margin-bottom: 6px;
+        color: var(--green-soft);
+        font: 9px var(--mono);
+        overflow-wrap: anywhere;
+      }
+      .job-metrics {
+        display: grid;
+        align-content: center;
+        gap: 7px;
+        padding-left: 9px;
+        border-left: 1px solid #163b29;
+      }
+      .job-metric {
+        display: grid;
+        gap: 3px;
+      }
+      .job-metric span:first-child {
+        color: #57846c;
+        font: 6px var(--mono);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+      .job-metric span:last-child {
+        color: #c4ebd4;
+        font: 9px var(--mono);
+      }
+      .camera-large {
+        height: min(68vh, 620px);
+        object-fit: contain;
+        background: #010403;
+      }
+      .gcode-thumb {
+        display: block;
+        width: 100%;
+        max-height: 230px;
+        object-fit: contain;
+        margin-top: 8px;
+        border: 1px solid #164a31;
+        background: #030d0a;
+      }
+      .camera-empty {
+        display: grid;
+        place-items: center;
+        height: 210px;
+        border: 1px dashed #17462f;
+        color: #4f8065;
+        background: #030b08;
+        font: 8px var(--mono);
+        text-align: center;
+      }
+      .camera-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 5px;
+        margin-top: 6px;
+      }
+      .camera-grid,
+      .dashboard-camera-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 8px;
+      }
+      .camera-grid[data-layout="1x2"],
+      .camera-grid[data-layout="2x2"],
+      .dashboard-camera-grid[data-layout="4"] {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .camera-tile,
+      .dashboard-camera-tile {
+        min-width: 0;
+        overflow: hidden;
+        border: 1px solid #164a31;
+        background: #020604;
+      }
+      .camera-tile-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        padding: 5px;
+        border-bottom: 1px solid #123d2a;
+      }
+      .camera-tile-head select {
+        flex: 1;
+        max-width: 220px;
+      }
+      .camera-tile img,
+      .dashboard-camera-tile img {
+        display: block;
+        width: 100%;
+        min-height: 150px;
+        max-height: 48vh;
+        aspect-ratio: 16 / 9;
+        object-fit: contain;
+        background: #010403;
+      }
+      .dashboard-camera-grid[data-layout="1"] img {
+        height: clamp(240px, 32vh, 390px);
+      }
+      .dashboard-camera-grid[data-layout="2"] img {
+        min-height: 150px;
+      }
+      .dashboard-camera-grid[data-layout="4"] img {
+        min-height: 98px;
+      }
+      .camera-tile-empty {
+        display: grid;
+        place-items: center;
+        min-height: 98px;
+        padding: 8px;
+        color: #4f8065;
+        font: 8px var(--mono);
+        text-align: center;
+      }
+      .camera-tile-actions {
+        display: flex;
+        justify-content: space-between;
+        gap: 5px;
+        padding: 5px;
+        border-top: 1px solid #123d2a;
+      }
+      .camera-tile-actions button {
+        min-height: 34px;
+      }
+      .temp-bar {
+        height: 5px;
+        overflow: hidden;
+        background: #10241a;
+      }
+      .temp-bar > i {
+        display: block;
+        height: 100%;
+        background: linear-gradient(90deg, #00894f, var(--green));
+        box-shadow: 0 0 8px rgba(0, 239, 145, 0.25);
+        transition: width 0.3s ease;
+      }
+      .temp-bar.cool > i {
+        background: linear-gradient(90deg, #126963, var(--cyan));
+      }
+      .temp-graph {
+        display: block;
+        width: 100%;
+        height: 125px;
+        border: 1px solid #16452f;
+        background: #030b08;
+      }
+      .jog-pad {
+        display: grid;
+        grid-template-areas: ". yp ." "xm home xp" ". ym .";
+        gap: 6px;
+        justify-items: center;
+        align-items: center;
+      }
+      .jog-pad button {
+        width: 39px;
+        height: 35px;
+        padding: 0;
+        font-size: 11px;
+      }
+      .jog-pad .yp {
+        grid-area: yp;
+      }
+      .jog-pad .ym {
+        grid-area: ym;
+      }
+      .jog-pad .xp {
+        grid-area: xp;
+      }
+      .jog-pad .xm {
+        grid-area: xm;
+      }
+      .jog-pad .home {
+        grid-area: home;
+      }
+      .jog-pad.large button {
+        width: 48px;
+        height: 43px;
+      }
+      .jog-z {
+        display: grid;
+        gap: 6px;
+      }
+      .jog-z button {
+        width: 42px;
+        height: 35px;
+        padding: 0;
+      }
+      .jog-z.large button {
+        width: 56px;
+        height: 42px;
+      }
+      .steps {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+      }
+      .steps button {
+        padding: 4px 7px;
+      }
+      .position-table {
+        width: 100%;
+        border-collapse: collapse;
+        font: 8px var(--mono);
+      }
+      .position-table td {
+        padding: 5px 6px;
+        border-bottom: 1px solid #10301f;
+      }
+      .position-table td:first-child {
+        color: #5d8f70;
+      }
+      .position-table td:last-child {
+        color: var(--green-soft);
+        text-align: right;
+      }
+      .macro-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+        gap: 5px;
+      }
+      .macro-grid button {
+        min-height: 40px;
+        text-align: left;
+      }
+      .macro-grid button span {
+        display: block;
+        margin-top: 3px;
+        color: #4d8063;
+        font-size: 6px;
+      }
+      .file-list {
+        max-height: 330px;
+        overflow: auto;
+        margin-top: 7px;
+        border: 1px solid #143c29;
+      }
+      .file-option {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        gap: 7px;
+        padding: 6px 8px;
+        border: 0;
+        border-bottom: 1px solid #102a1d;
+        text-align: left;
+        background: transparent;
+        color: #a4d5b8;
+        font: 8px var(--mono);
+        text-transform: none;
+      }
+      .file-option:hover,
+      .file-option.selected {
+        background: #0b2419;
+        color: var(--green);
+      }
+      .console-output {
+        height: min(58vh, 680px);
+        min-height: 320px;
+        width: 100%;
+        overflow: auto;
+        padding: 10px;
+        border: 1px solid #1b5437;
+        background: #020806;
+        color: #8ce2aa;
+        white-space: pre-wrap;
+        word-break: break-all;
+        font: 9px/1.55 var(--mono);
+        text-shadow: 0 0 5px rgba(0, 239, 145, 0.12);
+      }
+      .console-input {
+        flex: 1;
+        min-height: 42px;
+        font-size: 10px;
+      }
+      .console-context {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 5px;
+        margin: 7px 0;
+      }
+      .console-context .system-item {
+        min-height: 34px;
+      }
+      .command-history {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 4px;
+        max-height: 180px;
+        overflow: auto;
+      }
+      .command-entry {
+        display: grid;
+        grid-template-columns: 68px 1fr;
+        gap: 7px;
+        padding: 6px 8px;
+        background: #04100b;
+        border: 1px solid #112f20;
+        font: 7px/1.45 var(--mono);
+      }
+      .command-entry time {
+        color: #548166;
+      }
+      .command-entry code {
+        color: #98e9b3;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .info-scrim[hidden],
+      .info-drawer[hidden],
+      .camera-config[hidden] {
+        display: none;
+      }
+      .info-scrim {
+        position: fixed;
+        inset: 0;
+        z-index: 29;
+        background: rgba(0, 0, 0, 0.55);
+      }
+      .info-drawer {
+        position: fixed;
+        z-index: 30;
+        top: 8px;
+        right: 8px;
+        bottom: 8px;
+        width: min(430px, calc(100vw - 16px));
+        padding: 12px;
+        overflow: auto;
+        background: #04100c;
+        border: 1px solid var(--green);
+        box-shadow: 0 0 28px rgba(0, 239, 145, 0.18);
+      }
+      .info-drawer-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 9px;
+      }
+      .info-rows {
+        display: grid;
+        gap: 3px;
+      }
+      .camera-config {
+        position: fixed;
+        z-index: 32;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: min(460px, calc(100vw - 20px));
+        max-height: min(620px, calc(100vh - 20px));
+        padding: 12px;
+        overflow: auto;
+        background: #04100c;
+        border: 1px solid var(--green);
+        box-shadow: 0 0 30px rgba(0, 239, 145, 0.2);
+      }
+      .config-list {
+        display: grid;
+        gap: 5px;
+        margin: 9px 0;
+      }
+      .config-row {
+        display: grid;
+        grid-template-columns: minmax(90px, 0.55fr) 1fr;
+        align-items: center;
+        gap: 8px;
+        padding: 6px;
+        border: 1px solid #123a29;
+        background: #06130e;
+      }
+      .config-row select {
+        width: 100%;
+        min-height: 38px;
+      }
+      .quiet-row {
+        display: flex;
+        gap: 8px;
+      }
+      .quiet-row input[type="time"] {
+        flex: 1;
+        min-height: 38px;
+        padding: 4px 8px;
+        border: 1px solid #154530;
+        background: #030c08;
+        color: #9de3bc;
+        font: 9px var(--mono);
+      }
+      .config-row > span {
+        color: #5e8d70;
+        font: 7px var(--mono);
+        letter-spacing: 0.1em;
+      }
+      .system-list {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1px;
+        border: 1px solid #123a29;
+        background: #123a29;
+      }
+      .system-item {
+        min-height: 39px;
+        display: grid;
+        gap: 4px;
+        padding: 6px;
+        background: #06130e;
+      }
+      .system-item span:first-child {
+        color: #5e8d70;
+        font: 6px var(--mono);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+      .system-item span:last-child {
+        color: #b9e3c9;
+        font: 8px var(--mono);
+        overflow-wrap: anywhere;
+      }
+      .mesh-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 3px;
+        max-width: 380px;
+        margin: 10px auto;
+      }
+      .mesh-cell {
+        aspect-ratio: 1.2;
+        display: grid;
+        place-items: center;
+        border: 1px solid #174c33;
+        color: var(--green-soft);
+        background: rgba(0, 239, 145, 0.035);
+        font: 8px var(--mono);
+      }
+      .object-table {
+        max-height: 420px;
+        overflow: auto;
+        border: 1px solid #153d2a;
+      }
+      .object-row {
+        display: grid;
+        grid-template-columns: minmax(130px, 0.8fr) 2fr;
+        gap: 7px;
+        padding: 6px 8px;
+        border-bottom: 1px solid #10291c;
+        font: 7px var(--mono);
+      }
+      .object-row span:first-child {
+        color: var(--green-soft);
+        overflow-wrap: anywhere;
+      }
+      .object-row span:last-child {
+        color: #6f9f80;
+        overflow-wrap: anywhere;
+      }
+      .toast {
+        position: fixed;
+        right: 12px;
+        bottom: 12px;
+        z-index: 50;
+        display: none;
+        max-width: 340px;
+        padding: 9px 12px;
+        border: 1px solid var(--green);
+        background: #061810;
+        color: var(--green-soft);
+        box-shadow: 0 0 18px rgba(0, 239, 145, 0.16);
+        font: 8px var(--mono);
+      }
+      .stale-banner {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        padding: 7px 12px;
+        border-bottom: 1px solid #d99a2b;
+        background: #241505;
+        color: #f0b95e;
+        font: 8px var(--mono);
+        letter-spacing: 0.12em;
+        text-align: center;
+        text-shadow: 0 0 6px rgba(240, 185, 94, 0.35);
+      }
+      .stale-banner[hidden] {
+        display: none;
+      }
+      body.stale-data .nav-item,
+      body.stale-data button[data-action] {
+        opacity: 0.55;
+      }
+      body.stale-data button[data-action="emergency_stop"] {
+        opacity: 1;
+      }
+      .overlay-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 60;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(2, 7, 5, 0.72);
+      }
+      .overlay-backdrop[hidden] {
+        display: none;
+      }
+      .overlay-card {
+        width: min(360px, 92vw);
+      }
+      .queue-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        padding: 4px 6px;
+        border-bottom: 1px solid var(--line);
+        font: 8px var(--mono);
+      }
+      .queue-row .queue-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .queue-row .queue-actions {
+        display: flex;
+        gap: 4px;
+        flex: 0 0 auto;
+      }
+      .analysis-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 6px;
+        margin-top: 6px;
+      }
+      .analysis-thumb {
+        float: right;
+        margin: 0 0 6px 10px;
+      }
+      .analysis-warning {
+        margin-top: 5px;
+        padding: 4px 7px;
+        border: 1px solid rgba(230, 193, 101, 0.4);
+        color: var(--amber);
+        font: 8px var(--mono);
+        letter-spacing: 0.08em;
+      }
+      .tl-frame {
+        width: 100%;
+        display: block;
+        border: 1px solid var(--line);
+        background: #030b08;
+        aspect-ratio: 16 / 9;
+        object-fit: contain;
+      }
+      body.large-touch button,
+      body.large-touch select,
+      body.large-touch input {
+        min-height: 42px;
+      }
+      body.large-touch .nav-item {
+        min-height: 46px;
+      }
+      body.large-touch .jog-pad button,
+      body.large-touch .jog-z button {
+        min-height: 48px;
+      }
+      body.large-touch .toolpath-controls button {
+        min-height: 40px;
+      }
+      body.reduced-motion *,
+      body.reduced-motion *::before,
+      body.reduced-motion *::after {
+        transition: none !important;
+        animation: none !important;
+      }
+      @media (max-width: 900px) {
+        .span-8,
+        .span-7,
+        .span-6,
+        .span-5,
+        .span-4,
+        .span-3,
+        .span-2 {
+          grid-column: span 6;
+        }
+        .job-hero,
+        .camera-panel {
+          grid-column: span 12;
+        }
+      }
+      @media (max-width: 720px) {
+        html,
+        body {
+          height: auto;
+          min-height: 100%;
+          overflow: auto;
+        }
+        .shell {
+          min-height: 100vh;
+          height: auto;
+        }
+        .topbar {
+          gap: 7px;
+          padding: 0 8px;
+        }
+        .brand {
+          min-width: auto;
+        }
+        .brand-name small,
+        .top-stat,
+        .topline {
+          display: none;
+        }
+        .app {
+          display: flex;
+          flex-direction: column;
+        }
+        .sidebar {
+          position: sticky;
+          top: 0;
+          z-index: 4;
+          padding: 5px;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+        .sidebar-brand,
+        .nav-label,
+        .side-bottom {
+          display: none;
+        }
+        .nav-list {
+          display: flex;
+          gap: 4px;
+          overflow-x: auto;
+        }
+        .nav-item {
+          min-width: 110px;
+          grid-template-columns: 15px 1fr;
+          padding: 6px;
+        }
+        .nav-num {
+          display: none;
+        }
+        .main {
+          overflow: visible;
+          padding: 0 7px 14px;
+        }
+        .pagebar {
+          min-height: 49px;
+        }
+        .span-8,
+        .span-7,
+        .span-6,
+        .span-5,
+        .span-4,
+        .span-3,
+        .span-2,
+        .job-hero,
+        .camera-panel {
+          grid-column: span 12;
+        }
+        .job-hero-content {
+          grid-template-columns: 78px minmax(0, 1fr);
+        }
+        .job-metrics {
+          grid-column: span 2;
+          grid-template-columns: repeat(3, 1fr);
+          border-left: 0;
+          border-top: 1px solid #163b29;
+          padding: 7px 0 0;
+        }
+        .console-context {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .command-history {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .console-output {
+          height: 48vh;
+          min-height: 250px;
+        }
+        .progress-svg {
+          width: 72px;
+          height: 72px;
+        }
+        .toolpath-box {
+          height: clamp(260px, 52vh, 420px);
+        }
+        .dashboard-camera-grid[data-layout="4"] {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark">N</span
+          ><span class="brand-name">NEXUS <small>CONTROL</small></span>
+        </div>
+        <div class="topline"></div>
+        <div class="top-stat">
+          <span>Node Link</span><span id="linkStatus">CONNECTING</span>
+        </div>
+        <select
+          class="top-select"
+          id="printerSel"
+          aria-label="Printer"
+        ></select>
+        <span class="top-chip"><i class="led"></i> LIVE</span>
+        <span id="stateChip" class="top-chip"><i class="led"></i> UNKNOWN</span>
+        <span id="klippyChip" class="top-chip">KLIPPY —</span>
+      </header>
+      <div class="stale-banner" id="staleBanner" hidden role="alert">
+        TELEMETRY STALE — LAST UPDATE <span id="staleAge">—</span> AGO /
+        PRINTER-MUTATING COMMANDS HELD
+      </div>
+      <div class="app">
+        <aside class="sidebar">
+          <div class="sidebar-brand">
+            <div class="nav-label">Subsystems / 01</div>
+          </div>
+          <nav class="nav-list" aria-label="Printer console">
+            <button class="nav-item active" data-screen-target="dashboard">
+              <span class="nav-icon">⌂</span><span>Dashboard</span
+              ><span class="nav-num">01</span>
+            </button>
+            <button class="nav-item" data-screen-target="print">
+              <span class="nav-icon">▤</span><span>Print Job</span
+              ><span class="nav-num">02</span>
+            </button>
+            <button class="nav-item" data-screen-target="movement">
+              <span class="nav-icon">✣</span><span>Movement</span
+              ><span class="nav-num">03</span>
+            </button>
+            <button class="nav-item" data-screen-target="thermal">
+              <span class="nav-icon">♨</span><span>Temperatures</span
+              ><span class="nav-num">04</span>
+            </button>
+            <button class="nav-item" data-screen-target="extruder">
+              <span class="nav-icon">◉</span><span>Extruder</span
+              ><span class="nav-num">05</span>
+            </button>
+            <button class="nav-item" data-screen-target="bedmesh">
+              <span class="nav-icon">▦</span><span>Bed Mesh</span
+              ><span class="nav-num">06</span>
+            </button>
+            <button class="nav-item" data-screen-target="tuning">
+              <span class="nav-icon">⌁</span><span>Tuning</span
+              ><span class="nav-num">07</span>
+            </button>
+            <button class="nav-item" data-screen-target="macros">
+              <span class="nav-icon">▶</span><span>Macros</span
+              ><span class="nav-num">08</span>
+            </button>
+            <button class="nav-item" data-screen-target="files">
+              <span class="nav-icon">▰</span><span>Files & Queue</span
+              ><span class="nav-num">09</span>
+            </button>
+            <button class="nav-item" data-screen-target="history">
+              <span class="nav-icon">⌁</span><span>History</span
+              ><span class="nav-num">10</span>
+            </button>
+            <button class="nav-item" data-screen-target="camera">
+              <span class="nav-icon">▣</span><span>Camera</span
+              ><span class="nav-num">11</span>
+            </button>
+            <button class="nav-item" data-screen-target="console">
+              <span class="nav-icon">&gt;_</span><span>Console</span
+              ><span class="nav-num">12</span>
+            </button>
+            <button class="nav-item" data-screen-target="hardware">
+              <span class="nav-icon">⬡</span><span>Hardware</span
+              ><span class="nav-num">13</span>
+            </button>
+            <button class="nav-item" data-screen-target="system">
+              <span class="nav-icon">⛭</span><span>System</span
+              ><span class="nav-num">14</span>
+            </button>
+            <button class="nav-item" data-screen-target="network">
+              <span class="nav-icon">⌁</span><span>Network</span
+              ><span class="nav-num">15</span>
+            </button>
+            <button class="nav-item" data-screen-target="settings">
+              <span class="nav-icon">⚙</span><span>Settings</span
+              ><span class="nav-num">16</span>
+            </button>
+            <button class="nav-item" data-screen-target="components">
+              <span class="nav-icon">▧</span><span>Components</span
+              ><span class="nav-num">17</span>
+            </button>
+          </nav>
+          <div class="side-bottom">
+            <strong>NEXUS // PRINT OPS</strong>MOONRAKER LINK /
+            <span id="sidePrinter">—</span><br />2 SEC TELEMETRY / AUTH LINK
+          </div>
+        </aside>
+        <main class="main">
+          <div class="pagebar">
+            <div>
+              <div class="page-kicker" id="pageKicker">
+                DEVICE / LIVE OVERVIEW
+              </div>
+              <h1 class="page-title" id="screenTitle">Dashboard</h1>
+            </div>
+            <div class="page-tools">
+              <span class="micro">SYSTEM TIME</span
+              ><span id="clock" class="pill">--:--:--</span
+              ><button class="top-button" data-details-toggle>MORE INFO</button
+              ><button class="top-button" data-action="refresh_files">
+                SYNC
+              </button>
+            </div>
+          </div>
+          <aside
+            id="pageDetails"
+            class="info-drawer"
+            hidden
+            aria-label="Additional page details"
+          >
+            <div class="info-drawer-head">
+              <div>
+                <div class="panel-kicker">Context / Diagnostics</div>
+                <h2 class="panel-title" id="detailsTitle">PAGE DETAILS</h2>
+              </div>
+              <button class="subtle" data-details-close>CLOSE</button>
+            </div>
+            <div id="detailsSummary" class="notice">
+              Additional capability-aware information for the selected page.
+            </div>
+            <div id="detailsRows" class="info-rows"></div>
+          </aside>
+          <div
+            id="detailsScrim"
+            class="info-scrim"
+            hidden
+            data-details-close
+          ></div>
+          <div
+            id="cameraConfigScrim"
+            class="info-scrim"
+            hidden
+            data-camera-config-close
+          ></div>
+          <section
+            id="cameraConfig"
+            class="camera-config"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cameraConfigTitle"
+            hidden
+          >
+            <div class="info-drawer-head">
+              <div>
+                <div class="panel-kicker">Dashboard Camera Sources</div>
+                <h2 class="panel-title" id="cameraConfigTitle">
+                  CAMERA CONFIGURATION
+                </h2>
+              </div>
+              <button class="subtle" data-camera-config-close>CLOSE</button>
+            </div>
+            <label class="config-row"
+              ><span>Dashboard Layout</span
+              ><select
+                id="dashboardCameraLayout"
+                aria-label="Dashboard camera layout"
+              >
+                <option value="1">1 camera</option>
+                <option value="2">2 cameras stacked</option>
+                <option value="4">4 cameras</option>
+              </select></label
+            >
+            <div id="dashboardCameraOptions" class="config-list"></div>
+            <div class="notice">
+              Dashboard streams start only while this screen is visible. Select
+              NO CAMERA to leave a tile unused.
+            </div>
+            <div class="row-between" style="margin-top: 9px">
+              <span id="dashboardCameraSummary" class="micro">1 LIVE TILE</span
+              ><button class="primary" data-camera-config-close>DONE</button>
+            </div>
+          </section>
+          <div class="ticker">
+            <span class="ticker-label">LIVE FEED //</span
+            ><span id="tickerText">Awaiting printer telemetry…</span>
+          </div>
+          <div class="pages">
+            <section
+              class="screen active"
+              id="screen-dashboard"
+              data-screen="dashboard"
+            >
+              <div class="grid">
+                <article class="panel job-hero span-8">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">
+                        Active Build / Interactive Toolpath
+                      </div>
+                      <h2 class="panel-title" id="dashboardState">PRINTING</h2>
+                    </div>
+                    <span class="pill"
+                      ><i class="led"></i
+                      ><span id="dashboardAvailability">STREAMING</span></span
+                    >
+                  </div>
+                  <div class="job-hero-content">
+                    <div class="progress-wrap">
+                      <svg
+                        class="progress-svg"
+                        viewBox="0 0 120 120"
+                        aria-label="Print progress"
+                      >
+                        <circle
+                          class="progress-track"
+                          cx="60"
+                          cy="60"
+                          r="51"
+                        ></circle>
+                        <circle
+                          class="progress-ring"
+                          id="ringFg"
+                          cx="60"
+                          cy="60"
+                          r="51"
+                          stroke-dasharray="320.44"
+                          stroke-dashoffset="320.44"
+                        ></circle>
+                        <text class="progress-text" id="pct" x="60" y="60">
+                          0%
+                        </text>
+                      </svg>
+                      <div class="progress-readout">BUILD PROGRESS</div>
+                      <div class="small-number" id="eta">ETA —</div>
+                    </div>
+                    <div class="model-column">
+                      <div class="job-file" id="fname">NO ACTIVE G-CODE</div>
+                      <div class="toolpath-box">
+                        <canvas
+                          id="toolpathCanvas"
+                          aria-label="Interactive 3D G-code toolpath"
+                        ></canvas>
+                        <div class="toolpath-status" id="toolpathStatus">
+                          WAITING FOR ACTIVE G-CODE
+                        </div>
+                      </div>
+                      <div class="scrub-row">
+                        <span class="micro">LAYER</span
+                        ><input
+                          type="range"
+                          id="layerScrub"
+                          min="0"
+                          max="1"
+                          step="0.1"
+                          value="0"
+                          aria-label="Layer height scrubber"
+                          disabled
+                        /><label class="micro"
+                          ><input type="checkbox" id="layerFollow" checked />
+                          FOLLOW</label
+                        ><span class="micro" id="layerScrubLabel">Z —</span>
+                      </div>
+                      <div class="toolpath-controls">
+                        <div class="row">
+                          <button class="is-active" data-toolpath-view="iso">
+                            ISO</button
+                          ><button data-toolpath-view="iso2">ISO-2</button
+                          ><button data-toolpath-view="top">TOP</button
+                          ><button data-toolpath-view="front">FRONT</button
+                          ><button data-toolpath-view="back">BACK</button
+                          ><button data-toolpath-view="left">LEFT</button
+                          ><button data-toolpath-view="right">RIGHT</button
+                          ><button class="subtle" data-toolpath-reset>
+                            RESET</button
+                          ><button
+                            id="toolpathLoadButton"
+                            class="subtle"
+                            data-toolpath-load
+                          >
+                            LOAD 3D PREVIEW
+                          </button>
+                        </div>
+                        <label class="micro"
+                          ><input type="checkbox" id="showFuturePath" checked />
+                          FUTURE</label
+                        ><label class="micro"
+                          ><input type="checkbox" id="clipFutureLayers" />
+                          CLIP</label
+                        ><span class="micro"
+                          >DRAG/ORBIT · SHIFT-DRAG/PAN · PINCH/ZOOM ·
+                          2×CLICK/RESET</span
+                        >
+                      </div>
+                      <div
+                        class="row"
+                        style="margin-top: 4px; align-items: center"
+                      >
+                        <canvas
+                          id="layerSpark"
+                          width="360"
+                          height="24"
+                          aria-label="Simulated seconds per layer"
+                        ></canvas
+                        ><span class="micro" id="layerEta">LAYER —</span
+                        ><span class="micro" id="simEta">SIM ETA —</span>
+                      </div>
+                    </div>
+                    <div class="job-metrics">
+                      <div class="job-metric">
+                        <span>Elapsed</span><span id="elapsed">—</span>
+                      </div>
+                      <div class="job-metric">
+                        <span>Remaining</span><span id="remaining">—</span>
+                      </div>
+                      <div class="job-metric">
+                        <span>Layer</span><span id="layer">—</span>
+                      </div>
+                      <div class="job-metric">
+                        <span>Layer Height</span><span id="zpos">—</span>
+                      </div>
+                      <div class="job-metric">
+                        <span>Filament Used</span><span id="filUsed">—</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="divider"></div>
+                  <div class="row-between">
+                    <div class="micro">
+                      SLICER EST.
+                      <span id="slicerEst" class="status-value">—</span>
+                    </div>
+                    <div class="micro">
+                      TOTAL ELAPSED
+                      <span id="totalEst" class="status-value">—</span>
+                    </div>
+                    <div class="micro">
+                      FILAMENT PLAN
+                      <span id="filEst" class="status-value">—</span>
+                    </div>
+                  </div>
+                  <div class="temp-bar">
+                    <i id="layerBar" style="width: 0%"></i>
+                  </div>
+                </article>
+                <article class="panel camera-panel span-4" id="webcamCard">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">
+                        Optical Feed / Selected Cameras
+                      </div>
+                      <h2 class="panel-title">LIVE CAMERAS</h2>
+                    </div>
+                    <div class="panel-tools">
+                      <span class="pill"><i class="led"></i> LIVE</span
+                      ><button class="subtle" data-camera-config>
+                        CONFIGURE
+                      </button>
+                    </div>
+                  </div>
+                  <div
+                    id="dashboardCameraGrid"
+                    class="dashboard-camera-grid"
+                    data-layout="1"
+                  ></div>
+                  <div class="camera-actions">
+                    <span id="dashboardCameraStatus" class="micro"
+                      >CAMERA SOURCE —</span
+                    ><button class="subtle" data-camera-config>SELECT</button
+                    ><button class="subtle" data-screen-target="camera">
+                      CAMERA MODULE
+                    </button>
+                  </div>
+                </article>
+                <article class="panel stat-tile span-2">
+                  <span class="stat-label">Nozzle</span
+                  ><span class="stat-value" id="dashNozzle">—</span
+                  ><span class="stat-foot"
+                    >TARGET <span id="dashNozzleTarget">—</span></span
+                  >
+                </article>
+                <article class="panel stat-tile span-2">
+                  <span class="stat-label">Bed</span
+                  ><span class="stat-value" id="dashBed">—</span
+                  ><span class="stat-foot"
+                    >TARGET <span id="dashBedTarget">—</span></span
+                  >
+                </article>
+                <article class="panel stat-tile span-2">
+                  <span class="stat-label">Chamber</span
+                  ><span class="stat-value" id="dashChamber">—</span
+                  ><span class="stat-foot" id="dashHumidity"
+                    >SENSOR / NOT REPORTED</span
+                  >
+                </article>
+                <article class="panel stat-tile span-2">
+                  <span class="stat-label">Speed</span
+                  ><span class="stat-value" id="dashSpeed">—</span
+                  ><span class="stat-foot">FACTOR</span>
+                </article>
+                <article class="panel stat-tile span-2">
+                  <span class="stat-label">Flow</span
+                  ><span class="stat-value" id="dashFlow">—</span
+                  ><span class="stat-foot">EXTRUSION FACTOR</span>
+                </article>
+                <article class="panel stat-tile span-2">
+                  <span class="stat-label">Part Fan</span
+                  ><span class="stat-value" id="dashFan">—</span
+                  ><span class="stat-foot">FAN OUTPUT</span>
+                </article>
+                <article class="panel span-5">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Axis Control / XYZ</div>
+                      <h2 class="panel-title">MOVEMENT</h2>
+                    </div>
+                    <button class="subtle" data-screen-target="movement">
+                      OPEN
+                    </button>
+                  </div>
+                  <div class="row-between">
+                    <div class="jog-pad">
+                      <button
+                        class="yp"
+                        data-action="jog"
+                        data-axis="Y"
+                        data-dir="1"
+                      >
+                        Y+</button
+                      ><button
+                        class="xm"
+                        data-action="jog"
+                        data-axis="X"
+                        data-dir="-1"
+                      >
+                        X−</button
+                      ><button class="home primary" data-action="home_all">
+                        HOME</button
+                      ><button
+                        class="xp"
+                        data-action="jog"
+                        data-axis="X"
+                        data-dir="1"
+                      >
+                        X+</button
+                      ><button
+                        class="ym"
+                        data-action="jog"
+                        data-axis="Y"
+                        data-dir="-1"
+                      >
+                        Y−
+                      </button>
+                    </div>
+                    <div class="jog-z">
+                      <button data-action="jog" data-axis="Z" data-dir="1">
+                        Z +</button
+                      ><button data-action="home_z">Z HOME</button
+                      ><button data-action="jog" data-axis="Z" data-dir="-1">
+                        Z −
+                      </button>
+                    </div>
+                    <table class="position-table">
+                      <tbody>
+                        <tr>
+                          <td>X</td>
+                          <td id="posX">—</td>
+                        </tr>
+                        <tr>
+                          <td>Y</td>
+                          <td id="posY">—</td>
+                        </tr>
+                        <tr>
+                          <td>Z</td>
+                          <td id="posZ">—</td>
+                        </tr>
+                        <tr>
+                          <td>FEED</td>
+                          <td id="moveSpeed">—</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="steps">
+                    <span class="micro">STEP MM</span
+                    ><button data-jog-step="0.1">0.1</button
+                    ><button class="is-active" data-jog-step="1">1</button
+                    ><button data-jog-step="10">10</button
+                    ><button data-jog-step="50">50</button>
+                  </div>
+                </article>
+                <article class="panel span-4">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Quick Actions / Macros</div>
+                      <h2 class="panel-title">MACRO DECK</h2>
+                    </div>
+                    <button class="subtle" data-screen-target="macros">
+                      ALL
+                    </button>
+                  </div>
+                  <div class="macro-grid" id="dashboardMacros">
+                    <span class="empty-state">WAITING FOR MACROS</span>
+                  </div>
+                </article>
+                <article class="panel span-3">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Machine Telemetry</div>
+                      <h2 class="panel-title">SYSTEM</h2>
+                    </div>
+                    <span class="pill" id="dashboardSystemLive">ONLINE</span>
+                  </div>
+                  <div class="system-list">
+                    <div class="system-item">
+                      <span>Printer State</span
+                      ><span id="sysPrinterState">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Klippy</span><span id="sysKlippy">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Klipper</span><span id="sysKlipperVersion">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Moonraker</span
+                      ><span id="sysMoonrakerVersion">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>CPU Model</span><span id="sysCpu">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Host Temp</span><span id="sysHostTemp">—</span>
+                    </div>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section class="screen" id="screen-print" data-screen="print">
+              <div class="grid">
+                <article class="panel span-8">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Current File / Progress</div>
+                      <h2 class="panel-title">PRINT JOB</h2>
+                    </div>
+                    <span id="printPageState" class="pill">—</span>
+                  </div>
+                  <div class="job-file" id="printPageFile">—</div>
+                  <img
+                    id="thumb"
+                    class="gcode-thumb"
+                    alt="Slicer thumbnail"
+                    hidden
+                  />
+                  <div class="temp-bar">
+                    <i id="printProgressBar" style="width: 0%"></i>
+                  </div>
+                  <div class="row-between">
+                    <span id="printProgressText" class="big-number">0%</span
+                    ><span id="printPageEta" class="status-value">ETA —</span>
+                  </div>
+                  <div class="system-list">
+                    <div class="system-item">
+                      <span>Elapsed</span><span id="printElapsed">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Remaining</span><span id="printRemaining">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Current Layer</span><span id="printLayer">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Layer Height</span><span id="printHeight">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Filament Used</span
+                      ><span id="printFilament">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Slicer Estimate</span
+                      ><span id="printEstimate">—</span>
+                    </div>
+                  </div>
+                </article>
+                <article class="panel span-4">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Print State Machine</div>
+                      <h2 class="panel-title">JOB CONTROL</h2>
+                    </div>
+                  </div>
+                  <div class="row">
+                    <button class="primary" data-action="pause">PAUSE</button
+                    ><button data-action="resume">RESUME</button
+                    ><button
+                      class="danger"
+                      data-action="cancel"
+                      data-confirm="Cancel the current print?"
+                    >
+                      CANCEL</button
+                    ><button class="danger" data-action="emergency_stop">
+                      E-STOP
+                    </button>
+                  </div>
+                  <div class="notice" style="margin-top: 9px">
+                    E-STOP halts motion immediately. Use only for an emergency.
+                  </div>
+                </article>
+                <article class="panel span-6">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Current File Preview</div>
+                      <h2 class="panel-title">TOOLPATH</h2>
+                    </div>
+                    <button data-screen-target="dashboard">OPEN 3D VIEW</button>
+                  </div>
+                  <div class="micro" id="printToolpathStatus">
+                    3D SIMULATION IS AVAILABLE ON DASHBOARD
+                  </div>
+                </article>
+                <article class="panel span-6">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">G-code Metadata</div>
+                      <h2 class="panel-title">SLICER DATA</h2>
+                    </div>
+                  </div>
+                  <div class="system-list">
+                    <div class="system-item">
+                      <span>Estimated Print</span
+                      ><span id="printMetaEstimate">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Filament Plan</span
+                      ><span id="printMetaFilament">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Object Height</span
+                      ><span id="printMetaObjectHeight">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Layer Count</span
+                      ><span id="printMetaLayerCount">—</span>
+                    </div>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section class="screen" id="screen-movement" data-screen="movement">
+              <div class="grid">
+                <article class="panel span-6">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Cartesian Control</div>
+                      <h2 class="panel-title">XY JOG</h2>
+                    </div>
+                    <span class="pill"
+                      >STEP <span id="moveStepValue">1</span> MM</span
+                    >
+                  </div>
+                  <div class="row-between">
+                    <div class="jog-pad large">
+                      <button
+                        class="yp"
+                        data-action="jog"
+                        data-axis="Y"
+                        data-dir="1"
+                      >
+                        Y+</button
+                      ><button
+                        class="xm"
+                        data-action="jog"
+                        data-axis="X"
+                        data-dir="-1"
+                      >
+                        X−</button
+                      ><button class="home primary" data-action="home_all">
+                        HOME ALL</button
+                      ><button
+                        class="xp"
+                        data-action="jog"
+                        data-axis="X"
+                        data-dir="1"
+                      >
+                        X+</button
+                      ><button
+                        class="ym"
+                        data-action="jog"
+                        data-axis="Y"
+                        data-dir="-1"
+                      >
+                        Y−
+                      </button>
+                    </div>
+                    <table class="position-table">
+                      <tbody>
+                        <tr>
+                          <td>X POSITION</td>
+                          <td id="movePosX">—</td>
+                        </tr>
+                        <tr>
+                          <td>Y POSITION</td>
+                          <td id="movePosY">—</td>
+                        </tr>
+                        <tr>
+                          <td>Z POSITION</td>
+                          <td id="movePosZ">—</td>
+                        </tr>
+                        <tr>
+                          <td>E POSITION</td>
+                          <td id="movePosE">—</td>
+                        </tr>
+                        <tr>
+                          <td>FEED RATE</td>
+                          <td id="moveSpeedDetail">—</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="steps">
+                    <span class="micro">STEP MM</span
+                    ><button data-jog-step="0.1">0.1</button
+                    ><button class="is-active" data-jog-step="1">1</button
+                    ><button data-jog-step="10">10</button
+                    ><button data-jog-step="50">50</button>
+                  </div>
+                </article>
+                <article class="panel span-3">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Vertical Axis</div>
+                      <h2 class="panel-title">Z JOG</h2>
+                    </div>
+                  </div>
+                  <div class="jog-z large">
+                    <button data-action="jog" data-axis="Z" data-dir="1">
+                      Z +</button
+                    ><button data-action="home_z">HOME Z</button
+                    ><button data-action="jog" data-axis="Z" data-dir="-1">
+                      Z −
+                    </button>
+                  </div>
+                  <div class="row" style="margin-top: 10px">
+                    <button data-action="home_x">HOME X</button
+                    ><button data-action="home_y">HOME Y</button>
+                  </div>
+                </article>
+                <article class="panel span-3">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Stepper Control</div>
+                      <h2 class="panel-title">MOTORS</h2>
+                    </div>
+                  </div>
+                  <button
+                    class="danger"
+                    data-action="motors_off"
+                    data-confirm="Disable stepper motors?"
+                  >
+                    DISABLE MOTORS
+                  </button>
+                  <div class="notice" style="margin-top: 10px">
+                    Do not disable motors while a print is moving.
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section class="screen" id="screen-thermal" data-screen="thermal">
+              <div class="grid">
+                <article class="panel span-6">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Heater / Tool 0</div>
+                      <h2 class="panel-title">NOZZLE TEMPERATURE</h2>
+                    </div>
+                    <span class="pill">EXTRUDER</span>
+                  </div>
+                  <div class="row-between">
+                    <span id="extNow" class="big-number">—</span
+                    ><span id="extBarT" class="status-value">—</span>
+                  </div>
+                  <div class="temp-bar">
+                    <i id="extBar" style="width: 0%"></i>
+                  </div>
+                  <div class="control-row" style="margin-top: 9px">
+                    <input
+                      type="number"
+                      id="extTarget"
+                      min="0"
+                      max="350"
+                      placeholder="TARGET °C"
+                    /><button
+                      class="primary"
+                      data-action="set_extruder"
+                      data-value-from="extTarget"
+                    >
+                      SET TARGET
+                    </button>
+                  </div>
+                </article>
+                <article class="panel span-6">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Heater / Build Plate</div>
+                      <h2 class="panel-title">BED TEMPERATURE</h2>
+                    </div>
+                    <span class="pill">BED</span>
+                  </div>
+                  <div class="row-between">
+                    <span id="bedNow" class="big-number">—</span
+                    ><span id="bedBarT" class="status-value">—</span>
+                  </div>
+                  <div class="temp-bar cool">
+                    <i id="bedBar" style="width: 0%"></i>
+                  </div>
+                  <div class="control-row" style="margin-top: 9px">
+                    <input
+                      type="number"
+                      id="bedTarget"
+                      min="0"
+                      max="130"
+                      placeholder="TARGET °C"
+                    /><button
+                      class="primary"
+                      data-action="set_bed"
+                      data-value-from="bedTarget"
+                    >
+                      SET TARGET
+                    </button>
+                  </div>
+                </article>
+                <article class="panel span-8">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Rolling Live Telemetry</div>
+                      <h2 class="panel-title">TEMPERATURE HISTORY</h2>
+                    </div>
+                    <span class="micro">HOTEND / BED</span>
+                  </div>
+                  <canvas
+                    id="tempGraph"
+                    class="temp-graph"
+                    width="900"
+                    height="240"
+                  ></canvas>
+                </article>
+                <article class="panel span-4">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Material Presets</div>
+                      <h2 class="panel-title">PREHEAT</h2>
+                    </div>
+                  </div>
+                  <div class="grid" style="grid-template-columns: 1fr 1fr">
+                    <button data-action="preheat" data-preset="pla">
+                      PREHEAT PLA</button
+                    ><button data-action="preheat" data-preset="petg">
+                      PREHEAT PETG</button
+                    ><button data-action="preheat" data-preset="abs">
+                      PREHEAT ABS</button
+                    ><button
+                      class="danger"
+                      data-action="cooldown"
+                      data-confirm="Turn off heaters and part cooling fan?"
+                    >
+                      COOLDOWN
+                    </button>
+                  </div>
+                  <div class="notice" style="margin-top: 9px">
+                    Confirm material and printer temperature limits before
+                    heating.
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section class="screen" id="screen-extruder" data-screen="extruder">
+              <div class="grid">
+                <article class="panel span-5">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">
+                        Extrusion Multiplier / M221
+                      </div>
+                      <h2 class="panel-title">FLOW CONTROL</h2>
+                    </div>
+                    <span id="flowVal" class="big-number">—</span>
+                  </div>
+                  <input
+                    type="range"
+                    id="flow"
+                    min="20"
+                    max="150"
+                    step="1"
+                    value="100"
+                  />
+                  <div class="row-between">
+                    <span class="micro">EXTRUSION FACTOR</span
+                    ><span id="flowFactor" class="status-value">—</span>
+                  </div>
+                  <div class="row" style="margin-top: 10px">
+                    <button data-action="set_flow" data-value="90">90%</button
+                    ><button data-action="set_flow" data-value="100">
+                      100%</button
+                    ><button data-action="set_flow" data-value="110">
+                      110%
+                    </button>
+                  </div>
+                </article>
+                <article class="panel span-4">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Filament Estimate</div>
+                      <h2 class="panel-title">MATERIAL</h2>
+                    </div>
+                  </div>
+                  <div class="system-list">
+                    <div class="system-item">
+                      <span>Used</span><span id="extrusionFilUsed">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Planned</span><span id="extrusionFilEst">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Spoolman</span><span id="extrusionSpool">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Current Layer</span
+                      ><span id="extrusionLayer">—</span>
+                    </div>
+                  </div>
+                </article>
+                <article class="panel span-3">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Extrusion State</div>
+                      <h2 class="panel-title">TOOL</h2>
+                    </div>
+                  </div>
+                  <div class="kv">
+                    <b>Nozzle</b><span id="extrusionNozzle">—</span><b>Target</b
+                    ><span id="extrusionTarget">—</span><b>Position E</b
+                    ><span id="extrusionPosition">—</span><b>Move Speed</b
+                    ><span id="extrusionSpeed">—</span>
+                  </div>
+                </article>
+                <article class="panel span-6">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Extrusion Rate</div>
+                      <h2 class="panel-title">LIVE FACTORS</h2>
+                    </div>
+                  </div>
+                  <div class="system-list">
+                    <div class="system-item">
+                      <span>Speed Factor</span
+                      ><span id="extrusionSpeedFactor">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Flow Factor</span
+                      ><span id="extrusionFlowFactor">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Extruder Temp</span
+                      ><span id="extrusionTemp">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Fan Output</span><span id="extrusionFan">—</span>
+                    </div>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section class="screen" id="screen-bedmesh" data-screen="bedmesh">
+              <div class="grid">
+                <article class="panel span-7">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Klipper Bed Mesh</div>
+                      <h2 class="panel-title">BED MESH MAP</h2>
+                    </div>
+                    <div class="panel-tools">
+                      <span id="meshProfile" class="pill">NO PROFILE</span
+                      ><button
+                        class="subtle"
+                        id="probeMeshBtn"
+                        data-action="probe_mesh"
+                        data-confirm="Run BED_MESH_CALIBRATE now?"
+                      >
+                        PROBE MESH
+                      </button>
+                    </div>
+                  </div>
+                  <div id="bedMeshMap" class="mesh-grid">
+                    <div class="empty-state wide">
+                      BED MESH DATA NOT REPORTED BY PRINTER
+                    </div>
+                  </div>
+                  <div class="micro" id="meshBounds">
+                    Mesh matrix appears when Klipper exposes an active bed_mesh
+                    profile.
+                  </div>
+                </article>
+                <article class="panel span-5">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Live Z Compensation</div>
+                      <h2 class="panel-title">Z OFFSET</h2>
+                    </div>
+                    <span id="bedzPosition" class="big-number">—</span>
+                  </div>
+                  <div class="row">
+                    <button data-action="z_adjust" data-value="-0.05">
+                      −0.05</button
+                    ><button data-action="z_adjust" data-value="-0.01">
+                      −0.01</button
+                    ><button data-action="z_adjust" data-value="0.01">
+                      +0.01</button
+                    ><button data-action="z_adjust" data-value="0.05">
+                      +0.05
+                    </button>
+                  </div>
+                  <div class="control-row" style="margin-top: 10px">
+                    <input
+                      type="number"
+                      id="zOffsetValue"
+                      step="0.01"
+                      placeholder="ABSOLUTE MM"
+                    /><button
+                      data-action="z_set"
+                      data-value-from="zOffsetValue"
+                    >
+                      SET Z
+                    </button>
+                  </div>
+                  <div class="divider"></div>
+                  <div class="kv">
+                    <b>Current Layer</b><span id="bedLayer">—</span
+                    ><b>Layer Height</b><span id="bedLayerHeight">—</span
+                    ><b>Bed Temp</b><span id="bedTempZ">—</span>
+                  </div>
+                  <div class="row" style="margin-top: 10px">
+                    <button data-action="home_z">HOME Z</button
+                    ><button data-action="home_all">HOME ALL</button>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section class="screen" id="screen-tuning" data-screen="tuning">
+              <div class="grid">
+                <article class="panel span-4">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">M220</div>
+                      <h2 class="panel-title">PRINT SPEED</h2>
+                    </div>
+                    <span id="speedVal" class="big-number">—</span>
+                  </div>
+                  <input
+                    type="range"
+                    id="speed"
+                    min="20"
+                    max="200"
+                    step="1"
+                    value="100"
+                  />
+                  <div class="row-between">
+                    <span class="micro">SPEED FACTOR</span
+                    ><span id="speedFactor" class="status-value">—</span>
+                  </div>
+                  <div class="row" style="margin-top: 10px">
+                    <button data-action="set_speed" data-value="50">50%</button
+                    ><button data-action="set_speed" data-value="100">
+                      100%</button
+                    ><button data-action="set_speed" data-value="150">
+                      150%
+                    </button>
+                  </div>
+                </article>
+                <article class="panel span-4">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">M106</div>
+                      <h2 class="panel-title">PART COOLING</h2>
+                    </div>
+                    <span id="fanVal" class="big-number">—</span>
+                  </div>
+                  <input
+                    type="range"
+                    id="fan"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value="0"
+                  />
+                  <div class="row-between">
+                    <span class="micro">PART FAN OUTPUT</span
+                    ><span id="fanNow" class="status-value">—</span>
+                  </div>
+                  <div class="row" style="margin-top: 10px">
+                    <button data-action="set_fan" data-value="0">OFF</button
+                    ><button
+                      data-action="set_fan"
+                      data-value="50"
+                      data-scale="fan-percent"
+                    >
+                      50%</button
+                    ><button
+                      data-action="set_fan"
+                      data-value="100"
+                      data-scale="fan-percent"
+                    >
+                      100%
+                    </button>
+                  </div>
+                </article>
+                <article class="panel span-4">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Live State</div>
+                      <h2 class="panel-title">TUNING SUMMARY</h2>
+                    </div>
+                  </div>
+                  <div class="kv">
+                    <b>Move Speed</b><span id="tuneMoveSpeed">—</span
+                    ><b>Speed Factor</b><span id="tuneSpeedFactor">—</span
+                    ><b>Flow Factor</b><span id="tuneFlowFactor">—</span
+                    ><b>Print State</b><span id="tuneState">—</span>
+                  </div>
+                </article>
+                <article class="panel span-12">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Build Progress / Live Rate</div>
+                      <h2 class="panel-title">CURRENT PROCESS</h2>
+                    </div>
+                  </div>
+                  <div class="row-between">
+                    <span id="tuneProgress" class="big-number">—</span
+                    ><span id="tuneEta" class="status-value">—</span>
+                  </div>
+                  <div class="temp-bar">
+                    <i id="tuneProgressBar" style="width: 0%"></i>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section class="screen" id="screen-macros" data-screen="macros">
+              <div class="grid">
+                <article class="panel span-12">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Klipper G-code Macros</div>
+                      <h2 class="panel-title">MACRO DECK</h2>
+                    </div>
+                    <span class="pill" id="macroCount">0 MACROS</span>
+                  </div>
+                  <div class="macro-grid" id="macroRow">
+                    <span class="empty-state"
+                      >MACROS APPEAR WHEN DISCOVERED FROM KLIPPER</span
+                    >
+                  </div>
+                  <div class="notice" style="margin-top: 10px">
+                    Macro execution sends the macro name to Klipper as a G-code
+                    script. Run only macros you trust.
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section class="screen" id="screen-files" data-screen="files">
+              <div class="grid">
+                <article class="panel span-8">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Local G-code Storage</div>
+                      <h2 class="panel-title">FILES & QUEUE</h2>
+                    </div>
+                    <span class="pill" id="queueState">QUEUE —</span>
+                  </div>
+                  <div class="control-row">
+                    <input
+                      type="search"
+                      id="fileSearch"
+                      placeholder="FILTER G-CODE FILES"
+                    /><select id="fileSel" class="file-select"></select
+                    ><button data-action="refresh_files">REFRESH</button>
+                  </div>
+                  <div class="row" style="margin-top: 8px">
+                    <button
+                      class="primary"
+                      data-action="print_file"
+                      data-file-select
+                    >
+                      PRINT SELECTED</button
+                    ><button data-action="enqueue_file" data-file-select>
+                      ADD TO QUEUE</button
+                    ><button data-action="start_queue">START QUEUE</button
+                    ><button data-action="pause_queue">PAUSE QUEUE</button
+                    ><button
+                      class="danger"
+                      data-action="delete_file"
+                      data-file-select
+                      data-confirm="Delete the selected G-code file?"
+                    >
+                      DELETE
+                    </button>
+                  </div>
+                  <div class="file-list" id="fileList">
+                    <div class="empty-state">LOADING FILE LIST</div>
+                  </div>
+                </article>
+                <article class="panel span-12">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Pre-Print Analysis</div>
+                      <h2 class="panel-title" id="analysisName">
+                        FILE ANALYSIS
+                      </h2>
+                    </div>
+                    <span class="micro" id="analysisStatus">SELECT A FILE</span>
+                  </div>
+                  <div id="fileAnalysis" hidden>
+                    <img
+                      id="analysisThumb"
+                      class="gcode-thumb analysis-thumb"
+                      alt="Selected file thumbnail"
+                    />
+                    <div class="analysis-grid" id="analysisStats"></div>
+                    <div id="analysisWarnings" class="analysis-warnings"></div>
+                  </div>
+                  <div class="empty-state" id="analysisEmpty">
+                    SELECT A FILE FROM THE LIST TO PREVIEW SLICER METADATA
+                  </div>
+                </article>
+                <article class="panel span-4">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Print Queue</div>
+                      <h2 class="panel-title">SCHEDULE</h2>
+                    </div>
+                  </div>
+                  <div id="queueList">
+                    <span class="empty-state">QUEUE EMPTY</span>
+                  </div>
+                  <hr class="divider" />
+                  <div class="panel-kicker">Browser Upload</div>
+                  <form id="upForm">
+                    <div class="control-row">
+                      <input
+                        type="file"
+                        id="upFile"
+                        accept=".gcode,.g,.gco,.bgcode"
+                        required
+                      />
+                    </div>
+                    <label class="row" style="margin: 8px 0"
+                      ><input type="checkbox" id="upPrint" /> START PRINT AFTER
+                      UPLOAD</label
+                    ><button type="submit" class="primary">
+                      UPLOAD TO PRINTER
+                    </button>
+                  </form>
+                </article>
+              </div>
+            </section>
+
+            <section class="screen" id="screen-history" data-screen="history">
+              <div class="grid">
+                <article class="panel stat-tile span-3">
+                  <span class="stat-label">Completed Jobs</span
+                  ><span class="stat-value" id="totJobs">—</span
+                  ><span class="stat-foot">MOONRAKER HISTORY TOTAL</span>
+                </article>
+                <article class="panel stat-tile span-3">
+                  <span class="stat-label">Total Print Time</span
+                  ><span class="stat-value" id="totPrint">—</span
+                  ><span class="stat-foot">ACCUMULATED</span>
+                </article>
+                <article class="panel stat-tile span-3">
+                  <span class="stat-label">Filament Used</span
+                  ><span class="stat-value" id="totFil">—</span
+                  ><span class="stat-foot">LIFETIME TOTAL</span>
+                </article>
+                <article class="panel stat-tile span-3">
+                  <span class="stat-label">Longest Print</span
+                  ><span class="stat-value" id="longJob">—</span
+                  ><span class="stat-foot">RECORDED MAXIMUM</span>
+                </article>
+                <article class="panel span-8">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Rolling Printer Telemetry</div>
+                      <h2 class="panel-title">TEMPERATURE TRACE</h2>
+                    </div>
+                  </div>
+                  <canvas
+                    id="tempGraphHistory"
+                    class="temp-graph"
+                    width="900"
+                    height="240"
+                  ></canvas>
+                </article>
+                <article class="panel span-4">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Spoolman / Updates</div>
+                      <h2 class="panel-title">INTEGRATION STATUS</h2>
+                    </div>
+                  </div>
+                  <div class="system-list">
+                    <div class="system-item">
+                      <span>Active Spool</span><span id="spool">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Pending Updates</span><span id="updates">—</span>
+                    </div>
+                  </div>
+                  <p class="micro">
+                    Moonraker exposes lifetime totals here; per-job charts
+                    require a detailed history endpoint.
+                  </p>
+                </article>
+              </div>
+            </section>
+
+            <section class="screen" id="screen-camera" data-screen="camera">
+              <div class="grid">
+                <article class="panel span-8">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Moonraker Webcam</div>
+                      <h2 class="panel-title">CAMERA ARRAY</h2>
+                    </div>
+                    <div class="panel-tools">
+                      <span class="pill"><i class="led"></i> LIVE FEED</span
+                      ><select
+                        id="cameraLayout"
+                        aria-label="Camera tile layout"
+                      >
+                        <option value="1x1">1 × 1</option>
+                        <option value="1x2">1 × 2</option>
+                        <option value="2x2">2 × 2</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div
+                    id="cameraGrid"
+                    class="camera-grid"
+                    data-layout="1x1"
+                  ></div>
+                  <div class="row-between">
+                    <span id="cameraName" class="micro">CAMERA SOURCE —</span
+                    ><span id="cameraGridStatus" class="micro">—</span>
+                  </div>
+                  <div id="cameraEmpty" class="empty-state">
+                    NO STREAM URL REPORTED BY MOONRAKER
+                  </div>
+                </article>
+                <article class="panel span-4">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Layer Capture</div>
+                      <h2 class="panel-title">TIMELAPSE</h2>
+                    </div>
+                    <button class="subtle" id="tlClear">CLEAR</button>
+                  </div>
+                  <img
+                    id="tlFrame"
+                    class="tl-frame"
+                    alt="Timelapse frame"
+                    hidden
+                  />
+                  <div class="empty-state" id="tlEmpty">
+                    FRAMES ARE CAPTURED ON EACH LAYER CHANGE WHILE PRINTING
+                  </div>
+                  <input
+                    type="range"
+                    id="tlScrub"
+                    min="0"
+                    max="0"
+                    value="0"
+                    disabled
+                    aria-label="Timelapse replay scrubber"
+                  />
+                  <div class="row-between">
+                    <span class="micro" id="tlStatus">0 FRAMES</span
+                    ><span class="micro" id="tlLayer">—</span>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section class="screen" id="screen-console" data-screen="console">
+              <div class="grid">
+                <article class="panel span-12">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Notify G-code Response</div>
+                      <h2 class="panel-title">SERIAL CONSOLE</h2>
+                    </div>
+                    <div class="panel-tools">
+                      <span class="pill">LIVE TAIL</span
+                      ><button class="subtle" data-clear-command-history>
+                        CLEAR HISTORY
+                      </button>
+                    </div>
+                  </div>
+                  <div class="console-context">
+                    <div class="system-item">
+                      <span>File</span><span id="consoleFile">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Progress</span><span id="consoleProgress">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>X / Y</span><span id="consoleXY">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Z</span><span id="consoleZ">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Layer</span><span id="consoleLayer">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Connection</span
+                      ><span id="consoleConnection">—</span>
+                    </div>
+                  </div>
+                  <pre id="console" class="console-output"></pre>
+                  <form id="gcodeForm" class="control-row">
+                    <input
+                      type="text"
+                      id="gcodeIn"
+                      class="console-input"
+                      placeholder="ENTER G-CODE COMMAND…"
+                      autocomplete="off"
+                    /><button type="submit" class="primary">
+                      SEND COMMAND
+                    </button>
+                  </form>
+                </article>
+                <article class="panel span-12">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">
+                        Commands Issued In This Panel Session
+                      </div>
+                      <h2 class="panel-title">SENT COMMAND HISTORY</h2>
+                    </div>
+                    <span id="commandHistoryCount" class="pill"
+                      >0 COMMANDS</span
+                    >
+                  </div>
+                  <div id="commandHistory" class="command-history">
+                    <div class="empty-state">
+                      COMMANDS SENT FROM THIS PANEL WILL APPEAR HERE
+                    </div>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section class="screen" id="screen-hardware" data-screen="hardware">
+              <div class="grid">
+                <article class="panel span-6">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Moonraker Device Power</div>
+                      <h2 class="panel-title">POWER CHANNELS</h2>
+                    </div>
+                  </div>
+                  <div class="macro-grid" id="powerRow">
+                    <span class="empty-state">NO POWER DEVICES REPORTED</span>
+                  </div>
+                </article>
+                <article class="panel span-6">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Klipper Hardware State</div>
+                      <h2 class="panel-title">SENSORS & MOTION</h2>
+                    </div>
+                  </div>
+                  <div class="object-table" id="hardwareTable">
+                    <div class="empty-state">
+                      WAITING FOR HARDWARE TELEMETRY
+                    </div>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section class="screen" id="screen-system" data-screen="system">
+              <div class="grid">
+                <article class="panel span-8">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">
+                        Host / Firmware / Moonraker
+                      </div>
+                      <h2 class="panel-title">SYSTEM STATUS</h2>
+                    </div>
+                    <span id="systemLive" class="pill">ONLINE</span>
+                  </div>
+                  <div class="system-list">
+                    <div class="system-item">
+                      <span>Printer State</span
+                      ><span id="systemPrinterState">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Klippy</span><span id="systemKlippy">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Klipper Version</span
+                      ><span id="systemKlipperVersion">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Moonraker Version</span
+                      ><span id="systemMoonrakerVersion">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>CPU Model</span><span id="systemCpu">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Host Temp</span><span id="systemHostTemp">—</span>
+                    </div>
+                  </div>
+                  <div class="row" style="margin-top: 9px">
+                    <button
+                      data-action="firmware_restart"
+                      data-confirm="Restart Klipper firmware?"
+                    >
+                      FIRMWARE RESTART</button
+                    ><button
+                      data-action="server_restart"
+                      data-confirm="Restart the Moonraker server?"
+                    >
+                      MOONRAKER RESTART</button
+                    ><button
+                      data-action="host_restart"
+                      data-confirm="Reboot the printer host?"
+                    >
+                      HOST REBOOT</button
+                    ><button
+                      class="danger"
+                      data-action="host_shutdown"
+                      data-confirm="Shut down the printer host?"
+                    >
+                      HOST SHUTDOWN
+                    </button>
+                  </div>
+                  <div class="notice" style="margin-top: 8px">
+                    Host and firmware actions interrupt printing. Use only when
+                    safe.
+                  </div>
+                </article>
+                <article class="panel span-4">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Software Updates</div>
+                      <h2 class="panel-title">VERSIONS</h2>
+                    </div>
+                  </div>
+                  <div class="object-table" id="versionList">
+                    <div class="empty-state">UPDATE STATUS UNAVAILABLE</div>
+                  </div>
+                  <button
+                    style="margin-top: 8px"
+                    data-action="machine_update_refresh"
+                  >
+                    REFRESH UPDATE STATUS
+                  </button>
+                </article>
+              </div>
+            </section>
+
+            <section class="screen" id="screen-network" data-screen="network">
+              <div class="grid">
+                <article class="panel span-6">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Moonraker Connection</div>
+                      <h2 class="panel-title">NETWORK LINK</h2>
+                    </div>
+                    <span class="pill" id="networkState">—</span>
+                  </div>
+                  <div class="system-list">
+                    <div class="system-item">
+                      <span>Host</span><span id="networkHost">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Port</span><span id="networkPort">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>TLS</span><span id="networkTls">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>API Key</span><span id="networkApiKey">—</span>
+                    </div>
+                  </div>
+                </article>
+                <article class="panel span-6">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Connection Health</div>
+                      <h2 class="panel-title">LINK STATUS</h2>
+                    </div>
+                  </div>
+                  <div class="kv">
+                    <b>Moonraker</b><span id="networkMoonraker">—</span
+                    ><b>Klippy</b><span id="networkKlippy">—</span
+                    ><b>Realtime Updates</b><span id="networkPush">—</span
+                    ><b>Webcam Sources</b><span id="networkCameras">—</span>
+                  </div>
+                  <p class="micro">
+                    API keys and credentials are never displayed.
+                  </p>
+                </article>
+              </div>
+            </section>
+
+            <section class="screen" id="screen-settings" data-screen="settings">
+              <div class="grid">
+                <article class="panel span-6">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Integration Configuration</div>
+                      <h2 class="panel-title">CONNECTION SETTINGS</h2>
+                    </div>
+                  </div>
+                  <div class="system-list">
+                    <div class="system-item">
+                      <span>Printer Name</span><span id="settingName">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Host</span><span id="settingHost">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Moonraker Port</span><span id="settingPort">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>TLS</span><span id="settingTls">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Idle Poll Interval</span
+                      ><span id="settingIdlePoll">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Print Poll Interval</span
+                      ><span id="settingPrintPoll">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Quiet Unreachable Logs</span
+                      ><span id="settingQuiet">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Integration Version</span
+                      ><span id="settingVersion">—</span>
+                    </div>
+                  </div>
+                </article>
+                <article class="panel span-6">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Display / Telemetry</div>
+                      <h2 class="panel-title">PANEL SETTINGS</h2>
+                    </div>
+                  </div>
+                  <div class="notice">
+                    Connection and polling settings are read-only here. Edit
+                    them in Home Assistant's Moonraker integration options.
+                  </div>
+                  <div class="system-list" style="margin-top: 8px">
+                    <div class="system-item">
+                      <span>UI Fallback Poll</span><span>2.67 SEC</span>
+                    </div>
+                    <div class="system-item">
+                      <span>WebSocket Push</span><span>WHEN AVAILABLE</span>
+                    </div>
+                    <div class="system-item">
+                      <span>G-code Preview</span><span>ACTIVE FILE ONLY</span>
+                    </div>
+                  </div>
+                </article>
+                <article class="panel span-6">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">
+                        Announcements / Voice Alerts
+                      </div>
+                      <h2 class="panel-title">TTS ALERTS</h2>
+                    </div>
+                    <button class="subtle" id="ttsTest">TEST</button>
+                  </div>
+                  <div class="config-list" style="margin-top: 0">
+                    <label class="config-row"
+                      ><span>Voice Engine</span
+                      ><select id="ttsEngine">
+                        <option value="off">DISABLED</option>
+                        <option value="browser">BROWSER VOICE</option>
+                      </select></label
+                    ><label class="config-row"
+                      ><span>Media Players</span
+                      ><select
+                        id="ttsPlayer"
+                        multiple
+                        size="4"
+                        aria-label="Media players for voice alerts"
+                      ></select></label
+                    ><label class="config-row"
+                      ><span>Quiet Hours</span
+                      ><span class="quiet-row"
+                        ><input
+                          type="time"
+                          id="ttsQuietStart"
+                          aria-label="Quiet hours start" /><input
+                          type="time"
+                          id="ttsQuietEnd"
+                          aria-label="Quiet hours end" /></span
+                    ></label>
+                  </div>
+                  <div
+                    class="row"
+                    style="flex-wrap: wrap; gap: 9px; margin-top: 4px"
+                  >
+                    <label class="micro"
+                      ><input type="checkbox" id="alertStart" checked />
+                      START</label
+                    ><label class="micro"
+                      ><input type="checkbox" id="alertProgress" checked />
+                      PROGRESS</label
+                    ><label class="micro"
+                      ><input type="checkbox" id="alertPause" checked />
+                      PAUSE</label
+                    ><label class="micro"
+                      ><input type="checkbox" id="alertFinish" checked />
+                      FINISH</label
+                    ><label class="micro"
+                      ><input type="checkbox" id="alertError" checked />
+                      ERRORS</label
+                    ><label class="micro"
+                      ><input type="checkbox" id="alertRunout" checked />
+                      FILAMENT</label
+                    >
+                  </div>
+                  <label class="micro" style="margin-top: 7px"
+                    ><input type="checkbox" id="ttsQuietBypass" checked />
+                    ERRORS &amp; RUNOUT STILL ANNOUNCE DURING QUIET HOURS</label
+                  >
+                  <p class="micro" style="margin-top: 6px">
+                    Alerts speak while this panel is open. Select one or more
+                    speakers (ctrl / cmd-click for several). Progress announces
+                    at 25 / 50 / 75 / 90 percent. Quiet hours suppress
+                    everything except critical faults when enabled.
+                  </p>
+                </article>
+                <article class="panel span-6">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Kiosk / Accessibility</div>
+                      <h2 class="panel-title">DISPLAY ACCESS</h2>
+                    </div>
+                  </div>
+                  <div class="config-list" style="margin-top: 0">
+                    <label class="config-row"
+                      ><span>Large Touch Targets</span
+                      ><input type="checkbox" id="displayLargeTouch" /></label
+                    ><label class="config-row"
+                      ><span>Reduce Motion</span
+                      ><input type="checkbox" id="displayReduceMotion"
+                    /></label>
+                  </div>
+                  <p class="micro">
+                    Large Touch raises controls toward 44px for kiosk screens.
+                    Reduce Motion disables camera transitions, orbit inertia,
+                    and glow; it also engages automatically when the OS requests
+                    reduced motion.
+                  </p>
+                </article>
+                <article class="panel span-12">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">
+                        Project Provenance / Development Build
+                      </div>
+                      <h2 class="panel-title">ABOUT NEXUS CONTROL</h2>
+                    </div>
+                    <span class="pill">DEVELOPMENT EXTENSIONS</span>
+                  </div>
+                  <p class="micro">
+                    Development additions in this repository are provided by
+                    Thalia Montreux and extend the original Moonraker Home
+                    Assistant integration.
+                  </p>
+                  <div class="system-list">
+                    <div class="system-item">
+                      <span>Performance</span
+                      ><span>Reduced polling / WebSocket push updates</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Print Operations</span
+                      ><span
+                        >Speed, flow, file selection, browser upload, and queue
+                        controls</span
+                      >
+                    </div>
+                    <div class="system-item">
+                      <span>NEXUS Deck</span
+                      ><span
+                        >Authenticated operator panel, movement, thermal,
+                        macros, console, and toolpath preview</span
+                      >
+                    </div>
+                  </div>
+                  <div class="row">
+                    <a
+                      class="attribution-link"
+                      href="https://github.com/marcolivierarsenault/moonraker-home-assistant"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      >ORIGINAL MOONRAKER INTEGRATION</a
+                    ><a
+                      class="attribution-link"
+                      href="https://github.com/thaliamontreux/moonraker-home-assistant"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      >THALIA MONTREUX / DEVELOPMENT REPOSITORY</a
+                    >
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section
+              class="screen"
+              id="screen-components"
+              data-screen="components"
+            >
+              <div class="grid">
+                <article class="panel span-4">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Home Assistant Platforms</div>
+                      <h2 class="panel-title">COMPONENTS</h2>
+                    </div>
+                    <span class="pill" id="componentCount">0</span>
+                  </div>
+                  <div id="platformList" class="object-table">
+                    <div class="empty-state">WAITING FOR PLATFORM DATA</div>
+                  </div>
+                </article>
+                <article class="panel span-8">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Moonraker Subscription Map</div>
+                      <h2 class="panel-title">TRACKED OBJECTS</h2>
+                    </div>
+                    <span id="objectCount" class="pill">0 OBJECTS</span>
+                  </div>
+                  <div id="objectList" class="object-table">
+                    <div class="empty-state">WAITING FOR OBJECT MAP</div>
+                  </div>
+                </article>
+                <article class="panel span-12">
+                  <div class="micro">
+                    Only fields subscribed by the integration are shown.
+                    Optional objects depend on the printer's Klipper
+                    configuration.
+                  </div>
+                </article>
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+    </div>
+    <div class="toast" id="toast"></div>
+    <div
+      class="overlay-backdrop"
+      id="jobDoneCard"
+      hidden
+      role="dialog"
+      aria-modal="true"
+      aria-label="Print completed"
+    >
+      <article class="panel overlay-card">
+        <div class="panel-head">
+          <div>
+            <div class="panel-kicker">Build Finished</div>
+            <h2 class="panel-title">PRINT COMPLETE</h2>
+          </div>
+          <button class="subtle" id="jobDoneDismiss">DISMISS</button>
+        </div>
+        <div class="job-file" id="jobDoneName">—</div>
+        <div class="row" style="gap: 8px; align-items: flex-start">
+          <img
+            id="jobDoneThumb"
+            class="gcode-thumb"
+            alt="Completed print thumbnail"
+            hidden
+          /><img
+            id="jobDonePhoto"
+            class="gcode-thumb"
+            alt="Live camera photo of completed print"
+            hidden
+          />
+        </div>
+        <div class="kv">
+          <b>Duration</b><span id="jobDoneTime">—</span><b>Estimate Δ</b
+          ><span id="jobDoneDelta">—</span><b>Filament</b
+          ><span id="jobDoneFil">—</span><b>Layers</b
+          ><span id="jobDoneLayers">—</span>
+        </div>
+        <div class="row" style="margin-top: 8px; align-items: center">
+          <button
+            class="primary"
+            id="jobDoneReprint"
+            data-action="enqueue_file"
+            disabled
+          >
+            PRINT AGAIN</button
+          ><label class="micro"
+            ><input type="checkbox" id="bedCleared" /> BED CLEARED</label
+          >
+        </div>
+      </article>
+    </div>
+    <script src="/api/moonraker/panel_client.js"></script>
+  </body>
+</html>

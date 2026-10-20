@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "Node.js 20 or newer is required for panel UI tests." >&2
+  exit 127
+fi
+
+node --check custom_components/moonraker/panel_client.js
+node --check custom_components/moonraker/panel_module.js
+node --test tests/panel_ui.test.cjs
