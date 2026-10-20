@@ -591,6 +591,8 @@ def get_printer_objects_list_fixture():
             "output_pin digital",
             "output_pin pwm",
             "output_pin CAPITALIZED",
+            "output_pin missing_config",
+            "smart_output_pin polar_cooler",
             "led chamber",
             "neopixel CAMERA",
             "dotstar strip",

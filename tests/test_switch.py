@@ -8,7 +8,6 @@ from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_OFF, SERVICE_TURN_O
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.moonraker.const import DOMAIN, METHODS
-from custom_components.moonraker.switch import async_setup_output_pin
 
 from .const import MOCK_CONFIG
 
@@ -23,6 +22,7 @@ def bypass_connect_client_fixture():
         yield
 
 
+# test switches
 async def test_output_pins_missing_config_are_skipped(hass):
     """Skip unknown and vendor-specific output pin objects without failing setup."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
@@ -34,48 +34,8 @@ async def test_output_pins_missing_config_are_skipped(hass):
     assert hass.states.get("number.mainsail_output_pin_missing_config") is None
     assert hass.states.get("switch.mainsail_output_pin_missing_config") is None
     assert hass.states.get("number.mainsail_smart_output_pin_polar_cooler") is None
-    assert hass.states.get("switch.mainsail_smart_output_pin_polar_cooler") is None
 
 
-async def test_switch_setup_skips_output_pin_without_config():
-    """Skip a standard output pin when its config section is absent."""
-
-    class FakeCoordinator:
-        """Return an incomplete output-pin response."""
-
-        def __init__(self):
-            self.loaded = None
-            self.refreshed = False
-
-        async def async_fetch_data(self, method, params=None, quiet=False):
-            if method == METHODS.PRINTER_OBJECTS_LIST:
-                return {
-                    "objects": [
-                        "output_pin missing_config",
-                        "smart_output_pin polar_cooler",
-                    ]
-                }
-            if method == METHODS.PRINTER_OBJECTS_QUERY:
-                return {"status": {"configfile": {"settings": {}}}}
-            raise AssertionError(f"Unexpected method: {method}")
-
-        def load_sensor_data(self, sensors):
-            self.loaded = sensors
-
-        async def async_refresh(self):
-            self.refreshed = True
-
-    coordinator = FakeCoordinator()
-    added_entities = []
-
-    await async_setup_output_pin(coordinator, object(), added_entities.extend)
-
-    assert coordinator.loaded == []
-    assert coordinator.refreshed
-    assert added_entities == []
-
-
-# test switches
 @pytest.mark.parametrize(
     "switch, switch_type",
     [

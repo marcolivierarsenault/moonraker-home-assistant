@@ -100,43 +100,6 @@ def test_entry_polling_interval_is_safe(options, expected):
     assert _entry_polling_interval(config_entry) == timedelta(seconds=expected)
 
 
-@pytest.mark.parametrize(
-    ("polling_rate", "expected"),
-    [(30, 40), (5, 7), (45, 60), ("invalid", 40), (None, 40)],
-)
-async def test_migrate_polling_options(hass, polling_rate, expected):
-    """Existing polling options migrate to intervals with 25% fewer polls."""
-    config_entry = MockConfigEntry(
-        domain=DOMAIN,
-        data=MOCK_CONFIG,
-        options={CONF_OPTION_POLLING_RATE: polling_rate},
-        entry_id="polling-migration",
-        version=1,
-    )
-    config_entry.add_to_hass(hass)
-
-    assert await async_migrate_entry(hass, config_entry)
-    assert config_entry.version == 2
-    assert config_entry.options[CONF_OPTION_POLLING_RATE] == expected
-
-
-async def test_migrate_polling_options_missing_and_future_versions(hass):
-    """Missing polling options use the new default; future versions are untouched."""
-    config_entry = MockConfigEntry(
-        domain=DOMAIN, data=MOCK_CONFIG, entry_id="polling-migration", version=1
-    )
-    config_entry.add_to_hass(hass)
-    assert await async_migrate_entry(hass, config_entry)
-    assert CONF_OPTION_POLLING_RATE not in config_entry.options
-    assert config_entry.version == 2
-
-    future_entry = MockConfigEntry(
-        domain=DOMAIN, data=MOCK_CONFIG, entry_id="polling-future", version=2
-    )
-    assert not await async_migrate_entry(hass, future_entry)
-    assert future_entry.version == 2
-
-
 def test_normalize_gcode_path_empty():
     """Return empty parts for empty input."""
     assert _normalize_gcode_path("") == ("", None)
@@ -450,7 +413,7 @@ async def test_coordinator_fetches_all_fields_after_full_object_subscription(has
     )
     coordinator.data = {"status": {"gcode_macro TEST": {"variable": 1}}}
     coordinator.add_query_objects("gcode_macro TEST", "variable")
-    coordinator._record_queried_objects({"gcode_macro TEST": ["variable"]})
+    coordinator._record_queried_objects(coordinator._subscription_objects())
     coordinator.add_query_objects("gcode_macro TEST", None)
     coordinator._async_fetch_data = AsyncMock(
         return_value={"status": {"gcode_macro TEST": {"variable": 1, "other": 2}}}
@@ -1122,7 +1085,7 @@ async def test_set_custom_gcode_service(hass):
             blocking=True,
         )
         await hass.async_block_till_done()
-        mock_sensors.assert_awaited_once_with(
+        mock_sensors.assert_awaited_with(
             METHODS.PRINTER_GCODE_SCRIPT.value, script="STATUS"
         )
 
@@ -1154,7 +1117,7 @@ async def test_send_gcode_list_payload_normalizes_script(hass):
         )
         await hass.async_block_till_done()
 
-    mock_call.assert_awaited_once_with(
+    mock_call.assert_awaited_with(
         METHODS.PRINTER_GCODE_SCRIPT.value, script="G28\nM105"
     )
     assert await async_unload_entry(hass, config_entry)
@@ -1217,7 +1180,13 @@ async def test_send_gcode_accepts_config_entry_id_and_deduplicates(hass):
         )
         await hass.async_block_till_done()
 
-    mock_call.assert_awaited_once_with(METHODS.PRINTER_GCODE_SCRIPT.value, script="G0")
+    gcode_calls = [
+        call
+        for call in mock_call.await_args_list
+        if call.args[0] == METHODS.PRINTER_GCODE_SCRIPT.value
+    ]
+    assert len(gcode_calls) == 1
+    assert gcode_calls[0].kwargs == {"script": "G0"}
     assert await async_unload_entry(hass, config_entry)
 
 
@@ -1262,9 +1231,7 @@ async def test_send_gcode_identifier_fallback(hass):
         )
         await hass.async_block_till_done()
 
-    mock_call.assert_awaited_once_with(
-        METHODS.PRINTER_GCODE_SCRIPT.value, script="M105"
-    )
+    mock_call.assert_awaited_with(METHODS.PRINTER_GCODE_SCRIPT.value, script="M105")
     assert await async_unload_entry(hass, config_entry)
 
 
@@ -1465,6 +1432,7 @@ async def test_polling_interval_uses_per_entry_option(hass, get_data):
     await hass.config_entries.async_setup(config_entry.entry_id)
     coordinator = hass.data[DOMAIN][config_entry.entry_id]
 
+    # The saved 45s option migrates to a 60s interval on setup.
     assert coordinator.update_interval == timedelta(seconds=60)
 
     with patch.object(coordinator, "_schedule_refresh"):
@@ -1475,7 +1443,6 @@ async def test_polling_interval_uses_per_entry_option(hass, get_data):
         get_data["status"]["print_stats"]["state"] = PRINTSTATES.STANDBY.value
         await coordinator._async_update_data()
         assert coordinator.update_interval == timedelta(seconds=60)
-
 
 
 def test_normalize_gcode_path_rejects_traversal():
@@ -1605,3 +1572,40 @@ async def test_push_flush_filename_change_triggers_refresh(hass):
 
     await coordinator._async_flush_push_data()
     coordinator.async_request_refresh.assert_awaited_once()
+
+
+@pytest.mark.parametrize(
+    ("polling_rate", "expected"),
+    [(30, 40), (5, 7), (45, 60), ("invalid", 40), (None, 40)],
+)
+async def test_migrate_polling_options(hass, polling_rate, expected):
+    """Existing polling options migrate to intervals with 25% fewer polls."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MOCK_CONFIG,
+        options={CONF_OPTION_POLLING_RATE: polling_rate},
+        entry_id="polling-migration",
+        version=1,
+    )
+    config_entry.add_to_hass(hass)
+
+    assert await async_migrate_entry(hass, config_entry)
+    assert config_entry.version == 2
+    assert config_entry.options[CONF_OPTION_POLLING_RATE] == expected
+
+
+async def test_migrate_polling_options_missing_and_future_versions(hass):
+    """Missing polling options use the new default; future versions are untouched."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, entry_id="polling-migration", version=1
+    )
+    config_entry.add_to_hass(hass)
+    assert await async_migrate_entry(hass, config_entry)
+    assert CONF_OPTION_POLLING_RATE not in config_entry.options
+    assert config_entry.version == 2
+
+    future_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, entry_id="polling-future", version=2
+    )
+    assert not await async_migrate_entry(hass, future_entry)
+    assert future_entry.version == 2

@@ -162,6 +162,9 @@ def _normalize_gcode_path(filename: str | None) -> tuple[str, str | None]:
             root = _GCODE_ROOT
             normalized = normalized[idx + len(marker) :]
 
+    if any(part in ("", ".", "..") for part in normalized.split("/")):
+        return "", root
+
     return normalized, root
 
 
@@ -218,7 +221,8 @@ def _build_thumbnail_path(
     if normalized.startswith(f"{gcode_dir}/"):
         return normalized
 
-    return os.path.join(gcode_dir, normalized)
+    # Thumbnails are addressed by a forward-slash URL path, not an OS path.
+    return f"{gcode_dir}/{normalized.lstrip('/')}"
 
 
 def get_user_name(hass: HomeAssistant, entry: ConfigEntry):
@@ -309,9 +313,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     try:
         await coordinator.async_subscribe_status_updates()
     except UpdateFailed:
-        _LOGGER.warning(
-            "Could not subscribe to Moonraker status updates; polling only"
-        )
+        _LOGGER.warning("Could not subscribe to Moonraker status updates; polling only")
 
     async def send_gcode_service(service_call):
         """Handle the service call to send g-code."""

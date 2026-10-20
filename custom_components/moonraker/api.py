@@ -20,9 +20,7 @@ class MoonrakerApiClient(MoonrakerListener):
         """Init."""
         self.running = False
         self._stopped = False
-        self.notification_handler: Callable[[str, Any], Awaitable[None]] | None = (
-            None
-        )
+        self.notification_handler: Callable[[str, Any], Awaitable[None]] | None = None
         if api_key == "":
             api_key = None
         self.client = MoonrakerClient(
