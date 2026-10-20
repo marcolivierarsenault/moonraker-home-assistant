@@ -641,10 +641,12 @@ function render(data) {
   renderSettings(data);
   renderSystem(data, status, printState);
   renderFleet(data);
+  lastFlowFinding = renderFlowHeadroom(status);
   renderHealth(data);
   renderMaintenance(data);
   renderComponents(data);
   renderBedMesh(status);
+  renderMeshDecay(status);
   renderHardware(status);
   renderVersions(data);
 
@@ -670,6 +672,10 @@ function render(data) {
   maybeTimelapse(data, currentLayer);
   if (detailsOpen) renderPageDetails(data);
   populateAlertEntities();
+  loadFlowPrefs();
+  loadEnergyPrefs();
+  populateEnergyEntities();
+  updateEnergy(data);
   loadDisplayPrefs();
   checkAlerts(data);
 }
@@ -1141,6 +1147,8 @@ function analyzePrinterHealth(data) {
     const hits = lines.filter((line) => regex.test(line)).length;
     if (hits) findings.push({ severity, label, detail: `${hits}x` });
   });
+  findings.push(...analyzeThermalHealth(status));
+  if (lastFlowFinding) findings.push(lastFlowFinding);
   if (!findings.some((finding) => finding.severity !== "ok"))
     findings.push({
       severity: "ok",
@@ -1199,6 +1207,377 @@ function renderHealth(data) {
     : "CLEAN";
   setText("healthSummary", worst);
   drawRetransmitSpark();
+}
+
+// ---- bed mesh decay tracking ----
+
+function meshStorageKey() {
+  return `nexusMeshV1.${printer || "default"}`;
+}
+
+function analyzeMeshDecay(status) {
+  const mesh = status.bed_mesh || {};
+  const matrix = mesh.mesh_matrix || mesh.probed_matrix;
+  if (!Array.isArray(matrix) || !matrix.length || !Array.isArray(matrix[0]))
+    return null;
+  let stored = null;
+  try {
+    stored = JSON.parse(
+      window.localStorage?.getItem(meshStorageKey()) || "null"
+    );
+  } catch {
+    stored = null;
+  }
+  const sameShape =
+    Array.isArray(stored?.baseline) &&
+    stored.baseline.length === matrix.length &&
+    stored.baseline.every(
+      (row, index) => Array.isArray(row) && row.length === matrix[index].length
+    );
+  if (!sameShape) {
+    const baseline = matrix.map((row) =>
+      row.map((value) => Number(value) || 0)
+    );
+    try {
+      window.localStorage?.setItem(
+        meshStorageKey(),
+        JSON.stringify({ baseline, at: Date.now() })
+      );
+    } catch {
+      /* storage full or unavailable */
+    }
+    return {
+      baselineAt: Date.now(),
+      rmsDrift: 0,
+      maxDrift: 0,
+      drift: matrix.map((row) => row.map(() => 0)),
+      rows: matrix[0].length,
+    };
+  }
+  let sumSquares = 0;
+  let count = 0;
+  let maxDrift = 0;
+  const drift = matrix.map((row, i) =>
+    row.map((value, j) => {
+      const delta = Number(value) - Number(stored.baseline[i][j]);
+      if (!Number.isFinite(delta)) return 0;
+      sumSquares += delta * delta;
+      count += 1;
+      if (Math.abs(delta) > maxDrift) maxDrift = Math.abs(delta);
+      return delta;
+    })
+  );
+  return {
+    baselineAt: stored.at || 0,
+    rmsDrift: count ? Math.sqrt(sumSquares / count) : 0,
+    maxDrift,
+    drift,
+    rows: matrix[0].length,
+  };
+}
+
+function renderMeshDecay(status) {
+  const grid = byId("meshDriftMap");
+  const summary = byId("meshDriftSummary");
+  if (!grid || !summary) return;
+  const analysis = analyzeMeshDecay(status);
+  if (!analysis) {
+    summary.className = "pill";
+    summary.textContent = "NO MESH DATA";
+    grid.replaceChildren();
+    return;
+  }
+  const due = analysis.rmsDrift >= 0.1 || analysis.maxDrift >= 0.15;
+  const warn = !due && (analysis.rmsDrift >= 0.05 || analysis.maxDrift >= 0.08);
+  summary.className = `pill ${
+    due ? "bad-text" : warn ? "warn-text" : "ok-text"
+  }`;
+  summary.textContent = due
+    ? "RE-LEVEL SUGGESTED"
+    : warn
+    ? "DRIFT RISING"
+    : "MESH STABLE";
+  setText(
+    "meshBaselineAt",
+    analysis.baselineAt
+      ? new Date(analysis.baselineAt).toLocaleDateString()
+      : "—"
+  );
+  setText("meshRmsDrift", `${(analysis.rmsDrift * 1000).toFixed(0)} µm`);
+  setText("meshMaxDrift", `${(analysis.maxDrift * 1000).toFixed(0)} µm`);
+  grid.replaceChildren();
+  grid.style.gridTemplateColumns = `repeat(${analysis.rows}, minmax(0, 1fr))`;
+  for (const delta of analysis.drift.flat()) {
+    const cell = document.createElement("div");
+    cell.className = "mesh-cell";
+    const magnitude = Math.min(1, Math.abs(delta) / 0.2);
+    cell.style.background =
+      delta >= 0
+        ? `rgba(0, 239, 145, ${(0.08 + magnitude * 0.5).toFixed(2)})`
+        : `rgba(255, 83, 107, ${(0.08 + magnitude * 0.5).toFixed(2)})`;
+    cell.title = `${Math.round(delta * 1000)} µm`;
+    grid.appendChild(cell);
+  }
+}
+
+function resetMeshBaseline() {
+  const mesh = latestData?.status?.bed_mesh || {};
+  const matrix = mesh.mesh_matrix || mesh.probed_matrix;
+  if (!Array.isArray(matrix) || !matrix.length) {
+    toast("NO ACTIVE BED MESH TO BASELINE");
+    return;
+  }
+  try {
+    window.localStorage?.setItem(
+      meshStorageKey(),
+      JSON.stringify({
+        baseline: matrix.map((row) => row.map((value) => Number(value) || 0)),
+        at: Date.now(),
+      })
+    );
+  } catch {
+    /* storage unavailable */
+  }
+  toast("MESH BASELINE RESET");
+  if (latestData?.status) renderMeshDecay(latestData.status);
+}
+
+// ---- thermal health sentinel ----
+
+let thermalSamples = {};
+
+function heaterObjects(status) {
+  const heaters = [];
+  if (status.extruder) heaters.push(["EXTRUDER", status.extruder]);
+  if (status.heater_bed) heaters.push(["BED", status.heater_bed]);
+  for (const name of Object.keys(status)) {
+    if (name.startsWith("heater_generic "))
+      heaters.push([name.slice(15).toUpperCase(), status[name]]);
+  }
+  return heaters;
+}
+
+function analyzeThermalHealth(status) {
+  const findings = [];
+  const now = Date.now();
+  for (const [label, heater] of heaterObjects(status)) {
+    const temperature = Number(heater?.temperature);
+    const duty = Number(heater?.power);
+    const target = Number(heater?.target);
+    if (!Number.isFinite(temperature) || !Number.isFinite(duty)) continue;
+    const history = (thermalSamples[label] = (thermalSamples[label] || [])
+      .concat({ at: now, t: temperature, p: duty })
+      .slice(-120));
+    if (history.length < 20 || !Number.isFinite(target) || target <= 5)
+      continue;
+    const recent = history.slice(-15);
+    const meanDuty =
+      recent.reduce((sum, sample) => sum + sample.p, 0) / recent.length;
+    const slope = recent[recent.length - 1].t - recent[0].t;
+    if (meanDuty > 0.95 && slope < -1) {
+      findings.push({
+        severity: "bad",
+        label: `${label} SATURATED`,
+        detail: "100% DUTY, TEMP FALLING",
+      });
+      continue;
+    }
+    const window = history.slice(-60);
+    const temps = window.map((sample) => sample.t);
+    const amplitude = Math.max(...temps) - Math.min(...temps);
+    let crossings = 0;
+    for (let i = 1; i < temps.length; i += 1) {
+      if ((temps[i - 1] - target) * (temps[i] - target) < 0) crossings += 1;
+    }
+    if (amplitude > 3 && crossings >= 6) {
+      findings.push({
+        severity: "warn",
+        label: `${label} PID OSCILLATION`,
+        detail: `±${fmt(amplitude / 2, 1)}°C AROUND TARGET`,
+      });
+    }
+  }
+  return findings;
+}
+
+// ---- volumetric flow headroom ----
+
+const FILAMENT_AREA_MM2 = (Math.PI * 1.75 * 1.75) / 4;
+let maxFlowMm3 = 15;
+let flowSaturatedSince = null;
+let lastFlowFinding = null;
+
+function loadFlowPrefs() {
+  try {
+    const stored = JSON.parse(
+      window.localStorage?.getItem(`nexusMaxFlow.${printer || "default"}`) ||
+        "null"
+    );
+    maxFlowMm3 = Number(stored) > 0 ? Number(stored) : 15;
+  } catch {
+    maxFlowMm3 = 15;
+  }
+  const input = byId("maxFlowInput");
+  if (input) input.value = String(maxFlowMm3);
+}
+
+function saveFlowPrefs() {
+  const input = byId("maxFlowInput");
+  const value = Number(input?.value);
+  if (Number.isFinite(value) && value > 0) maxFlowMm3 = value;
+  try {
+    window.localStorage?.setItem(
+      `nexusMaxFlow.${printer || "default"}`,
+      JSON.stringify(maxFlowMm3)
+    );
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+function volumetricFlow(status) {
+  const velocity = Number(status.motion_report?.live_extruder_velocity);
+  if (!Number.isFinite(velocity) || velocity <= 0) return 0;
+  return velocity * FILAMENT_AREA_MM2;
+}
+
+function renderFlowHeadroom(status) {
+  const mm3 = volumetricFlow(status);
+  setText("flowVolumetric", `${fmt(mm3, 1)} mm³/s`);
+  setText("flowMaxRate", `${fmt(maxFlowMm3, 1)} mm³/s`);
+  const ratio = maxFlowMm3 > 0 ? mm3 / maxFlowMm3 : 0;
+  const headroom = Math.max(0, 100 - ratio * 100);
+  setText("flowHeadroom", `${fmt(headroom, 0)}%`);
+  const bar = byId("flowHeadroomBar");
+  if (bar) bar.style.width = `${Math.min(100, ratio * 100)}%`;
+  const pill = byId("flowHeadroomPill");
+  if (pill) {
+    pill.className = `pill ${
+      ratio >= 0.95 ? "bad-text" : ratio >= 0.8 ? "warn-text" : "ok-text"
+    }`;
+    pill.textContent =
+      mm3 <= 0
+        ? "IDLE"
+        : ratio >= 0.95
+        ? "AT MELT LIMIT"
+        : ratio >= 0.8
+        ? "HIGH FLOW"
+        : "HEADROOM OK";
+  }
+  if (ratio >= 0.95 && mm3 > 0) {
+    if (!flowSaturatedSince) flowSaturatedSince = Date.now();
+  } else {
+    flowSaturatedSince = null;
+  }
+  return flowSaturatedSince && Date.now() - flowSaturatedSince >= 5000
+    ? {
+        severity: "warn",
+        label: "FLOW SATURATED",
+        detail: `${fmt(mm3, 1)} mm³/s AT MELT LIMIT`,
+      }
+    : null;
+}
+
+// ---- energy & cost accounting ----
+
+let energyPrefs = { sensor: "", rate: 0 };
+let energySession = { file: "", kwh: 0, lastAt: 0 };
+
+function loadEnergyPrefs() {
+  try {
+    const stored = JSON.parse(
+      window.localStorage?.getItem(`nexusEnergy.${printer || "default"}`) ||
+        "null"
+    );
+    energyPrefs = {
+      sensor: stored?.sensor || "",
+      rate: Number(stored?.rate) > 0 ? Number(stored.rate) : 0,
+    };
+  } catch {
+    energyPrefs = { sensor: "", rate: 0 };
+  }
+  const sensor = byId("energySensor");
+  const rate = byId("energyRate");
+  if (sensor) sensor.value = energyPrefs.sensor;
+  if (rate) rate.value = energyPrefs.rate > 0 ? String(energyPrefs.rate) : "";
+}
+
+function saveEnergyPrefs() {
+  energyPrefs = {
+    sensor: byId("energySensor")?.value || "",
+    rate: Number(byId("energyRate")?.value) || 0,
+  };
+  try {
+    window.localStorage?.setItem(
+      `nexusEnergy.${printer || "default"}`,
+      JSON.stringify(energyPrefs)
+    );
+  } catch {
+    /* storage unavailable */
+  }
+  updateEnergy(latestData);
+}
+
+function readPowerWatts() {
+  if (!energyPrefs.sensor) return null;
+  const entity = window.hass?.states?.[energyPrefs.sensor];
+  const raw = Number(entity?.state);
+  if (!Number.isFinite(raw)) return null;
+  const unit = String(entity?.attributes?.unit_of_measurement || "W");
+  return unit.toLowerCase() === "kw" ? raw * 1000 : raw;
+}
+
+function updateEnergy(data) {
+  const watts = readPowerWatts();
+  const statusPill = byId("energyStatus");
+  if (statusPill) {
+    statusPill.className = `pill ${watts === null ? "" : "ok-text"}`;
+    statusPill.textContent = watts === null ? "NO SENSOR" : "TRACKING";
+  }
+  setText("energyNow", watts === null ? "NO SENSOR" : `${fmt(watts, 0)} W`);
+  const now = Date.now();
+  const state = data?.status?.print_stats?.state || "";
+  const filename = data?.status?.print_stats?.filename || "";
+  const active = state === "printing" || state === "paused";
+  if (active && watts !== null) {
+    if (energySession.file !== filename)
+      energySession = { file: filename, kwh: 0, lastAt: now };
+    const dtHours = (now - energySession.lastAt) / 3600000;
+    if (dtHours > 0 && dtHours < 1)
+      energySession.kwh += (watts * dtHours) / 1000;
+    energySession.lastAt = now;
+  }
+  setText(
+    "energyPrint",
+    energySession.file ? `${fmt(energySession.kwh * 1000, 0)} Wh` : "—"
+  );
+  setText(
+    "energyCost",
+    energySession.file && energyPrefs.rate > 0
+      ? `$${fmt(energySession.kwh * energyPrefs.rate, 2)}`
+      : "—"
+  );
+}
+
+function populateEnergyEntities() {
+  const select = byId("energySensor");
+  if (!select || select.dataset.populated) return;
+  const states = window.hass?.states || {};
+  for (const entityId of Object.keys(states).sort()) {
+    if (!entityId.startsWith("sensor.")) continue;
+    const unit = String(
+      states[entityId]?.attributes?.unit_of_measurement || ""
+    ).toLowerCase();
+    const deviceClass = states[entityId]?.attributes?.device_class;
+    if (deviceClass !== "power" && unit !== "w" && unit !== "kw") continue;
+    const option = document.createElement("option");
+    option.value = entityId;
+    option.textContent =
+      states[entityId]?.attributes?.friendly_name || entityId;
+    select.appendChild(option);
+  }
+  select.dataset.populated = "1";
+  select.value = energyPrefs.sensor;
 }
 
 const MAINTENANCE_DEFAULTS = [
@@ -1854,6 +2233,12 @@ function switchPrinter() {
   extHist = [];
   bedHist = [];
   retransmitHistory = [];
+  thermalSamples = {};
+  energySession = { file: "", kwh: 0, lastAt: 0 };
+  flowSaturatedSince = null;
+  lastFlowFinding = null;
+  loadFlowPrefs();
+  loadEnergyPrefs();
   renderToolpathStatus("WAITING FOR PRINTER DATA");
   refresh();
 }
@@ -4188,6 +4573,8 @@ function clearTimelapse() {
 
 function bindAlertSettings() {
   loadAlertPrefs();
+  loadFlowPrefs();
+  loadEnergyPrefs();
   for (const id of [
     "ttsEngine",
     "ttsPlayer",
@@ -4198,6 +4585,10 @@ function bindAlertSettings() {
   ]) {
     byId(id)?.addEventListener?.("change", saveAlertPrefs);
   }
+  byId("energySensor")?.addEventListener?.("change", saveEnergyPrefs);
+  byId("energyRate")?.addEventListener?.("change", saveEnergyPrefs);
+  byId("maxFlowInput")?.addEventListener?.("change", saveFlowPrefs);
+  byId("meshRebaseline")?.addEventListener?.("click", resetMeshBaseline);
   byId("ttsTest")?.addEventListener?.("click", () => {
     if (
       alertPrefs.engine !== "browser" &&
@@ -4368,6 +4759,10 @@ function cleanupPanel() {
   availableWebcams = [];
   sentCommandHistory = [];
   retransmitHistory = [];
+  thermalSamples = {};
+  energySession = { file: "", kwh: 0, lastAt: 0 };
+  flowSaturatedSince = null;
+  lastFlowFinding = null;
 }
 
 function handlePanelPageHide(event) {

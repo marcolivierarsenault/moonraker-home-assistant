@@ -2560,6 +2560,38 @@
                     </div>
                   </div>
                 </article>
+                <article class="panel span-6">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Hotend Melt Zone Capacity</div>
+                      <h2 class="panel-title">FLOW HEADROOM</h2>
+                    </div>
+                    <span class="pill" id="flowHeadroomPill">—</span>
+                  </div>
+                  <div class="kv">
+                    <b>Volumetric Flow</b><span id="flowVolumetric">—</span
+                    ><b>Rated Max</b><span id="flowMaxRate">—</span
+                    ><b>Headroom</b><span id="flowHeadroom">—</span>
+                  </div>
+                  <div class="temp-bar" style="margin-top: 8px">
+                    <i id="flowHeadroomBar" style="width: 0"></i>
+                  </div>
+                  <div class="control-row" style="margin-top: 8px">
+                    <input
+                      type="number"
+                      id="maxFlowInput"
+                      min="1"
+                      max="60"
+                      step="0.5"
+                      placeholder="MM³/S"
+                    /><span class="micro">YOUR HOTEND'S RATED MAX FLOW</span>
+                  </div>
+                  <p class="micro">
+                    Live extruder velocity x 1.75mm filament area. Sustained
+                    flow near the melt limit causes underextrusion and grinding
+                    before slicer speeds reveal it.
+                  </p>
+                </article>
               </div>
             </section>
 
@@ -2635,6 +2667,33 @@
                     <button data-action="home_z">HOME Z</button
                     ><button data-action="home_all">HOME ALL</button>
                   </div>
+                </article>
+                <article class="panel span-12">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">
+                        Surface Drift / Re-Level Detection
+                      </div>
+                      <h2 class="panel-title">MESH HEALTH</h2>
+                    </div>
+                    <div class="panel-tools">
+                      <span class="pill" id="meshDriftSummary">—</span
+                      ><button class="subtle" id="meshRebaseline">
+                        RE-BASELINE
+                      </button>
+                    </div>
+                  </div>
+                  <div class="kv">
+                    <b>Baseline Captured</b><span id="meshBaselineAt">—</span
+                    ><b>RMS Drift</b><span id="meshRmsDrift">—</span
+                    ><b>Max Cell Drift</b><span id="meshMaxDrift">—</span>
+                  </div>
+                  <div id="meshDriftMap" class="mesh-grid"></div>
+                  <p class="micro">
+                    Each cell shows deviation from your saved baseline mesh.
+                    Green cells moved up, red moved down. Re-baseline after
+                    re-leveling or a nozzle swap.
+                  </p>
                 </article>
               </div>
             </section>
@@ -2899,6 +2958,29 @@
                     width="900"
                     height="240"
                   ></canvas>
+                </article>
+                <article class="panel span-4">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Wattage / Session Energy</div>
+                      <h2 class="panel-title">ENERGY & COST</h2>
+                    </div>
+                  </div>
+                  <div class="system-list">
+                    <div class="system-item">
+                      <span>Current Draw</span><span id="energyNow">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>This Print</span><span id="energyPrint">—</span>
+                    </div>
+                    <div class="system-item">
+                      <span>Print Cost</span><span id="energyCost">—</span>
+                    </div>
+                  </div>
+                  <p class="micro">
+                    Choose the printer's power sensor and rate on the Settings
+                    page.
+                  </p>
                 </article>
                 <article class="panel span-4">
                   <div class="panel-head">
@@ -3387,6 +3469,36 @@
                     speakers (ctrl / cmd-click for several). Progress announces
                     at 25 / 50 / 75 / 90 percent. Quiet hours suppress
                     everything except critical faults when enabled.
+                  </p>
+                </article>
+                <article class="panel span-6">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Power / Cost Accounting</div>
+                      <h2 class="panel-title">ENERGY</h2>
+                    </div>
+                    <span class="pill" id="energyStatus">NO SENSOR</span>
+                  </div>
+                  <div class="config-list" style="margin-top: 0">
+                    <label class="config-row"
+                      ><span>Power Sensor</span
+                      ><select id="energySensor">
+                        <option value="">SELECT A SENSOR…</option>
+                      </select></label
+                    ><label class="config-row"
+                      ><span>Cost / kWh</span
+                      ><input
+                        type="number"
+                        id="energyRate"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                    /></label>
+                  </div>
+                  <p class="micro" style="margin-top: 6px">
+                    Pick the Home Assistant power sensor (W or kW) measuring
+                    this printer. Energy integrates live while a print runs;
+                    cost applies your per-kWh rate.
                   </p>
                 </article>
                 <article class="panel span-6">
