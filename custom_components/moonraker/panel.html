@@ -239,6 +239,127 @@
         );
         box-shadow: inset 2px 0 var(--green), 0 0 11px rgba(0, 239, 145, 0.06);
       }
+      .fleet-strip {
+        display: grid;
+        gap: 4px;
+        margin-bottom: 8px;
+      }
+      .fleet-tile {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 2px 6px;
+        padding: 6px 7px;
+        text-align: left;
+        border: 1px solid var(--line);
+        border-radius: 2px;
+        background: #071510;
+      }
+      .fleet-tile:hover {
+        border-color: var(--green);
+      }
+      .fleet-tile.active {
+        border-color: #218052;
+        box-shadow: inset 2px 0 var(--green);
+      }
+      .fleet-tile .fleet-name {
+        color: var(--green-soft);
+        font: 8px var(--mono);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .fleet-tile .fleet-state {
+        color: var(--muted);
+        font: 7px var(--mono);
+        text-transform: uppercase;
+      }
+      .fleet-tile .fleet-temps {
+        grid-column: 1 / -1;
+        color: #4c745e;
+        font: 7px var(--mono);
+      }
+      .fleet-tile.bad .fleet-state {
+        color: var(--red);
+      }
+      .health-chip {
+        display: inline-flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 5px 8px;
+        border: 1px solid #1b5036;
+        font: 7px var(--mono);
+        text-transform: uppercase;
+      }
+      .health-chip b {
+        color: var(--green-soft);
+        font-weight: 700;
+        letter-spacing: 0.08em;
+      }
+      .health-chip span {
+        color: var(--muted);
+      }
+      .health-chip.warn {
+        border-color: var(--amber);
+      }
+      .health-chip.warn b {
+        color: var(--amber);
+      }
+      .health-chip.bad {
+        border-color: var(--red);
+      }
+      .health-chip.bad b {
+        color: var(--red);
+      }
+      .spark-graph {
+        display: block;
+        width: 100%;
+        height: 40px;
+        margin-top: 8px;
+        border: 1px solid #123d2a;
+        background: #030b08;
+      }
+      .maintenance-list {
+        display: grid;
+        gap: 6px;
+      }
+      .maint-row {
+        display: grid;
+        grid-template-columns: minmax(120px, 0.8fr) 1fr auto auto;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        border: 1px solid #123a29;
+        background: #06130e;
+      }
+      .maint-row .maint-name {
+        color: var(--green-soft);
+        font: 8px var(--mono);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .maint-row .maint-track {
+        height: 5px;
+        overflow: hidden;
+        background: #10241a;
+      }
+      .maint-row .maint-track > i {
+        display: block;
+        height: 100%;
+        background: linear-gradient(90deg, #00894f, var(--green));
+      }
+      .maint-row.due .maint-track > i {
+        background: linear-gradient(90deg, #a33, var(--red));
+      }
+      .maint-row .maint-remain {
+        color: #b6d9c5;
+        font: 8px var(--mono);
+        white-space: nowrap;
+      }
+      .maint-row.due .maint-remain {
+        color: var(--red);
+      }
       .nav-icon {
         color: var(--green);
         text-align: center;
@@ -528,6 +649,9 @@
       }
       .ok-text {
         color: var(--green) !important;
+      }
+      .warn-text {
+        color: var(--amber) !important;
       }
 
       button,
@@ -1482,6 +1606,8 @@
           <div class="sidebar-brand">
             <div class="nav-label">Subsystems / 01</div>
           </div>
+          <div class="nav-label" id="fleetLabel" hidden>Fleet / All Units</div>
+          <div id="fleetStrip" class="fleet-strip" hidden></div>
           <nav class="nav-list" aria-label="Printer console">
             <button class="nav-item active" data-screen-target="dashboard">
               <span class="nav-icon">⌂</span><span>Dashboard</span
@@ -2686,7 +2812,12 @@
                         FILE ANALYSIS
                       </h2>
                     </div>
-                    <span class="micro" id="analysisStatus">SELECT A FILE</span>
+                    <div class="panel-tools">
+                      <span class="pill" id="analysisVerdict" hidden>—</span>
+                      <span class="micro" id="analysisStatus"
+                        >SELECT A FILE</span
+                      >
+                    </div>
                   </div>
                   <div id="fileAnalysis" hidden>
                     <img
@@ -3038,6 +3169,42 @@
                   >
                     REFRESH UPDATE STATUS
                   </button>
+                </article>
+                <article class="panel span-12">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">
+                        MCU Link / Console Fault Decode
+                      </div>
+                      <h2 class="panel-title">PRINTER HEALTH</h2>
+                    </div>
+                    <span class="pill" id="healthSummary">—</span>
+                  </div>
+                  <div class="row" id="healthChips"></div>
+                  <canvas
+                    id="retransmitSpark"
+                    class="spark-graph"
+                    width="600"
+                    height="40"
+                  ></canvas>
+                  <p class="micro">
+                    Decodes MCU retransmits and Klipper fault signatures from
+                    the live console stream.
+                  </p>
+                </article>
+                <article class="panel span-12">
+                  <div class="panel-head">
+                    <div>
+                      <div class="panel-kicker">Service Countdowns</div>
+                      <h2 class="panel-title">MAINTENANCE LEDGER</h2>
+                    </div>
+                    <span class="pill" id="maintSummary">—</span>
+                  </div>
+                  <div id="maintenanceList" class="maintenance-list"></div>
+                  <p class="micro">
+                    Counts print hours and extruded filament since each reset.
+                    Press RESET after performing the service.
+                  </p>
                 </article>
               </div>
             </section>

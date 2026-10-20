@@ -98,6 +98,7 @@ class METHODS(Enum):
     SERVER_RESTART = "server.restart"
     SERVER_WEBCAMS_LIST = "server.webcams.list"
     SERVER_SPOOLMAN_ID = "server.spoolman.status"
+    SERVER_SPOOLMAN_PROXY = "server.spoolman.proxy"
 
 
 class ExtendedEnum(Enum):

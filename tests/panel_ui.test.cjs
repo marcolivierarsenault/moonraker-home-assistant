@@ -1110,3 +1110,161 @@ test("start_queue is held during quiet hours until pressed again", async () => {
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(posts, 1);
 });
+
+test("fleet strip renders per-printer tiles and switches printers on click", () => {
+  const { context, document } = createPanelClient();
+  const payload = {
+    entry_id: "a",
+    fleet: [
+      { id: "a", name: "Voron", state: "printing", progress: 0.4, hotend: 210, bed: 60, available: true },
+      { id: "b", name: "Ender", state: "standby", progress: null, hotend: null, bed: null, available: false },
+    ],
+  };
+  vm.runInContext(`renderFleet(${JSON.stringify(payload)})`, context);
+  const strip = document.getElementById("fleetStrip");
+  assert.equal(strip.hidden, false);
+  const tiles = strip.querySelectorAll(".fleet-tile");
+  assert.equal(tiles.length, 2);
+  assert.match(deepText(tiles[0]), /Voron/);
+  assert.match(deepText(tiles[0]), /PRINTING 40%/);
+  assert.match(deepText(tiles[0]), /E 210° \/ B 60°/);
+  assert.match(deepText(tiles[1]), /OFFLINE/);
+  assert.ok(tiles[0].className.includes("active"));
+  assert.ok(tiles[1].className.includes("bad"));
+
+  // Clicking the second tile re-points the printer select and refreshes.
+  tiles[1].listeners.click();
+  assert.equal(document.getElementById("printerSel").value, "b");
+  assert.equal(vm.runInContext("printer", context), "b");
+
+  // Single-printer payloads hide the strip entirely.
+  vm.runInContext(
+    `renderFleet({ entry_id: "a", fleet: [${JSON.stringify(payload.fleet[0])}] })`,
+    context,
+  );
+  assert.equal(strip.hidden, true);
+  assert.equal(strip.children.length, 0);
+});
+
+test("printer health decodes mcu retransmits and console fault signatures", () => {
+  const { context, document } = createPanelClient();
+  const data = {
+    status: { mcu: { last_stats: { bytes_retransmit: 12, bytes_invalid: 0 } } },
+    gcode_responses: [
+      "// normal line",
+      "!! MCU 'mcu' shutdown: Timer too close",
+      "Move out of range: 10 400 5",
+    ],
+  };
+  const findings = vm.runInContext(
+    `analyzePrinterHealth(${JSON.stringify(data)})`,
+    context,
+  );
+  const mcu = findings.find(f => f.label === "MCU RETRANSMIT");
+  assert.equal(mcu.severity, "warn");
+  assert.match(mcu.detail, /12 B/);
+  assert.ok(findings.some(f => f.label === "MCU SHUTDOWN LOGGED" && f.severity === "bad"));
+  assert.ok(findings.some(f => f.label === "TIMER TOO CLOSE"));
+  assert.ok(findings.some(f => f.label === "MOVE OUT OF RANGE"));
+
+  vm.runInContext(`renderHealth(${JSON.stringify(data)})`, context);
+  const chips = document.getElementById("healthChips").querySelectorAll(".health-chip");
+  assert.ok(chips.length >= 4);
+  assert.equal(document.getElementById("healthSummary").textContent, "FAULTS LOGGED");
+
+  // Clean stream reports CLEAN with a healthy chip.
+  const clean = { status: { mcu: { last_stats: {} } }, gcode_responses: ["ok"] };
+  vm.runInContext(`renderHealth(${JSON.stringify(clean)})`, context);
+  assert.equal(document.getElementById("healthSummary").textContent, "CLEAN");
+});
+
+test("maintenance ledger counts down hours and filament and resets per item", () => {
+  const { context, document } = createPanelClient();
+  const totals = { job_totals: { total_print_time: 50 * 3600, total_filament_used: 600000 } };
+  vm.runInContext(
+    `printer = "p1"; renderMaintenance({ history: ${JSON.stringify(totals)} })`,
+    context,
+  );
+  const list = document.getElementById("maintenanceList");
+  assert.equal(list.children.length, 5);
+  // Fresh ledger seeds the baseline at current totals — full limits remain.
+  assert.match(deepText(list.children[0]), /500 H LEFT/);
+  assert.match(deepText(list.children[4]), /5000 M LEFT/);
+  assert.equal(document.getElementById("maintSummary").textContent, "ALL OK");
+
+  // 100 more print hours consumes the nozzle budget.
+  const later = { job_totals: { total_print_time: 150 * 3600, total_filament_used: 600000 } };
+  vm.runInContext(
+    `renderMaintenance({ history: ${JSON.stringify(later)} })`,
+    context,
+  );
+  assert.match(deepText(list.children[0]), /400 H LEFT/);
+
+  // Reset re-baselines that item only.
+  list.children[0].children[3].listeners.click();
+  vm.runInContext(
+    `renderMaintenance({ history: ${JSON.stringify(later)} })`,
+    context,
+  );
+  assert.match(deepText(list.children[0]), /500 H LEFT/);
+  assert.match(deepText(list.children[1]), /200 H LEFT/);
+
+  // Exceeding a limit flags the row due and the summary.
+  const overdue = { job_totals: { total_print_time: 150 * 3600 + 400 * 3600, total_filament_used: 600000 } };
+  vm.runInContext(
+    `renderMaintenance({ history: ${JSON.stringify(overdue)} })`,
+    context,
+  );
+  assert.match(deepText(list.children[1]), /0 H LEFT/);
+  assert.ok(list.children[1].className.includes("due"));
+  assert.match(document.getElementById("maintSummary").textContent, /SERVICE/);
+});
+
+test("file analysis renders GO/NO-GO verdicts from spool, bounds, and quiet hours", () => {
+  const { context, document } = createPanelClient();
+  vm.runInContext(
+    `latestData = {
+      spool_details: { remaining_weight: 100, filament: { name: "PLA Pro", material: "PLA", vendor: "VendorCo" } },
+      bed_bounds: { x: { min: 0, max: 235 }, y: { min: 0, max: 235 }, z: { min: 0, max: 250 } },
+      status: { toolhead: { axis_maximum: [235, 235, 250] } },
+    };`,
+    context,
+  );
+  const base = {
+    estimated_time: 3600, filament_total: 2000, filament_weight_total: 5,
+    filament_type: "PLA", layer_count: 10, object_height: 20,
+    x_min: 0, x_max: 210, y_min: 0, y_max: 210, size: 1000,
+    has_thumbnail: false, slicer: "OrcaSlicer",
+  };
+
+  vm.runInContext(`renderFileAnalysis(${JSON.stringify(base)})`, context);
+  const verdict = document.getElementById("analysisVerdict");
+  assert.equal(verdict.hidden, false);
+  assert.equal(verdict.textContent, "CAUTION"); // missing thumbnail is a warning
+  assert.match(deepText(document.getElementById("analysisStats")), /PLA Pro/);
+
+  // Material mismatch blocks the job.
+  vm.runInContext(
+    `renderFileAnalysis(${JSON.stringify({ ...base, filament_type: "PETG" })})`,
+    context,
+  );
+  assert.equal(verdict.textContent, "NO-GO");
+  assert.match(deepText(document.getElementById("analysisWarnings")), /MATERIAL MISMATCH/);
+
+  // Insufficient filament and over-tall object both block.
+  vm.runInContext(
+    `renderFileAnalysis(${JSON.stringify({ ...base, filament_weight_total: 500, object_height: 300 })})`,
+    context,
+  );
+  assert.equal(verdict.textContent, "NO-GO");
+  assert.match(deepText(document.getElementById("analysisWarnings")), /NEEDS 500 G/);
+  assert.match(deepText(document.getElementById("analysisWarnings")), /EXCEEDS Z HEIGHT/);
+
+  // Quiet-hours finish shows up as a warning.
+  vm.runInContext(
+    `alertPrefs = { engine: "off", players: [], events: {}, quietStart: "00:00", quietEnd: "23:59", quietBypass: true };
+     renderFileAnalysis(${JSON.stringify(base)})`,
+    context,
+  );
+  assert.match(deepText(document.getElementById("analysisWarnings")), /QUIET HOURS/);
+});

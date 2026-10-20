@@ -319,6 +319,7 @@ def _panel_coordinator(hass, **overrides):
         "async_get_webcams": AsyncMock(return_value={"webcams": []}),
         "async_get_system_info": AsyncMock(return_value={}),
         "async_get_server_info": AsyncMock(return_value={}),
+        "async_get_config_settings": AsyncMock(return_value={}),
         "async_send_data": AsyncMock(),
         "async_refresh_files": AsyncMock(),
         "async_fetch_data": AsyncMock(return_value={}),
@@ -1249,3 +1250,211 @@ async def test_webcam_snapshot_view(hass):
     ):
         response = await view.get(SimpleNamespace(query={"camera": "Front"}))
     assert response.status == 404
+
+
+def test_spool_details_whitelist():
+    """Spool records are trimmed to display-safe fields."""
+    from custom_components.moonraker.panel import _spool_details
+
+    assert _spool_details("not-a-dict") == {}
+    assert _spool_details({}) == {"filament": {}}
+    spool = {
+        "id": 7,
+        "remaining_weight": 420.5,
+        "used_weight": 79.5,
+        "remaining_length": 140000.0,
+        "used_length": 26000.0,
+        "comment": "private note",
+        "filament": {
+            "name": "PLA Pro",
+            "material": "PLA",
+            "vendor": "VendorCo",
+            "diameter": 1.75,
+            "density": 1.24,
+            "color_hex": "00ff00",
+            "comment": "internal",
+        },
+    }
+    details = _spool_details(spool)
+    assert details["id"] == 7
+    assert details["remaining_weight"] == 420.5
+    assert details["filament"] == {
+        "name": "PLA Pro",
+        "material": "PLA",
+        "vendor": "VendorCo",
+        "diameter": 1.75,
+        "density": 1.24,
+        "color_hex": "00ff00",
+    }
+    assert "comment" not in details
+    assert "comment" not in details["filament"]
+
+
+def test_bed_bounds_extraction():
+    """Bed bounds pull numeric axis limits out of configfile settings."""
+    from custom_components.moonraker.panel import _bed_bounds
+
+    settings = {
+        "status": {
+            "configfile": {
+                "settings": {
+                    "stepper_x": {"position_min": 0.0, "position_max": 235.0},
+                    "stepper_y": {"position_min": 0.0, "position_max": 235.0},
+                    "stepper_z": {"position_max": "not-a-number"},
+                    "stepper_x2": "not-a-dict",
+                    "fan": {"pin": "PA0"},
+                }
+            }
+        }
+    }
+    assert _bed_bounds(settings) == {
+        "x": {"min": 0.0, "max": 235.0},
+        "y": {"min": 0.0, "max": 235.0},
+    }
+    assert _bed_bounds({}) == {}
+    assert _bed_bounds(None) == {}
+    assert _bed_bounds({"status": "bad"}) == {}
+
+
+def test_fleet_summary_variants(hass):
+    """Fleet tiles summarize each coordinator's cached status."""
+    from custom_components.moonraker.panel import _fleet_summary
+
+    coordinator = _panel_coordinator(
+        hass,
+        data={
+            "status": {
+                "print_stats": {"state": "printing", "filename": "job.gcode"},
+                "display_status": {"progress": 0.42},
+                "extruder": {"temperature": 210.0},
+                "heater_bed": {"temperature": 60.0},
+            }
+        },
+    )
+    summary = _fleet_summary(coordinator)
+    assert summary == {
+        "id": "printer-id",
+        "name": "Test Printer",
+        "available": True,
+        "state": "printing",
+        "progress": 0.42,
+        "hotend": 210.0,
+        "bed": 60.0,
+        "filename": "job.gcode",
+    }
+
+    coordinator.data = {"status": {"virtual_sdcard": {"progress": 0.5}}}
+    assert _fleet_summary(coordinator)["progress"] == 0.5
+    coordinator.data = {"status": {"display_status": {"progress": "bad"}}}
+    assert _fleet_summary(coordinator)["progress"] is None
+    coordinator.data = None
+    summary = _fleet_summary(coordinator)
+    assert summary["state"] is None
+    assert summary["progress"] is None
+
+
+async def test_panel_aux_fetches_spool_details(hass):
+    """An active Spoolman spool triggers a proxied detail lookup."""
+    from custom_components.moonraker.panel import _panel_aux_data
+
+    async def _fetch(method, params=None, quiet=False):
+        if method.value == "server.spoolman.status":
+            return {"spool_id": 12}
+        if method.value == "server.spoolman.proxy":
+            return {
+                "id": 12,
+                "remaining_weight": 100.0,
+                "filament": {"name": "PLA"},
+            }
+        return {}
+
+    coordinator = _panel_coordinator(
+        hass, async_fetch_data=AsyncMock(side_effect=_fetch)
+    )
+    aux = await _panel_aux_data(coordinator)
+    assert aux["spool_details"]["remaining_weight"] == 100.0
+    proxy_call = coordinator.async_fetch_data.await_args_list[-1]
+    assert proxy_call.args[0].value == "server.spoolman.proxy"
+    assert proxy_call.args[1] == {
+        "request_method": "GET",
+        "path": "/api/v1/spool/12",
+    }
+
+    # A non-dict proxy reply is discarded.
+    async def _bad_proxy(method, params=None, quiet=False):
+        if method.value == "server.spoolman.status":
+            return {"spool_id": 9}
+        if method.value == "server.spoolman.proxy":
+            return "broken"
+        return {}
+
+    coordinator = _panel_coordinator(
+        hass, async_fetch_data=AsyncMock(side_effect=_bad_proxy)
+    )
+    assert "spool_details" not in await _panel_aux_data(coordinator)
+
+
+async def test_panel_payload_fleet_bed_bounds_and_spool(hass):
+    """The payload exposes fleet summaries, bed bounds, and spool details."""
+    from custom_components.moonraker import MoonrakerDataUpdateCoordinator
+    from custom_components.moonraker.panel import _panel_payload
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="real")
+    real = MoonrakerDataUpdateCoordinator(
+        hass, client=MagicMock(), config_entry=config_entry, api_device_name="p"
+    )
+    real.data = {
+        "status": {
+            "print_stats": {"state": "printing", "filename": "job.gcode"},
+            "display_status": {"progress": 0.5},
+            "extruder": {"temperature": 200.0},
+            "heater_bed": {"temperature": 60.0},
+        }
+    }
+    hass.data.setdefault(DOMAIN, {})[config_entry.entry_id] = real
+
+    async def _fetch(method, params=None, quiet=False):
+        if method.value == "server.spoolman.status":
+            return {"spool_id": 3}
+        if method.value == "server.spoolman.proxy":
+            return {
+                "id": 3,
+                "remaining_weight": 50.0,
+                "filament": {"material": "PETG", "secret": "x"},
+            }
+        return {}
+
+    coordinator = _panel_coordinator(
+        hass,
+        async_fetch_data=AsyncMock(side_effect=_fetch),
+        async_get_config_settings=AsyncMock(
+            return_value={
+                "status": {
+                    "configfile": {"settings": {"stepper_x": {"position_max": 235.0}}}
+                }
+            }
+        ),
+    )
+
+    payload = await _panel_payload(hass, coordinator)
+    assert payload["bed_bounds"] == {"x": {"max": 235.0}}
+    assert payload["spool_details"]["filament"] == {"material": "PETG"}
+    assert payload["fleet"] == [
+        {
+            "id": "real",
+            "name": "p",
+            "available": real.last_update_success,
+            "state": "printing",
+            "progress": 0.5,
+            "hotend": 200.0,
+            "bed": 60.0,
+            "filename": "job.gcode",
+        }
+    ]
+
+    # A config-settings failure degrades to empty bounds.
+    coordinator.async_get_config_settings = AsyncMock(side_effect=UpdateFailed("down"))
+    payload2 = await _panel_payload(hass, coordinator)
+    assert payload2["bed_bounds"] == {}
+
+    hass.data[DOMAIN].pop("real")

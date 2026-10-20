@@ -197,6 +197,17 @@ async def _panel_aux_data(coordinator) -> dict[str, Any]:
             for key, result in zip(keys, results, strict=True)
             if isinstance(result, dict)
         }
+        spool_id = (aux.get("spoolman") or {}).get("spool_id")
+        if spool_id is not None:
+            details = await _fetch(
+                METHODS.SERVER_SPOOLMAN_PROXY,
+                {
+                    "request_method": "GET",
+                    "path": f"/api/v1/spool/{spool_id}",
+                },
+            )
+            if isinstance(details, dict):
+                aux["spool_details"] = details
         coordinator._panel_aux_cache = (time.monotonic(), aux)
         return aux
 
@@ -218,6 +229,81 @@ def _console_lines(coordinator, gcode_store) -> list[str]:
         else:
             lines.append(line)
     return lines[-300:]
+
+
+def _fleet_summary(coordinator) -> dict[str, Any]:
+    """Summarize a coordinator's cached state for the fleet strip."""
+    data = coordinator.data or {}
+    status = data.get("status") or {}
+    print_stats = status.get("print_stats") or {}
+    display = status.get("display_status") or {}
+    virtual = status.get("virtual_sdcard") or {}
+    progress = display.get("progress")
+    if not isinstance(progress, int | float):
+        progress = virtual.get("progress")
+    if not isinstance(progress, int | float):
+        progress = None
+    return {
+        "id": coordinator.config_entry.entry_id,
+        "name": coordinator.api_device_name,
+        "available": coordinator.last_update_success,
+        "state": print_stats.get("state"),
+        "progress": progress,
+        "hotend": (status.get("extruder") or {}).get("temperature"),
+        "bed": (status.get("heater_bed") or {}).get("temperature"),
+        "filename": print_stats.get("filename"),
+    }
+
+
+def _spool_details(spool) -> dict[str, Any]:
+    """Whitelist display-safe fields from a Spoolman spool record."""
+    if not isinstance(spool, dict):
+        return {}
+    filament = spool.get("filament")
+    filament = filament if isinstance(filament, dict) else {}
+    details = {
+        key: spool[key]
+        for key in (
+            "id",
+            "remaining_weight",
+            "used_weight",
+            "remaining_length",
+            "used_length",
+        )
+        if key in spool
+    }
+    details["filament"] = {
+        key: filament[key]
+        for key in ("name", "material", "vendor", "diameter", "density", "color_hex")
+        if key in filament
+    }
+    return details
+
+
+def _bed_bounds(settings_response) -> dict[str, dict[str, float]]:
+    """Extract axis travel limits from the cached configfile settings."""
+    status = (settings_response or {}).get("status")
+    if not isinstance(status, dict):
+        status = {}
+    configfile = status.get("configfile")
+    if not isinstance(configfile, dict):
+        configfile = {}
+    config = configfile.get("settings")
+    if not isinstance(config, dict):
+        config = {}
+    bounds = {}
+    for axis in ("x", "y", "z"):
+        section = config.get(f"stepper_{axis}")
+        if not isinstance(section, dict):
+            continue
+        axis_bounds = {
+            name: section[key]
+            for name, key in (("min", "position_min"), ("max", "position_max"))
+            if isinstance(section.get(key), int | float)
+        }
+        if axis_bounds:
+            bounds[axis] = axis_bounds
+    return bounds
 
 
 def _layer_info(data: dict[str, Any]) -> dict[str, int]:
@@ -318,6 +404,12 @@ async def _panel_payload(hass: HomeAssistant, coordinator) -> dict[str, Any]:
         )
         if key in raw_server_info
     }
+    try:
+        config_settings_response = await coordinator.async_get_config_settings()
+    except UpdateFailed:
+        config_settings_response = {}
+    except Exception:  # noqa: BLE001 - axis limits are optional for the panel
+        config_settings_response = {}
     entry_options = coordinator.config_entry.options
     tracked_objects = [
         {
@@ -341,7 +433,9 @@ async def _panel_payload(hass: HomeAssistant, coordinator) -> dict[str, Any]:
         "history": aux.get("history") or {},
         "queue": aux.get("queue") or {},
         "spoolman": aux.get("spoolman") or {},
+        "spool_details": _spool_details(aux.get("spool_details")),
         "machine_update": aux.get("machine_update") or {},
+        "bed_bounds": _bed_bounds(config_settings_response),
         "layers": _layer_info(data),
         "power_devices": power_devices,
         "macros": macros,
@@ -360,6 +454,7 @@ async def _panel_payload(hass: HomeAssistant, coordinator) -> dict[str, Any]:
             {"id": entry_id, "name": other.api_device_name}
             for entry_id, other in _coordinators(hass).items()
         ],
+        "fleet": [_fleet_summary(other) for other in _coordinators(hass).values()],
         "api_key_configured": bool(entry.data.get(CONF_API_KEY)),
         "settings": {
             "host": entry.data.get(CONF_URL),

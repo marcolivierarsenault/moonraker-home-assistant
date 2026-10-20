@@ -123,6 +123,7 @@ const MAX_TIMELAPSE_FRAMES = 400;
 const MAX_TIMELAPSE_BYTES = 64 * 1024 * 1024;
 let analysisFile = "";
 let displayPrefsKey = "";
+let retransmitHistory = [];
 
 function hassApi() {
   const api = window.hass;
@@ -639,6 +640,9 @@ function render(data) {
   setText("networkCameras", String((data.webcams || []).length));
   renderSettings(data);
   renderSystem(data, status, printState);
+  renderFleet(data);
+  renderHealth(data);
+  renderMaintenance(data);
   renderComponents(data);
   renderBedMesh(status);
   renderHardware(status);
@@ -1038,6 +1042,265 @@ function emptyElement(text) {
   element.className = "empty-state";
   element.textContent = text;
   return element;
+}
+
+function selectFleetPrinter(id) {
+  const select = byId("printerSel");
+  if (!select || !id || id === printer) return;
+  select.value = id;
+  switchPrinter();
+}
+
+function renderFleet(data) {
+  const strip = byId("fleetStrip");
+  if (!strip) return;
+  const label = byId("fleetLabel");
+  const fleet = Array.isArray(data.fleet) ? data.fleet : [];
+  const show = fleet.length > 1;
+  strip.hidden = !show;
+  if (label) label.hidden = !show;
+  if (!show) {
+    strip.replaceChildren();
+    return;
+  }
+  strip.replaceChildren();
+  fleet.forEach((member) => {
+    const tile = document.createElement("button");
+    tile.type = "button";
+    tile.className = `fleet-tile${
+      member.id === data.entry_id ? " active" : ""
+    }${member.available === false ? " bad" : ""}`;
+    const name = document.createElement("span");
+    name.className = "fleet-name";
+    name.textContent = member.name || "PRINTER";
+    const state = document.createElement("span");
+    state.className = "fleet-state";
+    const percent = Number.isFinite(Number(member.progress))
+      ? ` ${(Number(member.progress) * 100).toFixed(0)}%`
+      : "";
+    state.textContent =
+      member.available === false
+        ? "OFFLINE"
+        : `${String(member.state || "unknown").toUpperCase()}${percent}`;
+    const temps = document.createElement("span");
+    temps.className = "fleet-temps";
+    temps.textContent = `E ${fmt(member.hotend, 0)}° / B ${fmt(
+      member.bed,
+      0
+    )}°`;
+    tile.append(name, state, temps);
+    tile.addEventListener("click", () => selectFleetPrinter(member.id));
+    strip.appendChild(tile);
+  });
+}
+
+const HEALTH_PATTERNS = [
+  [/shutdown/i, "MCU SHUTDOWN LOGGED", "bad"],
+  [/lost communication with mcu/i, "MCU LINK LOST", "bad"],
+  [/timer too close/i, "TIMER TOO CLOSE", "warn"],
+  [/not heating at expected rate/i, "HEATER UNDERPERFORMING", "warn"],
+  [/move out of range/i, "MOVE OUT OF RANGE", "warn"],
+  [
+    /malformed command|unknown command|unknown pin|pin .* is not/i,
+    "COMMAND ERRORS",
+    "warn",
+  ],
+  [/temperature.*(exceed|too high|max)/i, "THERMAL ALERT LOGGED", "bad"],
+];
+
+function analyzePrinterHealth(data) {
+  const status = data.status || {};
+  const lines = Array.isArray(data.gcode_responses) ? data.gcode_responses : [];
+  let retransmit = 0;
+  let invalid = 0;
+  Object.keys(status).forEach((name) => {
+    if (!/^mcu/.test(name)) return;
+    const stats = status[name]?.last_stats || {};
+    retransmit += Number(stats.bytes_retransmit) || 0;
+    invalid += Number(stats.bytes_invalid) || 0;
+  });
+  retransmitHistory.push({ at: Date.now(), total: retransmit + invalid });
+  if (retransmitHistory.length > 60) retransmitHistory.shift();
+  let trend = "STABLE";
+  if (retransmitHistory.length >= 3) {
+    const first = retransmitHistory[0];
+    if (
+      retransmit + invalid > first.total &&
+      Date.now() - first.at < 10 * 60 * 1000
+    )
+      trend = "RISING";
+  }
+  const findings = [
+    {
+      severity: retransmit || invalid ? "warn" : "ok",
+      label: "MCU RETRANSMIT",
+      detail: `${retransmit} B / ${trend}`,
+    },
+  ];
+  HEALTH_PATTERNS.forEach(([regex, label, severity]) => {
+    const hits = lines.filter((line) => regex.test(line)).length;
+    if (hits) findings.push({ severity, label, detail: `${hits}x` });
+  });
+  if (!findings.some((finding) => finding.severity !== "ok"))
+    findings.push({
+      severity: "ok",
+      label: "NO CONSOLE FAULTS",
+      detail: "CLEAN",
+    });
+  return findings;
+}
+
+function drawRetransmitSpark() {
+  const canvas = byId("retransmitSpark");
+  const ctx = canvas?.getContext?.("2d");
+  if (!ctx) return;
+  const width = canvas.width || 600;
+  const height = canvas.height || 40;
+  ctx.clearRect(0, 0, width, height);
+  if (retransmitHistory.length < 2) {
+    ctx.fillStyle = "#4c745e";
+    ctx.font = "8px monospace";
+    ctx.fillText("COLLECTING RETRANSMIT SAMPLES", 8, height / 2 + 3);
+    return;
+  }
+  const values = retransmitHistory.map((point) => point.total);
+  const min = Math.min(...values);
+  const span = Math.max(1e-9, Math.max(...values) - min);
+  ctx.beginPath();
+  values.forEach((value, index) => {
+    const x = 8 + (index * (width - 16)) / Math.max(1, values.length - 1);
+    const y = height - 6 - ((value - min) / span) * (height - 12);
+    index ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  });
+  ctx.strokeStyle = "#39e8bd";
+  ctx.stroke();
+}
+
+function renderHealth(data) {
+  const findings = analyzePrinterHealth(data);
+  const container = byId("healthChips");
+  if (container) {
+    container.replaceChildren();
+    findings.forEach((finding) => {
+      const chip = document.createElement("span");
+      chip.className = `health-chip ${finding.severity}`;
+      const label = document.createElement("b");
+      label.textContent = finding.label;
+      const detail = document.createElement("span");
+      detail.textContent = finding.detail;
+      chip.append(label, detail);
+      container.appendChild(chip);
+    });
+  }
+  const worst = findings.some((finding) => finding.severity === "bad")
+    ? "FAULTS LOGGED"
+    : findings.some((finding) => finding.severity === "warn")
+    ? "WARNINGS"
+    : "CLEAN";
+  setText("healthSummary", worst);
+  drawRetransmitSpark();
+}
+
+const MAINTENANCE_DEFAULTS = [
+  { name: "NOZZLE", kind: "hours", limit: 500 * 3600 },
+  { name: "PTFE TUBE", kind: "hours", limit: 300 * 3600 },
+  { name: "BELT CHECK", kind: "hours", limit: 200 * 3600 },
+  { name: "LUBE RAILS", kind: "hours", limit: 100 * 3600 },
+  { name: "PTFE WEAR", kind: "filament", limit: 5000 },
+];
+
+function maintenanceStorageKey() {
+  return `nexusMaintV1.${printer || "default"}`;
+}
+
+function maintenanceItems(printSeconds, filamentMeters) {
+  let stored = null;
+  try {
+    stored = JSON.parse(
+      window.localStorage?.getItem(maintenanceStorageKey()) || "null"
+    );
+  } catch {
+    stored = null;
+  }
+  if (!Array.isArray(stored) || stored.length !== MAINTENANCE_DEFAULTS.length) {
+    stored = MAINTENANCE_DEFAULTS.map((item) => ({
+      ...item,
+      baseline: item.kind === "filament" ? filamentMeters : printSeconds,
+    }));
+    try {
+      window.localStorage?.setItem(
+        maintenanceStorageKey(),
+        JSON.stringify(stored)
+      );
+    } catch {
+      /* storage unavailable */
+    }
+  }
+  return stored;
+}
+
+function resetMaintenanceItem(index, printSeconds, filamentMeters) {
+  const items = maintenanceItems(printSeconds, filamentMeters);
+  const item = items[index];
+  if (!item) return;
+  item.baseline = item.kind === "filament" ? filamentMeters : printSeconds;
+  try {
+    window.localStorage?.setItem(
+      maintenanceStorageKey(),
+      JSON.stringify(items)
+    );
+  } catch {
+    /* storage unavailable */
+  }
+  renderMaintenance(latestData || {});
+}
+
+function renderMaintenance(data) {
+  const container = byId("maintenanceList");
+  if (!container) return;
+  const totals = (data.history || {}).job_totals || {};
+  const printSeconds =
+    Number(totals.total_print_time ?? totals.total_time) || 0;
+  const filamentMeters = (Number(totals.total_filament_used) || 0) / 1000;
+  const items = maintenanceItems(printSeconds, filamentMeters);
+  container.replaceChildren();
+  let dueCount = 0;
+  items.forEach((item, index) => {
+    const current = item.kind === "filament" ? filamentMeters : printSeconds;
+    const used = Math.max(0, current - (Number(item.baseline) || 0));
+    const remaining = Math.max(0, item.limit - used);
+    const due = remaining <= 0;
+    if (due) dueCount += 1;
+    const row = document.createElement("div");
+    row.className = `maint-row${due ? " due" : ""}`;
+    const name = document.createElement("span");
+    name.className = "maint-name";
+    name.textContent = item.name;
+    const track = document.createElement("div");
+    track.className = "maint-track";
+    const fill = document.createElement("i");
+    fill.style.width = `${Math.min(100, (used / item.limit) * 100)}%`;
+    track.appendChild(fill);
+    const remain = document.createElement("span");
+    remain.className = "maint-remain";
+    remain.textContent =
+      item.kind === "filament"
+        ? `${fmt(remaining, 0)} M LEFT`
+        : `${fmt(remaining / 3600, 0)} H LEFT`;
+    const reset = document.createElement("button");
+    reset.type = "button";
+    reset.className = "subtle";
+    reset.textContent = "RESET";
+    reset.addEventListener("click", () =>
+      resetMaintenanceItem(index, printSeconds, filamentMeters)
+    );
+    row.append(name, track, remain, reset);
+    container.appendChild(row);
+  });
+  setText(
+    "maintSummary",
+    dueCount ? `${dueCount} SERVICE${dueCount > 1 ? "S" : ""} DUE` : "ALL OK"
+  );
 }
 
 function resolveCameraAssignments(available, assignments, tileCount) {
@@ -1590,6 +1853,7 @@ function switchPrinter() {
   alertPrefsKey = "";
   extHist = [];
   bedHist = [];
+  retransmitHistory = [];
   renderToolpathStatus("WAITING FOR PRINTER DATA");
   refresh();
 }
@@ -3517,6 +3781,8 @@ async function loadFileAnalysis(filename) {
   analysisFile = filename || "";
   if (!filename) {
     card.hidden = true;
+    const verdict = byId("analysisVerdict");
+    if (verdict) verdict.hidden = true;
     if (empty) empty.hidden = false;
     setText("analysisStatus", "SELECT A FILE");
     setText("analysisName", "FILE ANALYSIS");
@@ -3547,6 +3813,8 @@ function renderFileAnalysis(meta) {
   const empty = byId("analysisEmpty");
   if (empty) empty.hidden = true;
   if (!meta || meta.error) {
+    const verdict = byId("analysisVerdict");
+    if (verdict) verdict.hidden = true;
     setText(
       "analysisStatus",
       meta?.error ? String(meta.error).toUpperCase() : "METADATA UNAVAILABLE"
@@ -3554,11 +3822,24 @@ function renderFileAnalysis(meta) {
     return;
   }
   const warnings = [];
+  const blockers = [];
   const status = latestData?.status || {};
   const axisMax = status.toolhead?.axis_maximum;
+  const bedBounds = latestData?.bed_bounds || {};
+  const xMax = Number.isFinite(bedBounds.x?.max)
+    ? bedBounds.x.max
+    : axisMax?.[0];
+  const yMax = Number.isFinite(bedBounds.y?.max)
+    ? bedBounds.y.max
+    : axisMax?.[1];
+  const zMax = Number.isFinite(bedBounds.z?.max)
+    ? bedBounds.z.max
+    : axisMax?.[2];
   const hasBounds = [meta.x_min, meta.x_max, meta.y_min, meta.y_max].every(
     (value) => Number.isFinite(Number(value))
   );
+  const spoolDetails = latestData?.spool_details || {};
+  const spoolFilament = spoolDetails.filament || {};
   const stats = [
     ["ESTIMATED TIME", duration(meta.estimated_time)],
     [
@@ -3587,6 +3868,25 @@ function renderFileAnalysis(meta) {
       }°`,
     ],
   ];
+  if (spoolFilament.name || spoolFilament.material) {
+    const spoolLabel = [
+      spoolFilament.vendor,
+      spoolFilament.name || spoolFilament.material,
+      spoolFilament.material && spoolFilament.name
+        ? `(${spoolFilament.material})`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    stats.push([
+      "ACTIVE SPOOL",
+      `${spoolLabel}${
+        Number.isFinite(Number(spoolDetails.remaining_weight))
+          ? ` · ${fmt(spoolDetails.remaining_weight, 0)} g LEFT`
+          : ""
+      }`,
+    ]);
+  }
   if (hasBounds) {
     stats.push([
       "OBJECT BOUNDS",
@@ -3596,16 +3896,23 @@ function renderFileAnalysis(meta) {
       )}–${fmt(meta.y_max, 0)}`,
     ]);
     if (
-      Number.isFinite(axisMax?.[0]) &&
-      (meta.x_min < -0.5 || meta.x_max > axisMax[0] + 0.5)
+      Number.isFinite(xMax) &&
+      (meta.x_min < -0.5 || meta.x_max > xMax + 0.5)
     ) {
-      warnings.push(`OBJECT EXCEEDS BED X RANGE (0–${fmt(axisMax[0], 0)} MM)`);
+      blockers.push(`OBJECT EXCEEDS BED X RANGE (0–${fmt(xMax, 0)} MM)`);
     }
     if (
-      Number.isFinite(axisMax?.[1]) &&
-      (meta.y_min < -0.5 || meta.y_max > axisMax[1] + 0.5)
+      Number.isFinite(yMax) &&
+      (meta.y_min < -0.5 || meta.y_max > yMax + 0.5)
     ) {
-      warnings.push(`OBJECT EXCEEDS BED Y RANGE (0–${fmt(axisMax[1], 0)} MM)`);
+      blockers.push(`OBJECT EXCEEDS BED Y RANGE (0–${fmt(yMax, 0)} MM)`);
+    }
+    if (
+      Number.isFinite(zMax) &&
+      Number.isFinite(Number(meta.object_height)) &&
+      Number(meta.object_height) > zMax + 0.5
+    ) {
+      blockers.push(`OBJECT EXCEEDS Z HEIGHT (MAX ${fmt(zMax, 0)} MM)`);
     }
   } else {
     warnings.push("OBJECT BOUNDS NOT REPORTED BY SLICER");
@@ -3613,25 +3920,86 @@ function renderFileAnalysis(meta) {
   if (!meta.has_thumbnail) warnings.push("NO EMBEDDED THUMBNAIL");
   if (!meta.layer_count) warnings.push("LAYER COUNT NOT REPORTED");
   if (!meta.estimated_time) warnings.push("PRINT TIME NOT ESTIMATED BY SLICER");
-  const spool = latestData?.spoolman || {};
-  const remaining = Number(
-    spool.remaining_filament ?? spool.filament_remaining
-  );
+  const remainingWeight = Number(spoolDetails.remaining_weight);
+  const neededWeight = Number(meta.filament_weight_total);
   if (
-    Number.isFinite(remaining) &&
-    Number.isFinite(Number(meta.filament_total)) &&
-    Number(meta.filament_total) > remaining
+    Number.isFinite(remainingWeight) &&
+    Number.isFinite(neededWeight) &&
+    neededWeight > 0
   ) {
-    warnings.push(
-      `FILAMENT ESTIMATE ${fmt(
-        meta.filament_total / 1000,
+    if (neededWeight > remainingWeight) {
+      blockers.push(
+        `NEEDS ${fmt(neededWeight, 0)} G BUT SPOOL HOLDS ${fmt(
+          remainingWeight,
+          0
+        )} G`
+      );
+    } else if (neededWeight > remainingWeight * 0.9) {
+      warnings.push(
+        `FILAMENT TIGHT — ${fmt(neededWeight, 0)} G OF ${fmt(
+          remainingWeight,
+          0
+        )} G REMAINING`
+      );
+    }
+  }
+  const remainingLength = Number(spoolDetails.remaining_length);
+  const neededLength = Number(meta.filament_total);
+  if (
+    !Number.isFinite(neededWeight) &&
+    Number.isFinite(remainingLength) &&
+    Number.isFinite(neededLength) &&
+    neededLength > remainingLength
+  ) {
+    blockers.push(
+      `NEEDS ${fmt(neededLength / 1000, 1)} M BUT SPOOL HOLDS ${fmt(
+        remainingLength / 1000,
         1
-      )} M EXCEEDS SPOOL REMAINING ${fmt(remaining / 1000, 1)} M`
+      )} M`
     );
+  }
+  const metaMaterial = String(meta.filament_type || "")
+    .trim()
+    .toUpperCase();
+  const spoolMaterial = String(spoolFilament.material || "")
+    .trim()
+    .toUpperCase();
+  if (
+    metaMaterial &&
+    spoolMaterial &&
+    !spoolMaterial.startsWith(metaMaterial) &&
+    !metaMaterial.startsWith(spoolMaterial)
+  ) {
+    blockers.push(
+      `MATERIAL MISMATCH — FILE WANTS ${metaMaterial}, SPOOL IS ${spoolMaterial}`
+    );
+  }
+  if (Number.isFinite(Number(meta.estimated_time)) && meta.estimated_time > 0) {
+    const finish = new Date(Date.now() + Number(meta.estimated_time) * 1000);
+    if (isQuietTime(finish.getHours() * 60 + finish.getMinutes())) {
+      warnings.push("PRINT FINISHES DURING QUIET HOURS");
+    }
+  }
+  const verdict = byId("analysisVerdict");
+  if (verdict) {
+    verdict.hidden = false;
+    verdict.classList.remove("ok-text", "warn-text", "bad-text");
+    if (blockers.length) {
+      verdict.textContent = "NO-GO";
+      verdict.classList.add("bad-text");
+    } else if (warnings.length) {
+      verdict.textContent = "CAUTION";
+      verdict.classList.add("warn-text");
+    } else {
+      verdict.textContent = "GO";
+      verdict.classList.add("ok-text");
+    }
   }
   setText(
     "analysisStatus",
-    `${meta.size ? `${(meta.size / 1048576).toFixed(1)} MB · ` : ""}READY`
+    `${meta.size ? `${(meta.size / 1048576).toFixed(1)} MB · ` : ""}${
+      blockers.length ? "BLOCKED" : "READY"
+    }`
   );
   const statsContainer = byId("analysisStats");
   if (statsContainer) {
@@ -3650,6 +4018,12 @@ function renderFileAnalysis(meta) {
   const warningsContainer = byId("analysisWarnings");
   if (warningsContainer) {
     warningsContainer.replaceChildren();
+    blockers.forEach((text) => {
+      const item = document.createElement("div");
+      item.className = "analysis-warning bad-text";
+      item.textContent = `⛔ ${text}`;
+      warningsContainer.appendChild(item);
+    });
     warnings.forEach((text) => {
       const item = document.createElement("div");
       item.className = "analysis-warning";
@@ -3993,6 +4367,7 @@ function cleanupPanel() {
   lastFiles = [];
   availableWebcams = [];
   sentCommandHistory = [];
+  retransmitHistory = [];
 }
 
 function handlePanelPageHide(event) {
