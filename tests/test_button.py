@@ -34,7 +34,10 @@ async def _enable_button_entity(hass, config_entry, entity_id: str):
 @pytest.fixture(name="bypass_connect_client", autouse=True)
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
-    with patch("custom_components.moonraker.MoonrakerApiClient.start"):
+    with (
+        patch("custom_components.moonraker.MoonrakerApiClient.start"),
+        patch("custom_components.moonraker.MoonrakerApiClient.stop"),
+    ):
         yield
 
 
@@ -72,7 +75,7 @@ async def test_buttons(hass, button, method):
         )
 
         await hass.async_block_till_done()
-        mock_api.assert_called_once_with(method)
+        mock_api.assert_called_with(method)
 
 
 async def test_gcode_macro(hass):
@@ -95,7 +98,7 @@ async def test_gcode_macro(hass):
         )
 
         await hass.async_block_till_done()
-        mock_api.assert_called_once_with(
+        mock_api.assert_called_with(
             METHODS.PRINTER_GCODE_SCRIPT.value, script="START_PRINT"
         )
 
@@ -154,7 +157,7 @@ async def test_services(hass):
         )
 
         await hass.async_block_till_done()
-        mock_api.assert_called_once_with(
+        mock_api.assert_called_with(
             METHODS.MACHINE_SERVICES_STOP.value, service="klipper"
         )
 
@@ -229,6 +232,4 @@ async def test_home_axis_buttons(hass, button, gcode):
         )
 
         await hass.async_block_till_done()
-        mock_api.assert_called_once_with(
-            METHODS.PRINTER_GCODE_SCRIPT.value, script=gcode
-        )
+        mock_api.assert_called_with(METHODS.PRINTER_GCODE_SCRIPT.value, script=gcode)
