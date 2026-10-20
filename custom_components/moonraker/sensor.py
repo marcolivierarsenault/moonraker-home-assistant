@@ -402,7 +402,7 @@ async def _fan_sensor_descriptions(coordinator, obj, key, name, speed_suffix="")
         METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
     )
 
-    if fan_data["status"][obj].get("rpm"):
+    if fan_data["status"].get(obj, {}).get("rpm") is not None:
         descs.append(
             MoonrakerSensorDescription(
                 key=f"{key}_rpm",
