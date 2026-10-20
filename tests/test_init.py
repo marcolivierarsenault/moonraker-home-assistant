@@ -1647,8 +1647,9 @@ class _Part:
         return self._text
 
 
-class _MultipartRequest:
-    def __init__(self, parts):
+class _MultipartRequest(dict):
+    def __init__(self, parts, is_admin=True):
+        super().__init__({"hass_user": SimpleNamespace(is_admin=is_admin)})
         self._parts = parts
 
     async def multipart(self):
@@ -1698,6 +1699,26 @@ async def test_gcode_upload_view(hass):
     ]
     response = await view.post(_MultipartRequest(parts))
     assert response.status == 502
+
+
+async def test_gcode_upload_view_requires_admin(hass):
+    """Non-admin users cannot upload G-code through the endpoint."""
+    from homeassistant.exceptions import Unauthorized
+
+    from custom_components.moonraker import MoonrakerGcodeUploadView
+
+    coordinator = MagicMock(spec=MoonrakerDataUpdateCoordinator)
+    coordinator.async_upload_gcode_data = AsyncMock()
+    hass.data[DOMAIN] = {"p": coordinator}
+
+    view = MoonrakerGcodeUploadView(hass)
+    parts = [
+        _Part("file", filename="part.gcode", data=b"G28"),
+        _Part("printer", text="p"),
+    ]
+    with pytest.raises(Unauthorized):
+        await view.post(_MultipartRequest(parts, is_admin=False))
+    coordinator.async_upload_gcode_data.assert_not_called()
 
 
 async def test_resolve_entry_ids_variants(hass):

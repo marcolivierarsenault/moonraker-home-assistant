@@ -648,8 +648,8 @@ test("panel markup exposes the camera layouts, dashboard camera popup, wide cons
   assert.match(html, /id="systemPrinterState"/);
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(([, id]) => id);
   assert.deepEqual(ids.filter((id, index) => ids.indexOf(id) !== index), []);
-  assert.match(html, /\.toolpath-box\s*\{[^}]*height:\s*clamp\(280px,44vh,560px\)/);
-  assert.match(html, /@media \(max-width: 720px\)[\s\S]*\.toolpath-box \{ height: clamp\(260px,52vh,420px\)/);
+  assert.match(html, /\.toolpath-box\s*\{[^}]*height:\s*clamp\(280px,\s*44vh,\s*560px\)/);
+  assert.match(html, /@media \(max-width: 720px\)[\s\S]*\.toolpath-box\s*\{\s*height:\s*clamp\(260px,\s*52vh,\s*420px\)/);
 });
 
 test("custom panel sizes its iframe to the available viewport and responds to resize", () => {

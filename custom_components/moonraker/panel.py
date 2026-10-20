@@ -13,7 +13,7 @@ import voluptuous as vol
 from aiohttp import web
 
 from homeassistant.components import websocket_api
-from homeassistant.components.http import HomeAssistantView
+from homeassistant.components.http import HomeAssistantView, require_admin
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import UpdateFailed
@@ -801,6 +801,7 @@ class MoonrakerPanelActionView(_PanelViewBase):
     url = PANEL_ACTION_URL
     name = "api:moonraker:panel_action"
 
+    @require_admin
     async def post(self, request):
         """Handle a JSON action payload."""
         try:

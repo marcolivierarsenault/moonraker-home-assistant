@@ -12,7 +12,7 @@ from typing import Any
 
 import aiohttp
 import async_timeout
-from homeassistant.components.http import HomeAssistantView
+from homeassistant.components.http import HomeAssistantView, require_admin
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
@@ -83,6 +83,7 @@ class MoonrakerGcodeUploadView(HomeAssistantView):
             if isinstance(coordinator, MoonrakerDataUpdateCoordinator)
         }
 
+    @require_admin
     async def post(self, request):
         """Handle the uploaded file and forward it to Moonraker."""
         entry_id = None

@@ -762,8 +762,16 @@ async def test_thumbnail_view(hass):
     assert "dir/t.png" in session.get.call_args.args[0]
 
 
-async def _post_action(view, payload):
-    request = SimpleNamespace()
+class _ActionRequest(dict):
+    """Request double carrying hass_user for the admin gate."""
+
+    def __init__(self, is_admin=True):
+        super().__init__({"hass_user": SimpleNamespace(is_admin=is_admin)})
+        self.json = AsyncMock()
+
+
+async def _post_action(view, payload, is_admin=True):
+    request = _ActionRequest(is_admin=is_admin)
     request.json = AsyncMock(return_value=payload)
     return await view.post(request)
 
@@ -778,7 +786,7 @@ async def test_action_view_request_handling(hass):
     """The action endpoint validates JSON, printers, and action failures."""
     view = MoonrakerPanelActionView(hass)
 
-    request = SimpleNamespace()
+    request = _ActionRequest()
     request.json = AsyncMock(side_effect=ValueError("bad"))
     response = await view.post(request)
     assert response.status == 400
@@ -801,6 +809,18 @@ async def test_action_view_request_handling(hass):
     response = await _post_action(view, {"action": "pause", "entry_id": "p"})
     assert response.status == 200
     coordinator.async_send_data.assert_awaited_once()
+
+
+async def test_action_view_requires_admin(hass):
+    """Non-admin users cannot issue printer-control actions."""
+    from homeassistant.exceptions import Unauthorized
+
+    coordinator = _panel_coordinator(hass)
+    view = view_for(MoonrakerPanelActionView(MagicMock()), coordinator)
+
+    with pytest.raises(Unauthorized):
+        await _post_action(view, {"action": "pause", "entry_id": "p"}, is_admin=False)
+    coordinator.async_send_data.assert_not_called()
 
 
 @pytest.mark.parametrize(

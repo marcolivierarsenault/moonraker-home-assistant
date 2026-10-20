@@ -5,7 +5,8 @@ class MoonrakerControlPanel extends HTMLElement {
     this._frame = document.createElement("iframe");
     this._frame.title = "Moonraker printer control deck";
     this._frame.setAttribute("loading", "eager");
-    this._frame.style.cssText = "position:absolute;inset:0;display:block;width:100%;height:100%;border:0";
+    this._frame.style.cssText =
+      "position:absolute;inset:0;display:block;width:100%;height:100%;border:0";
     this._frame.addEventListener("load", () => this._syncHass());
     this._resizeHandler = () => this._resizeToViewport();
     this._root.append(this._frame);
@@ -48,7 +49,7 @@ class MoonrakerControlPanel extends HTMLElement {
   _resizeToViewport() {
     const viewportHeight = Math.min(
       window.innerHeight,
-      window.visualViewport?.height || window.innerHeight,
+      window.visualViewport?.height || window.innerHeight
     );
     const top = Math.max(0, this.getBoundingClientRect().top);
     this.style.height = `${Math.max(320, Math.floor(viewportHeight - top))}px`;

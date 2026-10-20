@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from homeassistant.components.select.const import DOMAIN as SELECT_DOMAIN
-from homeassistant.const import ATTR_ENTITY_ID, ATTR_OPTION, SERVICE_SELECT_OPTION
+from homeassistant.const import ATTR_ENTITY_ID, ATTR_OPTION
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.moonraker.const import DOMAIN
@@ -44,7 +44,7 @@ async def test_file_select(hass):
 
     await hass.services.async_call(
         SELECT_DOMAIN,
-        SERVICE_SELECT_OPTION,
+        "select_option",
         {ATTR_ENTITY_ID: "select.mainsail_print_file", ATTR_OPTION: "a.gcode"},
         blocking=True,
     )
