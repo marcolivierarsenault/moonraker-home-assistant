@@ -198,6 +198,7 @@ let timelapseFrames = [];
 let timelapseBytes = 0;
 let timelapseAbort = null;
 let timelapseGeneration = 0;
+let timelapseViewCamera = "";
 const MAX_TIMELAPSE_FRAMES = 400;
 const MAX_TIMELAPSE_BYTES = 64 * 1024 * 1024;
 let analysisFile = "";
@@ -2865,6 +2866,10 @@ function bindInteractions() {
       renderCamera(availableWebcams);
       renderDashboardCameraConfig();
     }
+    if (target.id === "tlCamera") {
+      timelapseViewCamera = target.value === "*" ? "*" : target.value;
+      renderTimelapseStatus();
+    }
     if (target.id === "fileSel") {
       selectedFile = target.value;
       loadFileAnalysis(selectedFile);
@@ -4649,14 +4654,20 @@ function renderFileAnalysis(meta) {
   }
 }
 
+function timelapseCameras() {
+  const cameras = dashboardCameraAssignments
+    .filter(Boolean)
+    .map((name) =>
+      availableWebcams.find((candidate) => candidate.name === name)
+    )
+    .filter((camera) => camera?.snapshot_url);
+  if (cameras.length) return cameras;
+  const fallback = availableWebcams.find((candidate) => candidate.snapshot_url);
+  return fallback ? [fallback] : [];
+}
+
 function timelapseCamera() {
-  for (const name of dashboardCameraAssignments.filter(Boolean)) {
-    const camera = availableWebcams.find(
-      (candidate) => candidate.name === name
-    );
-    if (camera?.snapshot_url) return camera;
-  }
-  return availableWebcams.find((candidate) => candidate.snapshot_url) || null;
+  return timelapseCameras()[0] || null;
 }
 
 function maybeTimelapse(data, currentLayer) {
@@ -4677,51 +4688,69 @@ function maybeTimelapse(data, currentLayer) {
 }
 
 async function captureTimelapseFrame() {
-  const camera = timelapseCamera();
-  if (!camera || timelapseAbort) return;
+  const cameras = timelapseCameras();
+  if (!cameras.length || timelapseAbort) return;
   const controller = new AbortController();
   const generation = timelapseGeneration;
   timelapseAbort = controller;
+  const headPosition = currentToolheadPosition();
+  const entry = {
+    layer: liveLayer,
+    z: headPosition ? headPosition[2] : null,
+    shots: {},
+    size: 0,
+  };
   try {
-    const response = await hassApi().fetchWithAuth(
-      API.snapshot(printer, camera.name),
-      { signal: controller.signal }
-    );
-    if (!response?.ok) return;
-    const contentLength = Number(response.headers?.get?.("Content-Length"));
-    if (contentLength > MAX_TIMELAPSE_BYTES) {
-      await response.body?.cancel?.();
-      return;
+    for (const camera of cameras) {
+      if (generation !== timelapseGeneration) return;
+      try {
+        const response = await hassApi().fetchWithAuth(
+          API.snapshot(printer, camera.name),
+          { signal: controller.signal }
+        );
+        if (!response?.ok) continue;
+        const contentLength = Number(response.headers?.get?.("Content-Length"));
+        if (contentLength > MAX_TIMELAPSE_BYTES) {
+          await response.body?.cancel?.();
+          continue;
+        }
+        const blob = await response.blob();
+        if (!blob.size || blob.size > MAX_TIMELAPSE_BYTES) continue;
+        const url = URL.createObjectURL(blob);
+        entry.shots[camera.name] = { url, size: blob.size };
+        entry.size += blob.size;
+      } catch {
+        /* camera snapshot optional */
+      }
     }
-    const blob = await response.blob();
-    if (
-      !blob.size ||
-      blob.size > MAX_TIMELAPSE_BYTES ||
-      generation !== timelapseGeneration
-    )
-      return;
-    const url = URL.createObjectURL(blob);
-    const headPosition = currentToolheadPosition();
-    timelapseFrames.push({
-      layer: liveLayer,
-      z: headPosition ? headPosition[2] : null,
-      url,
-      size: blob.size,
-    });
-    timelapseBytes += blob.size;
-    while (
-      timelapseFrames.length > MAX_TIMELAPSE_FRAMES ||
-      timelapseBytes > MAX_TIMELAPSE_BYTES
-    ) {
-      const oldest = timelapseFrames.shift();
-      URL.revokeObjectURL(oldest.url);
-      timelapseBytes -= oldest.size;
-    }
+    if (generation !== timelapseGeneration) return;
+    if (!Object.keys(entry.shots).length) return;
+    timelapseFrames.push(entry);
+    timelapseBytes += entry.size;
+    evictTimelapseFrames();
     renderTimelapseStatus(true);
-  } catch {
-    /* camera snapshot optional */
   } finally {
     if (timelapseAbort === controller) timelapseAbort = null;
+    if (!timelapseFrames.includes(entry)) revokeTimelapseEntry(entry);
+  }
+}
+
+function revokeTimelapseEntry(entry) {
+  if (!entry) return;
+  for (const shot of Object.values(entry.shots || {})) {
+    URL.revokeObjectURL(shot.url);
+  }
+  if (entry.url) URL.revokeObjectURL(entry.url);
+}
+
+function evictTimelapseFrames() {
+  while (
+    timelapseFrames.length > MAX_TIMELAPSE_FRAMES ||
+    timelapseBytes > MAX_TIMELAPSE_BYTES
+  ) {
+    const oldest = timelapseFrames.shift();
+    revokeTimelapseEntry(oldest);
+    timelapseBytes -= oldest.size || 0;
   }
 }
 
@@ -4742,6 +4771,24 @@ function syncTimelapseToScrub() {
   renderTimelapseFrame();
 }
 
+function timelapseShotNames() {
+  const names = [];
+  for (const entry of timelapseFrames) {
+    for (const name of Object.keys(entry.shots || {})) {
+      if (!names.includes(name)) names.push(name);
+    }
+  }
+  return names;
+}
+
+function timelapseEntryShot(entry) {
+  const shots = entry?.shots || {};
+  if (timelapseViewCamera && shots[timelapseViewCamera]) {
+    return shots[timelapseViewCamera];
+  }
+  return Object.values(shots)[0] || (entry?.url ? entry : null);
+}
+
 function renderTimelapseStatus(showLatest = false) {
   const count = timelapseFrames.length;
   setText("tlStatus", `${count} FRAME${count === 1 ? "" : "S"}`);
@@ -4751,24 +4798,72 @@ function renderTimelapseStatus(showLatest = false) {
     scrub.max = Math.max(0, count - 1);
     if (showLatest || !count) scrub.value = Math.max(0, count - 1);
   }
+  const cameraSelect = byId("tlCamera");
+  if (cameraSelect) {
+    const names = timelapseShotNames();
+    cameraSelect.hidden = names.length < 2;
+    if (!names.includes(timelapseViewCamera) && timelapseViewCamera !== "*") {
+      timelapseViewCamera = names[0] || "";
+    }
+    const wanted = [...names, "*"];
+    const existing = Array.from(cameraSelect.options || []).map(
+      (option) => option.value
+    );
+    if (JSON.stringify(existing) !== JSON.stringify(wanted)) {
+      cameraSelect.replaceChildren();
+      for (const name of wanted) {
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name === "*" ? "GRID" : name;
+        cameraSelect.appendChild(option);
+      }
+    }
+    cameraSelect.value = timelapseViewCamera || names[0] || "*";
+  }
   const empty = byId("tlEmpty");
   if (empty) empty.hidden = count > 0;
   const frame = byId("tlFrame");
-  if (frame) frame.hidden = !count;
+  if (frame) frame.hidden = !count || timelapseViewCamera === "*";
+  const gridView = byId("tlGrid");
+  if (gridView) gridView.hidden = !(count && timelapseViewCamera === "*");
   if (count) renderTimelapseFrame();
 }
 
 function renderTimelapseFrame() {
   const scrub = byId("tlScrub");
   const frame = byId("tlFrame");
-  if (!frame || !timelapseFrames.length) return;
+  const gridView = byId("tlGrid");
+  if (!timelapseFrames.length) return;
   const index = Math.min(
     Math.max(Number(scrub?.value) || 0, 0),
     timelapseFrames.length - 1
   );
   const entry = timelapseFrames[index];
-  if (frame.getAttribute("src") !== entry.url) frame.src = entry.url;
-  frame.hidden = false;
+  if (gridView && timelapseViewCamera === "*") {
+    gridView.replaceChildren();
+    for (const [name, shot] of Object.entries(entry.shots || {})) {
+      const cell = document.createElement("div");
+      cell.className = "tl-grid-cell";
+      const label = document.createElement("span");
+      label.className = "tl-grid-name";
+      label.textContent = name;
+      const image = document.createElement("img");
+      image.src = shot.url;
+      image.alt = `Timelapse frame ${name}`;
+      cell.append(image, label);
+      gridView.appendChild(cell);
+    }
+    gridView.hidden = false;
+  }
+  if (frame) {
+    const shot = timelapseEntryShot(entry);
+    if (shot) {
+      if (frame.getAttribute("src") !== shot.url) frame.src = shot.url;
+      frame.hidden = timelapseViewCamera === "*";
+    } else {
+      frame.hidden = true;
+    }
+  }
   setText(
     "tlLayer",
     entry.layer != null ? `LAYER ${entry.layer}` : `FRAME ${index + 1}`
@@ -4781,12 +4876,18 @@ function clearTimelapse() {
     timelapseAbort.abort();
     timelapseAbort = null;
   }
-  while (timelapseFrames.length) URL.revokeObjectURL(timelapseFrames.pop().url);
+  while (timelapseFrames.length) revokeTimelapseEntry(timelapseFrames.pop());
   timelapseBytes = 0;
+  timelapseViewCamera = "";
   const frame = byId("tlFrame");
   if (frame) {
     frame.removeAttribute("src");
     frame.hidden = true;
+  }
+  const gridView = byId("tlGrid");
+  if (gridView) {
+    gridView.replaceChildren();
+    gridView.hidden = true;
   }
   renderTimelapseStatus();
 }

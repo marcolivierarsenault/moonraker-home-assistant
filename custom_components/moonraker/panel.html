@@ -1440,6 +1440,30 @@
         aspect-ratio: 16 / 9;
         object-fit: contain;
       }
+      .tl-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px;
+      }
+      .tl-grid img {
+        width: 100%;
+        display: block;
+        border: 1px solid var(--line);
+        background: #030b08;
+        aspect-ratio: 16 / 9;
+        object-fit: contain;
+      }
+      .tl-grid .tl-grid-name {
+        position: absolute;
+        padding: 1px 4px;
+        font: 7px var(--mono);
+        letter-spacing: 0.08em;
+        color: var(--amber);
+        background: rgba(3, 11, 8, 0.75);
+      }
+      .tl-grid .tl-grid-cell {
+        position: relative;
+      }
       body.large-touch button,
       body.large-touch select,
       body.large-touch input {
@@ -3181,6 +3205,12 @@
                     alt="Timelapse frame"
                     hidden
                   />
+                  <div
+                    id="tlGrid"
+                    class="tl-grid"
+                    hidden
+                    aria-label="Timelapse multi-camera grid"
+                  ></div>
                   <div class="empty-state" id="tlEmpty">
                     FRAMES ARE CAPTURED ON EACH LAYER CHANGE WHILE PRINTING
                   </div>
@@ -3195,6 +3225,12 @@
                   />
                   <div class="row-between">
                     <span class="micro" id="tlStatus">0 FRAMES</span
+                    ><select
+                      id="tlCamera"
+                      class="input micro"
+                      aria-label="Timelapse camera"
+                      hidden
+                    ></select
                     ><span class="micro" id="tlLayer">—</span>
                   </div>
                 </article>

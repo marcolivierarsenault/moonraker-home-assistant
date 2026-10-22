@@ -96,6 +96,10 @@ class FakeElement {
     this.append(...nodes);
   }
 
+  get options() {
+    return this.children.filter((child) => child.tagName === "OPTION");
+  }
+
   addEventListener(type, callback) {
     this.listeners[type] = callback;
   }
@@ -1468,9 +1472,9 @@ test("toolpath scrubber syncs the timelapse frame to the scrubbed layer", () => 
   const { context, document } = createPanelClient();
   vm.runInContext(
     `timelapseFrames = [
-      { layer: 2, z: 0.4, url: "blob:a", size: 10 },
-      { layer: 8, z: 1.6, url: "blob:b", size: 10 },
-      { layer: 20, z: 4.0, url: "blob:c", size: 10 }
+      { layer: 2, z: 0.4, shots: { Front: { url: "blob:a", size: 10 } }, size: 10 },
+      { layer: 8, z: 1.6, shots: { Front: { url: "blob:b", size: 10 } }, size: 10 },
+      { layer: 20, z: 4.0, shots: { Front: { url: "blob:c", size: 10 } }, size: 10 }
     ];
     scrubZ = 1.55;`,
     context
@@ -1479,6 +1483,70 @@ test("toolpath scrubber syncs the timelapse frame to the scrubbed layer", () => 
   const scrub = document.getElementById("tlScrub");
   assert.equal(Number(scrub.value), 1);
   assert.equal(document.getElementById("tlFrame").src, "blob:b");
+});
+
+test("timelapse captures every assigned camera and replays per camera or grid", async () => {
+  const { context, document, window } = createPanelClient();
+  let objectUrlIndex = 0;
+  context.AbortController = AbortController;
+  context.URL = {
+    createObjectURL: () => `blob:shot-${++objectUrlIndex}`,
+    revokeObjectURL: () => {},
+  };
+  const requests = [];
+  window.hass = {
+    callApi: async () => ({}),
+    fetchWithAuth: async (url) => {
+      requests.push(url);
+      return {
+        ok: true,
+        headers: { get: () => null },
+        blob: async () => ({ size: 1024 }),
+      };
+    },
+  };
+  vm.runInContext(
+    `printer = "p";
+    availableWebcams = [
+      { name: "Front", snapshot_url: "/front" },
+      { name: "Side", snapshot_url: "/side" },
+      { name: "Unused", snapshot_url: "/unused" }
+    ];
+    dashboardCameraAssignments = ["Front", "Side"];
+    liveLayer = 3;`,
+    context
+  );
+  await context.captureTimelapseFrame();
+  assert.equal(requests.length, 2);
+  assert.ok(requests.some((url) => url.includes("Front")));
+  assert.ok(requests.some((url) => url.includes("Side")));
+  assert.equal(vm.runInContext("timelapseFrames.length", context), 1);
+  assert.equal(
+    vm.runInContext("Object.keys(timelapseFrames[0].shots).length", context),
+    2
+  );
+
+  const cameraSelect = document.getElementById("tlCamera");
+  assert.equal(cameraSelect.hidden, false);
+  assert.deepEqual(
+    cameraSelect.options.map((option) => option.value),
+    ["Front", "Side", "*"]
+  );
+
+  vm.runInContext('timelapseViewCamera = "Side"', context);
+  context.renderTimelapseFrame();
+  assert.equal(document.getElementById("tlFrame").src, "blob:shot-2");
+
+  vm.runInContext('timelapseViewCamera = "*"', context);
+  context.renderTimelapseStatus();
+  const grid = document.getElementById("tlGrid");
+  assert.equal(grid.hidden, false);
+  assert.equal(grid.children.length, 2);
+  assert.equal(document.getElementById("tlFrame").hidden, true);
+
+  context.clearTimelapse();
+  assert.equal(vm.runInContext("timelapseFrames.length", context), 0);
+  assert.equal(vm.runInContext('timelapseViewCamera === ""', context), true);
 });
 
 test("completion card shows estimate delta, live photo, and gated reprint", async () => {
