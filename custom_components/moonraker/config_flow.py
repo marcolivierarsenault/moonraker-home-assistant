@@ -15,6 +15,7 @@ from homeassistant.util import network, slugify
 
 from .api import MoonrakerApiClient
 from .const import (
+    CONF_OPTION_AI_TASK_ENTITY,
     CONF_OPTION_AMBIENT_SENSOR,
     CONF_OPTION_ENERGY_RATE,
     CONF_OPTION_MAX_FLOW,
@@ -22,6 +23,7 @@ from .const import (
     CONF_OPTION_POWER_OFF_DELAY,
     CONF_OPTION_POWER_OFF_MAX_TEMP,
     CONF_OPTION_POWER_SENSOR,
+    CONF_OPTION_VISION_CAMERA,
     CONF_OPTION_POWER_SWITCH,
     DEFAULT_MAX_FLOW_MM3,
     DEFAULT_POWER_OFF_DELAY_MIN,
@@ -292,6 +294,26 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                             domain="sensor",
                             device_class=SensorDeviceClass.TEMPERATURE,
                         )
+                    ),
+                    vol.Optional(
+                        CONF_OPTION_AI_TASK_ENTITY,
+                        description={
+                            "suggested_value": self.config_entry.options.get(
+                                CONF_OPTION_AI_TASK_ENTITY
+                            )
+                        },
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain="ai_task")
+                    ),
+                    vol.Optional(
+                        CONF_OPTION_VISION_CAMERA,
+                        description={
+                            "suggested_value": self.config_entry.options.get(
+                                CONF_OPTION_VISION_CAMERA
+                            )
+                        },
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain="camera")
                     ),
                 }
             ),

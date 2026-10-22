@@ -8,6 +8,7 @@ persisted through Home Assistant's Store.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import math
 import re
@@ -23,6 +24,7 @@ from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.storage import Store
 
 from .const import (
+    CONF_OPTION_AI_TASK_ENTITY,
     CONF_OPTION_AMBIENT_SENSOR,
     CONF_OPTION_ENERGY_RATE,
     CONF_OPTION_MAX_FLOW,
@@ -31,6 +33,7 @@ from .const import (
     CONF_OPTION_POWER_OFF_MAX_TEMP,
     CONF_OPTION_POWER_SENSOR,
     CONF_OPTION_POWER_SWITCH,
+    CONF_OPTION_VISION_CAMERA,
     DEFAULT_MAX_FLOW_MM3,
     DEFAULT_POWER_OFF_DELAY_MIN,
     DEFAULT_POWER_OFF_MAX_TEMP,
@@ -67,6 +70,24 @@ AMBIENT_COLD_C = 18.0
 VELOCITY_OVER_LIMIT_RATIO = 1.15
 VELOCITY_OVER_LIMIT_SAMPLES = 3
 SPOOL_SHORT_RATIO = 1.05
+VISION_INTERVAL_SECONDS = 300
+VISION_TASK_NAME = "moonraker print check"
+CHECKPOINT_INTERVAL_SECONDS = 60
+CHECKPOINT_LIMIT = 40
+CHECKPOINT_KEPT_ON_RECORD = 5
+
+_SPAGHETTI_PROMPT = (
+    "Look at this 3D printer camera frame. If the print shows obvious "
+    "failure signs — spaghetti plastic, detached parts, the nozzle dragging "
+    "a loose object, or nothing on the bed — answer FAIL. If the print looks "
+    "normal or you cannot tell, answer OK. Reply with exactly one word."
+)
+_FIRST_LAYER_PROMPT = (
+    "Look at this 3D printer camera frame taken right after the first "
+    "layer. If the first layer shows obvious adhesion gaps, bare spots, or "
+    "the nozzle printing in mid-air, answer FAIL. Otherwise answer OK. "
+    "Reply with exactly one word."
+)
 
 # Approximate slicer material profiles: nozzle/bed target ranges in °C and
 # whether a warm enclosure is expected.
@@ -172,6 +193,14 @@ class MoonrakerAnalyzer:
             or DEFAULT_POWER_OFF_MAX_TEMP
         )
         self.ambient_sensor = str(options.get(CONF_OPTION_AMBIENT_SENSOR) or "")
+        self.ai_task_entity = str(options.get(CONF_OPTION_AI_TASK_ENTITY) or "")
+        self.vision_camera = str(options.get(CONF_OPTION_VISION_CAMERA) or "")
+        self._last_vision_check: float | None = None
+        self._vision_task: asyncio.Task | None = None
+        self._vision_alerts: list[dict[str, str]] = []
+        self._first_layer_checked_for: str | None = None
+        self.checkpoints: deque[dict[str, Any]] = deque(maxlen=CHECKPOINT_LIMIT)
+        self._last_checkpoint_at: float | None = None
         self._heatup_active: dict[str, dict[str, float]] = {}
         self._heatup_history: dict[str, list[float]] = {}
         self._over_limit_samples = 0
@@ -235,6 +264,12 @@ class MoonrakerAnalyzer:
                     record for record in history if isinstance(record, dict)
                 ][-PRINT_HISTORY_LIMIT:]
             self.total_kwh = _finite_number(stored.get("total_kwh")) or 0.0
+            checkpoints = stored.get("checkpoints")
+            if isinstance(checkpoints, list):
+                self.checkpoints = deque(
+                    [point for point in checkpoints if isinstance(point, dict)],
+                    maxlen=CHECKPOINT_LIMIT,
+                )
             heatup = stored.get("heatup_history")
             if isinstance(heatup, dict):
                 self._heatup_history = {
@@ -271,6 +306,7 @@ class MoonrakerAnalyzer:
                     "print_history": self.print_history[-PRINT_HISTORY_LIMIT:],
                     "total_kwh": round(self.total_kwh, 6),
                     "heatup_history": self._heatup_history,
+                    "checkpoints": list(self.checkpoints),
                 }
             )
         except Exception:  # noqa: BLE001 - persistence failure is non-fatal
@@ -285,6 +321,9 @@ class MoonrakerAnalyzer:
             self._power_off_unsub()
             self._power_off_unsub = None
             self._power_off_armed = False
+        if self._vision_task is not None and not self._vision_task.done():
+            self._vision_task.cancel()
+            self._vision_task = None
         if self._store_dirty:
             await self._async_save()
 
@@ -321,6 +360,9 @@ class MoonrakerAnalyzer:
         findings.extend(self._analyze_kinematics(status))
         self._track_energy(status, now)
         self._track_print_state(status, now, findings)
+        self._track_checkpoints(status, now)
+        self._maybe_schedule_vision(status, now)
+        findings.extend(self._vision_alerts)
         self.findings = findings
         self._sync_repairs()
 
@@ -829,6 +871,11 @@ class MoonrakerAnalyzer:
             if self._prev_print_state != "paused":
                 self._print_started_at = now
                 self._print_faults = set()
+                self._vision_alerts = []
+                self._first_layer_checked_for = None
+                self._last_vision_check = None
+                self.checkpoints.clear()
+                self._last_checkpoint_at = None
                 self._dispatch_print_event("print_started", filename)
             else:
                 self._dispatch_print_event("print_resumed", filename)
@@ -869,6 +916,7 @@ class MoonrakerAnalyzer:
             "print_completed": "Print completed",
             "print_cancelled": "Print cancelled",
             "print_error": "Print error",
+            "vision_alert": "Print problem detected",
         }
         title = titles.get(event_type, "Printer event")
         data: dict[str, Any] = {"title": title, "message": f"{title}: {filename}"}
@@ -887,6 +935,113 @@ class MoonrakerAnalyzer:
             await self.hass.services.async_call("notify", self.notify_service, data)
         except Exception:  # noqa: BLE001 - notify targets can disappear
             _LOGGER.debug("Notify service %s unavailable", self.notify_service)
+
+    # -- vision checks + recovery checkpoints ----------------------------------
+
+    def _vision_enabled(self) -> bool:
+        """Vision checks need both an ai_task entity and a camera to attach."""
+        return bool(self.ai_task_entity and self.vision_camera)
+
+    def _maybe_schedule_vision(self, status: dict[str, Any], now: float) -> None:
+        """Kick off periodic and first-layer vision checks while printing."""
+        print_stats = status.get("print_stats") or {}
+        if not self._vision_enabled() or print_stats.get("state") != "printing":
+            return
+        if self._vision_task is not None and not self._vision_task.done():
+            return
+        filename = str(print_stats.get("filename") or "")
+        info = print_stats.get("info") or {}
+        current_layer = _finite_number(info.get("current_layer"))
+        if (
+            current_layer is not None
+            and current_layer >= 2
+            and self._first_layer_checked_for != filename
+        ):
+            self._first_layer_checked_for = filename
+            self._last_vision_check = now
+            self._vision_task = self.hass.async_create_task(
+                self._async_vision_check("first_layer", _FIRST_LAYER_PROMPT)
+            )
+            return
+        if (
+            self._last_vision_check is None
+            or now - self._last_vision_check >= VISION_INTERVAL_SECONDS
+        ):
+            self._last_vision_check = now
+            self._vision_task = self.hass.async_create_task(
+                self._async_vision_check("spaghetti", _SPAGHETTI_PROMPT)
+            )
+
+    async def _async_vision_check(self, kind: str, prompt: str) -> None:
+        """Ask the configured ai_task entity to judge the camera frame."""
+        try:
+            response = await self.hass.services.async_call(
+                "ai_task",
+                "generate_data",
+                {
+                    "task_name": VISION_TASK_NAME,
+                    "instructions": prompt,
+                    "entity_id": self.ai_task_entity,
+                    "attachments": {
+                        "media_content_id": (
+                            f"media-source://camera/{self.vision_camera}"
+                        ),
+                        "media_content_type": "image/jpeg",
+                    },
+                },
+                blocking=True,
+                return_response=True,
+            )
+        except Exception as exception:  # noqa: BLE001 - vision is best-effort
+            _LOGGER.debug("Vision check %s failed: %s", kind, exception)
+            return
+        verdict = str((response or {}).get("data") or "").upper()
+        if "FAIL" not in verdict:
+            return
+        detail = (
+            "first layer shows adhesion gaps or air printing"
+            if kind == "first_layer"
+            else "camera shows possible print failure (spaghetti or detached part)"
+        )
+        alert = {
+            "severity": "bad",
+            "label": f"vision {kind}",
+            "detail": f"camera analysis: {detail}",
+        }
+        if alert not in self._vision_alerts:
+            self._vision_alerts.append(alert)
+        print_stats = ((self.coordinator.data or {}).get("status") or {}).get(
+            "print_stats"
+        ) or {}
+        self._notify("vision_alert", str(print_stats.get("filename") or ""))
+        self._sync_repairs()
+
+    def _track_checkpoints(self, status: dict[str, Any], now: float) -> None:
+        """Record periodic recovery checkpoints during a print."""
+        print_stats = status.get("print_stats") or {}
+        if print_stats.get("state") != "printing":
+            return
+        if (
+            self._last_checkpoint_at is not None
+            and now - self._last_checkpoint_at < CHECKPOINT_INTERVAL_SECONDS
+        ):
+            return
+        self._last_checkpoint_at = now
+        info = print_stats.get("info") or {}
+        position = ((status.get("toolhead") or {}).get("position") or [None] * 4)[:4]
+        extruder = status.get("extruder") or {}
+        bed = status.get("heater_bed") or {}
+        self._mark_dirty()
+        self.checkpoints.append(
+            {
+                "at": _iso(now),
+                "layer": info.get("current_layer"),
+                "position": position,
+                "nozzle_c": _finite_number(extruder.get("temperature")),
+                "bed_c": _finite_number(bed.get("temperature")),
+                "filament_used_mm": _finite_number(print_stats.get("filament_used")),
+            }
+        )
 
     def _schedule_power_off(self) -> None:
         """Arm the delayed printer power-off after a completed print."""
@@ -977,6 +1132,12 @@ class MoonrakerAnalyzer:
             any("spool shortfall" in finding["label"] for finding in self.findings),
             "warn",
         )
+        sync(
+            "vision_alert",
+            any("vision" in finding["label"] for finding in self.findings)
+            or bool(self._vision_alerts),
+            "error",
+        )
         machine_update = (self.coordinator.data or {}).get("machine_update") or {}
         version_info = machine_update.get("version_info") or {}
         updates_pending = any(
@@ -1025,6 +1186,7 @@ class MoonrakerAnalyzer:
                 else None
             ),
             "faults": sorted(self._print_faults),
+            "checkpoints": list(self.checkpoints)[-CHECKPOINT_KEPT_ON_RECORD:],
         }
         self.print_history.append(record)
         self.print_history = self.print_history[-PRINT_HISTORY_LIMIT:]

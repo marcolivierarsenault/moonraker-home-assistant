@@ -37,7 +37,9 @@
           "power_switch_entity": "Interruptor de encendido de la impresora",
           "power_off_delay_min": "Retardo de apagado automático tras imprimir (min)",
           "power_off_max_temp": "Temperatura máxima del extrusor para apagar (°C)",
-          "ambient_sensor": "Sensor de temperatura ambiente"
+          "ambient_sensor": "Sensor de temperatura ambiente",
+          "ai_task_entity": "Entidad de tarea IA para revisiones visuales",
+          "vision_camera": "Cámara para revisiones IA de impresión"
         },
         "title": "Configuración"
       }
@@ -71,6 +73,10 @@
     "spool_shortfall": {
       "title": "La bobina activa puede agotarse en {printer}",
       "description": "La bobina activa de Spoolman no contiene suficiente filamento para terminar la impresión actual. Prepare un cambio de bobina o pause la impresión antes de que se agote."
+    },
+    "vision_alert": {
+      "title": "Posible fallo de impresión visto en {printer}",
+      "description": "La revisión de cámara marcó signos probables de fallo: plástico espagueti, pieza desprendida o primera capa defectuosa. Inspeccione la impresora antes de continuar."
     }
   }
 }

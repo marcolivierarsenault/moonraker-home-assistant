@@ -37,7 +37,9 @@
           "power_switch_entity": "Printer Power Switch",
           "power_off_delay_min": "Auto power-off delay after print (min)",
           "power_off_max_temp": "Max hotend temperature for power-off (°C)",
-          "ambient_sensor": "Ambient temperature sensor"
+          "ambient_sensor": "Ambient temperature sensor",
+          "ai_task_entity": "AI task entity for vision checks",
+          "vision_camera": "Camera for AI print checks"
         },
         "title": "Configuration"
       }
@@ -71,6 +73,10 @@
     "spool_shortfall": {
       "title": "Active spool may run out on {printer}",
       "description": "The active Spoolman spool does not hold enough filament to finish the current print. Plan a spool swap or pause the print before the filament runs out."
+    },
+    "vision_alert": {
+      "title": "Possible print failure seen on {printer}",
+      "description": "The camera check flagged likely print failure signs — spaghetti plastic, a detached part, or a bad first layer. Inspect the printer before letting the job continue."
     }
   }
 }

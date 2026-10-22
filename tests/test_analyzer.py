@@ -6,6 +6,8 @@ import pytest
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from homeassistant.core import SupportsResponse
+
 from custom_components.moonraker import MoonrakerDataUpdateCoordinator
 from custom_components.moonraker.analyzer import (
     FILAMENT_AREA_MM2,
@@ -977,3 +979,241 @@ async def test_spool_status_updater_proxy_failure(hass):
 
     coordinator.async_fetch_data = AsyncMock(side_effect=fetch)
     assert await _spool_status_updater(coordinator) == {}
+
+
+VISION_OPTIONS = {
+    "ai_task_entity": "ai_task.gemini",
+    "vision_camera": "camera.printer_cam",
+}
+
+
+def _printing_status(layer: int = 5) -> dict:
+    status = _base_status()
+    status["print_stats"].update(
+        {
+            "state": "printing",
+            "filename": "job.gcode",
+            "info": {"current_layer": layer, "total_layer": 100},
+            "filament_used": 1234.0,
+        }
+    )
+    return status
+
+
+def _register_ai_task(hass, verdict: str = "PASS"):
+    calls = []
+
+    async def fake_task(call):
+        calls.append(call)
+        return {"data": verdict}
+
+    hass.services.async_register(
+        "ai_task",
+        "generate_data",
+        fake_task,
+        supports_response=SupportsResponse.ONLY,
+    )
+    return calls
+
+
+async def test_vision_check_pass(hass):
+    """A PASS verdict schedules a check and raises no alert."""
+    coordinator = _coordinator(hass, options=VISION_OPTIONS, entry_id="visionpass")
+    analyzer = coordinator.analyzer
+    calls = _register_ai_task(hass)
+
+    coordinator.data = {"status": _printing_status()}
+    analyzer.analyze(_printing_status(), now=0.0)
+    await hass.async_block_till_done()
+
+    assert len(calls) == 1
+    data = calls[0].data
+    assert data["entity_id"] == "ai_task.gemini"
+    assert data["attachments"]["media_content_id"] == (
+        "media-source://camera/camera.printer_cam"
+    )
+    assert analyzer._vision_alerts == []
+
+
+async def test_vision_check_fail_alert(hass):
+    """A FAIL verdict raises an alert, a notification, and a repairs issue."""
+    coordinator = _coordinator(
+        hass,
+        options={**VISION_OPTIONS, "notify_service": "mobile_app_phone"},
+        entry_id="visionfail",
+    )
+    analyzer = coordinator.analyzer
+    calls = _register_ai_task(hass, "FAIL: spaghetti detected")
+    notified = []
+    hass.services.async_register(
+        "notify", "mobile_app_phone", lambda call: notified.append(call)
+    )
+
+    status = _printing_status(layer=1)
+    coordinator.data = {"status": status}
+    analyzer.analyze(status, now=0.0)
+    await hass.async_block_till_done()
+
+    assert len(calls) == 1
+    assert analyzer._vision_alerts[0]["label"] == "vision spaghetti"
+    assert any(f["label"] == "vision spaghetti" for f in analyzer.findings)
+    assert notified[-1].data["title"] == "Print problem detected"
+    from homeassistant.helpers import issue_registry as ir
+
+    registry = ir.async_get(hass)
+    assert registry.async_get_issue(DOMAIN, "visionfail_vision_alert") is not None
+
+
+async def test_vision_first_layer_once(hass):
+    """Layer >= 2 schedules a first-layer check only once per file."""
+    coordinator = _coordinator(hass, options=VISION_OPTIONS, entry_id="visionlayer")
+    analyzer = coordinator.analyzer
+    calls = _register_ai_task(hass)
+
+    status = _printing_status(layer=3)
+    coordinator.data = {"status": status}
+    analyzer.analyze(status, now=0.0)
+    await hass.async_block_till_done()
+    assert len(calls) == 1
+    assert "first layer" in calls[0].data["instructions"].lower()
+
+    analyzer.analyze(status, now=600.0)
+    await hass.async_block_till_done()
+    first_layer_calls = [
+        call for call in calls if "first layer" in call.data["instructions"].lower()
+    ]
+    assert len(first_layer_calls) == 1
+
+
+async def test_vision_interval_gate(hass):
+    """Periodic spaghetti checks respect the interval."""
+    coordinator = _coordinator(hass, options=VISION_OPTIONS, entry_id="visiongate")
+    analyzer = coordinator.analyzer
+    calls = _register_ai_task(hass)
+
+    status = _printing_status()
+    coordinator.data = {"status": status}
+    analyzer.analyze(status, now=0.0)
+    await hass.async_block_till_done()
+    analyzer.analyze(status, now=60.0)
+    await hass.async_block_till_done()
+    assert len(calls) == 1
+
+    analyzer.analyze(status, now=400.0)
+    await hass.async_block_till_done()
+    assert len(calls) == 2
+
+
+async def test_vision_disabled_without_options(hass):
+    """No ai_task or camera configured means no vision calls."""
+    coordinator = _coordinator(hass, options=VISION_OPTIONS)
+    analyzer = coordinator.analyzer
+    calls = _register_ai_task(hass)
+
+    analyzer.ai_task_entity = ""
+    analyzer.analyze(_printing_status(), now=0.0)
+    await hass.async_block_till_done()
+
+    analyzer.ai_task_entity = "ai_task.gemini"
+    analyzer.vision_camera = ""
+    analyzer.analyze(_printing_status(), now=1000.0)
+    await hass.async_block_till_done()
+    assert calls == []
+
+
+async def test_vision_service_error_tolerated(hass):
+    """A failing ai_task service is logged and swallowed."""
+    coordinator = _coordinator(hass, options=VISION_OPTIONS, entry_id="visionerr")
+
+    async def broken(call):
+        raise ValueError("model offline")
+
+    hass.services.async_register(
+        "ai_task",
+        "generate_data",
+        broken,
+        supports_response=SupportsResponse.ONLY,
+    )
+    analyzer = coordinator.analyzer
+    status = _printing_status()
+    coordinator.data = {"status": status}
+    analyzer.analyze(status, now=0.0)
+    await hass.async_block_till_done()
+    assert analyzer._vision_alerts == []
+
+
+async def test_vision_busy_task_skips(hass):
+    """An in-flight check prevents scheduling another."""
+    coordinator = _coordinator(hass, options=VISION_OPTIONS, entry_id="visionbusy")
+    analyzer = coordinator.analyzer
+    analyzer._vision_task = MagicMock()
+    analyzer._vision_task.done.return_value = False
+    analyzer.analyze(_printing_status(), now=0.0)
+    await hass.async_block_till_done()
+    analyzer._vision_task.done.assert_called()
+
+
+async def test_vision_alerts_reset_on_new_print(hass):
+    """A fresh job clears stale vision alerts and checkpoints."""
+    coordinator = _coordinator(hass, options=VISION_OPTIONS, entry_id="visionreset")
+    analyzer = coordinator.analyzer
+    analyzer._vision_alerts.append({"severity": "bad", "label": "vision spaghetti"})
+    analyzer.checkpoints.append({"at": "x", "layer": 3})
+    status = _printing_status()
+    coordinator.data = {"status": status}
+    analyzer.analyze(status, now=0.0)
+    assert analyzer._vision_alerts == []
+    assert len(analyzer.checkpoints) == 1
+    assert analyzer.checkpoints[0]["layer"] == 5
+
+
+async def test_checkpoints_recorded_and_gated(hass):
+    """Checkpoints record on the interval while printing only."""
+    coordinator = _coordinator(hass, entry_id="ckpts")
+    analyzer = coordinator.analyzer
+    await analyzer.async_load()
+
+    status = _printing_status(layer=9)
+    coordinator.data = {"status": status}
+    analyzer.analyze(status, now=0.0)
+    assert len(analyzer.checkpoints) == 1
+    point = analyzer.checkpoints[0]
+    assert point["layer"] == 9
+    assert point["filament_used_mm"] == 1234.0
+
+    analyzer.analyze(status, now=10.0)
+    assert len(analyzer.checkpoints) == 1
+    analyzer.analyze(status, now=120.0)
+    assert len(analyzer.checkpoints) == 2
+
+    status["print_stats"]["state"] = "paused"
+    analyzer.analyze(status, now=300.0)
+    assert len(analyzer.checkpoints) == 2
+
+
+async def test_checkpoints_in_history_record(hass):
+    """Print history keeps the trailing checkpoints for recovery."""
+    coordinator = _coordinator(hass, entry_id="ckpt_hist")
+    analyzer = coordinator.analyzer
+    await analyzer.async_load()
+
+    status = _printing_status()
+    coordinator.data = {"status": status, "estimated_time": 100}
+    analyzer.analyze(status, now=0.0)
+    status["print_stats"]["state"] = "complete"
+    analyzer.analyze(status, now=100.0)
+    record = analyzer.print_history[-1]
+    assert record["checkpoints"]
+    assert record["checkpoints"][-1]["layer"] == 5
+
+
+async def test_shutdown_cancels_vision_task(hass):
+    """Unload cancels a still-running vision task."""
+    coordinator = _coordinator(hass, options=VISION_OPTIONS, entry_id="visionshut")
+    analyzer = coordinator.analyzer
+    task = MagicMock()
+    task.done.return_value = False
+    analyzer._vision_task = task
+    await analyzer.async_shutdown()
+    task.cancel.assert_called_once()
+    assert analyzer._vision_task is None
