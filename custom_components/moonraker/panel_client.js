@@ -45,8 +45,87 @@ const PANEL_STALENESS_CHECK_MS = 1333;
 const byId = (id) => document.getElementById(id);
 const setText = (id, value) => {
   const element = byId(id);
-  if (element) element.textContent = value;
+  if (element) element.textContent = t(value);
 };
+
+// ---- panel translations ----
+
+const I18N_STATIC_SELECTOR =
+  ".nav-label, .panel-title, .panel-kicker, .stat-label, .stat-foot, .micro, .empty-state, .notice, .skip-link, button, option, label, p, strong, span, b, h2";
+let panelLang = "en";
+
+function t(value) {
+  if (typeof value !== "string" || panelLang === "en") return value;
+  return window.NEXUS_I18N?.[panelLang]?.[value] ?? value;
+}
+
+function resolvePanelLanguage(choice) {
+  const requested =
+    choice && choice !== "auto"
+      ? choice
+      : String(
+          window.hass?.locale?.language ||
+            window.hass?.language ||
+            window.navigator?.language ||
+            "en"
+        );
+  const code = requested.toLowerCase().slice(0, 2);
+  return window.NEXUS_I18N?.[code] ? code : "en";
+}
+
+function translateNodeText(holder, getText, setTextValue) {
+  const raw = getText();
+  const parts = /^(\s*)([\s\S]*?)(\s*)$/.exec(raw);
+  const source = holder.i18nSrc ?? parts[2].replace(/\s+/g, " ");
+  if (!source) return;
+  holder.i18nSrc = source;
+  setTextValue(`${parts[1]}${t(source)}${parts[3]}`);
+}
+
+function translateStatic(root = document) {
+  for (const element of root.querySelectorAll?.(I18N_STATIC_SELECTOR) || []) {
+    if (element.id) continue;
+    if (!element.children?.length) {
+      translateNodeText(
+        element.dataset,
+        () => element.textContent,
+        (text) => {
+          element.textContent = text;
+        }
+      );
+      continue;
+    }
+    for (const node of element.childNodes || []) {
+      if (node.nodeType !== 3) continue;
+      translateNodeText(
+        node,
+        () => node.textContent,
+        (text) => {
+          node.textContent = text;
+        }
+      );
+    }
+  }
+  for (const element of root.querySelectorAll?.("[placeholder]") || []) {
+    const source =
+      element.dataset.i18nPlaceholder ?? element.getAttribute("placeholder");
+    element.dataset.i18nPlaceholder = source;
+    element.setAttribute("placeholder", t(source));
+  }
+}
+
+function applyPanelLanguage(choice) {
+  const lang = resolvePanelLanguage(choice);
+  if (lang === panelLang) return false;
+  panelLang = lang;
+  if (document.documentElement) document.documentElement.lang = lang;
+  translateStatic(document);
+  if (SCREEN_TITLES[activeScreen]) {
+    setText("pageKicker", SCREEN_TITLES[activeScreen][0]);
+    setText("screenTitle", SCREEN_TITLES[activeScreen][1]);
+  }
+  return true;
+}
 
 let printer = "";
 let jogStep = 1;
@@ -153,25 +232,12 @@ function duration(seconds) {
 
 function toast(message, milliseconds = 3200) {
   const element = byId("toast");
-  element.textContent = message;
+  element.textContent = t(message);
   element.style.display = "block";
   clearTimeout(element._timer);
   element._timer = setTimeout(() => {
     element.style.display = "none";
   }, milliseconds);
-}
-
-function showScreen(name) {
-  if (!SCREEN_TITLES[name]) return;
-  document.querySelectorAll(".screen").forEach((screen) => {
-    screen.classList.toggle("active", screen.dataset.screen === name);
-  });
-  document.querySelectorAll(".nav-item").forEach((item) => {
-    item.classList.toggle("active", item.dataset.screenTarget === name);
-  });
-  setText("pageKicker", SCREEN_TITLES[name][0]);
-  setText("screenTitle", SCREEN_TITLES[name][1]);
-  if (name === "dashboard") requestAnimationFrame(drawToolpath);
 }
 
 function handlePanelPayload(data) {
@@ -822,9 +888,16 @@ function renderBedMesh(status) {
         const numeric = Number(value);
         const ratio = Number.isFinite(numeric) ? (numeric - min) / spread : 0;
         // Blue (low) → green (mid) → red (high) deviation scale.
-        const hue = Math.round(215 - 215 * ratio);
+        const hue = displayPrefs.colorSafe
+          ? ratio < 0.5
+            ? 210
+            : 24
+          : Math.round(215 - 215 * ratio);
+        const saturation = displayPrefs.colorSafe
+          ? Math.round(Math.abs(ratio - 0.5) * 160)
+          : 72;
         cell.className = "mesh-cell";
-        cell.style.background = `hsl(${hue} 72% ${Math.round(
+        cell.style.background = `hsl(${hue} ${saturation}% ${Math.round(
           26 + 20 * (1 - Math.abs(ratio - 0.5) * 2)
         )}%)`;
         cell.textContent = Number.isFinite(numeric) ? numeric.toFixed(3) : "—";
@@ -1311,10 +1384,10 @@ function renderMeshDecay(status) {
     const cell = document.createElement("div");
     cell.className = "mesh-cell";
     const magnitude = Math.min(1, Math.abs(delta) / 0.2);
-    cell.style.background =
-      delta >= 0
-        ? `rgba(0, 239, 145, ${(0.08 + magnitude * 0.5).toFixed(2)})`
-        : `rgba(255, 83, 107, ${(0.08 + magnitude * 0.5).toFixed(2)})`;
+    cell.style.background = `rgba(${statusRgb(delta >= 0 ? "ok" : "bad")}, ${(
+      0.08 +
+      magnitude * 0.5
+    ).toFixed(2)})`;
     cell.title = `${Math.round(delta * 1000)} µm`;
     grid.appendChild(cell);
   }
@@ -2485,11 +2558,18 @@ function setScreen(name) {
     .forEach((screen) =>
       screen.classList.toggle("active", screen.dataset.screen === name)
     );
-  document
-    .querySelectorAll(".nav-item")
-    .forEach((item) =>
-      item.classList.toggle("active", item.dataset.screenTarget === name)
-    );
+  document.querySelectorAll(".nav-item").forEach((item) => {
+    const active = item.dataset.screenTarget === name;
+    item.classList.toggle("active", active);
+    if (active) {
+      item.setAttribute("aria-current", "page");
+      item.scrollIntoView?.({
+        block: "nearest",
+        inline: "center",
+        behavior: reducedMotionPreferred() ? "auto" : "smooth",
+      });
+    } else item.removeAttribute("aria-current");
+  });
   setText("pageKicker", SCREEN_TITLES[name][0]);
   setText("screenTitle", SCREEN_TITLES[name][1]);
   renderCamera(availableWebcams);
@@ -2599,6 +2679,66 @@ function stepOrbitInertia() {
   orbitInertiaFrame = requestAnimationFrame(stepOrbitInertia);
 }
 
+function closePageDetails() {
+  detailsOpen = false;
+  byId("pageDetails").hidden = true;
+  byId("detailsScrim").hidden = true;
+  byId("pageDetails").setAttribute("aria-hidden", "true");
+}
+
+const NAV_KEY_STEPS = {
+  ArrowDown: 1,
+  ArrowRight: 1,
+  ArrowUp: -1,
+  ArrowLeft: -1,
+};
+
+function handleNavKeydown(event) {
+  const current = event.target?.closest?.(".nav-item");
+  if (!current) return;
+  const items = [...document.querySelectorAll(".nav-item")];
+  const index = items.indexOf(current);
+  if (index < 0) return;
+  let next;
+  if (event.key === "Home") next = 0;
+  else if (event.key === "End") next = items.length - 1;
+  else if (NAV_KEY_STEPS[event.key])
+    next = (index + NAV_KEY_STEPS[event.key] + items.length) % items.length;
+  else return;
+  event.preventDefault?.();
+  items[next].focus();
+}
+
+const CANVAS_LABELS = {
+  layerSpark: "Per-layer print time chart",
+  tempGraph: "Hotend and bed temperature graph",
+  tempGraphHistory: "Rolling temperature trace",
+  retransmitSpark: "MCU retransmit trend",
+};
+
+function enhanceAccessibility() {
+  for (const [id, label] of Object.entries(CANVAS_LABELS)) {
+    const canvas = byId(id);
+    if (!canvas || canvas.getAttribute("aria-label")) continue;
+    canvas.setAttribute("role", "img");
+    canvas.setAttribute("aria-label", label);
+  }
+  const toastElement = byId("toast");
+  if (toastElement && !toastElement.getAttribute("role")) {
+    toastElement.setAttribute("role", "status");
+    toastElement.setAttribute("aria-live", "polite");
+    toastElement.setAttribute("aria-atomic", "true");
+  }
+  document.querySelectorAll('[data-action="jog"]').forEach((button) => {
+    if (button.getAttribute("aria-label")) return;
+    const direction = Number(button.dataset.dir) > 0 ? "plus" : "minus";
+    button.setAttribute(
+      "aria-label",
+      `Jog ${button.dataset.axis} ${direction}`
+    );
+  });
+}
+
 function bindInteractions() {
   document.addEventListener("click", (event) => {
     if (event.target.closest("[data-details-toggle]")) {
@@ -2610,10 +2750,7 @@ function bindInteractions() {
       return;
     }
     if (event.target.closest("[data-details-close]")) {
-      detailsOpen = false;
-      byId("pageDetails").hidden = true;
-      byId("detailsScrim").hidden = true;
-      byId("pageDetails").setAttribute("aria-hidden", "true");
+      closePageDetails();
       return;
     }
     if (event.target.closest("[data-clear-command-history]")) {
@@ -2744,19 +2881,18 @@ function bindInteractions() {
     if (target.id === "showFuturePath" || target.id === "clipFutureLayers")
       drawToolpath();
     if (target.id === "layerFollow") drawToolpath();
-    if (
-      target.id === "displayLargeTouch" ||
-      target.id === "displayReduceMotion"
-    ) {
-      displayPrefs.largeTouch = byId("displayLargeTouch")?.checked === true;
-      displayPrefs.reduceMotion = byId("displayReduceMotion")?.checked === true;
+    if (DISPLAY_CONTROL_IDS.includes(target.id)) {
+      readDisplayControls();
       saveDisplayPrefs();
       applyDisplayPrefs();
+      if (latestData) render(latestData);
     }
   });
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && cameraConfigOpen) closeCameraConfig();
+    else if (event.key === "Escape" && detailsOpen) closePageDetails();
+    else handleNavKeydown(event);
   });
 
   document.addEventListener("input", (event) => {
@@ -4110,22 +4246,78 @@ function hideJobDoneCard() {
   if (card) card.hidden = true;
 }
 
-let displayPrefs = { largeTouch: false, reduceMotion: false };
+const DISPLAY_DEFAULTS = {
+  largeTouch: false,
+  reduceMotion: false,
+  theme: "nexus",
+  textSize: "normal",
+  colorSafe: false,
+  language: "auto",
+};
+const DISPLAY_THEMES = ["nexus", "daylight", "contrast", "auto"];
+const DISPLAY_TEXT_SIZES = ["normal", "large", "xlarge"];
+const DISPLAY_CONTROL_IDS = [
+  "displayLargeTouch",
+  "displayReduceMotion",
+  "displayTheme",
+  "displayTextSize",
+  "displayColorSafe",
+  "displayLanguage",
+];
+let displayPrefs = { ...DISPLAY_DEFAULTS };
 
 function loadDisplayPrefs() {
   const key = `nexus-display:${printer}`;
-  if (key === displayPrefsKey) return;
+  if (key === displayPrefsKey) {
+    if (displayPrefs.theme === "auto") applyTheme();
+    return;
+  }
   displayPrefsKey = key;
   try {
     displayPrefs = {
-      largeTouch: false,
-      reduceMotion: false,
+      ...DISPLAY_DEFAULTS,
       ...(JSON.parse(window.localStorage?.getItem(key) || "null") || {}),
     };
   } catch {
-    displayPrefs = { largeTouch: false, reduceMotion: false };
+    displayPrefs = { ...DISPLAY_DEFAULTS };
   }
   applyDisplayPrefs();
+}
+
+function readDisplayControls() {
+  const theme = byId("displayTheme")?.value;
+  const textSize = byId("displayTextSize")?.value;
+  displayPrefs = {
+    ...displayPrefs,
+    largeTouch: byId("displayLargeTouch")?.checked === true,
+    reduceMotion: byId("displayReduceMotion")?.checked === true,
+    colorSafe: byId("displayColorSafe")?.checked === true,
+    theme: DISPLAY_THEMES.includes(theme) ? theme : "nexus",
+    textSize: DISPLAY_TEXT_SIZES.includes(textSize) ? textSize : "normal",
+    language: byId("displayLanguage")?.value || "auto",
+  };
+}
+
+function resolveTheme(choice) {
+  if (choice !== "auto")
+    return DISPLAY_THEMES.includes(choice) ? choice : "nexus";
+  const darkMode = window.hass?.themes?.darkMode;
+  if (typeof darkMode === "boolean") return darkMode ? "nexus" : "daylight";
+  try {
+    return window.matchMedia?.("(prefers-color-scheme: light)")?.matches
+      ? "daylight"
+      : "nexus";
+  } catch {
+    return "nexus";
+  }
+}
+
+function applyTheme() {
+  const root = document.documentElement;
+  if (!root?.dataset) return;
+  const theme = resolveTheme(displayPrefs.theme);
+  if (theme === "nexus") delete root.dataset.theme;
+  else root.dataset.theme = theme;
 }
 
 function saveDisplayPrefs() {
@@ -4157,6 +4349,34 @@ function applyDisplayPrefs() {
   if (largeTouch) largeTouch.checked = displayPrefs.largeTouch;
   const reduceMotion = byId("displayReduceMotion");
   if (reduceMotion) reduceMotion.checked = displayPrefs.reduceMotion;
+  const colorSafe = byId("displayColorSafe");
+  if (colorSafe) colorSafe.checked = displayPrefs.colorSafe;
+  const theme = byId("displayTheme");
+  if (theme) theme.value = displayPrefs.theme;
+  const textSize = byId("displayTextSize");
+  if (textSize) textSize.value = displayPrefs.textSize;
+  const language = byId("displayLanguage");
+  if (language) language.value = displayPrefs.language;
+  const root = document.documentElement;
+  if (root?.dataset) {
+    if (displayPrefs.textSize === "normal") delete root.dataset.textSize;
+    else root.dataset.textSize = displayPrefs.textSize;
+    if (displayPrefs.colorSafe) root.dataset.colorSafe = "1";
+    else delete root.dataset.colorSafe;
+  }
+  applyTheme();
+  applyPanelLanguage(displayPrefs.language);
+}
+
+function statusRgb(kind) {
+  const safe = displayPrefs.colorSafe;
+  return kind === "bad"
+    ? safe
+      ? "255, 122, 61"
+      : "255, 83, 107"
+    : safe
+    ? "86, 180, 233"
+    : "0, 239, 145";
 }
 
 async function loadFileAnalysis(filename) {
@@ -4774,6 +4994,7 @@ function initializePanel() {
   bindInteractions();
   bindToolpathCanvas();
   bindAlertSettings();
+  enhanceAccessibility();
   document.addEventListener("visibilitychange", handlePanelVisibilityChange);
   window.addEventListener("pagehide", handlePanelPageHide);
   byId("pageDetails").setAttribute("aria-hidden", "true");

@@ -148,6 +148,10 @@ function matches(element, selector) {
     );
     return Object.hasOwn(element.dataset, key);
   }
+  const plainAttribute = selector.match(/^\[([\w-]+)\]$/);
+  if (plainAttribute) return element.hasAttribute(plainAttribute[1]);
+  if (/^[a-z][a-z0-9]*$/.test(selector))
+    return element.tagName === selector.toUpperCase();
   return false;
 }
 
@@ -2037,4 +2041,310 @@ test("energy accounting integrates watts into kWh and cost", () => {
     document.getElementById("energyStatus").textContent,
     "NO SENSOR"
   );
+});
+
+function loadTranslations(context) {
+  const source = fs.readFileSync(
+    path.join(__dirname, "../custom_components/moonraker/panel_i18n.js"),
+    "utf8"
+  );
+  vm.runInContext(source, context, { filename: "panel_i18n.js" });
+}
+
+test("translation tables cover the same keys in every language and all screen titles", () => {
+  const { context } = createPanelClient();
+  loadTranslations(context);
+  const tables = JSON.parse(
+    vm.runInContext("JSON.stringify(window.NEXUS_I18N)", context)
+  );
+  const titles = JSON.parse(
+    vm.runInContext("JSON.stringify(SCREEN_TITLES)", context)
+  );
+  assert.deepEqual(Object.keys(tables).sort(), ["es", "fr"]);
+  assert.deepEqual(
+    Object.keys(tables.es).sort(),
+    Object.keys(tables.fr).sort()
+  );
+  for (const [lang, table] of Object.entries(tables)) {
+    for (const [source, translated] of Object.entries(table)) {
+      assert.equal(typeof translated, "string", `${lang}:${source}`);
+      assert.ok(translated.trim().length, `${lang}:${source} is empty`);
+      assert.equal(
+        source,
+        source.replace(/\s+/g, " ").trim(),
+        `${lang}:${source} has unnormalized whitespace`
+      );
+    }
+    for (const [kicker, title] of Object.values(titles)) {
+      assert.ok(table[kicker], `${lang} missing screen kicker ${kicker}`);
+      assert.ok(table[title], `${lang} missing screen title ${title}`);
+    }
+  }
+});
+
+test("panel language resolves from HA, translates static and dynamic text, and restores English", () => {
+  const { context, document, window } = createPanelClient();
+  loadTranslations(context);
+  document.documentElement = new FakeElement("html");
+
+  window.hass = { locale: { language: "fr-CA" } };
+  assert.equal(vm.runInContext('resolvePanelLanguage("auto")', context), "fr");
+  window.hass = { language: "de" };
+  assert.equal(vm.runInContext('resolvePanelLanguage("auto")', context), "en");
+  assert.equal(vm.runInContext('resolvePanelLanguage("es")', context), "es");
+
+  const root = new FakeElement("div");
+  const title = root.appendChild(new FakeElement("h2"));
+  title.className = "panel-title";
+  title.textContent = "Dashboard Layout";
+  const micro = root.appendChild(new FakeElement("p"));
+  micro.className = "micro";
+  micro.textContent =
+    "\n  Dashboard streams start only while this screen is visible.\n  Select NO CAMERA to leave a tile unused.\n";
+  const dynamic = root.appendChild(new FakeElement("span"));
+  dynamic.className = "micro";
+  dynamic.id = "meshBounds";
+  dynamic.textContent = "Dashboard Layout";
+  const input = root.appendChild(new FakeElement("input"));
+  input.setAttribute("placeholder", "FILTER G-CODE FILES");
+  const unknown = root.appendChild(new FakeElement("button"));
+  unknown.textContent = "PRINT_START_MACRO";
+  document.querySelectorAll = (selector) => root.querySelectorAll(selector);
+
+  assert.equal(vm.runInContext('applyPanelLanguage("fr")', context), true);
+  assert.equal(vm.runInContext('applyPanelLanguage("fr")', context), false);
+  assert.equal(document.documentElement.lang, "fr");
+  assert.equal(title.textContent, "Disposition du tableau de bord");
+  assert.match(micro.textContent, /^\n\s+Les flux ne démarrent/);
+  assert.equal(dynamic.textContent, "Dashboard Layout");
+  assert.equal(
+    input.getAttribute("placeholder"),
+    "FILTRER LES FICHIERS G-CODE"
+  );
+  assert.equal(unknown.textContent, "PRINT_START_MACRO");
+  assert.equal(
+    document.getElementById("screenTitle").textContent,
+    "Tableau de bord"
+  );
+  assert.equal(
+    document.getElementById("pageKicker").textContent,
+    "APPAREIL / VUE EN DIRECT"
+  );
+
+  vm.runInContext(
+    'setText("flowHeadroomPill", "IDLE"); setText("energyNow", "123 W"); toast("MESH BASELINE RESET");',
+    context
+  );
+  assert.equal(
+    document.getElementById("flowHeadroomPill").textContent,
+    "INACTIF"
+  );
+  assert.equal(document.getElementById("energyNow").textContent, "123 W");
+  assert.equal(
+    document.getElementById("toast").textContent,
+    "RÉFÉRENCE DU MAILLAGE RÉINITIALISÉE"
+  );
+
+  vm.runInContext('applyPanelLanguage("en")', context);
+  assert.equal(title.textContent, "Dashboard Layout");
+  assert.match(micro.textContent, /Dashboard streams start/);
+  assert.equal(input.getAttribute("placeholder"), "FILTER G-CODE FILES");
+  assert.equal(document.getElementById("screenTitle").textContent, "Dashboard");
+  assert.equal(vm.runInContext("t(42)", context), 42);
+});
+
+function fireDisplayChange(document, id) {
+  const element = document.getElementById(id);
+  element.id = id;
+  document.listeners.change({ target: element });
+}
+
+test("display preferences apply theme, text size, colour-safe palette, and persist per printer", () => {
+  const { context, document, window } = createPanelClient();
+  const root = (document.documentElement = new FakeElement("html"));
+  vm.runInContext(
+    'printer = "printer-a"; loadDisplayPrefs(); bindInteractions();',
+    context
+  );
+  assert.equal(root.dataset.theme, undefined);
+  assert.equal(vm.runInContext('statusRgb("ok")', context), "0, 239, 145");
+
+  document.getElementById("displayTheme").value = "contrast";
+  document.getElementById("displayTextSize").value = "large";
+  document.getElementById("displayColorSafe").checked = true;
+  fireDisplayChange(document, "displayTheme");
+  assert.equal(root.dataset.theme, "contrast");
+  assert.equal(root.dataset.textSize, "large");
+  assert.equal(root.dataset.colorSafe, "1");
+  assert.equal(vm.runInContext('statusRgb("ok")', context), "86, 180, 233");
+  assert.equal(vm.runInContext('statusRgb("bad")', context), "255, 122, 61");
+  const saved = JSON.parse(
+    window.localStorage.getItem("nexus-display:printer-a")
+  );
+  assert.equal(saved.theme, "contrast");
+  assert.equal(saved.colorSafe, true);
+
+  // Unknown values fall back to defaults rather than producing broken CSS hooks.
+  document.getElementById("displayTheme").value = "neon";
+  document.getElementById("displayTextSize").value = "huge";
+  document.getElementById("displayColorSafe").checked = false;
+  fireDisplayChange(document, "displayTextSize");
+  assert.equal(root.dataset.theme, undefined);
+  assert.equal(root.dataset.textSize, undefined);
+  assert.equal(root.dataset.colorSafe, undefined);
+
+  // Follow-HA tracks the HA dark-mode flag, then the OS colour scheme.
+  document.getElementById("displayTheme").value = "auto";
+  window.hass = { themes: { darkMode: false } };
+  fireDisplayChange(document, "displayTheme");
+  assert.equal(root.dataset.theme, "daylight");
+  window.hass = { themes: { darkMode: true } };
+  vm.runInContext("loadDisplayPrefs()", context);
+  assert.equal(root.dataset.theme, undefined);
+  window.hass = {};
+  window.matchMedia = (query) => ({ matches: query.includes("light") });
+  vm.runInContext("loadDisplayPrefs()", context);
+  assert.equal(root.dataset.theme, "daylight");
+
+  // A different printer gets its own defaults.
+  vm.runInContext('printer = "printer-b"; loadDisplayPrefs();', context);
+  assert.equal(root.dataset.theme, undefined);
+});
+
+test("colour-safe mode recolours the bed mesh map without green/red hues", () => {
+  const { context, document } = createPanelClient();
+  vm.runInContext(
+    "displayPrefs.colorSafe = true; renderBedMesh({ bed_mesh: { mesh_matrix: [[-0.2, 0.0, 0.2]] } });",
+    context
+  );
+  const cells = document.getElementById("bedMeshMap").children;
+  assert.match(cells[0].style.background, /^hsl\(210 /);
+  assert.match(cells[2].style.background, /^hsl\(24 /);
+  vm.runInContext(
+    "displayPrefs.colorSafe = false; renderBedMesh({ bed_mesh: { mesh_matrix: [[-0.2, 0.0, 0.2]] } });",
+    context
+  );
+  assert.match(
+    document.getElementById("bedMeshMap").children[2].style.background,
+    /^hsl\(0 72%/
+  );
+});
+
+test("navigation exposes aria-current, arrow-key focus, and Escape closes the details drawer", () => {
+  const { context, document } = createPanelClient();
+  const navItems = ["dashboard", "print", "movement"].map((name) => {
+    const item = new FakeElement("button");
+    item.className = "nav-item";
+    item.dataset.screenTarget = name;
+    item.focus = () => {
+      context.focused = name;
+    };
+    item.scrollIntoView = (options) => {
+      context.scrolled = { name, options };
+    };
+    return item;
+  });
+  document.querySelectorAll = (selector) =>
+    selector === ".nav-item" ? navItems : [];
+
+  vm.runInContext('setScreen("print")', context);
+  assert.equal(navItems[1].getAttribute("aria-current"), "page");
+  assert.equal(navItems[0].hasAttribute("aria-current"), false);
+  assert.equal(context.scrolled.name, "print");
+  assert.equal(context.scrolled.options.inline, "center");
+
+  vm.runInContext("bindInteractions()", context);
+  const keydown = document.listeners.keydown;
+  let prevented = 0;
+  const press = (key, target) =>
+    keydown({ key, target, preventDefault: () => (prevented += 1) });
+  press("ArrowDown", navItems[1]);
+  assert.equal(context.focused, "movement");
+  press("ArrowRight", navItems[2]);
+  assert.equal(context.focused, "dashboard");
+  press("ArrowUp", navItems[0]);
+  assert.equal(context.focused, "movement");
+  press("Home", navItems[2]);
+  assert.equal(context.focused, "dashboard");
+  press("End", navItems[0]);
+  assert.equal(context.focused, "movement");
+  assert.equal(prevented, 5);
+  press("a", navItems[0]);
+  press("ArrowDown", new FakeElement("div"));
+  assert.equal(prevented, 5);
+
+  vm.runInContext("detailsOpen = true;", context);
+  document.getElementById("pageDetails").hidden = false;
+  press("Escape", new FakeElement("div"));
+  assert.equal(vm.runInContext("detailsOpen", context), false);
+  assert.equal(document.getElementById("pageDetails").hidden, true);
+  assert.equal(
+    document.getElementById("pageDetails").getAttribute("aria-hidden"),
+    "true"
+  );
+});
+
+test("accessibility enhancement labels canvases, jog buttons, and the toast live region", () => {
+  const { context, document } = createPanelClient();
+  const jogX = new FakeElement("button");
+  jogX.dataset.axis = "X";
+  jogX.dataset.dir = "-1";
+  const jogZ = new FakeElement("button");
+  jogZ.dataset.axis = "Z";
+  jogZ.dataset.dir = "1";
+  const labelled = new FakeElement("button");
+  labelled.setAttribute("aria-label", "Custom");
+  document.querySelectorAll = (selector) =>
+    selector === '[data-action="jog"]' ? [jogX, jogZ, labelled] : [];
+  document
+    .getElementById("toolpathCanvas")
+    .setAttribute("aria-label", "Existing");
+
+  vm.runInContext("enhanceAccessibility()", context);
+  assert.equal(
+    document.getElementById("layerSpark").getAttribute("role"),
+    "img"
+  );
+  assert.equal(
+    document.getElementById("tempGraph").getAttribute("aria-label"),
+    "Hotend and bed temperature graph"
+  );
+  assert.equal(
+    document.getElementById("toolpathCanvas").getAttribute("aria-label"),
+    "Existing"
+  );
+  assert.equal(
+    document.getElementById("toast").getAttribute("aria-live"),
+    "polite"
+  );
+  assert.equal(jogX.getAttribute("aria-label"), "Jog X minus");
+  assert.equal(jogZ.getAttribute("aria-label"), "Jog Z plus");
+  assert.equal(labelled.getAttribute("aria-label"), "Custom");
+
+  // Re-running keeps existing labels intact.
+  vm.runInContext("enhanceAccessibility()", context);
+  assert.equal(document.getElementById("toast").getAttribute("role"), "status");
+});
+
+test("panel markup ships theme, language, skip link, and mobile layout hooks", () => {
+  const html = fs.readFileSync(
+    path.join(__dirname, "../custom_components/moonraker/panel.html"),
+    "utf8"
+  );
+  for (const id of [
+    "displayTheme",
+    "displayTextSize",
+    "displayColorSafe",
+    "displayLanguage",
+    "mainContent",
+  ]) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
+  assert.match(html, /class="skip-link"\s+href="#mainContent"/);
+  assert.match(html, /role="status"\s+aria-live="polite"/);
+  assert.match(html, /viewport-fit=cover/);
+  assert.match(html, /html\[data-theme="daylight"\]/);
+  assert.match(html, /html\[data-color-safe="1"\]/);
+  assert.match(html, /@media \(max-width: 600px\)/);
+  assert.ok(html.indexOf("panel_i18n.js") < html.indexOf("panel_client.js"));
 });

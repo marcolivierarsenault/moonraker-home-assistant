@@ -21,12 +21,14 @@ from custom_components.moonraker.panel import (
     PANEL_CLIENT_URL,
     PANEL_EMBED_URL,
     PANEL_FRONTEND_PATH,
+    PANEL_I18N_URL,
     PANEL_MODULE_URL,
     MoonrakerPanelActionView,
     MoonrakerPanelClientView,
     MoonrakerPanelDataView,
     MoonrakerPanelEmbedView,
     MoonrakerPanelGcodeView,
+    MoonrakerPanelI18nView,
     MoonrakerPanelModuleView,
     MoonrakerPanelThumbnailView,
     MoonrakerPanelView,
@@ -49,6 +51,7 @@ async def test_browser_ui_is_public_but_data_and_controls_require_auth():
     assert MoonrakerPanelEmbedView.requires_auth is False
     assert MoonrakerPanelModuleView.requires_auth is False
     assert MoonrakerPanelClientView.requires_auth is False
+    assert MoonrakerPanelI18nView.requires_auth is False
     assert MoonrakerUploadRedirectView.requires_auth is False
 
     assert MoonrakerPanelDataView.requires_auth is True
@@ -77,6 +80,7 @@ async def test_registers_custom_panel_with_ha_authenticated_connection():
         "api:moonraker:panel_embed",
         "api:moonraker:panel_module",
         "api:moonraker:panel_client",
+        "api:moonraker:panel_i18n",
         "api:moonraker:gcode_upload_page",
         "api:moonraker:panel_data",
         "api:moonraker:panel_gcode",
@@ -99,6 +103,7 @@ async def test_registers_custom_panel_with_ha_authenticated_connection():
         if (view := call.args[0])
     }
     assert PANEL_CLIENT_URL in registered_urls
+    assert PANEL_I18N_URL in registered_urls
     assert PANEL_GCODE_URL in registered_urls
 
 
@@ -382,6 +387,12 @@ async def test_embed_and_asset_views_serve_files(hass):
     client_view = MoonrakerPanelClientView(hass)
     response = await client_view.get(SimpleNamespace())
     assert response.status == 200
+
+    i18n_view = MoonrakerPanelI18nView(hass)
+    response = await i18n_view.get(SimpleNamespace())
+    assert response.status == 200
+    assert response.content_type == "application/javascript"
+    assert "window.NEXUS_I18N" in response.text
 
     redirect = await MoonrakerUploadRedirectView().get(SimpleNamespace())
     assert redirect.status == 302
