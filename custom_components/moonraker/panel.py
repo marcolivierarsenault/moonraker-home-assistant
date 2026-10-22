@@ -43,6 +43,8 @@ PANEL_EMBED_URL = "/api/moonraker/panel_embed"
 PANEL_MODULE_URL = "/api/moonraker/panel_module.js"
 PANEL_CLIENT_URL = "/api/moonraker/panel_client.js"
 PANEL_I18N_URL = "/api/moonraker/panel_i18n.js"
+PANEL_PARSE_URL = "/api/moonraker/toolpath_parse.js"
+PANEL_WORKER_URL = "/api/moonraker/toolpath_worker.js"
 PANEL_DATA_URL = "/api/moonraker/panel_data"
 PANEL_GCODE_URL = "/api/moonraker/panel_gcode"
 PANEL_THUMB_URL = "/api/moonraker/panel_thumbnail"
@@ -59,6 +61,8 @@ _TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "panel.html")
 _MODULE_PATH = os.path.join(os.path.dirname(__file__), "panel_module.js")
 _CLIENT_PATH = os.path.join(os.path.dirname(__file__), "panel_client.js")
 _I18N_PATH = os.path.join(os.path.dirname(__file__), "panel_i18n.js")
+_PARSE_PATH = os.path.join(os.path.dirname(__file__), "toolpath_parse.js")
+_WORKER_PATH = os.path.join(os.path.dirname(__file__), "toolpath_worker.js")
 
 _META_KEYS = (
     "estimated_time",
@@ -583,6 +587,28 @@ class MoonrakerPanelI18nView(_PanelAssetView):
         super().__init__(hass, _I18N_PATH)
 
 
+class MoonrakerPanelParseView(_PanelAssetView):
+    """Serve the shared toolpath parser core."""
+
+    url = PANEL_PARSE_URL
+    name = "api:moonraker:toolpath_parse"
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        """Initialize the view."""
+        super().__init__(hass, _PARSE_PATH)
+
+
+class MoonrakerPanelWorkerView(_PanelAssetView):
+    """Serve the toolpath parsing web worker."""
+
+    url = PANEL_WORKER_URL
+    name = "api:moonraker:toolpath_worker"
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        """Initialize the view."""
+        super().__init__(hass, _WORKER_PATH)
+
+
 class MoonrakerUploadRedirectView(HomeAssistantView):
     """Redirect browser navigation to the upload UI in the control panel."""
 
@@ -1099,6 +1125,8 @@ async def register_panel_views(hass: HomeAssistant) -> None:
     hass.http.register_view(MoonrakerPanelModuleView(hass))
     hass.http.register_view(MoonrakerPanelClientView(hass))
     hass.http.register_view(MoonrakerPanelI18nView(hass))
+    hass.http.register_view(MoonrakerPanelParseView(hass))
+    hass.http.register_view(MoonrakerPanelWorkerView(hass))
     hass.http.register_view(MoonrakerUploadRedirectView())
     hass.http.register_view(MoonrakerPanelDataView(hass))
     hass.http.register_view(MoonrakerPanelGcodeView(hass))

@@ -30,6 +30,8 @@ from custom_components.moonraker.panel import (
     MoonrakerPanelGcodeView,
     MoonrakerPanelI18nView,
     MoonrakerPanelModuleView,
+    MoonrakerPanelParseView,
+    MoonrakerPanelWorkerView,
     MoonrakerPanelThumbnailView,
     MoonrakerPanelView,
     MoonrakerUploadRedirectView,
@@ -52,6 +54,8 @@ async def test_browser_ui_is_public_but_data_and_controls_require_auth():
     assert MoonrakerPanelModuleView.requires_auth is False
     assert MoonrakerPanelClientView.requires_auth is False
     assert MoonrakerPanelI18nView.requires_auth is False
+    assert MoonrakerPanelParseView.requires_auth is False
+    assert MoonrakerPanelWorkerView.requires_auth is False
     assert MoonrakerUploadRedirectView.requires_auth is False
 
     assert MoonrakerPanelDataView.requires_auth is True
@@ -81,6 +85,8 @@ async def test_registers_custom_panel_with_ha_authenticated_connection():
         "api:moonraker:panel_module",
         "api:moonraker:panel_client",
         "api:moonraker:panel_i18n",
+        "api:moonraker:toolpath_parse",
+        "api:moonraker:toolpath_worker",
         "api:moonraker:gcode_upload_page",
         "api:moonraker:panel_data",
         "api:moonraker:panel_gcode",
@@ -402,6 +408,18 @@ async def test_embed_and_asset_views_serve_files(hass):
     assert response.status == 200
     assert response.content_type == "application/javascript"
     assert "window.NEXUS_I18N" in response.text
+
+    parse_view = MoonrakerPanelParseView(hass)
+    response = await parse_view.get(SimpleNamespace())
+    assert response.status == 200
+    assert response.content_type == "application/javascript"
+    assert "MoonrakerToolpathParse" in response.text
+
+    worker_view = MoonrakerPanelWorkerView(hass)
+    response = await worker_view.get(SimpleNamespace())
+    assert response.status == 200
+    assert response.content_type == "application/javascript"
+    assert "toolpath_parse.js" in response.text
 
     redirect = await MoonrakerUploadRedirectView().get(SimpleNamespace())
     assert redirect.status == 302

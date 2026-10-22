@@ -245,6 +245,11 @@ function createPanelClient() {
     setTimeout: () => 0,
     clearTimeout: () => {},
   });
+  const parseSource = fs.readFileSync(
+    path.join(__dirname, "../custom_components/moonraker/toolpath_parse.js"),
+    "utf8"
+  );
+  vm.runInContext(parseSource, context, { filename: "toolpath_parse.js" });
   const source = fs.readFileSync(
     path.join(__dirname, "../custom_components/moonraker/panel_client.js"),
     "utf8"
@@ -1351,6 +1356,233 @@ test("resetPanelPush clears the live flag while a subscription request is pendin
   resolveRequest(() => {});
   await reset;
   assert.equal(vm.runInContext("panelPushLive", context), false);
+});
+
+function createFakeIdb() {
+  const data = new Map();
+  const pending = [];
+  const schedule = (fn) => pending.push(fn);
+  const makeRequest = (getResult) => {
+    const request = {};
+    schedule(() => {
+      request.result = getResult();
+      request.onsuccess?.();
+    });
+    return request;
+  };
+  const store = {
+    transaction: null,
+    get: (key) => makeRequest(() => data.get(key)),
+    put: (value, key) => makeRequest(() => data.set(key, value)),
+    delete: (key) => makeRequest(() => data.delete(key)),
+    getAllKeys: () => makeRequest(() => [...data.keys()]),
+  };
+  const db = {
+    transaction: () => {
+      const tx = {
+        objectStore: () => store,
+        oncomplete: null,
+        onerror: null,
+        onabort: null,
+      };
+      store.transaction = tx;
+      schedule(() => tx.oncomplete?.());
+      return tx;
+    },
+  };
+  return {
+    _data: data,
+    open: () => {
+      const request = {};
+      queueMicrotask(() => {
+        request.result = db;
+        request.onsuccess?.();
+      });
+      return request;
+    },
+    flush: () => {
+      while (pending.length) pending.shift()();
+    },
+  };
+}
+
+test("toolpath cache persists parsed results in indexeddb", async () => {
+  const { context } = createPanelClient();
+  const idb = createFakeIdb();
+  context.indexedDB = idb;
+  const entry = {
+    segments: [{ a: [0, 0, 0], b: [1, 1, 1], fraction: 1 }],
+    boundsNormalized: { minX: 0, maxX: 1, minY: 0, maxY: 1, minZ: 0, maxZ: 1 },
+    layerStats: [{ z: 0.2, seconds: 3 }],
+    simSeconds: 42,
+  };
+  const putPromise = context.toolpathCachePut("entry|cube.gcode|100", entry);
+  for (let i = 0; i < 10; i++) {
+    idb.flush();
+    await Promise.resolve();
+  }
+  await putPromise;
+  assert.equal(idb._data.size, 1);
+
+  for (let i = 0; i < 6; i++) {
+    const value = context.toolpathCachePut(`key-${i}`, { segments: [] });
+    for (let j = 0; j < 6; j++) {
+      idb.flush();
+      await Promise.resolve();
+    }
+    await value;
+  }
+  assert.ok(idb._data.size <= 5);
+
+  // the oldest entries are evicted once the cache exceeds its cap
+  assert.equal(idb._data.has("entry|cube.gcode|100"), false);
+  const getPromise = context.toolpathCacheGet("key-5");
+  for (let i = 0; i < 6; i++) {
+    idb.flush();
+    await Promise.resolve();
+  }
+  const hit = await getPromise;
+  assert.deepEqual(hit.segments, []);
+
+  const missPromise = context.toolpathCacheGet("missing");
+  for (let i = 0; i < 6; i++) {
+    idb.flush();
+    await Promise.resolve();
+  }
+  assert.equal(await missPromise, null);
+});
+
+test("toolpath parses through a worker and falls back inline on failure", async () => {
+  const { context } = createPanelClient();
+  context.AbortController = AbortController;
+  context.TextDecoder = TextDecoder;
+  class FakeWorker {
+    constructor(url) {
+      this.url = url;
+      this.messages = [];
+      this.terminated = false;
+      FakeWorker.last = this;
+    }
+    postMessage(message) {
+      this.messages.push(message);
+    }
+    terminate() {
+      this.terminated = true;
+    }
+    respond(data) {
+      this.onmessage?.({ data });
+    }
+  }
+  context.Worker = FakeWorker;
+  const gcode = "G21\nG90\nM82\nG1 X10 Y10 E1 F1200\nG1 X20 E2\n";
+  const response = {
+    ok: true,
+    body: {},
+    text: async () => gcode,
+  };
+  const progress = [];
+  const options = {
+    rangeStart: 0,
+    rangeEnd: Infinity,
+    stride: 1,
+    signal: new AbortController().signal,
+    onProgress: (count) => progress.push(count),
+  };
+
+  const promise = context.parseToolpathStream(response, options);
+  await Promise.resolve();
+  const worker = FakeWorker.last;
+  assert.equal(worker.messages[0].type, "start");
+  worker.respond({ type: "ready" });
+  await Promise.resolve();
+  await Promise.resolve();
+  worker.respond({ type: "progress", segments: 2 });
+  worker.respond({
+    type: "done",
+    segments: [{ a: [0, 0, 0], b: [1, 1, 1], fraction: 0.5 }],
+    bounds: { minX: 0, maxX: 1, minY: 0, maxY: 1, minZ: 0, maxZ: 0.2 },
+    layerStats: [{ z: 0.2, seconds: 1 }],
+    simSeconds: 4,
+  });
+  const result = await promise;
+  assert.equal(result.segments.length, 1);
+  assert.equal(result.simSeconds, 4);
+  assert.deepEqual(progress, [2]);
+  assert.equal(worker.terminated, true);
+
+  // Worker failure before streaming falls back to the inline parser.
+  class FailingWorker extends FakeWorker {
+    postMessage(message) {
+      super.postMessage(message);
+      if (message.type === "start") this.onerror?.({ message: "boom" });
+    }
+  }
+  context.Worker = FailingWorker;
+  const fallback = await context.parseToolpathStream(
+    { ok: true, body: {}, text: async () => gcode },
+    {
+      rangeStart: 0,
+      rangeEnd: Infinity,
+      stride: 1,
+      signal: new AbortController().signal,
+    }
+  );
+  assert.ok(fallback.segments.length > 0);
+  assert.ok(fallback.simSeconds > 0);
+});
+
+test("loadToolpath serves cached results without refetching", async () => {
+  const { context, window } = createPanelClient();
+  context.AbortController = AbortController;
+  const idb = createFakeIdb();
+  context.indexedDB = idb;
+  const key = "entry-1|cube.gcode|1000";
+  const put = context.toolpathCachePut(key, {
+    segments: [{ a: [0, 0, 0], b: [1, 1, 1], fraction: 1, extrusionIndex: 1 }],
+    boundsNormalized: {
+      minX: 0,
+      maxX: 1,
+      minY: 0,
+      maxY: 1,
+      minZ: 0,
+      maxZ: 0.2,
+    },
+    layerStats: [{ z: 0.2, seconds: 1 }],
+    simSeconds: 7,
+  });
+  for (let i = 0; i < 10; i++) {
+    idb.flush();
+    await Promise.resolve();
+  }
+  await put;
+
+  let fetched = false;
+  window.hass = {
+    callApi: async () => ({}),
+    fetchWithAuth: async () => {
+      fetched = true;
+      return { ok: false, status: 500, json: async () => ({}) };
+    },
+  };
+  vm.runInContext('toolpathKey = "k-cache"', context);
+  const loadPromise = context.loadToolpath(
+    {
+      entry_id: "entry-1",
+      meta: {},
+      status: { virtual_sdcard: { file_size: 1000 } },
+    },
+    "cube.gcode",
+    "k-cache",
+    new AbortController().signal
+  );
+  for (let i = 0; i < 10; i++) {
+    idb.flush();
+    await Promise.resolve();
+  }
+  await loadPromise;
+  assert.equal(fetched, false);
+  assert.equal(vm.runInContext("toolpathSegments.length", context), 1);
+  assert.equal(vm.runInContext("toolpathReady", context), true);
 });
 
 test("toolpath auto-loads files up to the 128MB cap and rejects larger", async () => {

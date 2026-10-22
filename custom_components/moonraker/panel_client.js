@@ -2923,86 +2923,22 @@ function bindInteractions() {
   });
 }
 
+// The parser core lives in toolpath_parse.js (loaded as MoonrakerToolpathParse)
+// so the same code runs in the page, the parsing worker, and tests. These
+// wrappers keep the call sites unchanged and degrade if the module is missing.
+const _tpCore =
+  typeof MoonrakerToolpathParse !== "undefined" ? MoonrakerToolpathParse : null;
+
 function parseGcodeLine(line, state, fraction, stride) {
-  let clean = line
-    .replace(/\([^)]*\)/g, "")
-    .split(";")[0]
-    .trim()
-    .toUpperCase();
-  clean = clean.replace(/^N\d+\s*/, "");
-  if (!clean) return null;
-  if (/\bG90\b/.test(clean)) state.xyzAbsolute = true;
-  if (/\bG91\b/.test(clean)) state.xyzAbsolute = false;
-  if (/\bM82\b/.test(clean)) state.eAbsolute = true;
-  if (/\bM83\b/.test(clean)) state.eAbsolute = false;
-  if (/\bG20\b/.test(clean)) state.unit = 25.4;
-  if (/\bG21\b/.test(clean)) state.unit = 1;
+  return _tpCore ? _tpCore.parseGcodeLine(line, state, fraction, stride) : null;
+}
 
-  const words = {};
-  for (const match of clean.matchAll(/([XYZEFPS])\s*(-?(?:\d+\.?\d*|\.\d+))/g))
-    words[match[1]] = Number(match[2]);
-  if (/\bG92\b/.test(clean)) {
-    for (const axis of ["X", "Y", "Z"])
-      if (words[axis] != null)
-        state.position[axis.toLowerCase()] = words[axis] * state.unit;
-    if (words.E != null) state.position.e = words.E * state.unit;
-    return null;
-  }
-  if (/\bG4\b/.test(clean)) {
-    const dwellMs =
-      words.P != null ? words.P : words.S != null ? words.S * 1000 : 0;
-    if (dwellMs > 0)
-      state.simSeconds = (state.simSeconds || 0) + dwellMs / 1000;
-    return null;
-  }
-  const command = clean.match(/(?:^|\s)(G0?0|G0?1|G0?2|G0?3)\b/);
-  if (!command) return null;
+function addToolpathSegment(segments, bounds, segment, state) {
+  if (_tpCore) _tpCore.addToolpathSegment(segments, bounds, segment, state);
+}
 
-  const previous = { ...state.position };
-  const next = { ...state.position };
-  for (const axis of ["X", "Y", "Z"]) {
-    const key = axis.toLowerCase();
-    if (words[axis] != null)
-      next[key] = state.xyzAbsolute
-        ? words[axis] * state.unit
-        : previous[key] + words[axis] * state.unit;
-  }
-  let extrusionDelta = 0;
-  if (words.E != null) {
-    const extrusion = words.E * state.unit;
-    next.e = state.eAbsolute ? extrusion : previous.e + extrusion;
-    extrusionDelta = state.eAbsolute ? next.e - previous.e : extrusion;
-  }
-  if (words.F != null) state.feedrate = (words.F * state.unit) / 60;
-  state.position = next;
-  const distance = Math.hypot(
-    next.x - previous.x,
-    next.y - previous.y,
-    next.z - previous.z
-  );
-  const moveDistance = Math.hypot(distance, next.e - previous.e);
-  if (moveDistance > 0) {
-    // Distance/feedrate plus a short-move accel penalty approximates move time.
-    const speed = state.feedrate || 20;
-    const seconds = Math.max(
-      moveDistance / speed,
-      Math.sqrt((2 * moveDistance) / 2500)
-    );
-    state.simSeconds = (state.simSeconds || 0) + seconds;
-    if (!state.layerTimes) state.layerTimes = new Map();
-    const zKey = Number(next.z.toFixed(2));
-    state.layerTimes.set(zKey, (state.layerTimes.get(zKey) || 0) + seconds);
-  }
-  if (extrusionDelta <= 0.0005 || distance <= 0.0001) return null;
-  state.extrusions += 1;
-  const sampleStride = state.sampleStride || stride || 1;
-  if (state.extrusions % sampleStride !== 0) return null;
-  return {
-    a: [previous.x, previous.y, previous.z],
-    b: [next.x, next.y, next.z],
-    fraction,
-    extrusionIndex: state.extrusions,
-  };
+function normalizeBounds(bounds) {
+  return _tpCore ? _tpCore.normalizeBounds(bounds) : null;
 }
 
 function beginToolpathLoad(data, filename, key) {
@@ -3107,12 +3043,294 @@ async function updateToolpath(data) {
   drawToolpath();
 }
 
+const TOOLPATH_CACHE_DB = "moonraker-toolpaths";
+const TOOLPATH_CACHE_STORE = "paths";
+const TOOLPATH_CACHE_MAX = 5;
+
+function toolpathDb() {
+  if (typeof indexedDB === "undefined") return Promise.resolve(null);
+  return new Promise((resolve) => {
+    try {
+      const request = indexedDB.open(TOOLPATH_CACHE_DB, 1);
+      request.onupgradeneeded = () =>
+        request.result.createObjectStore(TOOLPATH_CACHE_STORE);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+async function toolpathCacheGet(key) {
+  const db = await toolpathDb();
+  if (!db) return null;
+  try {
+    return await new Promise((resolve) => {
+      const request = db
+        .transaction(TOOLPATH_CACHE_STORE, "readonly")
+        .objectStore(TOOLPATH_CACHE_STORE)
+        .get(key);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => resolve(null);
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function toolpathCachePut(key, value) {
+  const db = await toolpathDb();
+  if (!db) return;
+  try {
+    await new Promise((resolve) => {
+      const store = db
+        .transaction(TOOLPATH_CACHE_STORE, "readwrite")
+        .objectStore(TOOLPATH_CACHE_STORE);
+      store.put(value, key);
+      const keysRequest = store.getAllKeys();
+      keysRequest.onsuccess = () => {
+        const keys = keysRequest.result || [];
+        keys
+          .filter((existing) => existing !== key)
+          .slice(0, Math.max(0, keys.length - TOOLPATH_CACHE_MAX))
+          .forEach((existing) => store.delete(existing));
+      };
+      store.transaction.oncomplete = () => resolve();
+      store.transaction.onerror = () => resolve();
+      store.transaction.onabort = () => resolve();
+    });
+  } catch {
+    /* toolpath cache is best-effort */
+  }
+}
+
+function applyToolpathResult(result) {
+  const segments = result.segments || [];
+  toolpathSegments = segments;
+  toolpathBounds = result.boundsNormalized
+    ? result.boundsNormalized
+    : normalizeBounds(result.bounds);
+  toolpathLayerStats = result.layerStats || [];
+  toolpathSimSeconds = result.simSeconds || 0;
+  toolpathReady = segments.length > 0;
+  toolpathError = segments.length
+    ? ""
+    : "NO EXTRUSION MOVES COULD BE PARSED FROM THIS FILE";
+  renderToolpathStatus(
+    toolpathReady
+      ? `SIMULATED PATH / ${segments.length.toLocaleString()} SAMPLED MOVES`
+      : toolpathError
+  );
+  drawToolpath();
+}
+
+async function parseToolpathStream(response, options) {
+  if (typeof Worker === "function" && !options.signal?.aborted) {
+    const workerResult = await parseToolpathWithWorker(response, options);
+    if (workerResult !== undefined) return workerResult;
+    if (options.signal?.aborted) return null;
+    // Worker never became ready — the body is untouched, so parse inline.
+  }
+  return parseToolpathInline(response, options);
+}
+
+async function parseToolpathWithWorker(response, options) {
+  let worker;
+  try {
+    worker = new Worker("/api/moonraker/toolpath_worker.js");
+  } catch {
+    return undefined;
+  }
+  const { signal } = options;
+  let streamed = false;
+  const onAbort = () => worker.terminate();
+  signal?.addEventListener?.("abort", onAbort, { once: true });
+  try {
+    const ready = await new Promise((resolve) => {
+      const timer = setTimeout(() => resolve("timeout"), 5000);
+      worker.onmessage = (event) => {
+        if (event.data?.type === "ready") {
+          clearTimeout(timer);
+          resolve(true);
+        }
+      };
+      worker.onerror = () => {
+        clearTimeout(timer);
+        resolve(false);
+      };
+      worker.postMessage({
+        type: "start",
+        rangeStart: options.rangeStart,
+        rangeEnd: options.rangeEnd,
+        stride: options.stride,
+      });
+    });
+    if (ready !== true || signal?.aborted) return undefined;
+    streamed = true;
+    const donePromise = new Promise((resolve, reject) => {
+      worker.onmessage = (event) => {
+        const msg = event.data || {};
+        if (msg.type === "progress")
+          options.onProgress?.(Number(msg.segments) || 0);
+        if (msg.type === "done") resolve(msg);
+        if (msg.type === "error")
+          reject(new Error(msg.error || "worker parse failed"));
+      };
+      worker.onerror = (event) =>
+        reject(new Error(event.message || "worker parse failed"));
+    });
+    const decoder = new TextDecoder();
+    const reader = response.body?.getReader?.();
+    if (!reader) {
+      worker.postMessage({ type: "text", text: await response.text() });
+    } else {
+      while (true) {
+        if (signal?.aborted) return null;
+        const { value, done } = await reader.read();
+        if (done) break;
+        worker.postMessage({
+          type: "text",
+          text: decoder.decode(value, { stream: true }),
+        });
+      }
+      const tail = decoder.decode();
+      if (tail) worker.postMessage({ type: "text", text: tail });
+    }
+    worker.postMessage({ type: "end" });
+    const result = await donePromise;
+    if (signal?.aborted) return null;
+    return result;
+  } catch (error) {
+    if (!streamed) return undefined;
+    throw error;
+  } finally {
+    signal?.removeEventListener?.("abort", onAbort);
+    worker.terminate();
+  }
+}
+
+async function parseToolpathInline(response, options) {
+  const { rangeStart, rangeEnd, stride } = options;
+  const rangeBytes = Number.isFinite(rangeEnd)
+    ? Math.max(1, rangeEnd - rangeStart)
+    : 1;
+  const fractionAt = (offset) =>
+    Number.isFinite(rangeEnd)
+      ? Math.max(0, Math.min((offset - rangeStart) / rangeBytes, 1))
+      : 0;
+  const state = _tpCore
+    ? _tpCore.createParseState(stride)
+    : {
+        xyzAbsolute: true,
+        eAbsolute: true,
+        unit: 1,
+        position: { x: 0, y: 0, z: 0, e: 0 },
+        extrusions: 0,
+        sampleStride: stride,
+        feedrate: 0,
+        simSeconds: 0,
+        layerTimes: new Map(),
+      };
+  const bounds = _tpCore
+    ? _tpCore.createBounds()
+    : {
+        minX: Infinity,
+        maxX: -Infinity,
+        minY: Infinity,
+        maxY: -Infinity,
+        minZ: Infinity,
+        maxZ: -Infinity,
+      };
+  const segments = [];
+  const decoder = new TextDecoder();
+  const reader = response.body?.getReader?.();
+  if (!reader) {
+    const text = await response.text();
+    let offset = 0;
+    const lines = text.split(/\r?\n/);
+    for (let index = 0; index < lines.length; index++) {
+      offset += lines[index].length + 1;
+      const segment = parseGcodeLine(
+        lines[index],
+        state,
+        fractionAt(offset),
+        stride
+      );
+      if (segment && offset >= rangeStart && offset <= rangeEnd)
+        addToolpathSegment(segments, bounds, segment, state);
+      if (index > 0 && index % 6000 === 0)
+        await new Promise(requestAnimationFrame);
+    }
+  } else {
+    let buffer = "";
+    let parsedChars = 0;
+    let lineCount = 0;
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      for (const rawLine of lines) {
+        const line = rawLine.replace(/\r$/, "");
+        parsedChars += line.length + 1;
+        const segment = parseGcodeLine(
+          line,
+          state,
+          fractionAt(parsedChars),
+          stride
+        );
+        if (segment && parsedChars >= rangeStart && parsedChars <= rangeEnd)
+          addToolpathSegment(segments, bounds, segment, state);
+        lineCount += 1;
+      }
+      if (lineCount && lineCount % 7000 < lines.length) {
+        options.onProgress?.(segments.length);
+        await new Promise(requestAnimationFrame);
+      }
+    }
+    buffer += decoder.decode();
+    if (buffer) {
+      parsedChars += buffer.length;
+      const segment = parseGcodeLine(
+        buffer,
+        state,
+        fractionAt(parsedChars),
+        stride
+      );
+      if (segment && parsedChars >= rangeStart && parsedChars <= rangeEnd)
+        addToolpathSegment(segments, bounds, segment, state);
+    }
+  }
+  if (!Number.isFinite(rangeEnd) && segments.length > 1) {
+    segments.forEach((segment, index) => {
+      segment.fraction = index / (segments.length - 1);
+    });
+  }
+  return {
+    segments,
+    bounds,
+    layerStats: [...state.layerTimes]
+      .map(([z, seconds]) => ({ z, seconds }))
+      .sort((a, b) => a.z - b.z),
+    simSeconds: state.simSeconds || 0,
+  };
+}
+
 async function loadToolpath(data, filename, key, signal) {
   const entryId = data.entry_id;
   const metadata = data.meta || {};
   const reportedSize = Number(data.status?.virtual_sdcard?.file_size) || 0;
+  const cacheKey = `${entryId}|${filename}|${reportedSize}`;
   renderToolpathStatus("LOADING ACTIVE G-CODE / BUILDING 3D PATH…");
   try {
+    const cached = await toolpathCacheGet(cacheKey);
+    if (key !== toolpathKey || signal?.aborted) return;
+    if (cached?.segments?.length) {
+      applyToolpathResult(cached);
+      return;
+    }
     const response = await hassApi().fetchWithAuth(
       API.gcode(entryId, filename),
       { signal }
@@ -3135,121 +3353,30 @@ async function loadToolpath(data, filename, key, signal) {
     const rangeEnd = hasMetadataRange
       ? endCandidate
       : totalBytes || Number.POSITIVE_INFINITY;
-    const rangeBytes = Number.isFinite(rangeEnd)
-      ? Math.max(1, rangeEnd - rangeStart)
-      : 1;
-    const fractionAt = (offset) =>
-      Number.isFinite(rangeEnd)
-        ? Math.max(0, Math.min((offset - rangeStart) / rangeBytes, 1))
-        : 0;
     const stride = Math.max(
       1,
       Math.ceil(totalBytes / (MAX_TOOLPATH_SEGMENTS * 70))
     );
-    const state = {
-      xyzAbsolute: true,
-      eAbsolute: true,
-      unit: 1,
-      position: { x: 0, y: 0, z: 0, e: 0 },
-      extrusions: 0,
-      sampleStride: stride,
-      feedrate: 0,
-      simSeconds: 0,
-      layerTimes: new Map(),
-    };
-    const bounds = {
-      minX: Infinity,
-      maxX: -Infinity,
-      minY: Infinity,
-      maxY: -Infinity,
-      minZ: Infinity,
-      maxZ: -Infinity,
-    };
-    const segments = [];
-    const decoder = new TextDecoder();
-    const reader = response.body?.getReader();
-    if (!reader) {
-      const text = await response.text();
-      let offset = 0;
-      const lines = text.split(/\r?\n/);
-      for (let index = 0; index < lines.length; index++) {
-        offset += lines[index].length + 1;
-        const segment = parseGcodeLine(
-          lines[index],
-          state,
-          fractionAt(offset),
-          stride
-        );
-        if (segment && offset >= rangeStart && offset <= rangeEnd)
-          addToolpathSegment(segments, bounds, segment, state);
-        if (index > 0 && index % 6000 === 0)
-          await new Promise(requestAnimationFrame);
-      }
-    } else {
-      let buffer = "";
-      let parsedChars = 0;
-      let lineCount = 0;
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-        for (const rawLine of lines) {
-          const line = rawLine.replace(/\r$/, "");
-          parsedChars += line.length + 1;
-          const segment = parseGcodeLine(
-            line,
-            state,
-            fractionAt(parsedChars),
-            stride
-          );
-          if (segment && parsedChars >= rangeStart && parsedChars <= rangeEnd)
-            addToolpathSegment(segments, bounds, segment, state);
-          lineCount += 1;
-        }
-        if (lineCount && lineCount % 7000 < lines.length) {
-          renderToolpathStatus(
-            `PARSING G-CODE / ${segments.length.toLocaleString()} PATH SEGMENTS`
-          );
-          await new Promise(requestAnimationFrame);
-        }
-      }
-      buffer += decoder.decode();
-      if (buffer) {
-        parsedChars += buffer.length;
-        const segment = parseGcodeLine(
-          buffer,
-          state,
-          fractionAt(parsedChars),
-          stride
-        );
-        if (segment && parsedChars >= rangeStart && parsedChars <= rangeEnd)
-          addToolpathSegment(segments, bounds, segment, state);
-      }
-    }
-    if (key !== toolpathKey) return;
-    if (!Number.isFinite(rangeEnd) && segments.length > 1) {
-      segments.forEach((segment, index) => {
-        segment.fraction = index / (segments.length - 1);
+    const result = await parseToolpathStream(response, {
+      rangeStart,
+      rangeEnd,
+      stride,
+      signal,
+      onProgress: (count) =>
+        renderToolpathStatus(
+          `PARSING G-CODE / ${count.toLocaleString()} PATH SEGMENTS`
+        ),
+    });
+    if (result === null || key !== toolpathKey) return;
+    applyToolpathResult(result);
+    if (result.segments?.length) {
+      toolpathCachePut(cacheKey, {
+        segments: result.segments,
+        boundsNormalized: toolpathBounds,
+        layerStats: toolpathLayerStats,
+        simSeconds: toolpathSimSeconds,
       });
     }
-    toolpathSegments = segments;
-    toolpathBounds = normalizeBounds(bounds);
-    toolpathLayerStats = [...state.layerTimes]
-      .map(([z, seconds]) => ({ z, seconds }))
-      .sort((a, b) => a.z - b.z);
-    toolpathSimSeconds = state.simSeconds;
-    toolpathReady = segments.length > 0;
-    toolpathError = segments.length
-      ? ""
-      : "NO EXTRUSION MOVES COULD BE PARSED FROM THIS FILE";
-    renderToolpathStatus(
-      toolpathReady
-        ? `SIMULATED PATH / ${segments.length.toLocaleString()} SAMPLED MOVES`
-        : toolpathError
-    );
-    drawToolpath();
   } catch (error) {
     if (error.name === "AbortError" || key !== toolpathKey) return;
     toolpathReady = false;
@@ -3257,46 +3384,6 @@ async function loadToolpath(data, filename, key, signal) {
     renderToolpathStatus(toolpathError.toUpperCase());
     drawToolpath();
   }
-}
-
-function addToolpathSegment(segments, bounds, segment, state) {
-  if (segments.length >= MAX_TOOLPATH_SEGMENTS) {
-    state.sampleStride = (state.sampleStride || 1) * 2;
-    let kept = 0;
-    for (const existing of segments) {
-      if (existing.extrusionIndex % state.sampleStride === 0) {
-        segments[kept++] = existing;
-      }
-    }
-    segments.length = kept;
-  }
-  if (segment.extrusionIndex % (state.sampleStride || 1) !== 0) return;
-  segments.push(segment);
-  for (const point of [segment.a, segment.b]) {
-    bounds.minX = Math.min(bounds.minX, point[0]);
-    bounds.maxX = Math.max(bounds.maxX, point[0]);
-    bounds.minY = Math.min(bounds.minY, point[1]);
-    bounds.maxY = Math.max(bounds.maxY, point[1]);
-    bounds.minZ = Math.min(bounds.minZ, point[2]);
-    bounds.maxZ = Math.max(bounds.maxZ, point[2]);
-  }
-}
-
-function normalizeBounds(bounds) {
-  if (!Number.isFinite(bounds.minX)) return null;
-  if (bounds.maxX - bounds.minX < 1) {
-    bounds.minX -= 0.5;
-    bounds.maxX += 0.5;
-  }
-  if (bounds.maxY - bounds.minY < 1) {
-    bounds.minY -= 0.5;
-    bounds.maxY += 0.5;
-  }
-  if (bounds.maxZ - bounds.minZ < 1) {
-    bounds.minZ = Math.min(0, bounds.minZ);
-    bounds.maxZ += 0.5;
-  }
-  return bounds;
 }
 
 function renderToolpathStatus(text) {
