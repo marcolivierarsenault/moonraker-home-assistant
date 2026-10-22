@@ -1,0 +1,78 @@
+blueprint:
+  name: Moonraker - power off after print completes
+  description: >-
+    Waits for the printer's "print completed" event, holds until the hotend
+    has cooled below a safe temperature, then turns off the chosen switch
+    (for example a smart plug feeding the printer). Skips the switch if a
+    new print started or the job queue is still busy.
+  domain: automation
+  source_url: https://github.com/marcolivierarsenault/moonraker-home-assistant
+  input:
+    print_event:
+      name: Print event entity
+      description: Moonraker event entity that fires print lifecycle events.
+      selector:
+        entity:
+          filter:
+            - domain: event
+    hotend_sensor:
+      name: Hotend temperature sensor
+      description: Sensor reporting the extruder temperature in °C.
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+              device_class: temperature
+    power_switch:
+      name: Printer power switch
+      description: Switch that powers the printer (smart plug or Moonraker power device).
+      selector:
+        entity:
+          filter:
+            - domain: switch
+    cooldown_temp:
+      name: Cooldown temperature
+      description: Wait until the hotend drops below this before switching off.
+      default: 50
+      selector:
+        number:
+          min: 30
+          max: 120
+          unit_of_measurement: "°C"
+          mode: slider
+    cooldown_delay:
+      name: Extra delay
+      description: Additional wait after the hotend is cool, for part cooling.
+      default:
+        minutes: 10
+      selector:
+        duration:
+
+mode: restart
+max_exceeded: silent
+
+trigger:
+  - platform: state
+    entity_id: !input print_event
+    attribute: event_type
+    to: "print_completed"
+
+action:
+  - wait_for_trigger:
+      - platform: numeric_state
+        entity_id: !input hotend_sensor
+        below: !input cooldown_temp
+    timeout:
+      hours: 6
+    continue_on_timeout: false
+  - delay: !input cooldown_delay
+  - choose:
+      - conditions:
+          - condition: state
+            entity_id: !input print_event
+            attribute: event_type
+            state: "print_completed"
+        sequence:
+          - action: switch.turn_off
+            target:
+              entity_id: !input power_switch

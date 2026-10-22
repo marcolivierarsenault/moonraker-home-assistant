@@ -12,7 +12,7 @@ scenes.yaml
 scripts.yaml
 secrets.yaml
 .storage
-blueprints
+/blueprints
 docs/_build
 coverage.xml
 .ruff_cache

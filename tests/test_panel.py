@@ -851,14 +851,86 @@ async def test_action_view_request_handling(hass):
 
 
 async def test_action_view_requires_admin(hass):
-    """Non-admin users cannot issue printer-control actions."""
-    from homeassistant.exceptions import Unauthorized
-
+    """Non-admin users are denied unless the entry allows operators."""
     coordinator = _panel_coordinator(hass)
     view = view_for(MoonrakerPanelActionView(MagicMock()), coordinator)
 
-    with pytest.raises(Unauthorized):
-        await _post_action(view, {"action": "pause", "entry_id": "p"}, is_admin=False)
+    response = await _post_action(
+        view, {"action": "pause", "entry_id": "p"}, is_admin=False
+    )
+    assert response.status == 403
+    coordinator.async_send_data.assert_not_called()
+
+    # missing user context is denied as well
+    request = _ActionRequest(is_admin=True)
+    request["hass_user"] = None
+    request.json = AsyncMock(return_value={"action": "pause", "entry_id": "p"})
+    response = await view.post(request)
+    assert response.status == 403
+
+
+async def test_action_view_operator_role(hass):
+    """Operator role lets non-admins run the live-print allowlist only."""
+    coordinator = _panel_coordinator(
+        hass,
+        config_entry=SimpleNamespace(
+            entry_id="printer-id",
+            data={},
+            options={"panel_role": "operator"},
+        ),
+    )
+    view = view_for(MoonrakerPanelActionView(MagicMock()), coordinator)
+
+    for action in ("pause", "resume", "set_fan"):
+        payload = {"action": action, "entry_id": "p"}
+        if action == "set_fan":
+            payload["value"] = 50
+        response = await _post_action(view, payload, is_admin=False)
+        assert response.status == 200
+
+    for action in ("run_gcode", "cancel", "jog", "power", "delete_file"):
+        response = await _post_action(
+            view, {"action": action, "entry_id": "p"}, is_admin=False
+        )
+        assert response.status == 403
+
+
+async def test_apply_queue_plan_action(hass):
+    """Applying the analyzer's queue plan reposts jobs in plan order."""
+    from custom_components.moonraker.const import METHODS
+
+    coordinator = _panel_coordinator(hass)
+    coordinator.analyzer = SimpleNamespace(
+        metrics={
+            "queue_plan": [
+                {"job_id": "b", "filename": "quick.gcode", "ok": True},
+                {"job_id": "a", "filename": "long.gcode", "ok": False},
+            ]
+        }
+    )
+    coordinator.data = {
+        "queue": {
+            "queued_jobs": [
+                {"job_id": "a", "filename": "long.gcode"},
+                {"job_id": "b", "filename": "quick.gcode"},
+            ]
+        }
+    }
+    view = view_for(MoonrakerPanelActionView(MagicMock()), coordinator)
+
+    response = await _post_action(view, {"action": "apply_queue_plan", "entry_id": "p"})
+    assert response.status == 200
+    calls = coordinator.async_send_data.await_args_list
+    assert calls[0].args[0] == METHODS.SERVER_JOB_QUEUE_DELETE_JOB
+    assert calls[0].args[1] == {"job_ids": ["a", "b"]}
+    assert calls[1].args[0] == METHODS.SERVER_JOB_QUEUE_POST_JOB
+    assert calls[1].args[1] == {"filenames": ["quick.gcode", "long.gcode"]}
+
+    # no plan → 400 without touching the queue
+    coordinator.analyzer.metrics["queue_plan"] = []
+    coordinator.async_send_data.reset_mock()
+    response = await _post_action(view, {"action": "apply_queue_plan", "entry_id": "p"})
+    assert response.status == 400
     coordinator.async_send_data.assert_not_called()
 
 

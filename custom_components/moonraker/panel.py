@@ -13,13 +13,14 @@ import voluptuous as vol
 from aiohttp import web
 
 from homeassistant.components import websocket_api
-from homeassistant.components.http import HomeAssistantView, require_admin
+from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from .const import (
     CONF_API_KEY,
+    CONF_OPTION_PANEL_ROLE,
     CONF_OPTION_QUIET_UNREACHABLE,
     CONF_PORT,
     CONF_TLS,
@@ -107,6 +108,21 @@ _GCODE_ACTIONS = {
 }
 
 _QUEUE_ACTIONS = {"pause_queue", "delete_queue_job", "jump_queue_job"}
+
+# Actions a non-admin "operator" may run when the entry's panel_role
+# option allows it. Live-print adjustments only — no G-code scripts,
+# file management, power, restarts, or queue changes.
+_OPERATOR_ACTIONS = {
+    "pause",
+    "resume",
+    "set_speed",
+    "set_flow",
+    "set_fan",
+    "set_extruder",
+    "set_bed",
+    "z_adjust",
+    "cooldown",
+}
 
 _PREHEAT_PRESETS = {
     "pla": (200, 60),
@@ -936,7 +952,6 @@ class MoonrakerPanelActionView(_PanelViewBase):
     url = PANEL_ACTION_URL
     name = "api:moonraker:panel_action"
 
-    @require_admin
     async def post(self, request):
         """Handle a JSON action payload."""
         try:
@@ -949,6 +964,15 @@ class MoonrakerPanelActionView(_PanelViewBase):
             return self.json({"error": "unknown printer"}, status_code=404)
 
         action = str(payload.get("action") or "")
+        user = request.get("hass_user")
+        if not self._action_permitted(coordinator, action, user):
+            return self.json({"error": "unauthorized"}, status_code=403)
+        _LOGGER.info(
+            "Moonraker panel action %s on %s by %s",
+            action,
+            coordinator.config_entry.entry_id,
+            getattr(user, "name", None) or getattr(user, "id", "unknown"),
+        )
         try:
             error = await self._run_action(coordinator, action, payload)
         except Exception as exception:  # noqa: BLE001 - surfaced to the UI
@@ -957,6 +981,16 @@ class MoonrakerPanelActionView(_PanelViewBase):
         if error:
             return self.json({"error": error}, status_code=400)
         return self.json({"ok": True})
+
+    @staticmethod
+    def _action_permitted(coordinator, action: str, user) -> bool:
+        """Admins may run everything; operators only the allowlist."""
+        if user is not None and getattr(user, "is_admin", False):
+            return True
+        role = (coordinator.config_entry.options or {}).get(
+            CONF_OPTION_PANEL_ROLE, "admin_only"
+        )
+        return role == "operator" and action in _OPERATOR_ACTIONS
 
     async def _run_action(self, coordinator, action: str, payload) -> str | None:
         """Execute a panel action; return an error string or None."""
@@ -1037,6 +1071,26 @@ class MoonrakerPanelActionView(_PanelViewBase):
             await coordinator.async_send_data(
                 METHODS.MACHINE_DEVICE_POWER_POST_DEVICE,
                 {"device": device, "action": power_action},
+            )
+            return None
+
+        if action == "apply_queue_plan":
+            plan = coordinator.analyzer.metrics.get("queue_plan") or []
+            filenames = [item["filename"] for item in plan if item["filename"]]
+            if not filenames:
+                return "no queue plan available"
+            queue = (coordinator.data or {}).get("queue") or {}
+            job_ids = [
+                str(job.get("job_id"))
+                for job in queue.get("queued_jobs") or []
+                if isinstance(job, dict) and job.get("job_id")
+            ]
+            if job_ids:
+                await coordinator.async_send_data(
+                    METHODS.SERVER_JOB_QUEUE_DELETE_JOB, {"job_ids": job_ids}
+                )
+            await coordinator.async_send_data(
+                METHODS.SERVER_JOB_QUEUE_POST_JOB, {"filenames": filenames}
             )
             return None
 

@@ -37,6 +37,7 @@ from .const import (
     NOTIFY_STATUS_UPDATE,
     PRINTING_POLLING_RATE,
     PUSH_UPDATE_INTERVAL,
+    QUEUE_META_JOB_LIMIT,
     SLOW_UPDATE_CYCLES,
     CONF_TLS,
     CONF_URL,
@@ -568,6 +569,35 @@ async def _spool_status_updater(coordinator):
     return {"spool_details": details if isinstance(details, dict) else {}}
 
 
+async def _queue_meta_updater(coordinator):
+    """Fetch slicer metadata for queued jobs so the analyzer can schedule."""
+    queue = (coordinator.data or {}).get("queue") or {}
+    jobs = queue.get("queued_jobs")
+    if not isinstance(jobs, list) or not jobs:
+        return {"queue_meta": {}}
+    meta: dict[str, Any] = {}
+    for job in jobs[:QUEUE_META_JOB_LIMIT]:
+        if not isinstance(job, dict):
+            continue
+        filename = str(job.get("filename") or "")
+        normalized, _root = _normalize_gcode_path(filename)
+        if not normalized:
+            continue
+        try:
+            details = await coordinator.async_fetch_data(
+                METHODS.SERVER_FILES_METADATA, {"filename": normalized}
+            )
+        except UpdateFailed:
+            continue
+        if isinstance(details, dict):
+            meta[filename] = {
+                key: details.get(key)
+                for key in ("estimated_time", "filament_total", "filament_type")
+                if details.get(key) is not None
+            }
+    return {"queue_meta": meta}
+
+
 async def _printer_info_updater(coordinator):
     return {
         "printer.info": await coordinator._async_fetch_data(METHODS.PRINTER_INFO, None)
@@ -614,6 +644,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         self._updater_every: dict[Any, int] = {}
         self._update_cycle = 0
         self.add_data_updater(_spool_status_updater, every=SLOW_UPDATE_CYCLES)
+        self.add_data_updater(_queue_meta_updater, every=SLOW_UPDATE_CYCLES)
         client.notification_handler = self._async_handle_notification
         self.load_sensor_data(SENSORS)
         self.add_query_objects("virtual_sdcard", "file_path")

@@ -78,5 +78,13 @@
       "title": "Posible fallo de impresión visto en {printer}",
       "description": "La revisión de cámara marcó signos probables de fallo: plástico espagueti, pieza desprendida o primera capa defectuosa. Inspeccione la impresora antes de continuar."
     }
+  },
+  "selector": {
+    "panel_role": {
+      "options": {
+        "admin_only": "Solo administradores",
+        "operator": "Operadores pueden ajustar la impresión"
+      }
+    }
   }
 }

@@ -21,6 +21,7 @@ from .const import (
     CONF_OPTION_MAX_FLOW,
     CONF_OPTION_NOTIFY_SERVICE,
     CONF_OPTION_POWER_OFF_DELAY,
+    CONF_OPTION_PANEL_ROLE,
     CONF_OPTION_POWER_OFF_MAX_TEMP,
     CONF_OPTION_POWER_SENSOR,
     CONF_OPTION_VISION_CAMERA,
@@ -314,6 +315,20 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                         },
                     ): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain="camera")
+                    ),
+                    vol.Optional(
+                        CONF_OPTION_PANEL_ROLE,
+                        default=(
+                            self.config_entry.options.get(
+                                CONF_OPTION_PANEL_ROLE, "admin_only"
+                            )
+                        ),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=["admin_only", "operator"],
+                            mode=selector.SelectSelectorMode.DROPDOWN,
+                            translation_key="panel_role",
+                        )
                     ),
                 }
             ),

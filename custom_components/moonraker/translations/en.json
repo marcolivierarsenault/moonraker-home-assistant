@@ -39,7 +39,8 @@
           "power_off_max_temp": "Max hotend temperature for power-off (°C)",
           "ambient_sensor": "Ambient temperature sensor",
           "ai_task_entity": "AI task entity for vision checks",
-          "vision_camera": "Camera for AI print checks"
+          "vision_camera": "Camera for AI print checks",
+          "panel_role": "Panel access for non-admin users"
         },
         "title": "Configuration"
       }
@@ -77,6 +78,14 @@
     "vision_alert": {
       "title": "Possible print failure seen on {printer}",
       "description": "The camera check flagged likely print failure signs — spaghetti plastic, a detached part, or a bad first layer. Inspect the printer before letting the job continue."
+    }
+  },
+  "selector": {
+    "panel_role": {
+      "options": {
+        "admin_only": "Admins only",
+        "operator": "Operators can adjust live print"
+      }
     }
   }
 }

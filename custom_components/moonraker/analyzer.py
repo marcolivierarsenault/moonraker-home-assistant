@@ -348,6 +348,13 @@ class MoonrakerAnalyzer:
         """Refresh metrics and findings from the latest status payload."""
         if now is None:
             now = _now_ts()
+        if not isinstance(status, dict):
+            status = {}
+        # Sections must be objects; a malformed payload yields empty sections.
+        status = {
+            key: value if isinstance(value, dict) else {}
+            for key, value in status.items()
+        }
         findings: list[dict[str, str]] = []
         findings.extend(self._analyze_thermal(status, now))
         findings.extend(self._analyze_flow(status, now))
@@ -362,6 +369,7 @@ class MoonrakerAnalyzer:
         self._track_print_state(status, now, findings)
         self._track_checkpoints(status, now)
         self._maybe_schedule_vision(status, now)
+        findings.extend(self._analyze_queue_plan())
         findings.extend(self._vision_alerts)
         self.findings = findings
         self._sync_repairs()
@@ -658,6 +666,85 @@ class MoonrakerAnalyzer:
                     ),
                 }
             )
+        return findings
+
+    # -- queue scheduling ---------------------------------------------------------
+
+    def _analyze_queue_plan(self) -> list[dict[str, str]]:
+        """Score queued jobs against the spool and suggest a better order."""
+        data = self.coordinator.data or {}
+        queue = data.get("queue") or {}
+        jobs = queue.get("queued_jobs")
+        if not isinstance(jobs, list) or not jobs:
+            self.metrics["queue_plan"] = []
+            self.metrics["queue_plan_differs"] = False
+            return []
+        meta = data.get("queue_meta") or {}
+        remaining_mm = self._spool_remaining_mm(data.get("spool_details") or {})
+        material = self.metrics.get("spool_material")
+
+        entries: list[dict[str, Any]] = []
+        findings: list[dict[str, str]] = []
+        for index, job in enumerate(jobs):
+            if not isinstance(job, dict):
+                continue
+            filename = str(job.get("filename") or "")
+            job_meta = meta.get(filename) or {}
+            filament_mm = _finite_number(job_meta.get("filament_total"))
+            eta = _finite_number(job_meta.get("estimated_time"))
+            file_type = str(job_meta.get("filament_type") or "").upper()
+            reason = "shortest first"
+            ok = True
+            if (
+                file_type
+                and material
+                and file_type not in material
+                and material not in file_type
+            ):
+                ok = False
+                reason = f"material mismatch: needs {file_type}"
+            elif (
+                filament_mm is not None
+                and remaining_mm is not None
+                and filament_mm > remaining_mm
+            ):
+                ok = False
+                reason = "exceeds filament left on spool"
+                findings.append(
+                    {
+                        "severity": "warn",
+                        "label": "queued job exceeds spool",
+                        "detail": (
+                            f"{filename} needs ~{filament_mm / 1000:.1f}m but "
+                            f"the spool holds ~{remaining_mm / 1000:.1f}m"
+                        ),
+                    }
+                )
+            entries.append(
+                {
+                    "job_id": str(job.get("job_id") or ""),
+                    "filename": filename,
+                    "eta_s": round(eta, 0) if eta is not None else None,
+                    "filament_mm": (
+                        round(filament_mm, 0) if filament_mm is not None else None
+                    ),
+                    "ok": ok,
+                    "reason": reason,
+                    "current_index": index,
+                }
+            )
+        plan = sorted(
+            entries,
+            key=lambda item: (
+                not item["ok"],
+                item["eta_s"] if item["eta_s"] is not None else float("inf"),
+                item["current_index"],
+            ),
+        )
+        self.metrics["queue_plan"] = plan
+        self.metrics["queue_plan_differs"] = [item["job_id"] for item in plan] != [
+            str(job.get("job_id") or "") for job in jobs if isinstance(job, dict)
+        ][: len(plan)]
         return findings
 
     # -- material profiles + ambient ---------------------------------------------

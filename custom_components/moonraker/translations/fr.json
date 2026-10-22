@@ -78,5 +78,13 @@
       "title": "Échec d'impression possible détecté sur {printer}",
       "description": "Le contrôle caméra a signalé des signes probables d'échec : plastique spaghetti, pièce détachée ou première couche défectueuse. Inspectez l'imprimante avant de continuer."
     }
+  },
+  "selector": {
+    "panel_role": {
+      "options": {
+        "admin_only": "Administrateurs uniquement",
+        "operator": "Opérateurs : ajustements en cours"
+      }
+    }
   }
 }

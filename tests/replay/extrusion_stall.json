@@ -1,0 +1,108 @@
+{
+  "name": "extrusion_stall",
+  "frames": [
+    {
+      "at": 0,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "stall.gcode",
+          "filament_used": 500.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 0.0
+        }
+      }
+    },
+    {
+      "at": 10,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "stall.gcode",
+          "filament_used": 500.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 0.0
+        }
+      }
+    },
+    {
+      "at": 20,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "stall.gcode",
+          "filament_used": 500.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 0.0
+        }
+      }
+    },
+    {
+      "at": 35,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "stall.gcode",
+          "filament_used": 500.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 0.0
+        }
+      }
+    },
+    {
+      "at": 45,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "stall.gcode",
+          "filament_used": 500.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 0.0
+        }
+      }
+    }
+  ],
+  "expect": {
+    "findings": [
+      "extrusion stall"
+    ],
+    "repairs": [
+      "extrusion_stall"
+    ]
+  }
+}

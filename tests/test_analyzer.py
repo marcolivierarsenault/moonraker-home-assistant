@@ -1217,3 +1217,129 @@ async def test_shutdown_cancels_vision_task(hass):
     await analyzer.async_shutdown()
     task.cancel.assert_called_once()
     assert analyzer._vision_task is None
+
+
+def _queue_data(jobs, meta=None, spool=None):
+    """Coordinator data carrying a job queue."""
+    data = {"queue": {"queued_jobs": jobs}, "queue_meta": meta or {}}
+    if spool is not None:
+        data["spool_details"] = spool
+    return data
+
+
+def test_queue_plan_orders_and_flags(hass):
+    """The plan sorts runnable jobs shortest-first and parks blocked ones."""
+    coordinator = _coordinator(hass, entry_id="queueplan")
+    analyzer = coordinator.analyzer
+    coordinator.data = _queue_data(
+        jobs=[
+            {"job_id": "a", "filename": "long.gcode"},
+            {"job_id": "b", "filename": "quick.gcode"},
+            {"job_id": "c", "filename": "petg.gcode"},
+        ],
+        meta={
+            "long.gcode": {
+                "estimated_time": 9000,
+                "filament_total": 40000,
+                "filament_type": "PLA",
+            },
+            "quick.gcode": {
+                "estimated_time": 600,
+                "filament_total": 2000,
+                "filament_type": "PLA",
+            },
+            "petg.gcode": {
+                "estimated_time": 300,
+                "filament_total": 1000,
+                "filament_type": "PETG",
+            },
+        },
+        spool={
+            "remaining_length": 30000.0,
+            "filament": {"material": "PLA"},
+        },
+    )
+    analyzer._analyze_spool()
+    findings = analyzer._analyze_queue_plan()
+    plan = analyzer.metrics["queue_plan"]
+
+    assert [item["job_id"] for item in plan] == ["b", "c", "a"]
+    assert plan[0]["ok"] is True
+    assert plan[1]["reason"].startswith("material mismatch")
+    assert plan[2]["reason"].startswith("exceeds filament")
+    assert analyzer.metrics["queue_plan_differs"] is True
+    assert any(f["label"] == "queued job exceeds spool" for f in findings)
+
+
+def test_queue_plan_already_optimal_and_empty(hass):
+    """A matching order reports no diff; an empty queue clears the plan."""
+    coordinator = _coordinator(hass, entry_id="queueok")
+    analyzer = coordinator.analyzer
+    coordinator.data = _queue_data(
+        jobs=[
+            {"job_id": "a", "filename": "one.gcode"},
+            "not-a-dict",
+            {"job_id": "b", "filename": "two.gcode"},
+        ],
+        meta={
+            "one.gcode": {"estimated_time": 100},
+            "two.gcode": {"estimated_time": 200},
+        },
+    )
+    findings = analyzer._analyze_queue_plan()
+    assert findings == []
+    assert analyzer.metrics["queue_plan_differs"] is False
+    assert [item["job_id"] for item in analyzer.metrics["queue_plan"]] == ["a", "b"]
+
+    coordinator.data = _queue_data(jobs=[])
+    analyzer._analyze_queue_plan()
+    assert analyzer.metrics["queue_plan"] == []
+    assert analyzer.metrics["queue_plan_differs"] is False
+
+
+async def test_queue_meta_updater(hass):
+    """The updater whitelists metadata for queued files only."""
+    from custom_components.moonraker import _queue_meta_updater
+
+    coordinator = _coordinator(hass, entry_id="queuemeta")
+    coordinator.data = {
+        "queue": {
+            "queued_jobs": [
+                {"job_id": "a", "filename": "gcodes/first.gcode"},
+                {"job_id": "b", "filename": "second.gcode"},
+                {"job_id": "c", "filename": "../evil.gcode"},
+                "not-a-dict",
+            ]
+        }
+    }
+
+    async def fetch(method, params=None, quiet=False):
+        assert method.value == "server.files.metadata"
+        return {
+            "estimated_time": 100,
+            "filament_total": 5000,
+            "filament_type": "PLA",
+            "secret_field": "hidden",
+        }
+
+    coordinator.async_fetch_data = AsyncMock(side_effect=fetch)
+    result = await _queue_meta_updater(coordinator)
+    meta = result["queue_meta"]
+    assert set(meta) == {"gcodes/first.gcode", "second.gcode"}
+    assert meta["second.gcode"] == {
+        "estimated_time": 100,
+        "filament_total": 5000,
+        "filament_type": "PLA",
+    }
+
+    # metadata fetch failure degrades quietly per file
+    from homeassistant.helpers.update_coordinator import UpdateFailed
+
+    coordinator.async_fetch_data = AsyncMock(side_effect=UpdateFailed())
+    assert (await _queue_meta_updater(coordinator))["queue_meta"] == {}
+
+    # no queue → empty result without API calls
+    coordinator.data = {}
+    coordinator.async_fetch_data = AsyncMock()
+    assert (await _queue_meta_updater(coordinator))["queue_meta"] == {}
+    coordinator.async_fetch_data.assert_not_called()
