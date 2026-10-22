@@ -444,14 +444,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
     object_list = await coordinator.async_get_printer_objects()
-    if isinstance(object_list, dict) and "bed_mesh" in (
-        object_list.get("objects") or []
+    objects = object_list.get("objects") if isinstance(object_list, dict) else []
+    await coordinator.analyzer.async_load()
+    for object_name, result_key in coordinator.analyzer.required_subscriptions(
+        objects or []
     ):
+        coordinator.add_query_objects(object_name, result_key)
+    if isinstance(object_list, dict) and "bed_mesh" in (objects or []):
         coordinator.add_query_objects("bed_mesh", None)
-        try:
-            await coordinator.async_refresh_query_data()
-        except UpdateFailed:
-            _LOGGER.debug("Could not fetch bed mesh status for control panel")
+    try:
+        await coordinator.async_refresh_query_data()
+    except UpdateFailed:
+        _LOGGER.debug("Could not fetch analyzer status for control panel")
 
     try:
         await coordinator.async_subscribe_status_updates()
@@ -585,6 +589,9 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         self.load_sensor_data(SENSORS)
         self.add_query_objects("virtual_sdcard", "file_path")
         self.add_query_objects("virtual_sdcard", "file_size")
+        from .analyzer import MoonrakerAnalyzer
+
+        self.analyzer = MoonrakerAnalyzer(hass, self)
 
         super().__init__(
             hass,
@@ -604,6 +611,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         self._update_cycle += 1
 
         self._update_polling_interval(data)
+        self.analyzer.analyze(data.get("status") or {})
 
         return data
 
@@ -1047,6 +1055,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         if self.data is None:
             return
         self._update_polling_interval(self.data)
+        self.analyzer.analyze(self.data.get("status") or {})
         status = self.data.get("status") or {}
         filename = _extract_gcode_filename(status)
         cache_key = _normalize_gcode_path(filename) if filename else None
@@ -1126,6 +1135,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     if unloaded:
         coordinator.async_shutdown_push_updates()
+        await coordinator.analyzer.async_shutdown()
         await coordinator.moonraker.stop()
         hass.data[DOMAIN].pop(entry.entry_id)
 

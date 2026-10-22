@@ -457,6 +457,7 @@ async def _panel_payload(hass: HomeAssistant, coordinator) -> dict[str, Any]:
             for entry_id, other in _coordinators(hass).items()
         ],
         "fleet": [_fleet_summary(other) for other in _coordinators(hass).values()],
+        "analysis": coordinator.analyzer.as_dict(),
         "api_key_configured": bool(entry.data.get(CONF_API_KEY)),
         "settings": {
             "host": entry.data.get(CONF_URL),

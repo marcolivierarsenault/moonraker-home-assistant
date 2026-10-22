@@ -58,6 +58,7 @@ class MoonrakerSensorDescription(SensorEntityDescription):
     unit: str | None = None
     device_class: str | None = None
     subscriptions: list | None = None
+    attributes_fn: Callable | None = None
 
 
 SENSORS: tuple[MoonrakerSensorDescription, ...] = (
@@ -364,6 +365,152 @@ async def async_setup_entry(hass, entry, async_add_entities):
     await async_setup_machine_update_sensors(coordinator, entry, async_add_entities)
     await async_setup_queue_sensors(coordinator, entry, async_add_entities)
     await async_setup_spoolman_sensors(coordinator, entry, async_add_entities)
+    await async_setup_analyzer_sensors(coordinator, entry, async_add_entities)
+
+
+ANALYZER_SENSORS: tuple[MoonrakerSensorDescription, ...] = (
+    MoonrakerSensorDescription(
+        key="volumetric_flow",
+        name="Volumetric Flow",
+        value_fn=lambda sensor: sensor.coordinator.analyzer.metrics[
+            "volumetric_flow_mm3"
+        ],
+        icon="mdi:water-sync",
+        unit="mm³/s",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=2,
+        entity_registry_enabled_default=False,
+    ),
+    MoonrakerSensorDescription(
+        key="flow_headroom",
+        name="Flow Headroom",
+        value_fn=lambda sensor: sensor.coordinator.analyzer.metrics[
+            "flow_headroom_pct"
+        ],
+        icon="mdi:speedometer",
+        unit=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=0,
+        entity_registry_enabled_default=False,
+    ),
+    MoonrakerSensorDescription(
+        key="mesh_rms_drift",
+        name="Mesh RMS Drift",
+        value_fn=lambda sensor: sensor.coordinator.analyzer.metrics[
+            "mesh_rms_drift_mm"
+        ],
+        icon="mdi:chart-bell-curve",
+        unit=UnitOfLength.MILLIMETERS,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=3,
+        entity_registry_enabled_default=False,
+    ),
+    MoonrakerSensorDescription(
+        key="mesh_max_drift",
+        name="Mesh Max Drift",
+        value_fn=lambda sensor: sensor.coordinator.analyzer.metrics[
+            "mesh_max_drift_mm"
+        ],
+        icon="mdi:chart-bell-curve-cumulative",
+        unit=UnitOfLength.MILLIMETERS,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=3,
+        entity_registry_enabled_default=False,
+    ),
+    MoonrakerSensorDescription(
+        key="print_energy",
+        name="Print Energy",
+        value_fn=lambda sensor: sensor.coordinator.analyzer.metrics["print_energy_kwh"],
+        icon="mdi:lightning-bolt",
+        unit="kWh",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=3,
+        entity_registry_enabled_default=False,
+    ),
+    MoonrakerSensorDescription(
+        key="printer_energy_total",
+        name="Printer Energy Total",
+        value_fn=lambda sensor: sensor.coordinator.analyzer.metrics["total_kwh"],
+        icon="mdi:counter",
+        unit="kWh",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        suggested_display_precision=3,
+        entity_registry_enabled_default=False,
+    ),
+    MoonrakerSensorDescription(
+        key="print_cost",
+        name="Print Cost",
+        value_fn=lambda sensor: sensor.coordinator.analyzer.metrics["print_cost"],
+        icon="mdi:cash",
+        device_class=SensorDeviceClass.MONETARY,
+        suggested_display_precision=2,
+        entity_registry_enabled_default=False,
+    ),
+    MoonrakerSensorDescription(
+        key="printer_power",
+        name="Printer Power",
+        value_fn=lambda sensor: sensor.coordinator.analyzer.metrics.get("power_watts"),
+        icon="mdi:power-plug",
+        unit="W",
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        entity_registry_enabled_default=False,
+    ),
+    MoonrakerSensorDescription(
+        key="printer_health",
+        name="Printer Health",
+        value_fn=lambda sensor: analyzer_health_state(sensor.coordinator),
+        icon="mdi:heart-pulse",
+        device_class=SensorDeviceClass.ENUM,
+        options=["ok", "warn", "bad"],
+        attributes_fn=lambda sensor: {
+            "findings": sensor.coordinator.analyzer.findings,
+        },
+    ),
+    MoonrakerSensorDescription(
+        key="last_print",
+        name="Last Print Record",
+        value_fn=lambda sensor: analyzer_last_print_state(sensor.coordinator),
+        icon="mdi:history",
+        attributes_fn=lambda sensor: (
+            sensor.coordinator.analyzer.print_history[-1]
+            if sensor.coordinator.analyzer.print_history
+            else None
+        ),
+    ),
+)
+
+
+def analyzer_health_state(coordinator):
+    """Return the worst severity across analyzer findings."""
+    severities = {finding["severity"] for finding in coordinator.analyzer.findings}
+    if "bad" in severities:
+        return "bad"
+    if "warn" in severities:
+        return "warn"
+    return "ok"
+
+
+def analyzer_last_print_state(coordinator):
+    """Return the filename of the most recent recorded print."""
+    history = coordinator.analyzer.print_history
+    if not history:
+        return None
+    return history[-1].get("filename")
+
+
+async def async_setup_analyzer_sensors(coordinator, entry, async_add_entities):
+    """Set up analyzer-derived sensor entities."""
+    entities = [MoonrakerSensor(coordinator, entry, desc) for desc in ANALYZER_SENSORS]
+    for entity in entities:
+        if entity.entity_description.key == "print_cost":
+            entity._attr_native_unit_of_measurement = (
+                coordinator.hass.config.currency or "USD"
+            )
+    async_add_entities(entities)
 
 
 async def async_setup_basic_sensor(coordinator, entry, async_add_entities):
@@ -951,6 +1098,13 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
         """Handle updated data from the coordinator."""
         self._attr_native_value = self.entity_description.value_fn(self)
         self.async_write_ha_state()
+
+    @property
+    def extra_state_attributes(self):
+        """Return extra attributes when the description provides them."""
+        if self.entity_description.attributes_fn is None:
+            return None
+        return self.entity_description.attributes_fn(self)
 
     def empty_result_when_not_printing(self, value=""):
         """Return empty string when not printing."""

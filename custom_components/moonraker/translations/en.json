@@ -29,7 +29,10 @@
           "camera_stream_url": "Camera Stream URL",
           "camera_snapshot_url": "Camera Snapshot URL",
           "camera_port": "Camera Port",
-          "thumbnail_port": "Thumbnail Port"
+          "thumbnail_port": "Thumbnail Port",
+          "power_sensor": "Printer Power Sensor (W)",
+          "max_flow_mm3": "Max Volumetric Flow (mm³/s)",
+          "energy_rate": "Energy Rate (cost per kWh)"
         },
         "title": "Configuration"
       }

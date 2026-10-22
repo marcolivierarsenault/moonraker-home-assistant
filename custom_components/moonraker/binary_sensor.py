@@ -29,6 +29,41 @@ async def async_setup_entry(hass, entry, async_add_devices):
 
     await async_setup_optional_binary_sensors(coordinator, entry, async_add_devices)
     await async_setup_update_binary_sensors(coordinator, entry, async_add_devices)
+    await async_setup_analyzer_binary_sensors(coordinator, entry, async_add_devices)
+
+
+async def async_setup_analyzer_binary_sensors(coordinator, entry, async_add_entities):
+    """Set problem binary sensors fed by the server-side analyzer."""
+    descriptions = (
+        MoonrakerBinarySensorDescription(
+            key="mesh_relevel_due",
+            sensor_name="mesh_relevel_due",
+            is_on_fn=lambda sensor: sensor.coordinator.analyzer.metrics.get(
+                "mesh_status"
+            )
+            == "due",
+            name="Mesh Relevel Due",
+            subscriptions=[],
+            icon="mdi:bed-clock",
+            device_class=BinarySensorDeviceClass.PROBLEM,
+        ),
+        MoonrakerBinarySensorDescription(
+            key="heater_anomaly",
+            sensor_name="heater_anomaly",
+            is_on_fn=lambda sensor: any(
+                finding["severity"] == "bad"
+                and ("saturated" in finding["label"] or "stall" in finding["label"])
+                for finding in sensor.coordinator.analyzer.findings
+            ),
+            name="Heater Anomaly",
+            subscriptions=[],
+            icon="mdi:thermometer-alert",
+            device_class=BinarySensorDeviceClass.PROBLEM,
+        ),
+    )
+    async_add_entities(
+        [MoonrakerBinarySensor(coordinator, entry, desc) for desc in descriptions]
+    )
 
 
 async def async_setup_optional_binary_sensors(coordinator, entry, async_add_entities):

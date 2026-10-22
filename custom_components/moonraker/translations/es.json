@@ -29,7 +29,10 @@
           "camera_stream_url": "URL de la transmisión de la cámara",
           "camera_snapshot_url": "URL de la instantánea de la cámara",
           "camera_port": "Puerto de la cámara",
-          "thumbnail_port": "Puerto de la miniatura"
+          "thumbnail_port": "Puerto de la miniatura",
+          "power_sensor": "Sensor de potencia de la impresora (W)",
+          "max_flow_mm3": "Flujo volumétrico máximo (mm³/s)",
+          "energy_rate": "Tarifa de energía (coste por kWh)"
         },
         "title": "Configuración"
       }

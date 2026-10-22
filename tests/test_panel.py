@@ -149,6 +149,9 @@ async def test_panel_data_returns_all_discovered_cameras():
                 "failed_components": [],
             }
         ),
+        analyzer=SimpleNamespace(
+            as_dict=MagicMock(return_value={"metrics": {}, "findings": []})
+        ),
     )
     view = MoonrakerPanelDataView(MagicMock())
     view._resolve = MagicMock(return_value=coordinator)
@@ -191,6 +194,9 @@ async def test_panel_data_handles_unavailable_server_info(server_info_fails):
         async_get_webcams=AsyncMock(return_value={}),
         async_get_system_info=AsyncMock(return_value={}),
         async_get_server_info=server_info_call,
+        analyzer=SimpleNamespace(
+            as_dict=MagicMock(return_value={"metrics": {}, "findings": []})
+        ),
     )
     view = MoonrakerPanelDataView(MagicMock())
     view._resolve = MagicMock(return_value=coordinator)
@@ -329,6 +335,9 @@ def _panel_coordinator(hass, **overrides):
         "async_refresh_files": AsyncMock(),
         "async_fetch_data": AsyncMock(return_value={}),
         "async_add_listener": MagicMock(return_value=lambda: None),
+        "analyzer": SimpleNamespace(
+            as_dict=MagicMock(return_value={"metrics": {}, "findings": []})
+        ),
     }
     base.update(overrides)
     return SimpleNamespace(**base)

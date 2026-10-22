@@ -7,12 +7,18 @@ from typing import Any
 import async_timeout
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.core import callback
+from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import network, slugify
 
 from .api import MoonrakerApiClient
 from .const import (
+    CONF_OPTION_ENERGY_RATE,
+    CONF_OPTION_MAX_FLOW,
+    CONF_OPTION_POWER_SENSOR,
+    DEFAULT_MAX_FLOW_MM3,
     CONF_API_KEY,
     CONF_PORT,
     CONF_PRINTER_NAME,
@@ -212,6 +218,31 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                             CONF_OPTION_THUMBNAIL_PORT, ""
                         ),
                     ): str,
+                    vol.Optional(
+                        CONF_OPTION_POWER_SENSOR,
+                        description={
+                            "suggested_value": self.config_entry.options.get(
+                                CONF_OPTION_POWER_SENSOR
+                            )
+                        },
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(
+                            domain="sensor",
+                            device_class=SensorDeviceClass.POWER,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_OPTION_MAX_FLOW,
+                        default=self.config_entry.options.get(
+                            CONF_OPTION_MAX_FLOW, DEFAULT_MAX_FLOW_MM3
+                        ),
+                    ): vol.All(vol.Coerce(float), vol.Range(min=0.1, max=200)),
+                    vol.Optional(
+                        CONF_OPTION_ENERGY_RATE,
+                        default=self.config_entry.options.get(
+                            CONF_OPTION_ENERGY_RATE, 0.0
+                        ),
+                    ): vol.All(vol.Coerce(float), vol.Range(min=0.0)),
                 }
             ),
         )

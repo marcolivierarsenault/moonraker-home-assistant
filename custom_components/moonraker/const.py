@@ -43,6 +43,10 @@ NOTIFY_GCODE_RESPONSE = "notify_gcode_response"
 CONF_OPTION_QUIET_UNREACHABLE = "quiet_unreachable_devices"
 CONF_OPTION_CAMERA_PORT = "camera_port"
 CONF_OPTION_THUMBNAIL_PORT = "thumbnail_port"
+CONF_OPTION_POWER_SENSOR = "power_sensor"
+CONF_OPTION_MAX_FLOW = "max_flow_mm3"
+CONF_OPTION_ENERGY_RATE = "energy_rate"
+DEFAULT_MAX_FLOW_MM3 = 15.0
 
 # API dict keys
 DEVICE_TYPE = "device_type"
