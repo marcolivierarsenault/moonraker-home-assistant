@@ -702,3 +702,278 @@ async def test_power_off_timer_cancelled_on_shutdown(hass):
     await analyzer.async_shutdown()
     assert analyzer._power_off_unsub is None
     assert analyzer._power_off_armed is False
+
+
+def test_heatup_learning_flags_slow_heater(hass):
+    """Heat-up durations are learned and slow ones flagged."""
+    coordinator = _coordinator(hass, entry_id="heatup")
+    analyzer = coordinator.analyzer
+    status = _base_status()
+
+    def cycle(start, duration):
+        status["extruder"].update({"temperature": 25.0, "target": 200.0})
+        analyzer._analyze_heatup(status, start)
+        status["extruder"]["temperature"] = 200.0
+        analyzer._analyze_heatup(status, start + duration)
+
+    cycle(0, 60)
+    cycle(1000, 62)
+    cycle(2000, 58)
+    assert analyzer._heatup_history["extruder"] == [60, 62, 58]
+
+    cycle(3000, 100)  # > 1.2x median(60,62,58)=60 → finding
+    assert analyzer._heatup_history["extruder"][-1] == 100
+
+    status["extruder"].update({"temperature": 25.0, "target": 200.0})
+    analyzer.analyze(status, now=4000)
+    status["extruder"]["temperature"] = 200.0
+    analyzer.analyze(status, now=4100)
+    assert any("slow heat-up" in f["label"] for f in analyzer.findings)
+
+    # target dropped mid-heat clears the pending entry
+    status["extruder"].update({"temperature": 25.0, "target": 200.0})
+    analyzer._analyze_heatup(status, 5000)
+    assert "extruder" in analyzer._heatup_active
+    status["extruder"]["target"] = 0.0
+    analyzer._analyze_heatup(status, 5010)
+    assert "extruder" not in analyzer._heatup_active
+
+    # already-at-temp or trivially short heat-ups are not recorded
+    status["extruder"].update({"temperature": 25.0, "target": 200.0})
+    analyzer._analyze_heatup(status, 6000)
+    status["extruder"]["temperature"] = 200.0
+    analyzer._analyze_heatup(status, 6002)
+    assert len(analyzer._heatup_history["extruder"]) == 5
+
+
+def test_spool_crosscheck_shortfall_and_mismatch(hass):
+    """Spool runout layer and material mismatch findings."""
+    coordinator = _coordinator(hass, entry_id="spool")
+    analyzer = coordinator.analyzer
+    status = _base_status()
+    status["print_stats"]["state"] = "printing"
+    status["print_stats"]["filament_used"] = 500.0
+    status["print_stats"]["info"] = {"current_layer": 20}
+    coordinator.data = {
+        "status": status,
+        "filament_total": 3000.0,
+        "layer_count": 100,
+        "filament_type": "PLA",
+        "spool_details": {
+            "remaining_length": 1000.0,
+            "filament": {"material": "PETG", "density": 1.27, "diameter": 1.75},
+        },
+    }
+    findings = analyzer._analyze_spool()
+    labels = {f["label"] for f in findings}
+    assert "spool shortfall" in labels
+    assert "material mismatch" in labels
+    # needed=2500mm, remaining=1000mm → runout at 20 + 1000/30 ≈ layer 53
+    assert analyzer.metrics["spool_runout_layer"] == 53
+    assert analyzer.metrics["spool_material"] == "PETG"
+    assert analyzer.metrics["spool_remaining_mm"] == 1000.0
+
+    # enough filament clears the runout metric
+    coordinator.data["spool_details"]["remaining_length"] = 90000.0
+    coordinator.data["filament_type"] = "PETG"
+    findings = analyzer._analyze_spool()
+    assert findings == []
+    assert analyzer.metrics["spool_runout_layer"] is None
+
+    # weight-only spools fall back to density/diameter math
+    coordinator.data["spool_details"] = {
+        "remaining_weight": 20.0,
+        "filament": {"material": "PLA", "density": 1.24, "diameter": 1.75},
+    }
+    analyzer._analyze_spool()
+    expected = (20.0 / 1.24) * 1000 / FILAMENT_AREA_MM2
+    assert analyzer.metrics["spool_remaining_mm"] == round(expected, 1)
+
+    # no spool data clears the metrics
+    coordinator.data["spool_details"] = {}
+    analyzer._analyze_spool()
+    assert analyzer.metrics["spool_material"] is None
+    assert analyzer.metrics["spool_runout_layer"] is None
+
+
+def test_material_profile_and_ambient(hass):
+    """Material profile checks cover temps and cold ambient air."""
+    coordinator = _coordinator(
+        hass,
+        options={"ambient_sensor": "sensor.room_temp"},
+        entry_id="material",
+    )
+    analyzer = coordinator.analyzer
+    hass.states.async_set("sensor.room_temp", "15.5")
+    status = _base_status()
+    status["print_stats"]["state"] = "printing"
+    status["extruder"]["target"] = 255.0
+    status["heater_bed"]["target"] = 100.0
+    coordinator.data = {"status": status, "filament_type": "ABS+ CF"}
+
+    findings = analyzer._analyze_material(status)
+    labels = {f["label"] for f in findings}
+    assert analyzer.metrics["material"] == "ABS"
+    assert analyzer.metrics["ambient_c"] == 15.5
+    assert "cold ambient" in labels
+    assert "nozzle outside profile" not in labels  # 255 within ABS range
+    assert "bed outside profile" not in labels
+
+    # nozzle far outside the profile range flags
+    status["extruder"]["target"] = 170.0
+    findings = analyzer._analyze_material(status)
+    assert any(f["label"] == "nozzle outside profile" for f in findings)
+
+    # material from the spool when the file type is unknown
+    coordinator.data["filament_type"] = None
+    analyzer.metrics["spool_material"] = "PETG"
+    assert analyzer._detect_material() == "PETG"
+
+    # standby clears nothing but reports no findings
+    status["print_stats"]["state"] = "standby"
+    assert analyzer._analyze_material(status) == []
+
+
+def test_kinematics_limits_and_over_speed(hass):
+    """Configured limits surface as metrics; over-speed flags after samples."""
+    coordinator = _coordinator(hass, entry_id="kin")
+    analyzer = coordinator.analyzer
+    coordinator._config_settings = {
+        "status": {
+            "configfile": {
+                "settings": {
+                    "printer": {"max_velocity": 200.0, "max_accel": 3000.0},
+                    "input_shaper": {"shaper_freq_x": 44.4},
+                }
+            }
+        }
+    }
+    status = _base_status()
+    status["print_stats"]["state"] = "printing"
+    findings = analyzer._analyze_kinematics(status)
+    assert findings == []
+    assert analyzer.metrics["max_velocity"] == 200.0
+    assert analyzer.metrics["max_accel"] == 3000.0
+    assert analyzer.metrics["shaper_freq_x"] == 44.4
+
+    status["motion_report"]["live_velocity"] = 260.0
+    assert analyzer._analyze_kinematics(status) == []
+    assert analyzer._analyze_kinematics(status) == []
+    findings = analyzer._analyze_kinematics(status)
+    assert any(f["label"] == "velocity above limit" for f in findings)
+
+    # cooling down resets the sample counter
+    status["motion_report"]["live_velocity"] = 100.0
+    analyzer._analyze_kinematics(status)
+    assert analyzer._over_limit_samples == 0
+
+
+async def test_heatup_history_persists(hass):
+    """Heat-up baselines round-trip through the Store."""
+    coordinator = _coordinator(hass, entry_id="heatstore")
+    analyzer = coordinator.analyzer
+    await analyzer.async_load()
+    analyzer._heatup_history = {"extruder": [60.0, 62.0], "heater_bed": [45.0]}
+    analyzer._mark_dirty()
+    await analyzer._async_save()
+
+    coordinator2 = _coordinator(hass, entry_id="heatstore")
+    analyzer2 = coordinator2.analyzer
+    await analyzer2.async_load()
+    assert analyzer2._heatup_history["extruder"] == [60.0, 62.0]
+    assert analyzer2._heatup_history["heater_bed"] == [45.0]
+
+
+async def test_spool_status_updater(hass):
+    """The slow updater fetches and whitelists spool details."""
+    from custom_components.moonraker import _spool_status_updater
+
+    coordinator = _coordinator(hass, entry_id="spoolupd")
+
+    async def fetch(method, params=None, quiet=False):
+        if method.value == "server.spoolman.status":
+            return {"spool_id": 7}
+        if method.value == "server.spoolman.proxy":
+            return {
+                "remaining_length": 1234.0,
+                "filament": {"material": "PLA", "secret": "x"},
+            }
+        return {}
+
+    coordinator.async_fetch_data = AsyncMock(side_effect=fetch)
+    result = await _spool_status_updater(coordinator)
+    assert result["spool_details"]["remaining_length"] == 1234.0
+
+    # no active spool → empty details
+    async def fetch_none(method, params=None, quiet=False):
+        return {"spool_id": None}
+
+    coordinator.async_fetch_data = AsyncMock(side_effect=fetch_none)
+    assert (await _spool_status_updater(coordinator))["spool_details"] == {}
+
+    # fetch failures degrade quietly
+    from homeassistant.helpers.update_coordinator import UpdateFailed
+
+    coordinator.async_fetch_data = AsyncMock(side_effect=UpdateFailed())
+    assert await _spool_status_updater(coordinator) == {}
+
+
+def test_spool_remaining_guards(hass):
+    """Degenerate spool records produce no bogus remaining length."""
+    coordinator = _coordinator(hass, entry_id="spoolguard")
+    analyzer = coordinator.analyzer
+    status = _base_status()
+    status["print_stats"]["state"] = "printing"
+    status["print_stats"]["filament_used"] = 4000.0
+    coordinator.data = {"status": status, "filament_total": 3000.0}
+
+    # no length, no weight → unknown remaining; nothing needed → clears metric
+    coordinator.data["spool_details"] = {"filament": {"material": "PLA"}}
+    assert analyzer._analyze_spool() == []
+    assert analyzer.metrics["spool_runout_layer"] is None
+
+    # invalid density cannot be converted from weight
+    coordinator.data["spool_details"] = {
+        "remaining_weight": 10.0,
+        "filament": {"density": -1.0, "diameter": 1.75},
+    }
+    analyzer._analyze_spool()
+    assert analyzer.metrics["spool_remaining_mm"] is None
+
+
+def test_material_bed_out_of_profile_and_missing_ambient(hass):
+    """Bed out of range flags; a missing ambient state is tolerated."""
+    coordinator = _coordinator(
+        hass,
+        options={"ambient_sensor": "sensor.missing"},
+        entry_id="material2",
+    )
+    analyzer = coordinator.analyzer
+    status = _base_status()
+    status["print_stats"]["state"] = "printing"
+    status["extruder"]["target"] = 250.0
+    status["heater_bed"]["target"] = 30.0
+    coordinator.data = {"status": status, "filament_type": "ABS"}
+
+    findings = analyzer._analyze_material(status)
+    labels = {f["label"] for f in findings}
+    assert "bed outside profile" in labels
+    assert analyzer.metrics["ambient_c"] is None
+    assert "cold ambient" not in labels  # no ambient reading → no cold finding
+
+
+async def test_spool_status_updater_proxy_failure(hass):
+    """A failing spool proxy call degrades to no details."""
+    from homeassistant.helpers.update_coordinator import UpdateFailed
+
+    from custom_components.moonraker import _spool_status_updater
+
+    coordinator = _coordinator(hass, entry_id="spoolupd2")
+
+    async def fetch(method, params=None, quiet=False):
+        if method.value == "server.spoolman.status":
+            return {"spool_id": 7}
+        raise UpdateFailed()
+
+    coordinator.async_fetch_data = AsyncMock(side_effect=fetch)
+    assert await _spool_status_updater(coordinator) == {}

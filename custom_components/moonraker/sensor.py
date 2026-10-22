@@ -460,6 +460,33 @@ ANALYZER_SENSORS: tuple[MoonrakerSensorDescription, ...] = (
         entity_registry_enabled_default=False,
     ),
     MoonrakerSensorDescription(
+        key="ambient_temperature",
+        name="Ambient Temperature",
+        value_fn=lambda sensor: sensor.coordinator.analyzer.metrics.get("ambient_c"),
+        icon="mdi:thermometer",
+        unit=UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        entity_registry_enabled_default=False,
+    ),
+    MoonrakerSensorDescription(
+        key="detected_material",
+        name="Detected Material",
+        value_fn=lambda sensor: sensor.coordinator.analyzer.metrics.get("material"),
+        icon="mdi:printer-3d-nozzle",
+        entity_registry_enabled_default=False,
+    ),
+    MoonrakerSensorDescription(
+        key="spool_runout_layer",
+        name="Spool Runout Layer",
+        value_fn=lambda sensor: sensor.coordinator.analyzer.metrics.get(
+            "spool_runout_layer"
+        ),
+        icon="mdi:layers-alert",
+        entity_registry_enabled_default=False,
+    ),
+    MoonrakerSensorDescription(
         key="printer_health",
         name="Printer Health",
         value_fn=lambda sensor: analyzer_health_state(sensor.coordinator),

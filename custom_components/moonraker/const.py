@@ -53,6 +53,7 @@ CONF_OPTION_NOTIFY_SERVICE = "notify_service"
 CONF_OPTION_POWER_SWITCH = "power_switch_entity"
 CONF_OPTION_POWER_OFF_DELAY = "power_off_delay_min"
 CONF_OPTION_POWER_OFF_MAX_TEMP = "power_off_max_temp"
+CONF_OPTION_AMBIENT_SENSOR = "ambient_sensor"
 DEFAULT_POWER_OFF_DELAY_MIN = 15.0
 DEFAULT_POWER_OFF_MAX_TEMP = 50.0
 SIGNAL_PRINT_EVENT = "moonraker_print_event"

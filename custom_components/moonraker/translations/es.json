@@ -36,7 +36,8 @@
           "notify_service": "Servicio de notificación (p. ej. mobile_app_miphone)",
           "power_switch_entity": "Interruptor de encendido de la impresora",
           "power_off_delay_min": "Retardo de apagado automático tras imprimir (min)",
-          "power_off_max_temp": "Temperatura máxima del extrusor para apagar (°C)"
+          "power_off_max_temp": "Temperatura máxima del extrusor para apagar (°C)",
+          "ambient_sensor": "Sensor de temperatura ambiente"
         },
         "title": "Configuración"
       }
@@ -62,6 +63,14 @@
     "printer_unreachable": {
       "title": "{printer} no responde",
       "description": "La integración no recibió una respuesta de este Moonraker. Compruebe el host, la red y el servicio Moonraker."
+    },
+    "slow_heatup": {
+      "title": "Calentamiento lento detectado en {printer}",
+      "description": "Un calentador tarda más de lo habitual en alcanzar la temperatura objetivo, lo que sugiere un cartucho o termistor degradado. Revise el cableado y el cartucho antes de la próxima impresión."
+    },
+    "spool_shortfall": {
+      "title": "La bobina activa puede agotarse en {printer}",
+      "description": "La bobina activa de Spoolman no contiene suficiente filamento para terminar la impresión actual. Prepare un cambio de bobina o pause la impresión antes de que se agote."
     }
   }
 }

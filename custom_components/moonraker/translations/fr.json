@@ -36,7 +36,8 @@
           "notify_service": "Service de notification (ex. mobile_app_montel)",
           "power_switch_entity": "Interrupteur d'alimentation de l'imprimante",
           "power_off_delay_min": "Délai d'arrêt automatique après impression (min)",
-          "power_off_max_temp": "Température max de la buse pour l'arrêt (°C)"
+          "power_off_max_temp": "Température max de la buse pour l'arrêt (°C)",
+          "ambient_sensor": "Capteur de température ambiante"
         },
         "title": "Configuration"
       }
@@ -62,6 +63,14 @@
     "printer_unreachable": {
       "title": "{printer} est injoignable",
       "description": "L'intégration n'a pas reçu de réponse de cette instance Moonraker. Vérifiez l'hôte, le réseau et le service Moonraker."
+    },
+    "slow_heatup": {
+      "title": "Chauffe lente détectée sur {printer}",
+      "description": "Un élément chauffant met plus de temps que d'habitude à atteindre la température cible, signe d'une cartouche ou d'une thermistance dégradée. Vérifiez le câblage et la cartouche avant la prochaine impression."
+    },
+    "spool_shortfall": {
+      "title": "La bobine active risque de s'épuiser sur {printer}",
+      "description": "La bobine Spoolman active ne contient pas assez de filament pour terminer l'impression en cours. Prévoyez un changement de bobine ou mettez en pause avant la rupture de filament."
     }
   }
 }

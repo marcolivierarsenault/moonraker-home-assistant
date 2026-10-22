@@ -15,6 +15,7 @@ from homeassistant.util import network, slugify
 
 from .api import MoonrakerApiClient
 from .const import (
+    CONF_OPTION_AMBIENT_SENSOR,
     CONF_OPTION_ENERGY_RATE,
     CONF_OPTION_MAX_FLOW,
     CONF_OPTION_NOTIFY_SERVICE,
@@ -279,6 +280,19 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                             DEFAULT_POWER_OFF_MAX_TEMP,
                         ),
                     ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=120)),
+                    vol.Optional(
+                        CONF_OPTION_AMBIENT_SENSOR,
+                        description={
+                            "suggested_value": self.config_entry.options.get(
+                                CONF_OPTION_AMBIENT_SENSOR
+                            )
+                        },
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(
+                            domain="sensor",
+                            device_class=SensorDeviceClass.TEMPERATURE,
+                        )
+                    ),
                 }
             ),
         )

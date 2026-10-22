@@ -37,6 +37,7 @@ from .const import (
     NOTIFY_STATUS_UPDATE,
     PRINTING_POLLING_RATE,
     PUSH_UPDATE_INTERVAL,
+    SLOW_UPDATE_CYCLES,
     CONF_TLS,
     CONF_URL,
     DEFAULT_PORT,
@@ -458,6 +459,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         _LOGGER.debug("Could not fetch analyzer status for control panel")
 
     try:
+        await coordinator.async_get_config_settings()
+    except UpdateFailed:
+        _LOGGER.debug("Could not fetch printer configfile settings")
+
+    try:
         await coordinator.async_subscribe_status_updates()
     except UpdateFailed:
         _LOGGER.warning("Could not subscribe to Moonraker status updates; polling only")
@@ -540,6 +546,28 @@ async def _printer_objects_updater(coordinator):
     return {**data, **await coordinator._async_get_gcode_file_detail(filename)}
 
 
+async def _spool_status_updater(coordinator):
+    """Fetch the active Spoolman spool for analyzer cross-checks."""
+    try:
+        spoolman = await coordinator.async_fetch_data(METHODS.SERVER_SPOOLMAN_ID)
+    except UpdateFailed:
+        return {}
+    spool_id = (spoolman or {}).get("spool_id")
+    if spool_id is None:
+        return {"spool_details": {}}
+    try:
+        details = await coordinator.async_fetch_data(
+            METHODS.SERVER_SPOOLMAN_PROXY,
+            {
+                "request_method": "GET",
+                "path": f"/api/v1/spool/{spool_id}",
+            },
+        )
+    except UpdateFailed:
+        return {}
+    return {"spool_details": details if isinstance(details, dict) else {}}
+
+
 async def _printer_info_updater(coordinator):
     return {
         "printer.info": await coordinator._async_fetch_data(METHODS.PRINTER_INFO, None)
@@ -585,6 +613,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         self.selected_file: str | None = None
         self._updater_every: dict[Any, int] = {}
         self._update_cycle = 0
+        self.add_data_updater(_spool_status_updater, every=SLOW_UPDATE_CYCLES)
         client.notification_handler = self._async_handle_notification
         self.load_sensor_data(SENSORS)
         self.add_query_objects("virtual_sdcard", "file_path")
@@ -639,6 +668,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             "first_layer_height": None,
             "gcode_start_byte": None,
             "gcode_end_byte": None,
+            "filament_type": None,
         }
         if not gcode_filename:
             return return_gcode
@@ -674,6 +704,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         return_gcode["first_layer_height"] = gcode.get("first_layer_height", 0)
         return_gcode["gcode_start_byte"] = gcode.get("gcode_start_byte")
         return_gcode["gcode_end_byte"] = gcode.get("gcode_end_byte")
+        return_gcode["filament_type"] = gcode.get("filament_type")
 
         thumbnails = gcode.get("thumbnails")
         if isinstance(thumbnails, list):

@@ -3,11 +3,9 @@
 from unittest.mock import patch
 
 import pytest
-from homeassistant.const import STATE_UNKNOWN
-from homeassistant.helpers.update_coordinator import UpdateFailed
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.moonraker.const import DOMAIN, METHODS
+from custom_components.moonraker.const import DOMAIN
 
 from .const import MOCK_CONFIG
 

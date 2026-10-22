@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import math
 import re
+import statistics
 from collections import deque
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
@@ -22,6 +23,7 @@ from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.storage import Store
 
 from .const import (
+    CONF_OPTION_AMBIENT_SENSOR,
     CONF_OPTION_ENERGY_RATE,
     CONF_OPTION_MAX_FLOW,
     CONF_OPTION_NOTIFY_SERVICE,
@@ -56,6 +58,27 @@ STALL_CHECK_SECONDS = 30
 STALL_MIN_VELOCITY_MM_S = 3.0
 STALL_FILAMENT_EPSILON_MM = 0.5
 FILAMENT_AREA_MM2 = math.pi * (1.75**2) / 4
+HEATUP_MIN_TARGET_C = 40.0
+HEATUP_TOLERANCE_C = 2.0
+HEATUP_MIN_SECONDS = 5.0
+HEATUP_SLOW_RATIO = 1.2
+HEATUP_HISTORY_LIMIT = 5
+AMBIENT_COLD_C = 18.0
+VELOCITY_OVER_LIMIT_RATIO = 1.15
+VELOCITY_OVER_LIMIT_SAMPLES = 3
+SPOOL_SHORT_RATIO = 1.05
+
+# Approximate slicer material profiles: nozzle/bed target ranges in °C and
+# whether a warm enclosure is expected.
+MATERIAL_PROFILES: dict[str, dict[str, Any]] = {
+    "PLA": {"nozzle": (180, 225), "bed": (0, 65), "enclosure": False},
+    "PETG": {"nozzle": (220, 260), "bed": (60, 90), "enclosure": False},
+    "ABS": {"nozzle": (230, 270), "bed": (90, 115), "enclosure": True},
+    "ASA": {"nozzle": (230, 270), "bed": (90, 115), "enclosure": True},
+    "TPU": {"nozzle": (200, 240), "bed": (30, 70), "enclosure": False},
+    "PA": {"nozzle": (240, 300), "bed": (60, 100), "enclosure": True},
+    "PC": {"nozzle": (260, 320), "bed": (90, 130), "enclosure": True},
+}
 
 _HEATER_GENERIC_RE = re.compile(r"^heater_generic (.+)$")
 _MCU_RE = re.compile(r"^mcu")
@@ -148,6 +171,10 @@ class MoonrakerAnalyzer:
             _finite_number(options.get(CONF_OPTION_POWER_OFF_MAX_TEMP))
             or DEFAULT_POWER_OFF_MAX_TEMP
         )
+        self.ambient_sensor = str(options.get(CONF_OPTION_AMBIENT_SENSOR) or "")
+        self._heatup_active: dict[str, dict[str, float]] = {}
+        self._heatup_history: dict[str, list[float]] = {}
+        self._over_limit_samples = 0
         self.thermal_history: dict[str, deque[dict[str, float]]] = {}
         self.retransmit_history: deque[dict[str, float]] = deque(
             maxlen=RETRANSMIT_SAMPLE_LIMIT
@@ -208,6 +235,15 @@ class MoonrakerAnalyzer:
                     record for record in history if isinstance(record, dict)
                 ][-PRINT_HISTORY_LIMIT:]
             self.total_kwh = _finite_number(stored.get("total_kwh")) or 0.0
+            heatup = stored.get("heatup_history")
+            if isinstance(heatup, dict):
+                self._heatup_history = {
+                    str(label): [
+                        value for value in samples if _finite_number(value) is not None
+                    ][-HEATUP_HISTORY_LIMIT:]
+                    for label, samples in heatup.items()
+                    if isinstance(samples, list)
+                }
         self.metrics["total_kwh"] = round(self.total_kwh, 4)
         self._store_loaded = True
         if self._store_dirty:
@@ -234,6 +270,7 @@ class MoonrakerAnalyzer:
                     "mesh_baseline": self._mesh_baseline,
                     "print_history": self.print_history[-PRINT_HISTORY_LIMIT:],
                     "total_kwh": round(self.total_kwh, 6),
+                    "heatup_history": self._heatup_history,
                 }
             )
         except Exception:  # noqa: BLE001 - persistence failure is non-fatal
@@ -277,7 +314,11 @@ class MoonrakerAnalyzer:
         findings.extend(self._analyze_flow(status, now))
         findings.extend(self._analyze_retransmits(status, now))
         findings.extend(self._analyze_extrusion_stall(status, now))
+        findings.extend(self._analyze_heatup(status, now))
+        findings.extend(self._analyze_spool())
+        findings.extend(self._analyze_material(status))
         self._analyze_mesh(status)
+        findings.extend(self._analyze_kinematics(status))
         self._track_energy(status, now)
         self._track_print_state(status, now, findings)
         self.findings = findings
@@ -436,6 +477,264 @@ class MoonrakerAnalyzer:
         }
         self._stall_window = {"at": now, "filament": filament}
         return [finding]
+
+    # -- heat-up learning --------------------------------------------------------
+
+    def _analyze_heatup(
+        self, status: dict[str, Any], now: float
+    ) -> list[dict[str, str]]:
+        findings: list[dict[str, str]] = []
+        still_heating: set[str] = set()
+        for label, heater in self._heater_objects(status):
+            temp = _finite_number(heater.get("temperature"))
+            target = _finite_number(heater.get("target"))
+            if temp is None or target is None or target < HEATUP_MIN_TARGET_C:
+                continue
+            entry = self._heatup_active.get(label)
+            if temp < target - HEATUP_TOLERANCE_C:
+                if entry is None or abs(entry["target"] - target) > 1:
+                    self._heatup_active[label] = {"start": now, "target": target}
+                still_heating.add(label)
+                continue
+            if entry is None:
+                continue
+            duration = now - entry["start"]
+            del self._heatup_active[label]
+            if duration < HEATUP_MIN_SECONDS:
+                continue
+            baseline = self._heatup_history.setdefault(label, [])
+            if len(baseline) >= 3:
+                typical = statistics.median(baseline)
+                if duration > typical * HEATUP_SLOW_RATIO:
+                    findings.append(
+                        {
+                            "severity": "warn",
+                            "label": "slow heat-up",
+                            "detail": (
+                                f"{label} took {int(duration)}s to reach "
+                                f"{target:.0f}°C (typically {int(typical)}s) — "
+                                "check the heater cartridge and thermistor"
+                            ),
+                        }
+                    )
+            baseline.append(duration)
+            del baseline[:-HEATUP_HISTORY_LIMIT]
+            self._mark_dirty()
+        for label in list(self._heatup_active):
+            if label not in still_heating:
+                del self._heatup_active[label]
+        return findings
+
+    # -- spool cross-check ---------------------------------------------------------
+
+    def _spool_remaining_mm(self, spool: dict[str, Any]) -> float | None:
+        remaining = _finite_number(spool.get("remaining_length"))
+        if remaining is not None:
+            return remaining
+        weight = _finite_number(spool.get("remaining_weight"))
+        if weight is None:
+            return None
+        filament = spool.get("filament")
+        filament = filament if isinstance(filament, dict) else {}
+        density = _finite_number(filament.get("density")) or 1.24
+        diameter = _finite_number(filament.get("diameter")) or 1.75
+        if density <= 0:
+            return None
+        area_mm2 = math.pi * (diameter / 2) ** 2
+        # g / (g/cm3) = cm3 → mm = cm3 * 1000 / mm2
+        return (weight / density) * 1000 / area_mm2
+
+    def _analyze_spool(self) -> list[dict[str, str]]:
+        data = self.coordinator.data or {}
+        status = data.get("status") or {}
+        spool = data.get("spool_details")
+        if not isinstance(spool, dict) or not spool:
+            self.metrics["spool_material"] = None
+            self.metrics["spool_remaining_mm"] = None
+            self.metrics["spool_runout_layer"] = None
+            return []
+        filament = spool.get("filament")
+        filament = filament if isinstance(filament, dict) else {}
+        material = str(filament.get("material") or "").strip().upper() or None
+        self.metrics["spool_material"] = material
+        remaining_mm = self._spool_remaining_mm(spool)
+        self.metrics["spool_remaining_mm"] = (
+            round(remaining_mm, 1) if remaining_mm is not None else None
+        )
+        findings: list[dict[str, str]] = []
+        print_stats = status.get("print_stats") or {}
+        printing = print_stats.get("state") in ("printing", "paused")
+        filament_total = _finite_number(data.get("filament_total")) or 0.0
+        filament_used = _finite_number(print_stats.get("filament_used")) or 0.0
+        needed = filament_total - filament_used
+        if printing and needed > 0 and remaining_mm is not None:
+            if remaining_mm < needed / SPOOL_SHORT_RATIO:
+                info = print_stats.get("info") or {}
+                current_layer = _finite_number(info.get("current_layer")) or 0
+                layer_count = _finite_number(data.get("layer_count")) or 0
+                per_layer = filament_total / layer_count if layer_count else None
+                runout = None
+                if per_layer:
+                    runout = current_layer + remaining_mm / per_layer
+                self.metrics["spool_runout_layer"] = (
+                    round(runout) if runout is not None else None
+                )
+                findings.append(
+                    {
+                        "severity": "warn",
+                        "label": "spool shortfall",
+                        "detail": (
+                            f"the active spool holds ~{remaining_mm / 1000:.1f}m "
+                            f"but ~{needed / 1000:.1f}m remains in this print"
+                            + (
+                                f" — runs out near layer {int(runout)}"
+                                if runout
+                                else ""
+                            )
+                        ),
+                    }
+                )
+            else:
+                self.metrics["spool_runout_layer"] = None
+        else:
+            self.metrics["spool_runout_layer"] = None
+        file_type = str(data.get("filament_type") or "").strip().upper()
+        if (
+            printing
+            and file_type
+            and material
+            and file_type not in material
+            and material not in file_type
+        ):
+            findings.append(
+                {
+                    "severity": "warn",
+                    "label": "material mismatch",
+                    "detail": (
+                        f"file was sliced for {file_type} but the active spool "
+                        f"is {material}"
+                    ),
+                }
+            )
+        return findings
+
+    # -- material profiles + ambient ---------------------------------------------
+
+    def _detect_material(self) -> str | None:
+        data = self.coordinator.data or {}
+        candidates = [
+            data.get("filament_type"),
+            self.metrics.get("spool_material"),
+        ]
+        for candidate in candidates:
+            if not candidate:
+                continue
+            upper = str(candidate).upper()
+            for name in MATERIAL_PROFILES:
+                if name in upper:
+                    return name
+        return None
+
+    def _ambient_temp(self) -> float | None:
+        if not self.ambient_sensor:
+            return None
+        state = self.hass.states.get(self.ambient_sensor)
+        if state is None:
+            return None
+        return _finite_number(state.state)
+
+    def _analyze_material(self, status: dict[str, Any]) -> list[dict[str, str]]:
+        material = self._detect_material()
+        self.metrics["material"] = material
+        ambient = self._ambient_temp()
+        self.metrics["ambient_c"] = ambient
+        print_stats = status.get("print_stats") or {}
+        if print_stats.get("state") != "printing" or material is None:
+            return []
+        profile = MATERIAL_PROFILES[material]
+        findings: list[dict[str, str]] = []
+        extruder = status.get("extruder") or {}
+        nozzle_target = _finite_number(extruder.get("target"))
+        lo, hi = profile["nozzle"]
+        if nozzle_target is not None and not (lo - 15 <= nozzle_target <= hi + 15):
+            findings.append(
+                {
+                    "severity": "warn",
+                    "label": "nozzle outside profile",
+                    "detail": (
+                        f"nozzle target {nozzle_target:.0f}°C is outside the "
+                        f"typical {material} range {lo}-{hi}°C"
+                    ),
+                }
+            )
+        bed = status.get("heater_bed") or {}
+        bed_target = _finite_number(bed.get("target"))
+        lo, hi = profile["bed"]
+        if bed_target is not None and not (lo - 15 <= bed_target <= hi + 15):
+            findings.append(
+                {
+                    "severity": "warn",
+                    "label": "bed outside profile",
+                    "detail": (
+                        f"bed target {bed_target:.0f}°C is outside the typical "
+                        f"{material} range {lo}-{hi}°C"
+                    ),
+                }
+            )
+        if profile["enclosure"] and ambient is not None and ambient < AMBIENT_COLD_C:
+            findings.append(
+                {
+                    "severity": "warn",
+                    "label": "cold ambient",
+                    "detail": (
+                        f"{material} prints best with a warm enclosure but the "
+                        f"ambient sensor reads {ambient:.1f}°C"
+                    ),
+                }
+            )
+        return findings
+
+    # -- kinematic limits -----------------------------------------------------------
+
+    def _analyze_kinematics(self, status: dict[str, Any]) -> list[dict[str, str]]:
+        config = getattr(self.coordinator, "_config_settings", None) or {}
+        settings = ((config.get("status") or {}).get("configfile") or {}).get(
+            "settings"
+        ) or {}
+        printer_cfg = settings.get("printer") or {}
+        shaper = settings.get("input_shaper") or {}
+        max_velocity = _finite_number(printer_cfg.get("max_velocity"))
+        self.metrics["max_velocity"] = max_velocity
+        self.metrics["max_accel"] = _finite_number(printer_cfg.get("max_accel"))
+        self.metrics["shaper_freq_x"] = _finite_number(shaper.get("shaper_freq_x"))
+        print_stats = status.get("print_stats") or {}
+        velocity = _finite_number(
+            (status.get("motion_report") or {}).get("live_velocity")
+        )
+        over_limit = (
+            print_stats.get("state") == "printing"
+            and max_velocity is not None
+            and velocity is not None
+            and velocity > max_velocity * VELOCITY_OVER_LIMIT_RATIO
+        )
+        if not over_limit:
+            self._over_limit_samples = 0
+            return []
+        self._over_limit_samples += 1
+        if self._over_limit_samples < VELOCITY_OVER_LIMIT_SAMPLES:
+            return []
+        self._over_limit_samples = 0
+        return [
+            {
+                "severity": "warn",
+                "label": "velocity above limit",
+                "detail": (
+                    f"live velocity {velocity:.0f}mm/s exceeds the configured "
+                    f"max_velocity {max_velocity:.0f}mm/s — check printer.cfg "
+                    "kinematics and input-shaper settings"
+                ),
+            }
+        ]
 
     # -- bed mesh drift ---------------------------------------------------------
 
@@ -667,6 +966,16 @@ class MoonrakerAnalyzer:
             "extrusion_stall",
             any("stall" in finding["label"] for finding in self.findings),
             "error",
+        )
+        sync(
+            "slow_heatup",
+            any("slow heat-up" in finding["label"] for finding in self.findings),
+            "warn",
+        )
+        sync(
+            "spool_shortfall",
+            any("spool shortfall" in finding["label"] for finding in self.findings),
+            "warn",
         )
         machine_update = (self.coordinator.data or {}).get("machine_update") or {}
         version_info = machine_update.get("version_info") or {}

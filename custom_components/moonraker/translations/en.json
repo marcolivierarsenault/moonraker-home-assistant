@@ -36,7 +36,8 @@
           "notify_service": "Notification service (e.g. mobile_app_myphone)",
           "power_switch_entity": "Printer Power Switch",
           "power_off_delay_min": "Auto power-off delay after print (min)",
-          "power_off_max_temp": "Max hotend temperature for power-off (°C)"
+          "power_off_max_temp": "Max hotend temperature for power-off (°C)",
+          "ambient_sensor": "Ambient temperature sensor"
         },
         "title": "Configuration"
       }
@@ -62,6 +63,14 @@
     "printer_unreachable": {
       "title": "{printer} is unreachable",
       "description": "The integration has not received a successful response from this Moonraker instance. Check the printer host, network path, and Moonraker service."
+    },
+    "slow_heatup": {
+      "title": "Slow heat-up detected on {printer}",
+      "description": "A heater is taking noticeably longer than its learned baseline to reach target temperature, which suggests a degrading heater cartridge or thermistor. Inspect the heater wiring and cartridge before the next print."
+    },
+    "spool_shortfall": {
+      "title": "Active spool may run out on {printer}",
+      "description": "The active Spoolman spool does not hold enough filament to finish the current print. Plan a spool swap or pause the print before the filament runs out."
     }
   }
 }

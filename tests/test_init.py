@@ -1952,3 +1952,19 @@ async def test_upload_gcode_service_uploads_via_coordinator(hass, tmp_path):
         await hass.async_block_till_done()
 
     coordinator.async_upload_gcode.assert_awaited_once_with(str(target))
+
+
+async def test_setup_tolerates_config_settings_failure(hass):
+    """Setup proceeds when the printer configfile query fails."""
+    from homeassistant.helpers.update_coordinator import UpdateFailed
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="cfgfail")
+    config_entry.add_to_hass(hass)
+
+    with patch(
+        "custom_components.moonraker.MoonrakerDataUpdateCoordinator.async_get_config_settings",
+        new_callable=AsyncMock,
+        side_effect=UpdateFailed(),
+    ):
+        await hass.config_entries.async_setup(config_entry.entry_id)
+    assert config_entry.entry_id in hass.data[DOMAIN]
