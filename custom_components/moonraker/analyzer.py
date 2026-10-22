@@ -16,15 +16,24 @@ from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
 
+from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.storage import Store
 
 from .const import (
     CONF_OPTION_ENERGY_RATE,
     CONF_OPTION_MAX_FLOW,
+    CONF_OPTION_NOTIFY_SERVICE,
+    CONF_OPTION_POWER_OFF_DELAY,
+    CONF_OPTION_POWER_OFF_MAX_TEMP,
     CONF_OPTION_POWER_SENSOR,
+    CONF_OPTION_POWER_SWITCH,
     DEFAULT_MAX_FLOW_MM3,
+    DEFAULT_POWER_OFF_DELAY_MIN,
+    DEFAULT_POWER_OFF_MAX_TEMP,
     DOMAIN,
+    SIGNAL_PRINT_EVENT,
 )
 
 if TYPE_CHECKING:
@@ -50,6 +59,11 @@ FILAMENT_AREA_MM2 = math.pi * (1.75**2) / 4
 
 _HEATER_GENERIC_RE = re.compile(r"^heater_generic (.+)$")
 _MCU_RE = re.compile(r"^mcu")
+_PRINT_STATE_EVENTS = {
+    "complete": "print_completed",
+    "cancelled": "print_cancelled",
+    "error": "print_error",
+}
 
 
 def _now_ts() -> float:
@@ -124,6 +138,16 @@ class MoonrakerAnalyzer:
         )
         self.energy_rate = _finite_number(options.get(CONF_OPTION_ENERGY_RATE)) or 0.0
         self.power_sensor = str(options.get(CONF_OPTION_POWER_SENSOR) or "")
+        self.notify_service = str(options.get(CONF_OPTION_NOTIFY_SERVICE) or "")
+        self.power_switch = str(options.get(CONF_OPTION_POWER_SWITCH) or "")
+        self.power_off_delay = (
+            _finite_number(options.get(CONF_OPTION_POWER_OFF_DELAY))
+            or DEFAULT_POWER_OFF_DELAY_MIN
+        )
+        self.power_off_max_temp = (
+            _finite_number(options.get(CONF_OPTION_POWER_OFF_MAX_TEMP))
+            or DEFAULT_POWER_OFF_MAX_TEMP
+        )
         self.thermal_history: dict[str, deque[dict[str, float]]] = {}
         self.retransmit_history: deque[dict[str, float]] = deque(
             maxlen=RETRANSMIT_SAMPLE_LIMIT
@@ -162,6 +186,8 @@ class MoonrakerAnalyzer:
         self._store_loaded = False
         self._store_dirty = False
         self._save_unsub: Callable[[], None] | None = None
+        self._power_off_unsub: Callable[[], None] | None = None
+        self._power_off_armed = False
 
     async def async_load(self) -> None:
         """Restore persisted baselines, history, and energy totals."""
@@ -218,6 +244,10 @@ class MoonrakerAnalyzer:
         if self._save_unsub is not None:
             self._save_unsub()
             self._save_unsub = None
+        if self._power_off_unsub is not None:
+            self._power_off_unsub()
+            self._power_off_unsub = None
+            self._power_off_armed = False
         if self._store_dirty:
             await self._async_save()
 
@@ -251,6 +281,7 @@ class MoonrakerAnalyzer:
         self._track_energy(status, now)
         self._track_print_state(status, now, findings)
         self.findings = findings
+        self._sync_repairs()
 
     # -- thermal sentinel ----------------------------------------------------
 
@@ -494,10 +525,16 @@ class MoonrakerAnalyzer:
     ) -> None:
         print_stats = status.get("print_stats") or {}
         state = print_stats.get("state")
+        filename = str(print_stats.get("filename") or "")
         if state == "printing" and self._prev_print_state != "printing":
             if self._prev_print_state != "paused":
                 self._print_started_at = now
                 self._print_faults = set()
+                self._dispatch_print_event("print_started", filename)
+            else:
+                self._dispatch_print_event("print_resumed", filename)
+        elif state == "paused" and self._prev_print_state == "printing":
+            self._dispatch_print_event("print_paused", filename)
         for finding in findings:
             if finding["severity"] in ("warn", "bad"):
                 self._print_faults.add(finding["label"])
@@ -506,7 +543,148 @@ class MoonrakerAnalyzer:
             "paused",
         ):
             self._record_print(status, state, now)
+            self._dispatch_print_event(
+                _PRINT_STATE_EVENTS.get(state, f"print_{state}"), filename
+            )
+            if state == "complete":
+                self._schedule_power_off()
         self._prev_print_state = state
+
+    def _dispatch_print_event(self, event_type: str, filename: str) -> None:
+        """Fan out a lifecycle event to the event entity and notifications."""
+        async_dispatcher_send(
+            self.hass,
+            f"{SIGNAL_PRINT_EVENT}_{self.coordinator.config_entry.entry_id}",
+            {"type": event_type, "filename": filename},
+        )
+        self._notify(event_type, filename)
+
+    def _notify(self, event_type: str, filename: str) -> None:
+        """Send an optional companion-app notification on print milestones."""
+        if not self.notify_service:
+            return
+        titles = {
+            "print_started": "Print started",
+            "print_resumed": "Print resumed",
+            "print_paused": "Print paused",
+            "print_completed": "Print completed",
+            "print_cancelled": "Print cancelled",
+            "print_error": "Print error",
+        }
+        title = titles.get(event_type, "Printer event")
+        data: dict[str, Any] = {"title": title, "message": f"{title}: {filename}"}
+        if event_type in ("print_started", "print_resumed", "print_paused"):
+            data["data"] = {
+                "actions": [
+                    {"action": "PAUSE", "title": "Pause"},
+                    {"action": "CANCEL", "title": "Cancel"},
+                ]
+            }
+        self.hass.async_create_task(self._async_notify(data))
+
+    async def _async_notify(self, data: dict[str, Any]) -> None:
+        """Call the notify service, tolerating missing handlers."""
+        try:
+            await self.hass.services.async_call("notify", self.notify_service, data)
+        except Exception:  # noqa: BLE001 - notify targets can disappear
+            _LOGGER.debug("Notify service %s unavailable", self.notify_service)
+
+    def _schedule_power_off(self) -> None:
+        """Arm the delayed printer power-off after a completed print."""
+        if not self.power_switch or self._power_off_armed:
+            return
+        self._power_off_armed = True
+        self._power_off_unsub = async_call_later(
+            self.hass,
+            timedelta(minutes=self.power_off_delay),
+            self._async_power_off_check,
+        )
+
+    async def _async_power_off_check(self, _now: Any = None) -> None:
+        """Switch the printer off once cooled and the queue is empty."""
+        self._power_off_unsub = None
+        try:
+            data = self.coordinator.data or {}
+            status = data.get("status") or {}
+            print_state = (status.get("print_stats") or {}).get("state")
+            extruder_temp = _finite_number(
+                (status.get("extruder") or {}).get("temperature")
+            )
+            queue = data.get("queue") or {}
+            queued_jobs = queue.get("queued_jobs") or queue.get("queue") or []
+            if print_state in ("printing", "paused"):
+                return
+            if extruder_temp is not None and extruder_temp > self.power_off_max_temp:
+                _LOGGER.info("Postponing power-off: hotend at %.0f°C", extruder_temp)
+                return
+            if queued_jobs:
+                return
+            _LOGGER.info("Powering off %s after completed print", self.power_switch)
+            try:
+                await self.hass.services.async_call(
+                    "switch", "turn_off", {"entity_id": self.power_switch}
+                )
+            except Exception:  # noqa: BLE001 - switch entity may be gone
+                _LOGGER.warning("Power switch %s unavailable", self.power_switch)
+        finally:
+            self._power_off_armed = False
+
+    def _sync_repairs(self) -> None:
+        """Mirror findings into HA Repairs issues."""
+        entry_id = self.coordinator.config_entry.entry_id
+
+        def sync(issue_key: str, active: bool, severity: str) -> None:
+            issue_id = f"{entry_id}_{issue_key}"
+            if active:
+                ir.async_create_issue(
+                    self.hass,
+                    DOMAIN,
+                    issue_id,
+                    is_fixable=False,
+                    severity=(
+                        ir.IssueSeverity.WARNING
+                        if severity == "warn"
+                        else ir.IssueSeverity.ERROR
+                    ),
+                    translation_key=issue_key,
+                    translation_placeholders={
+                        "printer": self.coordinator.api_device_name
+                    },
+                )
+            else:
+                ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+
+        sync("mesh_relevel", self.metrics.get("mesh_status") == "due", "warn")
+        sync(
+            "heater_anomaly",
+            any(
+                finding["severity"] == "bad" and "saturated" in finding["label"]
+                for finding in self.findings
+            ),
+            "error",
+        )
+        sync(
+            "extrusion_stall",
+            any("stall" in finding["label"] for finding in self.findings),
+            "error",
+        )
+        machine_update = (self.coordinator.data or {}).get("machine_update") or {}
+        version_info = machine_update.get("version_info") or {}
+        updates_pending = any(
+            isinstance(info, dict)
+            and info.get("remote_version") is not None
+            and info.get("remote_version") != info.get("version")
+            for info in version_info.values()
+        ) or (
+            isinstance(version_info.get("system"), dict)
+            and (version_info["system"].get("package_count") or 0) > 0
+        )
+        sync("updates_available", updates_pending, "warn")
+        sync(
+            "printer_unreachable",
+            not self.coordinator.last_update_success,
+            "warn",
+        )
 
     def _record_print(self, status: dict[str, Any], state: str, now: float) -> None:
         print_stats = status.get("print_stats") or {}

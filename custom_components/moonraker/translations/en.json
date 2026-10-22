@@ -32,10 +32,36 @@
           "thumbnail_port": "Thumbnail Port",
           "power_sensor": "Printer Power Sensor (W)",
           "max_flow_mm3": "Max Volumetric Flow (mm³/s)",
-          "energy_rate": "Energy Rate (cost per kWh)"
+          "energy_rate": "Energy Rate (cost per kWh)",
+          "notify_service": "Notification service (e.g. mobile_app_myphone)",
+          "power_switch_entity": "Printer Power Switch",
+          "power_off_delay_min": "Auto power-off delay after print (min)",
+          "power_off_max_temp": "Max hotend temperature for power-off (°C)"
         },
         "title": "Configuration"
       }
+    }
+  },
+  "issues": {
+    "mesh_relevel": {
+      "title": "Bed mesh re-level recommended for {printer}",
+      "description": "The measured bed mesh drifted beyond the recommended threshold compared to the stored baseline. Re-run bed leveling and clear the mesh baseline."
+    },
+    "heater_anomaly": {
+      "title": "Heater anomaly detected on {printer}",
+      "description": "A heater is running at full duty while its temperature falls, which usually means a detached or failing heater cartridge or thermistor. Inspect the heater before the next print."
+    },
+    "extrusion_stall": {
+      "title": "Possible air printing on {printer}",
+      "description": "The toolhead is moving without advancing filament for an extended period. Check for a clogged nozzle, runout, or a filament path jam."
+    },
+    "updates_available": {
+      "title": "Printer component updates available for {printer}",
+      "description": "Moonraker reports pending updates for printer software components. Review them in Settings → Updates before installing."
+    },
+    "printer_unreachable": {
+      "title": "{printer} is unreachable",
+      "description": "The integration has not received a successful response from this Moonraker instance. Check the printer host, network path, and Moonraker service."
     }
   }
 }

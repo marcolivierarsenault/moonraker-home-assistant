@@ -546,3 +546,159 @@ async def test_diagnostics(hass):
 
     device_diag = await async_get_device_diagnostics(hass, entry, MagicMock())
     assert device_diag["analyzer"]["config"]["max_flow_mm3"] == 15.0
+
+
+async def test_repairs_issues_sync(hass):
+    """Findings mirror into Repairs issues and clear when healthy."""
+    from homeassistant.helpers import issue_registry as ir
+
+    coordinator = _coordinator(hass)
+    analyzer = coordinator.analyzer
+    registry = ir.async_get(hass)
+    entry_id = coordinator.config_entry.entry_id
+
+    coordinator.data = {
+        "machine_update": {
+            "version_info": {
+                "mainsail": {"version": "1.0", "remote_version": "2.0"},
+                "system": {"package_count": 0},
+            }
+        },
+        "status": _base_status(),
+    }
+    analyzer._mesh_baseline = {"matrix": [[0.0]], "at": 0.0}
+    status = _base_status()
+    status["bed_mesh"] = {"mesh_matrix": [[0.2]]}
+    status["print_stats"].update({"state": "printing", "filament_used": 0.0})
+    status["motion_report"].update(
+        {"live_velocity": 30.0, "live_extruder_velocity": 0.0}
+    )
+    status["extruder"] = {"temperature": 200.0, "power": 1.0, "target": 200.0}
+    coordinator.last_update_success = False
+
+    for index in range(40):
+        status["extruder"]["temperature"] = 200 - index
+        analyzer.analyze(status, now=float(index) * 2)
+    coordinator.data["status"] = status
+    analyzer.analyze(status, now=90.0)
+
+    issues = registry.async_get_issue
+    assert issues(DOMAIN, f"{entry_id}_mesh_relevel") is not None
+    assert issues(DOMAIN, f"{entry_id}_heater_anomaly") is not None
+    assert issues(DOMAIN, f"{entry_id}_extrusion_stall") is not None
+    assert issues(DOMAIN, f"{entry_id}_updates_available") is not None
+    assert issues(DOMAIN, f"{entry_id}_printer_unreachable") is not None
+
+    coordinator.last_update_success = True
+    coordinator.data["machine_update"] = {
+        "version_info": {"system": {"package_count": 0}}
+    }
+    healthy = _base_status()
+    healthy["extruder"] = {"temperature": 25.0, "power": 0.0, "target": 0.0}
+    healthy["print_stats"]["state"] = "complete"
+    analyzer.analyze(healthy, now=200.0)
+    assert issues(DOMAIN, f"{entry_id}_mesh_relevel") is None
+    assert issues(DOMAIN, f"{entry_id}_updates_available") is None
+    assert issues(DOMAIN, f"{entry_id}_printer_unreachable") is None
+
+
+async def test_power_off_after_completion(hass):
+    """A completed print powers the printer off after cooldown."""
+    from datetime import timedelta
+
+    from homeassistant.util import dt as dt_util
+    from pytest_homeassistant_custom_component.common import (
+        async_fire_time_changed,
+    )
+
+    coordinator = _coordinator(
+        hass,
+        options={
+            "power_switch_entity": "switch.printer_plug",
+            "power_off_delay_min": 15.0,
+            "power_off_max_temp": 50.0,
+        },
+        entry_id="poweroff",
+    )
+    analyzer = coordinator.analyzer
+    calls = []
+
+    async def capture(call):
+        calls.append(call)
+
+    hass.services.async_register("switch", "turn_off", capture)
+    coordinator.data = {"status": _base_status(), "queue": {"queued_jobs": []}}
+
+    status = _base_status()
+    status["print_stats"].update({"state": "printing", "filename": "a.gcode"})
+    analyzer.analyze(status, now=0.0)
+    status["print_stats"]["state"] = "complete"
+    status["extruder"]["temperature"] = 30.0
+    coordinator.data["status"] = status
+    analyzer.analyze(status, now=60.0)
+    assert analyzer._power_off_armed
+
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(minutes=20))
+    await hass.async_block_till_done()
+    assert calls[0].data == {"entity_id": "switch.printer_plug"}
+    assert analyzer._power_off_armed is False
+
+
+async def test_power_off_guards(hass):
+    """Power-off skips hot, busy, or queued states."""
+    coordinator = _coordinator(
+        hass,
+        options={"power_switch_entity": "switch.printer_plug"},
+        entry_id="powerguards",
+    )
+    analyzer = coordinator.analyzer
+    calls = []
+
+    async def capture(call):
+        calls.append(call)
+
+    hass.services.async_register("switch", "turn_off", capture)
+
+    # still printing → no off
+    coordinator.data = {
+        "status": _base_status(),
+        "queue": {"queued_jobs": []},
+    }
+    coordinator.data["status"]["print_stats"]["state"] = "printing"
+    await analyzer._async_power_off_check()
+    assert calls == []
+
+    # hotend too hot → no off
+    coordinator.data["status"]["print_stats"]["state"] = "complete"
+    coordinator.data["status"]["extruder"]["temperature"] = 80.0
+    await analyzer._async_power_off_check()
+    assert calls == []
+
+    # queued jobs → no off
+    coordinator.data["status"]["extruder"]["temperature"] = 30.0
+    coordinator.data["queue"] = {"queued_jobs": ["next.gcode"]}
+    await analyzer._async_power_off_check()
+    assert calls == []
+    assert analyzer._power_off_armed is False
+
+    # missing switch entity is tolerated
+    coordinator.data["queue"] = {"queue": []}
+    hass.services.async_remove("switch", "turn_off")
+    await analyzer._async_power_off_check()
+    assert calls == []
+
+
+async def test_power_off_timer_cancelled_on_shutdown(hass):
+    """Unloading cancels an armed power-off timer."""
+    coordinator = _coordinator(
+        hass,
+        options={"power_switch_entity": "switch.printer_plug"},
+        entry_id="powercancel",
+    )
+    analyzer = coordinator.analyzer
+    await analyzer.async_load()
+    analyzer._schedule_power_off()
+    assert analyzer._power_off_unsub is not None
+    await analyzer.async_shutdown()
+    assert analyzer._power_off_unsub is None
+    assert analyzer._power_off_armed is False

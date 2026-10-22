@@ -17,8 +17,14 @@ from .api import MoonrakerApiClient
 from .const import (
     CONF_OPTION_ENERGY_RATE,
     CONF_OPTION_MAX_FLOW,
+    CONF_OPTION_NOTIFY_SERVICE,
+    CONF_OPTION_POWER_OFF_DELAY,
+    CONF_OPTION_POWER_OFF_MAX_TEMP,
     CONF_OPTION_POWER_SENSOR,
+    CONF_OPTION_POWER_SWITCH,
     DEFAULT_MAX_FLOW_MM3,
+    DEFAULT_POWER_OFF_DELAY_MIN,
+    DEFAULT_POWER_OFF_MAX_TEMP,
     CONF_API_KEY,
     CONF_PORT,
     CONF_PRINTER_NAME,
@@ -243,6 +249,36 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                             CONF_OPTION_ENERGY_RATE, 0.0
                         ),
                     ): vol.All(vol.Coerce(float), vol.Range(min=0.0)),
+                    vol.Optional(
+                        CONF_OPTION_NOTIFY_SERVICE,
+                        default=self.config_entry.options.get(
+                            CONF_OPTION_NOTIFY_SERVICE, ""
+                        ),
+                    ): str,
+                    vol.Optional(
+                        CONF_OPTION_POWER_SWITCH,
+                        description={
+                            "suggested_value": self.config_entry.options.get(
+                                CONF_OPTION_POWER_SWITCH
+                            )
+                        },
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain="switch")
+                    ),
+                    vol.Optional(
+                        CONF_OPTION_POWER_OFF_DELAY,
+                        default=self.config_entry.options.get(
+                            CONF_OPTION_POWER_OFF_DELAY,
+                            DEFAULT_POWER_OFF_DELAY_MIN,
+                        ),
+                    ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=1440)),
+                    vol.Optional(
+                        CONF_OPTION_POWER_OFF_MAX_TEMP,
+                        default=self.config_entry.options.get(
+                            CONF_OPTION_POWER_OFF_MAX_TEMP,
+                            DEFAULT_POWER_OFF_MAX_TEMP,
+                        ),
+                    ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=120)),
                 }
             ),
         )

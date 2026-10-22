@@ -32,10 +32,36 @@
           "thumbnail_port": "Port de la miniature",
           "power_sensor": "Capteur de puissance de l'imprimante (W)",
           "max_flow_mm3": "Débit volumétrique maximal (mm³/s)",
-          "energy_rate": "Tarif d'énergie (coût par kWh)"
+          "energy_rate": "Tarif d'énergie (coût par kWh)",
+          "notify_service": "Service de notification (ex. mobile_app_montel)",
+          "power_switch_entity": "Interrupteur d'alimentation de l'imprimante",
+          "power_off_delay_min": "Délai d'arrêt automatique après impression (min)",
+          "power_off_max_temp": "Température max de la buse pour l'arrêt (°C)"
         },
         "title": "Configuration"
       }
+    }
+  },
+  "issues": {
+    "mesh_relevel": {
+      "title": "Renivelage du plateau recommandé pour {printer}",
+      "description": "Le maillage du plateau a dérivé au-delà du seuil recommandé par rapport à la référence enregistrée. Refaites le nivelage puis réinitialisez la référence."
+    },
+    "heater_anomaly": {
+      "title": "Anomalie de chauffage détectée sur {printer}",
+      "description": "Un élément chauffant fonctionne à pleine puissance alors que sa température baisse, signe probable d'une cartouche ou d'une sonde défaillante. Inspectez-le avant la prochaine impression."
+    },
+    "extrusion_stall": {
+      "title": "Impression à vide possible sur {printer}",
+      "description": "La tête se déplace sans faire avancer le filament pendant une durée prolongée. Vérifiez la buse, la fin de filament et le chemin d'extrusion."
+    },
+    "updates_available": {
+      "title": "Mises à jour disponibles pour {printer}",
+      "description": "Moonraker signale des mises à jour en attente pour des composants. Consultez-les dans Paramètres → Mises à jour avant installation."
+    },
+    "printer_unreachable": {
+      "title": "{printer} est injoignable",
+      "description": "L'intégration n'a pas reçu de réponse de cette instance Moonraker. Vérifiez l'hôte, le réseau et le service Moonraker."
     }
   }
 }

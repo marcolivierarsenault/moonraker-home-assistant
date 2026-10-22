@@ -32,10 +32,36 @@
           "thumbnail_port": "Puerto de la miniatura",
           "power_sensor": "Sensor de potencia de la impresora (W)",
           "max_flow_mm3": "Flujo volumétrico máximo (mm³/s)",
-          "energy_rate": "Tarifa de energía (coste por kWh)"
+          "energy_rate": "Tarifa de energía (coste por kWh)",
+          "notify_service": "Servicio de notificación (p. ej. mobile_app_miphone)",
+          "power_switch_entity": "Interruptor de encendido de la impresora",
+          "power_off_delay_min": "Retardo de apagado automático tras imprimir (min)",
+          "power_off_max_temp": "Temperatura máxima del extrusor para apagar (°C)"
         },
         "title": "Configuración"
       }
+    }
+  },
+  "issues": {
+    "mesh_relevel": {
+      "title": "Se recomienda renivelar la cama de {printer}",
+      "description": "La malla de la cama se desvió más allá del umbral recomendado respecto a la referencia guardada. Vuelva a nivelar y restablezca la referencia."
+    },
+    "heater_anomaly": {
+      "title": "Anomalía de calentador detectada en {printer}",
+      "description": "Un calentador funciona al 100% mientras la temperatura baja, lo que suele indicar un cartucho o termistor defectuoso. Revíselo antes de la próxima impresión."
+    },
+    "extrusion_stall": {
+      "title": "Posible impresión en el aire en {printer}",
+      "description": "El cabezal se mueve sin avanzar filamento durante un periodo prolongado. Compruebe obstrucciones, falta de filamento o atascos."
+    },
+    "updates_available": {
+      "title": "Actualizaciones disponibles para {printer}",
+      "description": "Moonraker informa de actualizaciones pendientes para componentes. Revíselas en Ajustes → Actualizaciones antes de instalar."
+    },
+    "printer_unreachable": {
+      "title": "{printer} no responde",
+      "description": "La integración no recibió una respuesta de este Moonraker. Compruebe el host, la red y el servicio Moonraker."
     }
   }
 }

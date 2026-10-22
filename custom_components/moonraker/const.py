@@ -20,6 +20,8 @@ PLATFORMS = [
     Platform.NUMBER,
     Platform.LIGHT,
     Platform.SELECT,
+    Platform.UPDATE,
+    Platform.EVENT,
 ]
 
 CONF_API_KEY = "api_key"
@@ -47,6 +49,13 @@ CONF_OPTION_POWER_SENSOR = "power_sensor"
 CONF_OPTION_MAX_FLOW = "max_flow_mm3"
 CONF_OPTION_ENERGY_RATE = "energy_rate"
 DEFAULT_MAX_FLOW_MM3 = 15.0
+CONF_OPTION_NOTIFY_SERVICE = "notify_service"
+CONF_OPTION_POWER_SWITCH = "power_switch_entity"
+CONF_OPTION_POWER_OFF_DELAY = "power_off_delay_min"
+CONF_OPTION_POWER_OFF_MAX_TEMP = "power_off_max_temp"
+DEFAULT_POWER_OFF_DELAY_MIN = 15.0
+DEFAULT_POWER_OFF_MAX_TEMP = 50.0
+SIGNAL_PRINT_EVENT = "moonraker_print_event"
 
 # API dict keys
 DEVICE_TYPE = "device_type"
@@ -73,6 +82,7 @@ class METHODS(Enum):
     MACHINE_SERVICES_RESTART = "machine.services.restart"
     MACHINE_UPDATE_REFRESH = "machine.update.refresh"
     MACHINE_UPDATE_STATUS = "machine.update.status"
+    MACHINE_UPDATE_CLIENT_UPGRADE = "machine.update.client.upgrade"
     MACHINE_SYSTEM_INFO = "machine.system_info"
     PRINTER_EMERGENCY_STOP = "printer.emergency_stop"
     PRINTER_INFO = "printer.info"
