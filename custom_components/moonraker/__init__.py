@@ -598,6 +598,24 @@ async def _queue_meta_updater(coordinator):
     return {"queue_meta": meta}
 
 
+async def _config_drift_updater(coordinator):
+    """Refresh the printer config snapshot for drift tracking."""
+    try:
+        response = await coordinator.async_fetch_data(
+            METHODS.PRINTER_OBJECTS_QUERY,
+            {OBJ: {"configfile": ["config"]}},
+            quiet=True,
+        )
+    except UpdateFailed:
+        return {}
+    config = (((response or {}).get("status") or {}).get("configfile") or {}).get(
+        "config"
+    )
+    if isinstance(config, dict):
+        coordinator.analyzer.track_config_drift(config)
+    return {}
+
+
 async def _printer_info_updater(coordinator):
     return {
         "printer.info": await coordinator._async_fetch_data(METHODS.PRINTER_INFO, None)
@@ -645,6 +663,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         self._update_cycle = 0
         self.add_data_updater(_spool_status_updater, every=SLOW_UPDATE_CYCLES)
         self.add_data_updater(_queue_meta_updater, every=SLOW_UPDATE_CYCLES)
+        self.add_data_updater(_config_drift_updater, every=SLOW_UPDATE_CYCLES * 4)
         client.notification_handler = self._async_handle_notification
         self.load_sensor_data(SENSORS)
         self.add_query_objects("virtual_sdcard", "file_path")

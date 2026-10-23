@@ -78,6 +78,10 @@
     "vision_alert": {
       "title": "Possible print failure seen on {printer}",
       "description": "The camera check flagged likely print failure signs — spaghetti plastic, a detached part, or a bad first layer. Inspect the printer before letting the job continue."
+    },
+    "config_changed": {
+      "title": "Printer configuration changed on {printer}",
+      "description": "The Klipper configuration snapshot differs from the one stored previously. Review recent printer.cfg edits if this was unexpected."
     }
   },
   "selector": {

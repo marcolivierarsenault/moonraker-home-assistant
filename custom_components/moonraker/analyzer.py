@@ -9,6 +9,8 @@ persisted through Home Assistant's Store.
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 import logging
 import math
 import re
@@ -55,6 +57,23 @@ RETRANSMIT_SAMPLE_LIMIT = 120
 MESH_RMS_DUE_MM = 0.10
 MESH_HISTORY_LIMIT = 12
 MESH_TILT_SHIFT_WARN = 0.02
+LAYER_HISTORY_LIMIT = 240
+LAYER_PERIOD_MIN_LAYERS = 12
+LAYER_PERIOD_MIN_CORR = 0.55
+FIRST_LAYER_Z_MAX_MM = 0.5
+FIRST_LAYER_BIN_MM = 10
+DRIVER_TEMP_WARN_C = 60.0
+DRIVER_TEMP_SHUTDOWN_C = 90.0
+VOLTAGE_SAG_PCT = 8.0
+HEATER_EFFICIENCY_DRIFT_PCT = 20.0
+HEATER_STEADY_SECONDS = 120.0
+NOZZLE_WEAR_DROP_PCT = 20.0
+FILE_STATS_LIMIT = 60
+FORENSIC_SAMPLE_LIMIT = 120
+TWIN_HISTORY_LIMIT = 30
+HIGH_SHRINK_MATERIALS = ("ABS", "ASA", "PC", "PA", "NYLON", "HIPS")
+CHAMBER_WARM_MIN_C = 30.0
+MESH_FRESH_DAYS = 14
 MESH_MAX_DUE_MM = 0.15
 MESH_RMS_WARN_MM = 0.05
 MESH_MAX_WARN_MM = 0.08
@@ -286,6 +305,38 @@ class MoonrakerAnalyzer:
         )
         self._mesh_baseline: dict[str, Any] | None = None
         self.mesh_history: list[dict[str, Any]] = []
+        self._layer_boundary: dict[str, float] | None = None
+        self._layer_times: deque[dict[str, float]] = deque(maxlen=LAYER_HISTORY_LIMIT)
+        self._print_layer_durations: list[float] = []
+        self._prev_position: list[float] | None = None
+        self._prev_filament_used: float | None = None
+        self._prev_sample_at: float | None = None
+        self._prev_ext_velocity: float = 0.0
+        self._last_extrusion_at: float | None = None
+        self._stutter_events: deque[float] = deque(maxlen=240)
+        self.extruder_skips = 0
+        self._first_layer_bins: dict[str, float] = {}
+        self._steady_since: dict[str, float] = {}
+        self._power_ratio_at: dict[str, float] = {}
+        self.heater_power_history: dict[str, list[float]] = {}
+        self.flow_peaks: dict[str, list[float]] = {}
+        self._print_peak_flow = 0.0
+        self._tmc_history: deque[tuple[float, float]] = deque(maxlen=60)
+        self._voltage_history: dict[str, deque[tuple[float, float]]] = {}
+        self._voltage_baseline: dict[str, float] = {}
+        self.config_hash: str | None = None
+        self.config_changed_at: str | None = None
+        self.file_stats: dict[str, dict[str, Any]] = {}
+        self.golden_runs: dict[str, dict[str, Any]] = {}
+        self.eta_factors: dict[str, float] = {}
+        self._telemetry_ring: deque[dict[str, Any]] = deque(
+            maxlen=FORENSIC_SAMPLE_LIMIT
+        )
+        self._ring_last_at: float | None = None
+        self._print_start_ambient: float | None = None
+        self._print_flow_sum = 0.0
+        self._print_flow_count = 0
+        self._print_temp_samples: list[float] = []
         self._flow_saturated_since: float | None = None
         self._stall_window: dict[str, float] | None = None
         self._prev_print_state: str | None = None
@@ -361,6 +412,51 @@ class MoonrakerAnalyzer:
                     for label, samples in heatup.items()
                     if isinstance(samples, list)
                 }
+            power_history = stored.get("heater_power_history")
+            if isinstance(power_history, dict):
+                self.heater_power_history = {
+                    str(label): [
+                        value for value in samples if _finite_number(value) is not None
+                    ][-20:]
+                    for label, samples in power_history.items()
+                    if isinstance(samples, list)
+                }
+            flow_peaks = stored.get("flow_peaks")
+            if isinstance(flow_peaks, dict):
+                self.flow_peaks = {
+                    str(material): [
+                        value for value in peaks if _finite_number(value) is not None
+                    ][-10:]
+                    for material, peaks in flow_peaks.items()
+                    if isinstance(peaks, list)
+                }
+            file_stats = stored.get("file_stats")
+            if isinstance(file_stats, dict):
+                self.file_stats = {
+                    str(name): dict(record)
+                    for name, record in list(file_stats.items())[-FILE_STATS_LIMIT:]
+                    if isinstance(record, dict)
+                }
+            golden = stored.get("golden_runs")
+            if isinstance(golden, dict):
+                self.golden_runs = {
+                    str(name): dict(record)
+                    for name, record in list(golden.items())[-TWIN_HISTORY_LIMIT:]
+                    if isinstance(record, dict)
+                }
+            eta = stored.get("eta_factors")
+            if isinstance(eta, dict):
+                self.eta_factors = {
+                    str(key): value
+                    for key, value in eta.items()
+                    if _finite_number(value) is not None
+                }
+            config_hash = stored.get("config_hash")
+            if isinstance(config_hash, str):
+                self.config_hash = config_hash
+            config_changed = stored.get("config_changed_at")
+            if isinstance(config_changed, str):
+                self.config_changed_at = config_changed
         self.metrics["total_kwh"] = round(self.total_kwh, 4)
         self._store_loaded = True
         if self._store_dirty:
@@ -389,6 +485,13 @@ class MoonrakerAnalyzer:
                     "print_history": self.print_history[-PRINT_HISTORY_LIMIT:],
                     "total_kwh": round(self.total_kwh, 6),
                     "heatup_history": self._heatup_history,
+                    "heater_power_history": self.heater_power_history,
+                    "flow_peaks": self.flow_peaks,
+                    "file_stats": self.file_stats,
+                    "golden_runs": self.golden_runs,
+                    "eta_factors": self.eta_factors,
+                    "config_hash": self.config_hash,
+                    "config_changed_at": self.config_changed_at,
                     "checkpoints": list(self.checkpoints),
                 }
             )
@@ -448,6 +551,15 @@ class MoonrakerAnalyzer:
         findings.extend(self._analyze_material(status))
         findings.extend(self._analyze_mesh(status, now))
         findings.extend(self._analyze_kinematics(status))
+        findings.extend(self._analyze_layers(status, now))
+        findings.extend(self._analyze_stutter(status, now))
+        findings.extend(self._analyze_drivers(status, now))
+        findings.extend(self._analyze_voltages(status))
+        findings.extend(self._analyze_thermistor_health(status, now))
+        self._track_first_layer_flow(status)
+        self._track_twin(status, now)
+        self._record_telemetry(status, now)
+        self._update_preflight(status, now)
         self._track_energy(status, now)
         self._track_print_state(status, now, findings)
         self._track_checkpoints(status, now)
@@ -824,6 +936,30 @@ class MoonrakerAnalyzer:
                 item["current_index"],
             ),
         )
+        # Spool reservation: cumulative filament across runnable jobs must not
+        # oversubscribe what is left on the spool.
+        reserved_mm = 0.0
+        for item in plan:
+            filament_mm = _finite_number(item.get("filament_mm"))
+            if not item["ok"] or filament_mm is None or remaining_mm is None:
+                item["overruns_spool"] = False
+                continue
+            reserved_mm += filament_mm
+            item["overruns_spool"] = reserved_mm > remaining_mm
+            if item["overruns_spool"]:
+                item["reason"] = "queue overruns spool when combined"
+                findings.append(
+                    {
+                        "severity": "warn",
+                        "label": "queue overruns spool",
+                        "detail": (
+                            f"{item['filename']} would run past the remaining "
+                            f"~{remaining_mm / 1000:.1f}m of filament when "
+                            "the queue is taken together"
+                        ),
+                    }
+                )
+        self.metrics["queue_reserved_mm"] = round(reserved_mm, 0)
         self.metrics["queue_plan"] = plan
         self.metrics["queue_plan_differs"] = [item["job_id"] for item in plan] != [
             str(job.get("job_id") or "") for job in jobs if isinstance(job, dict)
@@ -1077,6 +1213,434 @@ class MoonrakerAnalyzer:
         self._analyze_mesh(status, _now_ts())
         return True
 
+    # -- print-science diagnostics ----------------------------------------------
+
+    @staticmethod
+    def _is_printing(status: dict[str, Any]) -> bool:
+        return (status.get("print_stats") or {}).get("state") == "printing"
+
+    def _current_layer(self, status: dict[str, Any]) -> float | None:
+        info = (status.get("print_stats") or {}).get("info") or {}
+        return _finite_number(info.get("current_layer"))
+
+    def _analyze_layers(
+        self, status: dict[str, Any], now: float
+    ) -> list[dict[str, str]]:
+        """Detect layer boundaries and periodic layer-time signatures (Z-banding)."""
+        if not self._is_printing(status):
+            self._layer_boundary = None
+            return []
+        layer = self._current_layer(status)
+        position = (status.get("toolhead") or {}).get("position") or []
+        z = _finite_number(position[2]) if len(position) > 2 else None
+        boundary = self._layer_boundary
+        if layer is not None and boundary and boundary.get("layer") is not None:
+            if layer > boundary["layer"]:
+                duration = now - boundary["at"]
+                dz = (
+                    z - boundary["z"]
+                    if z is not None and boundary.get("z") is not None
+                    else None
+                )
+                self._layer_times.append({"at": now, "duration": duration, "dz": dz})
+                self._print_layer_durations.append(duration)
+                self._layer_boundary = {"layer": layer, "z": z, "at": now}
+            elif layer < boundary["layer"]:
+                self._layer_boundary = {"layer": layer, "z": z, "at": now}
+        elif layer is not None:
+            self._layer_boundary = {"layer": layer, "z": z, "at": now}
+        elif z is not None:
+            # No layer metadata: use Z hops of >= 0.05mm while printing.
+            prev_z = boundary["z"] if boundary else None
+            if prev_z is None or z - prev_z >= 0.05:
+                if prev_z is not None and boundary is not None:
+                    self._layer_times.append(
+                        {
+                            "at": now,
+                            "duration": now - boundary["at"],
+                            "dz": z - prev_z,
+                        }
+                    )
+                    self._print_layer_durations.append(now - boundary["at"])
+                self._layer_boundary = {"layer": None, "z": z, "at": now}
+            elif z < prev_z:
+                self._layer_boundary = {"layer": None, "z": z, "at": now}
+
+        samples = list(self._layer_times)
+        if len(samples) < LAYER_PERIOD_MIN_LAYERS:
+            self.metrics["z_banding_period_mm"] = None
+            return []
+        durations = [sample["duration"] for sample in samples[-40:]]
+        mean = sum(durations) / len(durations)
+        denom = sum((value - mean) ** 2 for value in durations)
+        if denom <= 1e-9:
+            self.metrics["z_banding_period_mm"] = None
+            return []
+        best_lag, best_corr = 0, 0.0
+        for lag in range(1, min(11, len(durations) - 1)):
+            num = sum(
+                (durations[i] - mean) * (durations[i - lag] - mean)
+                for i in range(lag, len(durations))
+            )
+            corr = num / denom
+            if corr > best_corr:
+                best_lag, best_corr = lag, corr
+        if best_corr < LAYER_PERIOD_MIN_CORR or not best_lag:
+            self.metrics["z_banding_period_mm"] = None
+            return []
+        dzs = [
+            sample["dz"]
+            for sample in samples[-len(durations) :]
+            if _finite_number(sample.get("dz"))
+        ]
+        period_mm = round(best_lag * sum(dzs) / len(dzs), 2) if dzs else None
+        self.metrics["z_banding_period_mm"] = period_mm
+        return [
+            {
+                "severity": "warn",
+                "label": "z banding signature",
+                "detail": (
+                    f"layer times repeat every {best_lag} layers"
+                    + (f" (~{period_mm}mm)" if period_mm else "")
+                    + " — check leadscrew/Z mechanics"
+                ),
+            }
+        ]
+
+    def _analyze_stutter(
+        self, status: dict[str, Any], now: float
+    ) -> list[dict[str, str]]:
+        """Count extrusion reversals and probable extruder skips while printing."""
+        findings: list[dict[str, str]] = []
+        motion = status.get("motion_report") or {}
+        ext_vel = _finite_number(motion.get("live_extruder_velocity")) or 0.0
+        move_vel = _finite_number(motion.get("live_velocity")) or 0.0
+        if not self._is_printing(status):
+            self._prev_ext_velocity = ext_vel
+            return findings
+        if ext_vel > 1.5:
+            self._last_extrusion_at = now
+        # Sign reversal while commanded to move = a retraction or a stall.
+        if self._prev_ext_velocity * ext_vel < 0:
+            self._stutter_events.append(now)
+        # Probable skip: was extruding recently, extrusion stalled, still moving.
+        if (
+            self._prev_ext_velocity > 2.0
+            and ext_vel < 0.3
+            and move_vel > 10
+            and self._last_extrusion_at is not None
+            and now - self._last_extrusion_at < 3
+            and (not self._stutter_events or now - self._stutter_events[-1] > 1.0)
+        ):
+            self.extruder_skips += 1
+            self._stutter_events.append(now)
+        self._prev_ext_velocity = ext_vel
+        window = [ts for ts in self._stutter_events if now - ts <= 60]
+        self.metrics["extrusion_stutter_per_min"] = len(window)
+        self.metrics["extruder_skips"] = self.extruder_skips
+        if self.extruder_skips >= 3:
+            findings.append(
+                {
+                    "severity": "bad",
+                    "label": "extruder skipping",
+                    "detail": (
+                        f"{self.extruder_skips} probable skip events this print"
+                        " — flow is stalling while the head keeps moving"
+                    ),
+                }
+            )
+        elif len(window) >= 30:
+            findings.append(
+                {
+                    "severity": "warn",
+                    "label": "extrusion stutter",
+                    "detail": (
+                        f"{len(window)} extrusion reversals in the last minute"
+                        " — check pressure advance / nozzle condition"
+                    ),
+                }
+            )
+        return findings
+
+    def _analyze_drivers(
+        self, status: dict[str, Any], now: float
+    ) -> list[dict[str, str]]:
+        """Track stepper-driver temperatures and predict thermal shutdown."""
+        hottest: float | None = None
+        for name, section in status.items():
+            if not (name.startswith("tmc") or "driver" in name):
+                continue
+            temp = _finite_number(section.get("temperature"))
+            if temp is not None and (hottest is None or temp > hottest):
+                hottest = temp
+        self.metrics["driver_max_c"] = round(hottest, 1) if hottest else None
+        if hottest is None:
+            return []
+        self._tmc_history.append((now, hottest))
+        if hottest < DRIVER_TEMP_WARN_C or len(self._tmc_history) < 5:
+            return []
+        samples = [sample for sample in self._tmc_history if now - sample[0] <= 300]
+        if len(samples) < 5:
+            return []
+        t0, t_start = samples[0]
+        span = max(1.0, now - t0)
+        slope = (hottest - t_start) / span * 60  # °C per minute
+        if slope <= 0.5:
+            return []
+        eta = (DRIVER_TEMP_SHUTDOWN_C - hottest) / slope
+        self.metrics["driver_shutdown_eta_min"] = round(eta, 1)
+        if eta > 15:
+            return []
+        return [
+            {
+                "severity": "warn" if eta > 5 else "bad",
+                "label": "driver overheating",
+                "detail": (
+                    f"stepper driver at {hottest:.0f}°C rising "
+                    f"{slope:.1f}°C/min — thermal shutdown in ~{eta:.0f}min"
+                ),
+            }
+        ]
+
+    def _analyze_voltages(self, status: dict[str, Any]) -> list[dict[str, str]]:
+        """Watch any reported rail voltage for sag below its baseline."""
+        findings: list[dict[str, str]] = []
+        seen: set[str] = set()
+        for section in status.values():
+            for key, value in section.items():
+                lowered = key.lower()
+                if not any(
+                    token in lowered for token in ("voltage", "vbus", "vin", "vcc")
+                ):
+                    continue
+                volts = _finite_number(value)
+                if volts is None or volts <= 0 or volts > 1000:
+                    continue
+                label = f"{id(section)}.{key}"
+                seen.add(label)
+                if label not in self._voltage_baseline:
+                    history = self._voltage_history.setdefault(label, deque(maxlen=40))
+                    history.append(volts)
+                    if len(history) >= 10:
+                        ordered = sorted(history)
+                        self._voltage_baseline[label] = ordered[len(ordered) // 2]
+                    continue
+                baseline = self._voltage_baseline[label]
+                if baseline and volts < baseline * (1 - VOLTAGE_SAG_PCT / 100):
+                    findings.append(
+                        {
+                            "severity": "warn",
+                            "label": "voltage sag",
+                            "detail": (
+                                f"{key} dropped to {volts:.2f}V from a "
+                                f"{baseline:.2f}V baseline — check PSU"
+                            ),
+                        }
+                    )
+        self.metrics["voltage_watch_count"] = len(seen)
+        return findings
+
+    def _analyze_thermistor_health(
+        self, status: dict[str, Any], now: float
+    ) -> list[dict[str, str]]:
+        """Compare power-per-degree at steady state against history."""
+        findings: list[dict[str, str]] = []
+        for label, section in self._heater_objects(status):
+            temp = _finite_number(section.get("temperature"))
+            target = _finite_number(section.get("target"))
+            power = _finite_number(section.get("power"))
+            steady = (
+                temp is not None
+                and target is not None
+                and target >= 40
+                and abs(temp - target) <= 2
+                and power is not None
+                and 0.05 <= power <= 0.95
+            )
+            if not steady:
+                self._steady_since.pop(label, None)
+                continue
+            since = self._steady_since.setdefault(label, now)
+            if now - since < HEATER_STEADY_SECONDS:
+                continue
+            last = self._power_ratio_at.get(label, 0.0)
+            if now - last < HEATER_STEADY_SECONDS:
+                continue
+            self._power_ratio_at[label] = now
+            ratio = power / temp
+            history = self.heater_power_history.setdefault(label, [])
+            baseline = sorted(history)[len(history) // 2] if len(history) >= 4 else None
+            history.append(ratio)
+            del history[:-20]
+            self._mark_dirty()
+            if baseline and ratio > baseline * (1 + HEATER_EFFICIENCY_DRIFT_PCT / 100):
+                findings.append(
+                    {
+                        "severity": "warn",
+                        "label": "heater efficiency declining",
+                        "detail": (
+                            f"{label} needs {(ratio / baseline - 1) * 100:.0f}%"
+                            " more power than usual for the same temperature"
+                            " — thermistor or heater cartridge aging"
+                        ),
+                    }
+                )
+            if label == "extruder" and baseline:
+                self.metrics["hotend_efficiency_pct"] = round(ratio / baseline * 100, 1)
+        return findings
+
+    def _track_first_layer_flow(self, status: dict[str, Any]) -> None:
+        """Bin extruded filament by XY region during the first layer."""
+        if not self._is_printing(status):
+            return
+        position = (status.get("toolhead") or {}).get("position") or []
+        z = _finite_number(position[2]) if len(position) > 2 else None
+        filament = _finite_number(
+            (status.get("print_stats") or {}).get("filament_used")
+        )
+        if z is None or filament is None:
+            return
+        if z > FIRST_LAYER_Z_MAX_MM:
+            if self._first_layer_bins:
+                values = list(self._first_layer_bins.values())
+                mean = sum(values) / len(values)
+                if len(values) >= 4 and mean > 0:
+                    variance = sum((value - mean) ** 2 for value in values) / len(
+                        values
+                    )
+                    cv = math.sqrt(variance) / mean
+                    self.metrics["first_layer_flow_cv"] = round(cv, 3)
+                self._first_layer_bins = {}
+            return
+        prev = self._prev_filament_used
+        self._prev_filament_used = filament
+        if prev is None or filament <= prev:
+            return
+        x = _finite_number(position[0])
+        y = _finite_number(position[1])
+        if x is None or y is None:
+            return
+        key = f"{int(x // FIRST_LAYER_BIN_MM)},{int(y // FIRST_LAYER_BIN_MM)}"
+        self._first_layer_bins[key] = (
+            self._first_layer_bins.get(key, 0.0) + filament - prev
+        )
+
+    def _track_twin(self, status: dict[str, Any], now: float) -> None:
+        """Accumulate this print's fingerprint and drift vs its golden run."""
+        if not self._is_printing(status):
+            self._prev_sample_at = None
+            return
+        flow = _finite_number(self.metrics.get("volumetric_flow_mm3"))
+        if flow is not None and flow > 0:
+            self._print_flow_sum += flow
+            self._print_flow_count += 1
+            self._print_peak_flow = max(self._print_peak_flow, flow)
+        temp = _finite_number((status.get("extruder") or {}).get("temperature"))
+        if temp is not None:
+            self._print_temp_samples.append(temp)
+            del self._print_temp_samples[:-600]
+        filename = str((status.get("print_stats") or {}).get("filename") or "")
+        golden = self.golden_runs.get(filename)
+        if not golden or not self._print_layer_durations:
+            self.metrics["twin_drift_pct"] = None
+            return
+        avg_layer = sum(self._print_layer_durations) / len(self._print_layer_durations)
+        golden_layer = _finite_number(golden.get("avg_layer_s"))
+        avg_flow = (
+            self._print_flow_sum / self._print_flow_count
+            if self._print_flow_count
+            else None
+        )
+        golden_flow = _finite_number(golden.get("avg_flow_mm3"))
+        deviations = []
+        if golden_layer and golden_layer > 0:
+            deviations.append(abs(avg_layer / golden_layer - 1))
+        if golden_flow and golden_flow > 0 and avg_flow:
+            deviations.append(abs(avg_flow / golden_flow - 1))
+        self.metrics["twin_drift_pct"] = (
+            round(sum(deviations) / len(deviations) * 100, 1) if deviations else None
+        )
+
+    def _record_telemetry(self, status: dict[str, Any], now: float) -> None:
+        """Keep a short rolling telemetry ring for failure forensics."""
+        if self._ring_last_at is not None and now - self._ring_last_at < 2.0:
+            return
+        self._ring_last_at = now
+        print_stats = status.get("print_stats") or {}
+        motion = status.get("motion_report") or {}
+        info = print_stats.get("info") or {}
+        position = (status.get("toolhead") or {}).get("position") or []
+        self._telemetry_ring.append(
+            {
+                "t": round(now, 1),
+                "state": print_stats.get("state"),
+                "ext_t": _finite_number(
+                    (status.get("extruder") or {}).get("temperature")
+                ),
+                "bed_t": _finite_number(
+                    (status.get("heater_bed") or {}).get("temperature")
+                ),
+                "vel": _finite_number(motion.get("live_velocity")),
+                "ext_vel": _finite_number(motion.get("live_extruder_velocity")),
+                "layer": info.get("current_layer"),
+                "z": _finite_number(position[2]) if len(position) > 2 else None,
+            }
+        )
+
+    def _update_preflight(self, status: dict[str, Any], now: float) -> None:
+        """Expose a passive pre-flight checklist in metrics."""
+        data = self.coordinator.data or {}
+        klippy = str((data.get("printer.info") or {}).get("state") or "unknown")
+        checks: dict[str, Any] = {"klippy": klippy in ("ready", "startup")}
+        extruder_temp = _finite_number(
+            (status.get("extruder") or {}).get("temperature")
+        )
+        checks["nozzle_safe"] = extruder_temp is None or extruder_temp < 45
+        if self.mesh_history:
+            last_at = self.mesh_history[-1].get("at")
+            try:
+                stamp = datetime.fromisoformat(str(last_at)).timestamp()
+                age_days = (now - stamp) / 86400
+            except (TypeError, ValueError):
+                age_days = None
+            checks["mesh_age_days"] = (
+                round(age_days, 1) if age_days is not None else None
+            )
+            checks["mesh_fresh"] = age_days is not None and age_days <= MESH_FRESH_DAYS
+        else:
+            checks["mesh_age_days"] = None
+            checks["mesh_fresh"] = None
+        remaining = self.metrics.get("spool_remaining_mm")
+        needed = _finite_number(data.get("filament_total"))
+        checks["spool_fits"] = (
+            remaining is None or needed is None or needed <= 0 or remaining >= needed
+        )
+        checks["ready"] = all(
+            value is not False
+            for key, value in checks.items()
+            if key != "mesh_age_days"
+        )
+        self.metrics["preflight"] = checks
+        self.metrics["preflight_ready"] = checks["ready"]
+
+    def track_config_drift(self, config: dict[str, Any]) -> None:
+        """Hash the printer config and flag silent changes."""
+        try:
+            digest = hashlib.sha256(
+                json.dumps(config, sort_keys=True, default=str).encode()
+            ).hexdigest()[:16]
+        except (TypeError, ValueError):
+            return
+        if self.config_hash is None:
+            self.config_hash = digest
+            self._mark_dirty()
+            return
+        if digest != self.config_hash:
+            self.config_hash = digest
+            self.config_changed_at = _iso(_now_ts())
+            self._mark_dirty()
+        self.metrics["config_changed_at"] = self.config_changed_at
+
     # -- energy -----------------------------------------------------------------
 
     def _read_power_watts(self) -> float | None:
@@ -1138,6 +1702,7 @@ class MoonrakerAnalyzer:
                 self._last_vision_check = None
                 self.checkpoints.clear()
                 self._last_checkpoint_at = None
+                self._reset_print_tracking(now, filename, findings)
                 self._dispatch_print_event("print_started", filename)
             else:
                 self._dispatch_print_event("print_resumed", filename)
@@ -1417,6 +1982,76 @@ class MoonrakerAnalyzer:
             not self.coordinator.last_update_success,
             "warn",
         )
+        config_recent = False
+        if self.config_changed_at:
+            try:
+                stamp = datetime.fromisoformat(self.config_changed_at).timestamp()
+                config_recent = (_now_ts() - stamp) < 7 * 86400
+            except (TypeError, ValueError):
+                config_recent = False
+        sync("config_changed", config_recent, "warn")
+
+    def _reset_print_tracking(
+        self, now: float, filename: str, findings: list[dict[str, str]]
+    ) -> None:
+        """Reset per-print accumulators and update file history on a new job."""
+        self._layer_boundary = None
+        self._print_layer_durations = []
+        self._first_layer_bins = {}
+        self._prev_filament_used = None
+        self.extruder_skips = 0
+        self._stutter_events.clear()
+        self._prev_ext_velocity = 0.0
+        self._last_extrusion_at = None
+        self._print_flow_sum = 0.0
+        self._print_flow_count = 0
+        self._print_peak_flow = 0.0
+        self._print_temp_samples = []
+        self._telemetry_ring.clear()
+        self._ring_last_at = None
+        self._print_start_ambient = self._ambient_temp()
+
+        material = str(self.metrics.get("spool_material") or "")
+        ambient = self._print_start_ambient
+        if (
+            ambient is not None
+            and ambient < CHAMBER_WARM_MIN_C
+            and any(token in material for token in HIGH_SHRINK_MATERIALS)
+        ):
+            findings.append(
+                {
+                    "severity": "warn",
+                    "label": "warp risk",
+                    "detail": (
+                        f"{material} starting in a {ambient:.0f}°C chamber"
+                        " — historical warp failures correlate with cold starts"
+                    ),
+                }
+            )
+
+        stats = self.file_stats.get(filename)
+        if stats is None:
+            stats = {"attempts": 0, "completed": 0, "faults": []}
+            self.file_stats[filename] = stats
+            if len(self.file_stats) > FILE_STATS_LIMIT:
+                oldest = next(iter(self.file_stats))
+                del self.file_stats[oldest]
+        stats["attempts"] = int(stats.get("attempts") or 0) + 1
+        past_faults = [f for f in stats.get("faults") or [] if f]
+        attempts = int(stats.get("attempts") or 1)
+        completed = int(stats.get("completed") or 0)
+        if past_faults and attempts > completed:
+            findings.append(
+                {
+                    "severity": "warn",
+                    "label": "file history",
+                    "detail": (
+                        f"{filename} completed {completed}/{attempts - 1} "
+                        f"previous attempts — last faults: {', '.join(past_faults[-3:])}"
+                    ),
+                }
+            )
+        self._mark_dirty()
 
     def _record_print(self, status: dict[str, Any], state: str, now: float) -> None:
         print_stats = status.get("print_stats") or {}
@@ -1450,6 +2085,109 @@ class MoonrakerAnalyzer:
             "faults": sorted(self._print_faults),
             "checkpoints": list(self.checkpoints)[-CHECKPOINT_KEPT_ON_RECORD:],
         }
+        filename = record["filename"]
+
+        # Scorecard: deduct for faults, skips, and twin drift.
+        score = 100 - 15 * len(record["faults"])
+        twin_drift = _finite_number(self.metrics.get("twin_drift_pct"))
+        if twin_drift and twin_drift > 10:
+            score -= 20
+        if self.extruder_skips >= 3:
+            score -= 10
+        score = max(0, min(100, score))
+        grade = (
+            "A"
+            if score >= 90
+            else "B"
+            if score >= 75
+            else "C"
+            if score >= 60
+            else "D"
+            if score >= 40
+            else "F"
+        )
+        record["grade"] = grade
+        record["score"] = score
+        self.metrics["print_grade"] = grade
+
+        # Per-file ETA learning: remember the observed correction factor.
+        if estimated and estimated > 0 and duration > 0 and state == "complete":
+            material = str(self.metrics.get("spool_material") or "")
+            key = f"{filename}|{material}"
+            previous = self.eta_factors.get(key)
+            factor = duration / estimated
+            self.eta_factors[key] = (
+                round(0.7 * previous + 0.3 * factor, 4)
+                if previous
+                else round(factor, 4)
+            )
+            self.metrics["eta_factor"] = self.eta_factors[key]
+
+        # Nozzle-wear signal: peak flow ceiling per material, per print.
+        if state == "complete" and self._print_peak_flow > 0:
+            material = str(self.metrics.get("spool_material") or "unknown")
+            peaks = self.flow_peaks.setdefault(material, [])
+            peaks.append(round(self._print_peak_flow, 2))
+            del peaks[:-10]
+            if len(peaks) >= 4:
+                baseline = sorted(peaks[:-1])[len(peaks[:-1]) // 2]
+                if peaks[-1] < baseline * (1 - NOZZLE_WEAR_DROP_PCT / 100):
+                    record.setdefault("faults", []).append("nozzle wear?")
+
+        # Forensics: keep the last telemetry window on non-clean finishes.
+        if state != "complete":
+            record["forensics"] = {
+                "telemetry": list(self._telemetry_ring),
+                "findings": [dict(f) for f in self.findings],
+                "ambient_at_start_c": self._print_start_ambient,
+            }
+
+        # Golden-run bookkeeping: keep the best completed fingerprint per file.
+        if state == "complete" and self._print_layer_durations:
+            avg_layer = sum(self._print_layer_durations) / len(
+                self._print_layer_durations
+            )
+            avg_flow = (
+                self._print_flow_sum / self._print_flow_count
+                if self._print_flow_count
+                else None
+            )
+            temps = self._print_temp_samples
+            temp_stdev = statistics.pstdev(temps[-300:]) if len(temps) >= 30 else None
+            fingerprint = {
+                "avg_layer_s": round(avg_layer, 2),
+                "avg_flow_mm3": round(avg_flow, 3) if avg_flow else None,
+                "temp_stdev_c": round(temp_stdev, 3) if temp_stdev else None,
+                "duration_s": round(duration, 1),
+                "faults": len(record["faults"]),
+                "recorded_at": record["finished_at"],
+            }
+            golden = self.golden_runs.get(filename)
+            better = (
+                golden is None
+                or len(record["faults"]) < int(golden.get("faults") or 0)
+                or (
+                    len(record["faults"]) == int(golden.get("faults") or 0)
+                    and duration < (_finite_number(golden.get("duration_s")) or 1e9)
+                )
+            )
+            if better:
+                self.golden_runs[filename] = fingerprint
+                if len(self.golden_runs) > TWIN_HISTORY_LIMIT:
+                    del self.golden_runs[next(iter(self.golden_runs))]
+
+        # File memory: mark completion outcome.
+        stats = self.file_stats.setdefault(
+            filename, {"attempts": 0, "completed": 0, "faults": []}
+        )
+        if state == "complete":
+            stats["completed"] = int(stats.get("completed") or 0) + 1
+        else:
+            stats["faults"] = (stats.get("faults") or []) + sorted(self._print_faults)
+            del stats["faults"][:-10]
+        if len(self.file_stats) > FILE_STATS_LIMIT:
+            del self.file_stats[next(iter(self.file_stats))]
+
         self.print_history.append(record)
         self.print_history = self.print_history[-PRINT_HISTORY_LIMIT:]
         self._mark_dirty()
@@ -1474,6 +2212,9 @@ class MoonrakerAnalyzer:
             },
             "print_history": list(self.print_history),
             "mesh_history": [dict(record) for record in self.mesh_history],
+            "file_stats": dict(self.file_stats),
+            "golden_runs": dict(self.golden_runs),
+            "eta_factors": dict(self.eta_factors),
             "energy_session": dict(self.energy_session),
             "config": {
                 "max_flow_mm3": self.max_flow_mm3,

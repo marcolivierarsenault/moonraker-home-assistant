@@ -14,7 +14,9 @@ from custom_components.moonraker.analyzer import (
     PRINT_HISTORY_LIMIT,
     _drift_stats,
     _finite_number,
+    _iso,
     _matrix_from_mesh,
+    _now_ts,
 )
 from custom_components.moonraker.const import (
     CONF_OPTION_ENERGY_RATE,
@@ -1450,3 +1452,553 @@ async def test_mesh_history_restored_from_store(hass):
     await restored.async_load()
     assert len(restored.mesh_history) == 2
     assert restored.mesh_history[-1]["residuals"] is not None
+
+
+# -- Plan C: print-science diagnostics ------------------------------------------
+
+
+def _live_print_status(filename="job.gcode", **overrides):
+    """Return a printing status with common fields, overridable."""
+    status = _base_status()
+    status["print_stats"].update(
+        {
+            "state": "printing",
+            "filename": filename,
+            "print_duration": 120.0,
+            "filament_used": 50.0,
+            "info": {"current_layer": 1},
+        }
+    )
+    status["toolhead"] = {"position": [10.0, 10.0, 0.2, 0.0]}
+    for key, value in overrides.items():
+        status[key] = value
+    return status
+
+
+def test_z_banding_periodicity(hass):
+    """Periodic layer durations produce a z-banding finding."""
+    analyzer = _coordinator(hass).analyzer
+    status = _live_print_status()
+    now = 1000.0
+    for layer in range(1, 20):
+        status["print_stats"]["info"]["current_layer"] = layer
+        status["toolhead"]["position"][2] = 0.2 * layer
+        analyzer.analyze(status, now=now)
+        # Period-3 duration pattern: short, long, mid, repeat.
+        now += [10.0, 40.0, 20.0][layer % 3]
+    labels = [finding["label"] for finding in analyzer.findings]
+    assert "z banding signature" in labels
+    assert analyzer.metrics["z_banding_period_mm"] is not None
+
+
+def test_z_banding_absent_for_steady_layers(hass):
+    """Steady layer durations produce no banding finding."""
+    analyzer = _coordinator(hass).analyzer
+    status = _live_print_status()
+    for layer in range(1, 20):
+        status["print_stats"]["info"]["current_layer"] = layer
+        status["toolhead"]["position"][2] = 0.2 * layer
+        analyzer.analyze(status, now=1000.0 + layer * 20.0)
+    labels = [finding["label"] for finding in analyzer.findings]
+    assert "z banding signature" not in labels
+
+
+def test_z_banding_without_layer_metadata_uses_z_hops(hass):
+    """Z-height jumps serve as layer boundaries without info metadata."""
+    analyzer = _coordinator(hass).analyzer
+    status = _live_print_status()
+    status["print_stats"]["info"] = {}
+    now = 1000.0
+    for index in range(16):
+        status["toolhead"]["position"][2] = 0.2 + index * 0.3
+        analyzer.analyze(status, now=now)
+        now += [8.0, 30.0, 15.0][index % 3]
+    labels = [finding["label"] for finding in analyzer.findings]
+    assert "z banding signature" in labels
+
+
+def test_extrusion_stutter_and_skips(hass):
+    """Extrusion reversals count as stutter; stalls during moves count as skips."""
+    analyzer = _coordinator(hass).analyzer
+    status = _live_print_status()
+    motion = status["motion_report"]
+    now = 1000.0
+    # Extrude, then stall while still moving: probable skips.
+    for _ in range(4):
+        motion["live_extruder_velocity"] = 5.0
+        motion["live_velocity"] = 60.0
+        analyzer.analyze(status, now=now)
+        now += 0.5
+        motion["live_extruder_velocity"] = 0.0
+        analyzer.analyze(status, now=now)
+        now += 2.0  # beyond the 1s skip debounce
+    assert analyzer.metrics["extruder_skips"] >= 3
+    labels = [finding["label"] for finding in analyzer.findings]
+    assert "extruder skipping" in labels
+
+
+def test_extrusion_stutter_warn(hass):
+    """High reversal rate warns without skip threshold."""
+    analyzer = _coordinator(hass).analyzer
+    status = _live_print_status()
+    motion = status["motion_report"]
+    now = 1000.0
+    for _ in range(35):
+        motion["live_extruder_velocity"] = 4.0
+        analyzer.analyze(status, now=now)
+        now += 0.4
+        motion["live_extruder_velocity"] = -4.0
+        analyzer.analyze(status, now=now)
+        now += 0.4
+    assert analyzer.metrics["extrusion_stutter_per_min"] >= 30
+    labels = [finding["label"] for finding in analyzer.findings]
+    assert "extrusion stutter" in labels
+
+
+def test_driver_temp_eta_warning(hass):
+    """Rising driver temps project a shutdown ETA finding."""
+    analyzer = _coordinator(hass).analyzer
+    status = _live_print_status()
+    now = 1000.0
+    for index in range(8):
+        status["tmc2209 stepper_x"] = {"temperature": 62.0 + index * 3.0}
+        analyzer.analyze(status, now=now)
+        now += 20.0
+    labels = [finding["label"] for finding in analyzer.findings]
+    assert "driver overheating" in labels
+    assert analyzer.metrics["driver_max_c"] > 60
+
+
+def test_driver_temp_cool_no_finding(hass):
+    """Cool drivers produce no warning."""
+    analyzer = _coordinator(hass).analyzer
+    status = _live_print_status()
+    status["tmc2209 stepper_x"] = {"temperature": 40.0}
+    analyzer.analyze(status, now=1000.0)
+    assert analyzer.metrics["driver_max_c"] == 40.0
+    labels = [finding["label"] for finding in analyzer.findings]
+    assert "driver overheating" not in labels
+
+
+def test_voltage_sag_detection(hass):
+    """A rail dropping below its learned baseline warns."""
+    analyzer = _coordinator(hass).analyzer
+    status = _base_status()
+    status["psu"] = {"voltage": 24.0}
+    for index in range(12):
+        analyzer.analyze(status, now=1000.0 + index)
+    status["psu"]["voltage"] = 21.0
+    analyzer.analyze(status, now=1020.0)
+    labels = [finding["label"] for finding in analyzer.findings]
+    assert "voltage sag" in labels
+    assert analyzer.metrics["voltage_watch_count"] == 1
+
+
+def test_thermistor_efficiency_drift(hass):
+    """Steady-state power ratios above baseline flag heater decline."""
+    analyzer = _coordinator(hass).analyzer
+    status = _base_status()
+    status["extruder"] = {"temperature": 200.0, "target": 200.0, "power": 0.5}
+    # Seed a lower baseline history.
+    analyzer.heater_power_history["extruder"] = [0.0020] * 6
+    now = 1000.0
+    analyzer.analyze(status, now=now)
+    analyzer.analyze(status, now=now + 130)
+    analyzer.analyze(status, now=now + 260)
+    labels = [finding["label"] for finding in analyzer.findings]
+    assert "heater efficiency declining" in labels
+
+
+def test_thermistor_efficiency_stable(hass):
+    """Normal ratios record samples without a finding."""
+    analyzer = _coordinator(hass).analyzer
+    status = _base_status()
+    status["extruder"] = {"temperature": 200.0, "target": 200.0, "power": 0.5}
+    analyzer.heater_power_history["extruder"] = [0.0025] * 6
+    analyzer.analyze(status, now=1000.0)
+    analyzer.analyze(status, now=1130.0)
+    analyzer.analyze(status, now=1260.0)
+    assert len(analyzer.heater_power_history["extruder"]) >= 7
+    labels = [finding["label"] for finding in analyzer.findings]
+    assert "heater efficiency declining" not in labels
+
+
+def test_first_layer_flow_uniformity(hass):
+    """First-layer filament bins collapse into a uniformity metric."""
+    analyzer = _coordinator(hass).analyzer
+    status = _live_print_status()
+    filament = 0.0
+    for step in range(10):
+        filament += 2.0 + (4.0 if step == 5 else 0.0)
+        status["print_stats"]["filament_used"] = filament
+        status["toolhead"]["position"] = [step * 15.0, 10.0, 0.2, 0.0]
+        analyzer.analyze(status, now=1000.0 + step)
+    status["toolhead"]["position"][2] = 0.6
+    analyzer.analyze(status, now=1015.0)
+    assert analyzer.metrics["first_layer_flow_cv"] is not None
+
+
+def test_golden_run_twin_drift(hass):
+    """Repeat prints compare against the golden fingerprint."""
+    analyzer = _coordinator(hass).analyzer
+    analyzer.golden_runs["job.gcode"] = {
+        "avg_layer_s": 20.0,
+        "avg_flow_mm3": 8.0,
+        "temp_stdev_c": 0.5,
+        "duration_s": 1000.0,
+        "faults": 0,
+    }
+    status = _live_print_status()
+    status["motion_report"]["live_extruder_velocity"] = 12.0
+    now = 1000.0
+    for layer in range(1, 8):
+        status["print_stats"]["info"]["current_layer"] = layer
+        status["toolhead"]["position"][2] = 0.2 * layer
+        analyzer.analyze(status, now=now)
+        now += 40.0  # layers twice as slow as golden
+    # Layer time deviates 100%; flow deviates ~261% -> mean ≈ 180%.
+    assert analyzer.metrics["twin_drift_pct"] == pytest.approx(180.0, abs=2)
+
+
+def test_telemetry_ring_records(hass):
+    """Telemetry ring captures samples for forensics."""
+    analyzer = _coordinator(hass).analyzer
+    status = _live_print_status()
+    analyzer.analyze(status, now=1000.0)
+    analyzer.analyze(status, now=1001.0)  # too soon, skipped
+    analyzer.analyze(status, now=1003.0)
+    assert len(analyzer._telemetry_ring) == 2
+
+
+def test_preflight_checklist(hass):
+    """Preflight metrics reflect klippy, mesh age, and spool fit."""
+    coordinator = _coordinator(hass)
+    analyzer = coordinator.analyzer
+    coordinator.data = {"printer.info": {"state": "ready"}}
+    status = _base_status()
+    analyzer.analyze(status, now=1000.0)
+    checks = analyzer.metrics["preflight"]
+    assert checks["klippy"] is True
+    assert checks["nozzle_safe"] is True
+    assert checks["ready"] is True
+
+
+def test_config_drift_tracking(hass):
+    """Config hashes flag silent printer.cfg changes."""
+    analyzer = _coordinator(hass).analyzer
+    analyzer.track_config_drift({"stepper_x": {"max_velocity": 300}})
+    assert analyzer.config_hash is not None
+    assert analyzer.config_changed_at is None
+    analyzer.track_config_drift({"stepper_x": {"max_velocity": 250}})
+    assert analyzer.config_changed_at is not None
+    assert analyzer.metrics["config_changed_at"] == analyzer.config_changed_at
+
+
+async def test_config_drift_updater(hass):
+    """The updater fetches configfile.config and feeds the analyzer."""
+    from custom_components.moonraker import _config_drift_updater, UpdateFailed
+
+    coordinator = _coordinator(hass)
+    coordinator.async_fetch_data = AsyncMock(
+        return_value={"status": {"configfile": {"config": {"a": 1}}}}
+    )
+    assert await _config_drift_updater(coordinator) == {}
+    assert coordinator.analyzer.config_hash is not None
+
+    coordinator.async_fetch_data = AsyncMock(
+        return_value={"status": {"configfile": {"config": {"a": 2}}}}
+    )
+    await _config_drift_updater(coordinator)
+    assert coordinator.analyzer.config_changed_at is not None
+
+    coordinator.async_fetch_data = AsyncMock(side_effect=UpdateFailed())
+    assert await _config_drift_updater(coordinator) == {}
+
+
+def test_queue_plan_spool_reservation(hass):
+    """Queued jobs that overrun the spool together are flagged."""
+    coordinator = _coordinator(hass)
+    analyzer = coordinator.analyzer
+    coordinator.data = {
+        "status": {"print_stats": {"state": "standby"}},
+        "queue": {
+            "queued_jobs": [
+                {"filename": "a.gcode", "job_id": "1"},
+                {"filename": "b.gcode", "job_id": "2"},
+            ]
+        },
+        "queue_meta": {
+            "a.gcode": {"filament_total": 6000.0, "estimated_time": 100},
+            "b.gcode": {"filament_total": 6000.0, "estimated_time": 200},
+        },
+        "spool_details": {
+            "filament": {"material": "PLA", "density": 1.24, "diameter": 1.75},
+            "remaining_weight": 24.0,
+        },
+    }
+    analyzer.analyze(_base_status(), now=1000.0)
+    plan = analyzer.metrics["queue_plan"]
+    overruns = [item for item in plan if item.get("overruns_spool")]
+    assert len(overruns) == 1
+    labels = [finding["label"] for finding in analyzer.findings]
+    assert "queue overruns spool" in labels
+    assert analyzer.metrics["queue_reserved_mm"] > 0
+
+
+def test_print_lifecycle_scorecard_and_memory(hass):
+    """Completed prints get grades, file memory, ETA factors, and golden runs."""
+    coordinator = _coordinator(hass)
+    analyzer = coordinator.analyzer
+    coordinator.data = {"estimated_time": 100.0}
+    status = _live_print_status()
+    analyzer.analyze(status, now=1000.0)
+    for layer in range(1, 6):
+        status["print_stats"]["info"]["current_layer"] = layer
+        status["toolhead"]["position"][2] = 0.2 * layer
+        status["motion_report"]["live_extruder_velocity"] = 8.0
+        analyzer.analyze(status, now=1000.0 + layer * 20.0)
+    status["print_stats"]["state"] = "complete"
+    status["print_stats"]["print_duration"] = 120.0
+    analyzer.analyze(status, now=1200.0)
+    record = analyzer.print_history[-1]
+    assert record["grade"] in ("A", "B")
+    assert analyzer.file_stats["job.gcode"]["completed"] == 1
+    assert "job.gcode" in analyzer.golden_runs
+    assert analyzer.eta_factors
+
+
+def test_failed_print_records_forensics_and_faults(hass):
+    """Cancelled prints embed forensics and update fault memory."""
+    analyzer = _coordinator(hass).analyzer
+    status = _live_print_status()
+    analyzer.analyze(status, now=1000.0)
+    analyzer.analyze(status, now=1003.0)
+    status["print_stats"]["state"] = "cancelled"
+    analyzer.analyze(status, now=1100.0)
+    record = analyzer.print_history[-1]
+    assert "forensics" in record
+    assert record["forensics"]["telemetry"]
+    assert analyzer.file_stats["job.gcode"]["completed"] == 0
+
+
+def test_file_history_warning_on_retry(hass):
+    """Restarting a previously-failed file surfaces its history."""
+    analyzer = _coordinator(hass).analyzer
+    analyzer.file_stats["bad.gcode"] = {
+        "attempts": 2,
+        "completed": 0,
+        "faults": ["extrusion stall"],
+    }
+    status = _live_print_status(filename="bad.gcode")
+    analyzer.analyze(status, now=1000.0)
+    labels = [finding["label"] for finding in analyzer.findings]
+    assert "file history" in labels
+
+
+def test_warp_risk_cold_chamber(hass):
+    """High-shrink materials in a cold chamber warn at print start."""
+    coordinator = _coordinator(hass)
+    analyzer = coordinator.analyzer
+    analyzer.ambient_sensor = "sensor.chamber"
+    coordinator.data = {
+        "spool_details": {
+            "filament": {"material": "ABS", "density": 1.24, "diameter": 1.75},
+            "remaining_weight": 500.0,
+        }
+    }
+    hass.states.async_set("sensor.chamber", "18")
+    status = _live_print_status()
+    analyzer.analyze(status, now=1000.0)
+    labels = [finding["label"] for finding in analyzer.findings]
+    assert "warp risk" in labels
+
+
+class TestAnalyzerEdgeBranches:
+    """Cover defensive and rare branches in the new analysis passes."""
+
+    def test_layer_boundary_descents(self, hass):
+        """Layer decrease and Z-descent reset the boundary."""
+        analyzer = _coordinator(hass).analyzer
+        analyzer._layer_boundary = {"layer": 3, "z": 1.0, "at": 100.0}
+        status = _printing_status(layer=3)
+        analyzer._analyze_layers(status, now=140.0)
+        assert analyzer._layer_boundary["layer"] == 3
+        analyzer._analyze_layers(_printing_status(layer=2), now=170.0)
+        assert analyzer._layer_boundary["layer"] == 2
+        # No layer metadata: Z-descent resets, Z-hop records a duration.
+        status = _printing_status()
+        status["print_stats"]["info"] = {}
+        analyzer._layer_boundary = {"layer": None, "z": 5.0, "at": 170.0}
+        status["toolhead"] = {"position": [0, 0, 4.0, 0]}
+        analyzer._analyze_layers(status, now=200.0)
+        assert analyzer._layer_boundary["z"] == 4.0
+        status["toolhead"]["position"][2] = 4.2
+        analyzer._analyze_layers(status, now=250.0)
+        assert analyzer._print_layer_durations[-1] == 50.0
+
+    def test_z_banding_rejects_uncorrelated(self, hass):
+        """Non-periodic layer durations produce no banding metric."""
+        analyzer = _coordinator(hass).analyzer
+        analyzer._layer_times = [
+            {"at": float(i), "duration": duration, "dz": 0.2}
+            for i, duration in enumerate(
+                [
+                    13,
+                    47,
+                    22,
+                    58,
+                    9,
+                    71,
+                    33,
+                    41,
+                    17,
+                    64,
+                    29,
+                    52,
+                    11,
+                    38,
+                    55,
+                    20,
+                    44,
+                    8,
+                    61,
+                    35,
+                ]
+            )
+        ]
+        assert analyzer._analyze_layers(_printing_status(), now=2000.0) == []
+        assert analyzer.metrics["z_banding_period_mm"] is None
+
+    def test_driver_eta_edges(self, hass):
+        """Sparse, flat, and slow-rise driver temps warn nothing."""
+        analyzer = _coordinator(hass).analyzer
+        status = _printing_status()
+        status["tmc2209 stepper_x"] = {"temperature": 65.0}
+        # Old samples outside the 300s window -> fewer than 5 usable.
+        analyzer._tmc_history.extend((1000.0 + i, 65.0) for i in range(6))
+        assert analyzer._analyze_drivers(status, now=2000.0) == []
+        # Flat temps -> zero slope.
+        analyzer._tmc_history.clear()
+        analyzer._tmc_history.extend((1700.0 + i * 60, 65.0) for i in range(6))
+        assert analyzer._analyze_drivers(status, now=2000.0) == []
+        # Slow rise -> ETA beyond the 15-minute horizon.
+        analyzer._tmc_history.clear()
+        analyzer._tmc_history.extend((1700.0 + i * 60, 60.0 + i) for i in range(6))
+        assert analyzer._analyze_drivers(status, now=2000.0) == []
+        assert analyzer.metrics["driver_shutdown_eta_min"] > 15
+
+    def test_voltage_reading_filters_bad_values(self, hass):
+        """Non-numeric and out-of-range rail readings are ignored."""
+        analyzer = _coordinator(hass).analyzer
+        status = {
+            "psu": {"voltage": 0.0},
+            "rail": {"vbus": "oops"},
+        }
+        assert analyzer._analyze_voltages(status) == []
+        assert analyzer._voltage_baseline == {}
+        assert analyzer.metrics["voltage_watch_count"] == 0
+
+    def test_flow_map_bad_positions(self, hass):
+        """Missing coordinates skip flow-map binning."""
+        analyzer = _coordinator(hass).analyzer
+        analyzer._prev_filament_used = 1.0
+        status = _printing_status()
+        status["print_stats"]["filament_used"] = 5.0
+        status["toolhead"] = {"position": [None, None, 0.2]}
+        analyzer._track_first_layer_flow(status)
+        assert analyzer._first_layer_bins == {}
+        status["print_stats"]["filament_used"] = 9.0
+        status["toolhead"] = {"position": [12.0, 12.0, 0.2]}
+        analyzer._track_first_layer_flow(status)
+        assert analyzer._first_layer_bins == {"1,1": 4.0}
+
+    def test_preflight_bad_mesh_timestamp(self, hass):
+        """An unparseable mesh timestamp degrades to a null age."""
+        analyzer = _coordinator(hass).analyzer
+        analyzer.mesh_history.append({"at": "not a date", "matrix": [[0.0]]})
+        analyzer._update_preflight(_base_status(), now=1000.0)
+        checks = analyzer.metrics["preflight"]
+        assert checks["mesh_age_days"] is None
+        assert checks["mesh_fresh"] is False
+
+    async def test_config_drift_unserializable_and_restore(self, hass):
+        """Unserializable configs are skipped; store restores the hash."""
+        analyzer = _coordinator(hass).analyzer
+        weird: dict = {}
+        weird["self"] = weird
+        analyzer.track_config_drift(weird)
+        assert analyzer.config_hash is None
+
+        analyzer._store.async_load = AsyncMock(
+            return_value={
+                "config_hash": "deadbeef",
+                "config_changed_at": "2025-01-01T00:00:00+00:00",
+            }
+        )
+        await analyzer.async_load()
+        assert analyzer.config_hash == "deadbeef"
+        assert analyzer.config_changed_at == "2025-01-01T00:00:00+00:00"
+
+    def test_config_changed_repairs_window(self, hass):
+        """The config-changed repair only fires inside the 7-day window."""
+        analyzer = _coordinator(hass).analyzer
+        analyzer.config_changed_at = "not a date"
+        analyzer._sync_repairs()
+        assert analyzer.config_changed_at is not None
+        analyzer.config_changed_at = _iso(_now_ts() - 8 * 86400)
+        analyzer._sync_repairs()
+        analyzer.config_changed_at = _iso(_now_ts() - 3600)
+        analyzer._sync_repairs()
+
+    def test_scorecard_deductions(self, hass):
+        """Twin drift and extruder skips reduce the scorecard grade."""
+        analyzer = _coordinator(hass).analyzer
+        analyzer.energy_session = {"kwh": 0.0}
+        analyzer._print_faults = {"stall"}
+        analyzer.extruder_skips = 3
+        analyzer.metrics["twin_drift_pct"] = 25.0
+        status = _printing_status()
+        analyzer._record_print(status, "cancelled", now=1000.0)
+        record = analyzer.print_history[-1]
+        assert record["score"] == 55
+        assert record["grade"] == "D"
+
+    def test_nozzle_wear_peak_drop(self, hass):
+        """A falling peak-flow ceiling flags nozzle wear."""
+        analyzer = _coordinator(hass).analyzer
+        analyzer.energy_session = {"kwh": 0.0}
+        analyzer.metrics["spool_material"] = "PLA"
+        analyzer.flow_peaks["PLA"] = [10.0, 10.2, 9.9, 10.1]
+        analyzer._print_peak_flow = 6.0
+        analyzer._print_layer_durations = [10.0]
+        status = _printing_status()
+        analyzer._record_print(status, "complete", now=1000.0)
+        assert "nozzle wear?" in analyzer.print_history[-1]["faults"]
+
+    def test_file_stats_and_golden_caps(self, hass):
+        """File memory and golden runs evict the oldest entries."""
+        analyzer = _coordinator(hass).analyzer
+        analyzer.energy_session = {"kwh": 0.0}
+        analyzer.file_stats = {
+            f"f{i}.gcode": {"attempts": 1, "completed": 0, "faults": []}
+            for i in range(60)
+        }
+        analyzer._reset_print_tracking(1000.0, "new.gcode", [])
+        assert "new.gcode" in analyzer.file_stats
+        assert len(analyzer.file_stats) == 60
+
+        analyzer.golden_runs = {
+            f"g{i}.gcode": {"duration_s": 100.0, "faults": 0} for i in range(30)
+        }
+        analyzer._print_layer_durations = [10.0]
+        status = _live_print_status("brand-new.gcode")
+        analyzer._record_print(status, "complete", now=1000.0)
+        assert len(analyzer.golden_runs) == 30
+        assert "brand-new.gcode" in analyzer.golden_runs
+        # New file also triggers the file_stats eviction in _record_print.
+        analyzer.file_stats = {
+            f"h{i}.gcode": {"attempts": 1, "completed": 0, "faults": []}
+            for i in range(60)
+        }
+        analyzer._record_print(status, "complete", now=1001.0)
+        assert len(analyzer.file_stats) == 60
