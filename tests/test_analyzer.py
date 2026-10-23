@@ -8,8 +8,8 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from homeassistant.core import SupportsResponse
 
-from custom_components.moonraker import MoonrakerDataUpdateCoordinator
-from custom_components.moonraker.analyzer import (
+from custom_components.advance_moonraker_control import MoonrakerDataUpdateCoordinator
+from custom_components.advance_moonraker_control.analyzer import (
     FILAMENT_AREA_MM2,
     PRINT_HISTORY_LIMIT,
     _drift_stats,
@@ -18,13 +18,13 @@ from custom_components.moonraker.analyzer import (
     _matrix_from_mesh,
     _now_ts,
 )
-from custom_components.moonraker.const import (
+from custom_components.advance_moonraker_control.const import (
     CONF_OPTION_ENERGY_RATE,
     CONF_OPTION_MAX_FLOW,
     CONF_OPTION_POWER_SENSOR,
     DOMAIN,
 )
-from custom_components.moonraker.diagnostics import (
+from custom_components.advance_moonraker_control.diagnostics import (
     async_get_config_entry_diagnostics,
     async_get_device_diagnostics,
 )
@@ -36,10 +36,10 @@ from .const import MOCK_CONFIG
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
     with (
-        patch("custom_components.moonraker.MoonrakerApiClient.start"),
-        patch("custom_components.moonraker.MoonrakerApiClient.stop"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.start"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.stop"),
         patch(
-            "custom_components.moonraker._async_is_tcp_reachable",
+            "custom_components.advance_moonraker_control._async_is_tcp_reachable",
             new_callable=AsyncMock,
             return_value=True,
         ),
@@ -486,7 +486,7 @@ async def test_async_save_without_dirty_is_noop(hass):
 
 def test_analyzer_sensor_state_fns(hass):
     """Test test analyzer sensor state fns."""
-    from custom_components.moonraker.sensor import (
+    from custom_components.advance_moonraker_control.sensor import (
         ANALYZER_SENSORS,
         MoonrakerSensor,
         analyzer_health_state,
@@ -892,7 +892,7 @@ async def test_heatup_history_persists(hass):
 
 async def test_spool_status_updater(hass):
     """The slow updater fetches and whitelists spool details."""
-    from custom_components.moonraker import _spool_status_updater
+    from custom_components.advance_moonraker_control import _spool_status_updater
 
     coordinator = _coordinator(hass, entry_id="spoolupd")
 
@@ -972,7 +972,7 @@ async def test_spool_status_updater_proxy_failure(hass):
     """A failing spool proxy call degrades to no details."""
     from homeassistant.helpers.update_coordinator import UpdateFailed
 
-    from custom_components.moonraker import _spool_status_updater
+    from custom_components.advance_moonraker_control import _spool_status_updater
 
     coordinator = _coordinator(hass, entry_id="spoolupd2")
 
@@ -1303,7 +1303,7 @@ def test_queue_plan_already_optimal_and_empty(hass):
 
 async def test_queue_meta_updater(hass):
     """The updater whitelists metadata for queued files only."""
-    from custom_components.moonraker import _queue_meta_updater
+    from custom_components.advance_moonraker_control import _queue_meta_updater
 
     coordinator = _coordinator(hass, entry_id="queuemeta")
     coordinator.data = {
@@ -1698,7 +1698,7 @@ def test_config_drift_tracking(hass):
 
 async def test_config_drift_updater(hass):
     """The updater fetches configfile.config and feeds the analyzer."""
-    from custom_components.moonraker import _config_drift_updater, UpdateFailed
+    from custom_components.advance_moonraker_control import _config_drift_updater, UpdateFailed
 
     coordinator = _coordinator(hass)
     coordinator.async_fetch_data = AsyncMock(

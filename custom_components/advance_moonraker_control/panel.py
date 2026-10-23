@@ -42,24 +42,24 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
-PANEL_URL = "/api/moonraker/panel"
-PANEL_EMBED_URL = "/api/moonraker/panel_embed"
-PANEL_MODULE_URL = "/api/moonraker/panel_module.js"
-PANEL_CLIENT_URL = "/api/moonraker/panel_client.js"
-PANEL_I18N_URL = "/api/moonraker/panel_i18n.js"
-PANEL_PARSE_URL = "/api/moonraker/toolpath_parse.js"
-PANEL_WORKER_URL = "/api/moonraker/toolpath_worker.js"
-PANEL_DATA_URL = "/api/moonraker/panel_data"
-PANEL_GCODE_URL = "/api/moonraker/panel_gcode"
-PANEL_THUMB_URL = "/api/moonraker/panel_thumbnail"
-PANEL_SNAPSHOT_URL = "/api/moonraker/panel_webcam_snapshot"
-PANEL_ACTION_URL = "/api/moonraker/panel_action"
-PANEL_FILE_META_URL = "/api/moonraker/panel_file_meta"
-PANEL_PRINTCAST_URL = "/api/moonraker/panel_printcast"
-PANEL_MANIFEST_URL = "/api/moonraker/panel_manifest.json"
-PANEL_SW_URL = "/api/moonraker/panel_sw.js"
-PANEL_FRONTEND_PATH = "moonraker-control-deck"
-UPLOAD_URL = "/api/moonraker/gcode_upload"
+PANEL_URL = "/api/advance_moonraker_control/panel"
+PANEL_EMBED_URL = "/api/advance_moonraker_control/panel_embed"
+PANEL_MODULE_URL = "/api/advance_moonraker_control/panel_module.js"
+PANEL_CLIENT_URL = "/api/advance_moonraker_control/panel_client.js"
+PANEL_I18N_URL = "/api/advance_moonraker_control/panel_i18n.js"
+PANEL_PARSE_URL = "/api/advance_moonraker_control/toolpath_parse.js"
+PANEL_WORKER_URL = "/api/advance_moonraker_control/toolpath_worker.js"
+PANEL_DATA_URL = "/api/advance_moonraker_control/panel_data"
+PANEL_GCODE_URL = "/api/advance_moonraker_control/panel_gcode"
+PANEL_THUMB_URL = "/api/advance_moonraker_control/panel_thumbnail"
+PANEL_SNAPSHOT_URL = "/api/advance_moonraker_control/panel_webcam_snapshot"
+PANEL_ACTION_URL = "/api/advance_moonraker_control/panel_action"
+PANEL_FILE_META_URL = "/api/advance_moonraker_control/panel_file_meta"
+PANEL_PRINTCAST_URL = "/api/advance_moonraker_control/panel_printcast"
+PANEL_MANIFEST_URL = "/api/advance_moonraker_control/panel_manifest.json"
+PANEL_SW_URL = "/api/advance_moonraker_control/panel_sw.js"
+PANEL_FRONTEND_PATH = "advance-moonraker-control"
+UPLOAD_URL = "/api/advance_moonraker_control/gcode_upload"
 
 _GCODE_ROOT = "gcodes"
 _MAX_TOOLPATH_BYTES = 128 * 1024 * 1024
@@ -711,7 +711,7 @@ class MoonrakerPanelView(HomeAssistantView):
     """Redirect the legacy panel URL to the authenticated HA sidebar panel."""
 
     url = PANEL_URL
-    name = "api:moonraker:panel"
+    name = "api:advance_moonraker_control:panel"
     requires_auth = False
 
     async def get(self, request):
@@ -723,7 +723,7 @@ class MoonrakerPanelEmbedView(HomeAssistantView):
     """Serve the control deck page within the authenticated HA panel."""
 
     url = PANEL_EMBED_URL
-    name = "api:moonraker:panel_embed"
+    name = "api:advance_moonraker_control:panel_embed"
     requires_auth = False
 
     def __init__(self, hass: HomeAssistant) -> None:
@@ -764,7 +764,7 @@ class MoonrakerPanelModuleView(_PanelAssetView):
     """Serve the Home Assistant custom panel module."""
 
     url = PANEL_MODULE_URL
-    name = "api:moonraker:panel_module"
+    name = "api:advance_moonraker_control:panel_module"
 
     def __init__(self, hass: HomeAssistant) -> None:
         """Initialize the view."""
@@ -775,7 +775,7 @@ class MoonrakerPanelClientView(_PanelAssetView):
     """Serve the panel's browser-side control logic."""
 
     url = PANEL_CLIENT_URL
-    name = "api:moonraker:panel_client"
+    name = "api:advance_moonraker_control:panel_client"
 
     def __init__(self, hass: HomeAssistant) -> None:
         """Initialize the view."""
@@ -786,7 +786,7 @@ class MoonrakerPanelI18nView(_PanelAssetView):
     """Serve the panel's translation tables."""
 
     url = PANEL_I18N_URL
-    name = "api:moonraker:panel_i18n"
+    name = "api:advance_moonraker_control:panel_i18n"
 
     def __init__(self, hass: HomeAssistant) -> None:
         """Initialize the view."""
@@ -797,7 +797,7 @@ class MoonrakerPanelParseView(_PanelAssetView):
     """Serve the shared toolpath parser core."""
 
     url = PANEL_PARSE_URL
-    name = "api:moonraker:toolpath_parse"
+    name = "api:advance_moonraker_control:toolpath_parse"
 
     def __init__(self, hass: HomeAssistant) -> None:
         """Initialize the view."""
@@ -808,7 +808,7 @@ class MoonrakerPanelWorkerView(_PanelAssetView):
     """Serve the toolpath parsing web worker."""
 
     url = PANEL_WORKER_URL
-    name = "api:moonraker:toolpath_worker"
+    name = "api:advance_moonraker_control:toolpath_worker"
 
     def __init__(self, hass: HomeAssistant) -> None:
         """Initialize the view."""
@@ -819,7 +819,7 @@ class MoonrakerPanelManifestView(HomeAssistantView):
     """Serve the web app manifest so the panel can install as a PWA."""
 
     url = PANEL_MANIFEST_URL
-    name = "api:moonraker:panel_manifest"
+    name = "api:advance_moonraker_control:panel_manifest"
     requires_auth = False
 
     async def get(self, request):
@@ -829,7 +829,7 @@ class MoonrakerPanelManifestView(HomeAssistantView):
                 "name": NAME,
                 "short_name": NAME,
                 "start_url": PANEL_EMBED_URL,
-                "scope": "/api/moonraker/",
+                "scope": "/api/advance_moonraker_control/",
                 "display": "standalone",
                 "background_color": "#050a08",
                 "theme_color": "#050a08",
@@ -852,10 +852,10 @@ class MoonrakerPanelManifestView(HomeAssistantView):
 _PANEL_SW_SOURCE = """/* Moonraker control deck service worker: installability + asset cache. */
 const SW_CACHE = "moonraker-deck-v1";
 const ASSETS = [
-  "/api/moonraker/panel_client.js",
-  "/api/moonraker/panel_i18n.js",
-  "/api/moonraker/toolpath_parse.js",
-  "/api/moonraker/toolpath_worker.js",
+  "/api/advance_moonraker_control/panel_client.js",
+  "/api/advance_moonraker_control/panel_i18n.js",
+  "/api/advance_moonraker_control/toolpath_parse.js",
+  "/api/advance_moonraker_control/toolpath_worker.js",
 ];
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -891,7 +891,7 @@ class MoonrakerPanelServiceWorkerView(HomeAssistantView):
     """Serve a minimal service worker so the panel can install as a PWA."""
 
     url = PANEL_SW_URL
-    name = "api:moonraker:panel_sw"
+    name = "api:advance_moonraker_control:panel_sw"
     requires_auth = False
 
     async def get(self, request):
@@ -907,7 +907,7 @@ class MoonrakerUploadRedirectView(HomeAssistantView):
     """Redirect browser navigation to the upload UI in the control panel."""
 
     url = UPLOAD_URL
-    name = "api:moonraker:gcode_upload_page"
+    name = "api:advance_moonraker_control:gcode_upload_page"
     requires_auth = False
 
     async def get(self, request):
@@ -919,7 +919,7 @@ class MoonrakerPanelDataView(_PanelViewBase):
     """Return a JSON snapshot of coordinator data for the panel."""
 
     url = PANEL_DATA_URL
-    name = "api:moonraker:panel_data"
+    name = "api:advance_moonraker_control:panel_data"
 
     async def get(self, request):
         """Return the current coordinator data snapshot."""
@@ -953,7 +953,7 @@ class MoonrakerPanelGcodeView(_PanelViewBase):
     """Stream the active gcode file to the authenticated dashboard for preview."""
 
     url = PANEL_GCODE_URL
-    name = "api:moonraker:panel_gcode"
+    name = "api:advance_moonraker_control:panel_gcode"
 
     async def get(self, request):
         """Proxy the active gcode file without exposing Moonraker credentials."""
@@ -1070,7 +1070,7 @@ class MoonrakerPanelFileMetaView(_PanelViewBase):
     """Return slicer metadata for an arbitrary G-code file."""
 
     url = PANEL_FILE_META_URL
-    name = "api:moonraker:panel_file_meta"
+    name = "api:advance_moonraker_control:panel_file_meta"
 
     _META_WHITELIST = (
         "estimated_time",
@@ -1128,7 +1128,7 @@ class MoonrakerPanelPrintcastView(_PanelViewBase):
     """Compute a Printcast forecast for an arbitrary G-code file."""
 
     url = PANEL_PRINTCAST_URL
-    name = "api:moonraker:panel_printcast"
+    name = "api:advance_moonraker_control:panel_printcast"
 
     async def get(self, request):
         """Score a file against live machine state and its slicer metadata."""
@@ -1168,7 +1168,7 @@ class MoonrakerPanelThumbnailView(_PanelViewBase):
     """Proxy a G-code thumbnail from Moonraker."""
 
     url = PANEL_THUMB_URL
-    name = "api:moonraker:panel_thumbnail"
+    name = "api:advance_moonraker_control:panel_thumbnail"
 
     async def get(self, request):
         """Return the thumbnail image for the active job or a named file."""
@@ -1225,7 +1225,7 @@ class MoonrakerPanelSnapshotView(_PanelViewBase):
     """Proxy a webcam snapshot so timelapse frames are same-origin."""
 
     url = PANEL_SNAPSHOT_URL
-    name = "api:moonraker:panel_webcam_snapshot"
+    name = "api:advance_moonraker_control:panel_webcam_snapshot"
 
     async def get(self, request):
         """Return the latest snapshot for the named webcam."""
@@ -1268,7 +1268,7 @@ class MoonrakerPanelActionView(_PanelViewBase):
     """Execute panel control actions against the printer."""
 
     url = PANEL_ACTION_URL
-    name = "api:moonraker:panel_action"
+    name = "api:advance_moonraker_control:panel_action"
 
     async def post(self, request):
         """Handle a JSON action payload."""
@@ -1466,7 +1466,7 @@ class MoonrakerPanelActionView(_PanelViewBase):
 
 @websocket_api.websocket_command(
     {
-        vol.Required("type"): "moonraker/panel_subscribe",
+        vol.Required("type"): "advance_moonraker_control/panel_subscribe",
         vol.Optional("entry_id"): str,
     }
 )
@@ -1521,7 +1521,7 @@ async def register_panel_views(hass: HomeAssistant) -> None:
     await async_register_panel(
         hass,
         frontend_url_path=PANEL_FRONTEND_PATH,
-        webcomponent_name="moonraker-control-panel",
+        webcomponent_name="advance-moonraker-control-panel",
         sidebar_title=NAME,
         sidebar_icon="mdi:printer-3d",
         module_url=PANEL_MODULE_URL,

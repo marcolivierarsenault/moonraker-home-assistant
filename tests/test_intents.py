@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock
 
 from homeassistant.helpers import intent
 
-from custom_components.moonraker.const import DOMAIN, METHODS
-from custom_components.moonraker.intents import async_register_intents
+from custom_components.advance_moonraker_control.const import DOMAIN, METHODS
+from custom_components.advance_moonraker_control.intents import async_register_intents
 
 
 def _coordinator(name="Voron", state="printing", **extra):

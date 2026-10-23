@@ -1,6 +1,6 @@
 """Constants for integration_blueprint tests."""
 
-from custom_components.moonraker.const import (
+from custom_components.advance_moonraker_control.const import (
     CONF_API_KEY,
     CONF_PORT,
     CONF_PRINTER_NAME,

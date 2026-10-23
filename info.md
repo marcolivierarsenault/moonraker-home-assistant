@@ -12,7 +12,7 @@ After downloading and restarting, add **Advance_Moonraker_Control** in
 Devices & services. The wizard explains requirements, asks for acceptance,
 checks the printer connection and collects optional settings.
 
-Read the [requirements, migration notes and installation guide](https://github.com/thaliamontreux/haos_hacs_moonraker_console#installation)
+Read the [requirements, migration notes and installation guide](https://github.com/thaliamontreux/HACS_Moonraker_Advanced#installation)
 before downloading. Camera, Spoolman, AI and voice services are optional and
 require their own configuration. HACS updates come from this repository's
-[GitHub releases](https://github.com/thaliamontreux/haos_hacs_moonraker_console/releases).
+[GitHub releases](https://github.com/thaliamontreux/HACS_Moonraker_Advanced/releases).

@@ -5,11 +5,11 @@ from enum import Enum
 from homeassistant.const import Platform
 
 # Base component constants
-DOMAIN = "moonraker"
+DOMAIN = "advance_moonraker_control"
 NAME = "Advance_Moonraker_Control"
 DOMAIN_DATA = f"{DOMAIN}_data"
 VERSION = "2026.10.23"
-MANIFACTURER = "@marcolivierarsenault"
+MANIFACTURER = "@thaliamontreux"
 
 # Platforms
 PLATFORMS = [
@@ -62,8 +62,8 @@ CONF_OPTION_VISION_CAMERA = "vision_camera"
 CONF_OPTION_PANEL_ROLE = "panel_role"
 DEFAULT_POWER_OFF_DELAY_MIN = 15.0
 DEFAULT_POWER_OFF_MAX_TEMP = 50.0
-SIGNAL_PRINT_EVENT = "moonraker_print_event"
-SIGNAL_PRINTCAST = "moonraker_printcast"
+SIGNAL_PRINT_EVENT = "advance_moonraker_control_print_event"
+SIGNAL_PRINTCAST = "advance_moonraker_control_printcast"
 
 # API dict keys
 DEVICE_TYPE = "device_type"

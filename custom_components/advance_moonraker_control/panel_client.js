@@ -1,20 +1,20 @@
 const API = {
   data: (printer) =>
-    `moonraker/panel_data?printer=${encodeURIComponent(printer || "")}`,
+    `advance_moonraker_control/panel_data?printer=${encodeURIComponent(printer || "")}`,
   thumb: (printer, filename) =>
-    `/api/moonraker/panel_thumbnail?printer=${encodeURIComponent(
+    `/api/advance_moonraker_control/panel_thumbnail?printer=${encodeURIComponent(
       printer || "",
     )}${filename ? `&filename=${encodeURIComponent(filename)}` : ""}`,
   snapshot: (printer, camera) =>
-    `/api/moonraker/panel_webcam_snapshot?printer=${encodeURIComponent(
+    `/api/advance_moonraker_control/panel_webcam_snapshot?printer=${encodeURIComponent(
       printer || "",
     )}&camera=${encodeURIComponent(camera || "")}`,
   gcode: (printer, filename) =>
-    `/api/moonraker/panel_gcode?printer=${encodeURIComponent(
+    `/api/advance_moonraker_control/panel_gcode?printer=${encodeURIComponent(
       printer || "",
     )}&filename=${encodeURIComponent(filename || "")}`,
-  action: "moonraker/panel_action",
-  upload: "/api/moonraker/gcode_upload",
+  action: "advance_moonraker_control/panel_action",
+  upload: "/api/advance_moonraker_control/gcode_upload",
 };
 
 const SCREEN_TITLES = {
@@ -284,7 +284,7 @@ async function subscribePanelPush() {
   )
     return;
   const request = connection.subscribeMessage(
-    { type: "moonraker/panel_subscribe", entry_id: printer || undefined },
+    { type: "advance_moonraker_control/panel_subscribe", entry_id: printer || undefined },
     (data) => {
       panelPushLive = true;
       handlePanelPayload(data);
@@ -1126,7 +1126,7 @@ const FILE_DIFF_FIELDS = [
 async function fetchFileMeta(filename) {
   const meta = await hassApi().callApi(
     "GET",
-    `moonraker/panel_file_meta?printer=${encodeURIComponent(
+    `advance_moonraker_control/panel_file_meta?printer=${encodeURIComponent(
       printer,
     )}&filename=${encodeURIComponent(filename)}`,
   );
@@ -3660,7 +3660,7 @@ async function updateToolpath(data) {
   drawToolpath();
 }
 
-const TOOLPATH_CACHE_DB = "moonraker-toolpaths";
+const TOOLPATH_CACHE_DB = "advance-moonraker-control-toolpaths";
 const TOOLPATH_CACHE_STORE = "paths";
 const TOOLPATH_CACHE_MAX = 5;
 
@@ -3755,7 +3755,7 @@ async function parseToolpathStream(response, options) {
 async function parseToolpathWithWorker(response, options) {
   let worker;
   try {
-    worker = new Worker("/api/moonraker/toolpath_worker.js");
+    worker = new Worker("/api/advance_moonraker_control/toolpath_worker.js");
   } catch {
     return undefined;
   }
@@ -5556,7 +5556,7 @@ async function loadFileAnalysis(filename) {
   try {
     const meta = await hassApi().callApi(
       "GET",
-      `moonraker/panel_file_meta?printer=${encodeURIComponent(
+      `advance_moonraker_control/panel_file_meta?printer=${encodeURIComponent(
         printer,
       )}&filename=${encodeURIComponent(filename)}`,
     );
@@ -6264,11 +6264,11 @@ function bindToolpathCanvas() {
 
 function startPanelTimers() {
   if (document.hidden) return;
-  if (!window.moonrakerRefreshTimer) {
-    window.moonrakerRefreshTimer = setInterval(refresh, PANEL_FALLBACK_POLL_MS);
+  if (!window.advanceMoonrakerControlRefreshTimer) {
+    window.advanceMoonrakerControlRefreshTimer = setInterval(refresh, PANEL_FALLBACK_POLL_MS);
   }
-  if (!window.moonrakerStalenessTimer) {
-    window.moonrakerStalenessTimer = setInterval(
+  if (!window.advanceMoonrakerControlStalenessTimer) {
+    window.advanceMoonrakerControlStalenessTimer = setInterval(
       updateStaleness,
       PANEL_STALENESS_CHECK_MS,
     );
@@ -6276,13 +6276,13 @@ function startPanelTimers() {
 }
 
 function stopPanelTimers() {
-  if (window.moonrakerRefreshTimer) {
-    clearInterval(window.moonrakerRefreshTimer);
-    window.moonrakerRefreshTimer = null;
+  if (window.advanceMoonrakerControlRefreshTimer) {
+    clearInterval(window.advanceMoonrakerControlRefreshTimer);
+    window.advanceMoonrakerControlRefreshTimer = null;
   }
-  if (window.moonrakerStalenessTimer) {
-    clearInterval(window.moonrakerStalenessTimer);
-    window.moonrakerStalenessTimer = null;
+  if (window.advanceMoonrakerControlStalenessTimer) {
+    clearInterval(window.advanceMoonrakerControlStalenessTimer);
+    window.advanceMoonrakerControlStalenessTimer = null;
   }
 }
 
@@ -6353,15 +6353,15 @@ function initializePanel() {
 }
 
 function startPanel() {
-  if (window.moonrakerPanelStarted) return;
-  window.moonrakerPanelStarted = true;
+  if (window.advanceMoonrakerControlPanelStarted) return;
+  window.advanceMoonrakerControlPanelStarted = true;
   initializePanel();
 }
 
-window.addEventListener("moonraker-hass-ready", startPanel);
+window.addEventListener("advance-moonraker-control-hass-ready", startPanel);
 if (window.hass?.callApi) startPanel();
 if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
   navigator.serviceWorker
-    .register("/api/moonraker/panel_sw.js")
+    .register("/api/advance_moonraker_control/panel_sw.js")
     .catch(() => {});
 }

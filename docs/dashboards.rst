@@ -25,8 +25,8 @@ Here is the yaml code to generate this lovely dashboard.
 
       cards:
         - type: custom:mushroom-title-card
-          title: Moonraker – {{ states('sensor.moonraker_current_display_message') }}
-          subtitle: "{{ states('sensor.moonraker_filename') }}"
+          title: Moonraker – {{ states('sensor.advance_moonraker_control_current_display_message') }}
+          subtitle: "{{ states('sensor.advance_moonraker_control_filename') }}"
           alignment: center
           title_tap_action:
             action: url
@@ -35,24 +35,24 @@ Here is the yaml code to generate this lovely dashboard.
           type: grid
           cards:
             - type: tile
-              entity: sensor.moonraker_current_print_state
+              entity: sensor.advance_moonraker_control_current_print_state
               name: Status
               show_entity_picture: false
               vertical: false
               color: primary
             - type: tile
-              entity: sensor.moonraker_print_duration
+              entity: sensor.advance_moonraker_control_print_duration
               name: Elapsed
               color: accent
             - type: tile
-              entity: sensor.moonraker_print_eta
+              entity: sensor.advance_moonraker_control_print_eta
               name: Completion
               color: green
               show_entity_picture: false
               vertical: false
           columns: 3
         - type: custom:bar-card
-          entity: sensor.moonraker_progress
+          entity: sensor.advance_moonraker_control_progress
           name: Print Progress...
           icon: mdi:clock-end
           color: green
@@ -64,19 +64,19 @@ Here is the yaml code to generate this lovely dashboard.
           columns: 4
           cards:
             - type: custom:button-card
-              entity: button.moonraker_pause_print
+              entity: button.advance_moonraker_control_pause_print
               color_type: icon
               tap_action:
                 action: toggle
                 name: Pause
             - type: custom:button-card
-              entity: button.moonraker_resume_print
+              entity: button.advance_moonraker_control_resume_print
               color_type: icon
               tap_action:
                 action: toggle
                 name: Resume
             - type: custom:button-card
-              entity: button.moonraker_cancel_print
+              entity: button.advance_moonraker_control_cancel_print
               color_type: icon
               tap_action:
                 action: toggle
@@ -86,7 +86,7 @@ Here is the yaml code to generate this lovely dashboard.
               confirmation:
                 text: This will CANCEL the print. Are you sure?
             - type: custom:button-card
-              entity: button.moonraker_emergency_stop
+              entity: button.advance_moonraker_control_emergency_stop
               color_type: icon
               color: red
               tap_action:
@@ -123,13 +123,13 @@ Here is the yaml code to generate this lovely dashboard.
             show:
               name_in_header: true
           series:
-            - entity: sensor.moonraker_extruder_temperature
+            - entity: sensor.advance_moonraker_control_extruder_temperature
               name: Hotend
-            - entity: sensor.moonraker_bed_temperature
+            - entity: sensor.advance_moonraker_control_bed_temperature
               name: Bed
-            - entity: sensor.moonraker_raspberry_pi
+            - entity: sensor.advance_moonraker_control_raspberry_pi
               name: RPi3
-            - entity: sensor.moonraker_mcu
+            - entity: sensor.advance_moonraker_control_mcu
               name: Octopus
             - entity: sensor.atc_3d_temperature
               name: Chamber
@@ -159,32 +159,32 @@ Here is the yaml code to generate this lovely dashboard.
             show:
               name_in_header: true
           series:
-            - entity: sensor.moonraker_hotend_fan
+            - entity: sensor.advance_moonraker_control_hotend_fan
               name: Hotend
-            - entity: sensor.moonraker_fan_speed
+            - entity: sensor.advance_moonraker_control_fan_speed
               name: Parts
-            - entity: sensor.moonraker_controller_fan_front
+            - entity: sensor.advance_moonraker_control_controller_fan_front
               name: Skirt Front
-            - entity: sensor.moonraker_controller_fan_rear
+            - entity: sensor.advance_moonraker_control_controller_fan_rear
               name: Skirt Rear
         - type: conditional
           conditions:
-            - entity: sensor.moonraker_current_print_state
+            - entity: sensor.advance_moonraker_control_current_print_state
               state_not: unavailable
           card:
             type: picture-entity
-            entity: camera.moonraker_cam
+            entity: camera.advance_moonraker_control_cam
             camera_view: live
             show_name: false
             show_state: false
             aspect_ratio: 4x3
         - type: conditional
           conditions:
-            - entity: sensor.moonraker_current_print_state
+            - entity: sensor.advance_moonraker_control_current_print_state
               state_not: unavailable
           card:
             type: picture-entity
-            entity: camera.moonraker_thumbnail
+            entity: camera.advance_moonraker_control_thumbnail
             camera_view: auto
             show_name: false
             show_state: false
@@ -715,7 +715,7 @@ Create a **Template Sensor** helper in Home Assistant.
 
   .. code-block:: jinja
 
-        {% set sid = states('sensor.moonraker_spool_id') | int(0) %}
+        {% set sid = states('sensor.advance_moonraker_control_spool_id') | int(0) %}
         {% if sid == 0 %}
           No active spool
         {% else %}
@@ -727,7 +727,7 @@ Create a **Template Sensor** helper in Home Assistant.
 
   .. code-block:: jinja
 
-        {% set sid = states('sensor.moonraker_spool_id') %}
+        {% set sid = states('sensor.advance_moonraker_control_spool_id') %}
         {% set ok_sid = sid not in ['unknown','unavailable','none','', None] %}
         {% if not ok_sid %}
           false
@@ -740,7 +740,7 @@ Create a **Template Sensor** helper in Home Assistant.
 
   .. code-block:: jinja
 
-      {% set sid = states('sensor.moonraker_spool_id') | int(0) %}
+      {% set sid = states('sensor.advance_moonraker_control_spool_id') | int(0) %}
       {% if sid == 0 %}
         {{ none }}
       {% else %}

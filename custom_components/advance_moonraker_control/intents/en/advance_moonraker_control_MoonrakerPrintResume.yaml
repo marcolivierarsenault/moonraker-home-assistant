@@ -11,4 +11,4 @@ intents:
           - "resume the printer"
           - "resume the print"
         requires_context:
-          domain: moonraker
+          domain: advance_moonraker_control

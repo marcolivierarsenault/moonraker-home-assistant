@@ -76,7 +76,7 @@ Go in `whateverConfigFolderYouHave/.storage/core.config_entries` and you should 
   "data":{"api_key":"","port":"7125","printer_name":"","tls":false,"url":"192.168.x.xx"},
   "disabled_by":null,
   "discovery_keys":{},
-  "domain":"moonraker",
+  "domain":"advance_moonraker_control",
   "entry_id":"01J4Y2FDDTP0TKYYJX3RWYG79F",
   "minor_version":1,
   "modified_at":"2024-08-10T11:58:41.093068+00:00",

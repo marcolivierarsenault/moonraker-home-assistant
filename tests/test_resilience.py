@@ -7,7 +7,7 @@ import pytest
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.moonraker import MoonrakerDataUpdateCoordinator
+from custom_components.advance_moonraker_control import MoonrakerDataUpdateCoordinator
 
 from .const import MOCK_CONFIG
 
@@ -16,10 +16,10 @@ from .const import MOCK_CONFIG
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
     with (
-        patch("custom_components.moonraker.MoonrakerApiClient.start"),
-        patch("custom_components.moonraker.MoonrakerApiClient.stop"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.start"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.stop"),
         patch(
-            "custom_components.moonraker._async_is_tcp_reachable",
+            "custom_components.advance_moonraker_control._async_is_tcp_reachable",
             new_callable=AsyncMock,
             return_value=True,
         ),
@@ -29,7 +29,7 @@ def bypass_connect_client_fixture():
 
 def _coordinator(hass, entry_id="resilience"):
     config_entry = MockConfigEntry(
-        domain="moonraker", data=MOCK_CONFIG, entry_id=entry_id
+        domain="advance_moonraker_control", data=MOCK_CONFIG, entry_id=entry_id
     )
     return MoonrakerDataUpdateCoordinator(
         hass,

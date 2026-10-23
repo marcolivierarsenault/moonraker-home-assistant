@@ -4,7 +4,7 @@ from homeassistant.components.select import SelectEntity
 
 from .const import DOMAIN, METHODS, SLOW_UPDATE_CYCLES
 from .entity import BaseMoonrakerEntity
-from custom_components.moonraker.__init__ import _normalize_file_list
+from custom_components.advance_moonraker_control.__init__ import _normalize_file_list
 
 
 async def _files_updater(coordinator):

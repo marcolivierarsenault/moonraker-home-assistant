@@ -63,14 +63,14 @@ _LOGGER.debug("loading moonraker init")
 
 _GCODE_ROOT = "gcodes"
 
-_UPLOAD_VIEW_URL = "/api/moonraker/gcode_upload"
+_UPLOAD_VIEW_URL = "/api/advance_moonraker_control/gcode_upload"
 
 
 class MoonrakerGcodeUploadView(HomeAssistantView):
     """Handle authenticated browser uploads of gcode files to Moonraker."""
 
     url = _UPLOAD_VIEW_URL
-    name = "api:moonraker:gcode_upload"
+    name = "api:advance_moonraker_control:gcode_upload"
     requires_auth = True
 
     def __init__(self, hass: HomeAssistant) -> None:

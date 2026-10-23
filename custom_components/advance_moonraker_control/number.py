@@ -15,7 +15,7 @@ from homeassistant.const import UnitOfTemperature, PERCENTAGE
 
 from .const import DOMAIN, METHODS
 from .entity import BaseMoonrakerEntity
-from custom_components.moonraker.__init__ import MoonrakerDataUpdateCoordinator
+from custom_components.advance_moonraker_control.__init__ import MoonrakerDataUpdateCoordinator
 
 
 @dataclass(frozen=True)

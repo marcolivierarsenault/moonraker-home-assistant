@@ -66,7 +66,7 @@ Use scoped logging:
 logger:
   default: info
   logs:
-    custom_components.moonraker: debug
+    custom_components.advance_moonraker_control: debug
     moonraker_api: debug
 ```
 
@@ -101,7 +101,7 @@ The exact success evidence is:
 4. Multiple coordinator refreshes or subscription updates complete.
 5. The changed behaviour is exercised passively when possible.
 6. No new `WARNING`, `ERROR`, or `CRITICAL` record is emitted by
-   `custom_components.moonraker` or `moonraker_api`.
+   `custom_components.advance_moonraker_control` or `moonraker_api`.
 
 Separate unrelated Home Assistant, certificate, FFmpeg, camera, and optional
 dependency warnings from integration defects, but report them explicitly.

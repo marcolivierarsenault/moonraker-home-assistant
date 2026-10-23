@@ -1,15 +1,15 @@
 {
-  "domain": "moonraker",
+  "domain": "advance_moonraker_control",
   "name": "Advance_Moonraker_Control",
   "after_dependencies": ["mjpeg"],
   "codeowners": ["@thaliamontreux"],
   "config_flow": true,
   "dependencies": ["http", "panel_custom", "websocket_api"],
-  "documentation": "https://github.com/thaliamontreux/haos_hacs_moonraker_console",
+  "documentation": "https://github.com/thaliamontreux/HACS_Moonraker_Advanced",
   "integration_type": "hub",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/thaliamontreux/haos_hacs_moonraker_console/issues",
-  "loggers": ["moonraker"],
+  "issue_tracker": "https://github.com/thaliamontreux/HACS_Moonraker_Advanced/issues",
+  "loggers": ["advance_moonraker_control"],
   "requirements": ["moonraker-api==2.0.6"],
   "version": "2026.10.23"
 }

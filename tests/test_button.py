@@ -10,7 +10,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.moonraker.const import DOMAIN, METHODS
+from custom_components.advance_moonraker_control.const import DOMAIN, METHODS
 
 from .const import MOCK_CONFIG
 
@@ -36,8 +36,8 @@ async def _enable_button_entity(hass, config_entry, entity_id: str):
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
     with (
-        patch("custom_components.moonraker.MoonrakerApiClient.start"),
-        patch("custom_components.moonraker.MoonrakerApiClient.stop"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.start"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.stop"),
     ):
         yield
 

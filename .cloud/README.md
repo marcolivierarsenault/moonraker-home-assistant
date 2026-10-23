@@ -1,6 +1,6 @@
 # Codex Cloud Agent Runbook
 
-Use this runbook when working in Codex Cloud for `moonraker-home-assistant`.
+Use this runbook when working in Codex Cloud for `HACS_Moonraker_Advanced` (formerly the moonraker-home-assistant development tree).
 
 ## Trigger -> Command Matrix
 

@@ -112,7 +112,7 @@ def bypass_tcp_reachable_fixture():
     offline path.
     """
     with patch(
-        "custom_components.moonraker._async_is_tcp_reachable",
+        "custom_components.advance_moonraker_control._async_is_tcp_reachable",
         new_callable=AsyncMock,
         return_value=True,
     ):

@@ -11,11 +11,11 @@ import pytest
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.moonraker import MoonrakerGcodeUploadView
-from custom_components.moonraker.const import DOMAIN, METHODS
+from custom_components.advance_moonraker_control import MoonrakerGcodeUploadView
+from custom_components.advance_moonraker_control.const import DOMAIN, METHODS
 
 from .const import MOCK_CONFIG
-from custom_components.moonraker.panel import (
+from custom_components.advance_moonraker_control.panel import (
     PANEL_GCODE_URL,
     _relative_gcode_path,
     PANEL_CLIENT_URL,
@@ -80,23 +80,23 @@ async def test_registers_custom_panel_with_ha_authenticated_connection():
         call.args[0].name for call in hass.http.register_view.call_args_list
     }
     assert {
-        "api:moonraker:panel",
-        "api:moonraker:panel_embed",
-        "api:moonraker:panel_module",
-        "api:moonraker:panel_client",
-        "api:moonraker:panel_i18n",
-        "api:moonraker:toolpath_parse",
-        "api:moonraker:toolpath_worker",
-        "api:moonraker:gcode_upload_page",
-        "api:moonraker:panel_data",
-        "api:moonraker:panel_gcode",
-        "api:moonraker:panel_thumbnail",
-        "api:moonraker:panel_action",
+        "api:advance_moonraker_control:panel",
+        "api:advance_moonraker_control:panel_embed",
+        "api:advance_moonraker_control:panel_module",
+        "api:advance_moonraker_control:panel_client",
+        "api:advance_moonraker_control:panel_i18n",
+        "api:advance_moonraker_control:toolpath_parse",
+        "api:advance_moonraker_control:toolpath_worker",
+        "api:advance_moonraker_control:gcode_upload_page",
+        "api:advance_moonraker_control:panel_data",
+        "api:advance_moonraker_control:panel_gcode",
+        "api:advance_moonraker_control:panel_thumbnail",
+        "api:advance_moonraker_control:panel_action",
     } <= registered_names
     register_panel.assert_awaited_once_with(
         hass,
         frontend_url_path=PANEL_FRONTEND_PATH,
-        webcomponent_name="moonraker-control-panel",
+        webcomponent_name="advance-moonraker-control-panel",
         sidebar_title="Advance_Moonraker_Control",
         sidebar_icon="mdi:printer-3d",
         module_url=PANEL_MODULE_URL,
@@ -296,11 +296,11 @@ async def test_gcode_proxy_streams_active_listed_file_with_moonraker_api_key():
 
     with (
         patch(
-            "custom_components.moonraker.panel.async_get_clientsession",
+            "custom_components.advance_moonraker_control.panel.async_get_clientsession",
             return_value=session,
         ),
         patch(
-            "custom_components.moonraker.panel.web.StreamResponse",
+            "custom_components.advance_moonraker_control.panel.web.StreamResponse",
             return_value=stream_response,
         ) as stream_factory,
     ):
@@ -354,8 +354,8 @@ def _panel_coordinator(hass, **overrides):
 
 async def test_resolve_coordinator_real_path(hass):
     """The real resolver returns coordinators from hass.data."""
-    from custom_components.moonraker import MoonrakerDataUpdateCoordinator
-    from custom_components.moonraker.panel import _resolve_coordinator
+    from custom_components.advance_moonraker_control import MoonrakerDataUpdateCoordinator
+    from custom_components.advance_moonraker_control.panel import _resolve_coordinator
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="real")
     coordinator = MoonrakerDataUpdateCoordinator(
@@ -374,7 +374,7 @@ async def test_resolve_coordinator_real_path(hass):
 
 async def test_panel_view_base_resolve_uses_real_lookup(hass):
     """The view base helpers hit the module-level resolver."""
-    from custom_components.moonraker import MoonrakerDataUpdateCoordinator
+    from custom_components.advance_moonraker_control import MoonrakerDataUpdateCoordinator
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="real")
     coordinator = MoonrakerDataUpdateCoordinator(
@@ -437,8 +437,8 @@ async def test_panel_data_404_when_no_printer(hass):
 
 async def test_panel_payload_defensive_branches(hass):
     """Optional data sources degrade gracefully when absent or malformed."""
-    from custom_components.moonraker import MoonrakerDataUpdateCoordinator
-    from custom_components.moonraker.panel import _panel_payload
+    from custom_components.advance_moonraker_control import MoonrakerDataUpdateCoordinator
+    from custom_components.advance_moonraker_control.panel import _panel_payload
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="x")
     coordinator = MoonrakerDataUpdateCoordinator(
@@ -550,7 +550,7 @@ async def test_gcode_proxy_upstream_errors(hass):
     session = MagicMock()
     session.get = MagicMock(return_value=_Ctx(SimpleNamespace(status=503)))
     with patch(
-        "custom_components.moonraker.panel.async_get_clientsession",
+        "custom_components.advance_moonraker_control.panel.async_get_clientsession",
         return_value=session,
     ):
         response = await view.get(request)
@@ -564,7 +564,7 @@ async def test_gcode_proxy_upstream_errors(hass):
         return_value=_Ctx(SimpleNamespace(status=200, content_length=10**9))
     )
     with patch(
-        "custom_components.moonraker.panel.async_get_clientsession",
+        "custom_components.advance_moonraker_control.panel.async_get_clientsession",
         return_value=session,
     ):
         response = await view.get(request)
@@ -589,14 +589,14 @@ async def test_gcode_proxy_upstream_errors(hass):
     stream_response.write_eof = AsyncMock()
     with (
         patch(
-            "custom_components.moonraker.panel.async_get_clientsession",
+            "custom_components.advance_moonraker_control.panel.async_get_clientsession",
             return_value=session,
         ),
         patch(
-            "custom_components.moonraker.panel.web.StreamResponse",
+            "custom_components.advance_moonraker_control.panel.web.StreamResponse",
             return_value=stream_response,
         ),
-        patch("custom_components.moonraker.panel._MAX_TOOLPATH_BYTES", 4),
+        patch("custom_components.advance_moonraker_control.panel._MAX_TOOLPATH_BYTES", 4),
     ):
         response = await view.get(request)
     assert response is stream_response
@@ -608,7 +608,7 @@ async def test_gcode_proxy_upstream_errors(hass):
     session = MagicMock()
     session.get = MagicMock(side_effect=aiohttp.ClientError("down"))
     with patch(
-        "custom_components.moonraker.panel.async_get_clientsession",
+        "custom_components.advance_moonraker_control.panel.async_get_clientsession",
         return_value=session,
     ):
         response = await view.get(request)
@@ -633,11 +633,11 @@ async def test_gcode_proxy_upstream_errors(hass):
     stream_response.write = AsyncMock()
     with (
         patch(
-            "custom_components.moonraker.panel.async_get_clientsession",
+            "custom_components.advance_moonraker_control.panel.async_get_clientsession",
             return_value=session,
         ),
         patch(
-            "custom_components.moonraker.panel.web.StreamResponse",
+            "custom_components.advance_moonraker_control.panel.web.StreamResponse",
             return_value=stream_response,
         ),
     ):
@@ -648,7 +648,7 @@ async def test_gcode_proxy_upstream_errors(hass):
 
 def test_best_thumbnail_relative_path():
     """Thumbnail selection prefers the largest image and skips bad entries."""
-    from custom_components.moonraker.panel import _best_thumbnail_relative_path
+    from custom_components.advance_moonraker_control.panel import _best_thumbnail_relative_path
 
     assert _best_thumbnail_relative_path(None) is None
     assert _best_thumbnail_relative_path({"thumbnails": "nope"}) is None
@@ -677,7 +677,7 @@ def test_best_thumbnail_relative_path():
 
 async def test_file_meta_view(hass):
     """The file metadata endpoint whitelists fields and flags thumbnails."""
-    from custom_components.moonraker.panel import MoonrakerPanelFileMetaView
+    from custom_components.advance_moonraker_control.panel import MoonrakerPanelFileMetaView
 
     view = MoonrakerPanelFileMetaView(hass)
     response = await view.get(SimpleNamespace(query={}))
@@ -760,7 +760,7 @@ async def test_thumbnail_view(hass):
     )
     session.get = MagicMock(return_value=_Ctx(upstream))
     with patch(
-        "custom_components.moonraker.panel.async_get_clientsession",
+        "custom_components.advance_moonraker_control.panel.async_get_clientsession",
         return_value=session,
     ):
         response = await view.get(SimpleNamespace(query={"filename": "sub/a.gcode"}))
@@ -771,7 +771,7 @@ async def test_thumbnail_view(hass):
     # Upstream non-200 -> 404
     session.get = MagicMock(return_value=_Ctx(SimpleNamespace(status=404)))
     with patch(
-        "custom_components.moonraker.panel.async_get_clientsession",
+        "custom_components.advance_moonraker_control.panel.async_get_clientsession",
         return_value=session,
     ):
         response = await view.get(SimpleNamespace(query={"filename": "sub/a.gcode"}))
@@ -780,7 +780,7 @@ async def test_thumbnail_view(hass):
     # Upstream error -> 502
     session.get = MagicMock(side_effect=aiohttp.ClientError("down"))
     with patch(
-        "custom_components.moonraker.panel.async_get_clientsession",
+        "custom_components.advance_moonraker_control.panel.async_get_clientsession",
         return_value=session,
     ):
         response = await view.get(SimpleNamespace(query={"filename": "sub/a.gcode"}))
@@ -796,7 +796,7 @@ async def test_thumbnail_view(hass):
     )
     session.get = MagicMock(return_value=_Ctx(upstream))
     with patch(
-        "custom_components.moonraker.panel.async_get_clientsession",
+        "custom_components.advance_moonraker_control.panel.async_get_clientsession",
         return_value=session,
     ):
         response = await view.get(SimpleNamespace(query={}))
@@ -900,7 +900,7 @@ async def test_action_view_operator_role(hass):
 
 async def test_apply_queue_plan_action(hass):
     """Applying the analyzer's queue plan reposts jobs in plan order."""
-    from custom_components.moonraker.const import METHODS
+    from custom_components.advance_moonraker_control.const import METHODS
 
     coordinator = _panel_coordinator(hass)
     coordinator.analyzer = SimpleNamespace(
@@ -954,7 +954,7 @@ async def test_apply_queue_plan_action(hass):
 )
 async def test_direct_actions_send_mapped_method(action):
     """Every direct panel action forwards its Moonraker method."""
-    from custom_components.moonraker.panel import _DIRECT_ACTIONS
+    from custom_components.advance_moonraker_control.panel import _DIRECT_ACTIONS
 
     coordinator = _panel_coordinator(MagicMock())
     view = view_for(MoonrakerPanelActionView(MagicMock()), coordinator)
@@ -1006,7 +1006,7 @@ async def test_preheat_and_script_actions():
 
 async def test_file_actions():
     """Select, print, enqueue, and delete file actions route correctly."""
-    from custom_components.moonraker.const import METHODS
+    from custom_components.advance_moonraker_control.const import METHODS
 
     coordinator = _panel_coordinator(MagicMock())
     view = view_for(MoonrakerPanelActionView(MagicMock()), coordinator)
@@ -1040,7 +1040,7 @@ async def test_file_actions():
 
 async def test_power_and_queue_actions():
     """Power device toggles and queue management actions route correctly."""
-    from custom_components.moonraker.const import METHODS
+    from custom_components.advance_moonraker_control.const import METHODS
 
     coordinator = _panel_coordinator(MagicMock())
     view = view_for(MoonrakerPanelActionView(MagicMock()), coordinator)
@@ -1078,7 +1078,7 @@ async def test_power_and_queue_actions():
 
 async def test_gcode_actions():
     """Parameterized and fixed g-code actions validate and format values."""
-    from custom_components.moonraker.const import METHODS
+    from custom_components.advance_moonraker_control.const import METHODS
 
     coordinator = _panel_coordinator(MagicMock())
     view = view_for(MoonrakerPanelActionView(MagicMock()), coordinator)
@@ -1109,8 +1109,8 @@ async def test_gcode_actions():
 
 async def test_panel_subscribe_websocket(hass):
     """The websocket subscription pushes snapshots on coordinator updates."""
-    from custom_components.moonraker import MoonrakerDataUpdateCoordinator
-    from custom_components.moonraker.panel import _ws_panel_subscribe
+    from custom_components.advance_moonraker_control import MoonrakerDataUpdateCoordinator
+    from custom_components.advance_moonraker_control.panel import _ws_panel_subscribe
 
     connection = SimpleNamespace(
         subscriptions={},
@@ -1118,7 +1118,7 @@ async def test_panel_subscribe_websocket(hass):
         send_result=MagicMock(),
         send_message=MagicMock(),
     )
-    msg = {"id": 7, "type": "moonraker/panel_subscribe", "entry_id": "missing"}
+    msg = {"id": 7, "type": "advance_moonraker_control/panel_subscribe", "entry_id": "missing"}
     hass.data[DOMAIN] = {}
     _ws_panel_subscribe(hass, connection, msg)
     await hass.async_block_till_done(wait_background_tasks=True)
@@ -1135,7 +1135,7 @@ async def test_panel_subscribe_websocket(hass):
     coordinator.async_get_system_info = AsyncMock(return_value={})
     coordinator.async_get_server_info = AsyncMock(return_value={})
     hass.data[DOMAIN] = {"p": coordinator}
-    msg = {"id": 7, "type": "moonraker/panel_subscribe", "entry_id": "p"}
+    msg = {"id": 7, "type": "advance_moonraker_control/panel_subscribe", "entry_id": "p"}
 
     _ws_panel_subscribe(hass, connection, msg)
     await hass.async_block_till_done(wait_background_tasks=True)
@@ -1152,7 +1152,7 @@ async def test_panel_subscribe_websocket(hass):
     # A broken payload builder logs but never kills the subscription
     connection.send_message.reset_mock()
     with patch(
-        "custom_components.moonraker.panel._panel_payload",
+        "custom_components.advance_moonraker_control.panel._panel_payload",
         new=AsyncMock(side_effect=RuntimeError("boom")),
     ):
         coordinator.async_update_listeners()
@@ -1162,7 +1162,7 @@ async def test_panel_subscribe_websocket(hass):
 
 async def test_panel_payload_includes_aux_data_and_console(hass):
     """Power, queue, history, and gcode store feed the panel payload."""
-    from custom_components.moonraker.panel import _panel_payload
+    from custom_components.advance_moonraker_control.panel import _panel_payload
 
     async def _fetch(method, params=None, quiet=False):
         return {
@@ -1209,7 +1209,7 @@ async def test_panel_payload_includes_aux_data_and_console(hass):
 
 async def test_panel_aux_data_failure_paths(hass):
     """Aux fetch failures degrade to empty structures and cache."""
-    from custom_components.moonraker.panel import _panel_aux_data
+    from custom_components.advance_moonraker_control.panel import _panel_aux_data
 
     calls = {"n": 0}
 
@@ -1235,7 +1235,7 @@ async def test_panel_aux_data_failure_paths(hass):
 
 async def test_panel_aux_data_coalesces_concurrent_fetches(hass):
     """Concurrent panel connections share one batch of auxiliary requests."""
-    from custom_components.moonraker.panel import _panel_aux_data
+    from custom_components.advance_moonraker_control.panel import _panel_aux_data
 
     calls = 0
 
@@ -1257,7 +1257,7 @@ async def test_panel_aux_data_coalesces_concurrent_fetches(hass):
 
 async def test_console_lines_merges_store_and_live(hass):
     """Console output combines stored gcode lines with live pushes."""
-    from custom_components.moonraker.panel import _console_lines
+    from custom_components.advance_moonraker_control.panel import _console_lines
 
     coordinator = _panel_coordinator(hass, gcode_responses=["b", "c"])
     assert _console_lines(
@@ -1269,7 +1269,7 @@ async def test_console_lines_merges_store_and_live(hass):
 
 def test_parse_screws_tilt_klipper_output():
     """SCREWS_TILT_CALCULATE output yields per-screw turns and direction."""
-    from custom_components.moonraker.panel import _parse_screws_tilt
+    from custom_components.advance_moonraker_control.panel import _parse_screws_tilt
 
     lines = [
         "Send: SCREWS_TILT_CALCULATE",
@@ -1296,7 +1296,7 @@ def test_parse_screws_tilt_klipper_output():
 
 def test_parse_screws_tilt_uses_newest_block_and_ignores_noise():
     """Only the last SCREWS_TILT_CALCULATE run is reported."""
-    from custom_components.moonraker.panel import _parse_screws_tilt
+    from custom_components.advance_moonraker_control.panel import _parse_screws_tilt
 
     lines = [
         "Send: SCREWS_TILT_CALCULATE",
@@ -1314,7 +1314,7 @@ def test_parse_screws_tilt_uses_newest_block_and_ignores_noise():
 
 def test_parse_probe_calibrate_and_seen_commands():
     """PROBE_CALIBRATE z_offset and command presence are detected."""
-    from custom_components.moonraker.panel import (
+    from custom_components.advance_moonraker_control.panel import (
         _calibration_seen,
         _parse_probe_calibrate,
     )
@@ -1343,7 +1343,7 @@ def test_parse_probe_calibrate_and_seen_commands():
 
 async def test_panel_payload_includes_calibration(hass):
     """Console history feeds the calibration block in the panel payload."""
-    from custom_components.moonraker.panel import _panel_payload
+    from custom_components.advance_moonraker_control.panel import _panel_payload
 
     coordinator = _panel_coordinator(
         hass,
@@ -1364,7 +1364,7 @@ async def test_panel_payload_includes_calibration(hass):
 
 async def test_panel_payload_layers_and_klippy(hass):
     """The payload exposes computed layer counters and printer state."""
-    from custom_components.moonraker.panel import _panel_payload
+    from custom_components.advance_moonraker_control.panel import _panel_payload
 
     coordinator = _panel_coordinator(
         hass,
@@ -1395,7 +1395,7 @@ async def test_panel_payload_layers_and_klippy(hass):
 
 async def test_webcam_snapshot_view(hass):
     """The snapshot proxy serves the named webcam's latest frame."""
-    from custom_components.moonraker.panel import MoonrakerPanelSnapshotView
+    from custom_components.advance_moonraker_control.panel import MoonrakerPanelSnapshotView
 
     view = MoonrakerPanelSnapshotView(hass)
     response = await view.get(SimpleNamespace(query={"printer": "x"}))
@@ -1422,7 +1422,7 @@ async def test_webcam_snapshot_view(hass):
     view._resolve = MagicMock(return_value=coordinator)
 
     with patch(
-        "custom_components.moonraker.panel.async_get_clientsession",
+        "custom_components.advance_moonraker_control.panel.async_get_clientsession",
         return_value=session,
     ):
         missing = await view.get(SimpleNamespace(query={}))
@@ -1444,7 +1444,7 @@ async def test_webcam_snapshot_view(hass):
     )
     session.get = MagicMock(side_effect=aiohttp.ClientError("down"))
     with patch(
-        "custom_components.moonraker.panel.async_get_clientsession",
+        "custom_components.advance_moonraker_control.panel.async_get_clientsession",
         return_value=session,
     ):
         response = await view.get(SimpleNamespace(query={"camera": "Front"}))
@@ -1453,7 +1453,7 @@ async def test_webcam_snapshot_view(hass):
     upstream.status = 500
     session.get = MagicMock(return_value=ctx)
     with patch(
-        "custom_components.moonraker.panel.async_get_clientsession",
+        "custom_components.advance_moonraker_control.panel.async_get_clientsession",
         return_value=session,
     ):
         response = await view.get(SimpleNamespace(query={"camera": "Front"}))
@@ -1462,7 +1462,7 @@ async def test_webcam_snapshot_view(hass):
 
 def test_spool_details_whitelist():
     """Spool records are trimmed to display-safe fields."""
-    from custom_components.moonraker.panel import _spool_details
+    from custom_components.advance_moonraker_control.panel import _spool_details
 
     assert _spool_details("not-a-dict") == {}
     assert _spool_details({}) == {"filament": {}}
@@ -1500,7 +1500,7 @@ def test_spool_details_whitelist():
 
 def test_bed_bounds_extraction():
     """Bed bounds pull numeric axis limits out of configfile settings."""
-    from custom_components.moonraker.panel import _bed_bounds
+    from custom_components.advance_moonraker_control.panel import _bed_bounds
 
     settings = {
         "status": {
@@ -1526,7 +1526,7 @@ def test_bed_bounds_extraction():
 
 def test_fleet_summary_variants(hass):
     """Fleet tiles summarize each coordinator's cached status."""
-    from custom_components.moonraker.panel import _fleet_summary
+    from custom_components.advance_moonraker_control.panel import _fleet_summary
 
     coordinator = _panel_coordinator(
         hass,
@@ -1570,7 +1570,7 @@ def test_fleet_summary_variants(hass):
 
 async def test_panel_aux_fetches_spool_details(hass):
     """An active Spoolman spool triggers a proxied detail lookup."""
-    from custom_components.moonraker.panel import _panel_aux_data
+    from custom_components.advance_moonraker_control.panel import _panel_aux_data
 
     async def _fetch(method, params=None, quiet=False):
         if method.value == "server.spoolman.status":
@@ -1611,8 +1611,8 @@ async def test_panel_aux_fetches_spool_details(hass):
 
 async def test_panel_payload_fleet_bed_bounds_and_spool(hass):
     """The payload exposes fleet summaries, bed bounds, and spool details."""
-    from custom_components.moonraker import MoonrakerDataUpdateCoordinator
-    from custom_components.moonraker.panel import _panel_payload
+    from custom_components.advance_moonraker_control import MoonrakerDataUpdateCoordinator
+    from custom_components.advance_moonraker_control.panel import _panel_payload
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="real")
     real = MoonrakerDataUpdateCoordinator(
@@ -1684,7 +1684,7 @@ async def test_panel_payload_fleet_bed_bounds_and_spool(hass):
 
 def test_route_needs_picks_first_real_job(hass):
     """Route needs summarize the first queued job with metadata."""
-    from custom_components.moonraker.panel import _route_needs
+    from custom_components.advance_moonraker_control.panel import _route_needs
 
     coordinator = _panel_coordinator(hass, data={"queue": {"queued_jobs": "bad"}})
     assert _route_needs(coordinator) == {}
@@ -1717,7 +1717,7 @@ def test_route_needs_picks_first_real_job(hass):
 
 def test_route_score_weights_fitness(hass):
     """The router scores idle, compatible printers highest."""
-    from custom_components.moonraker.panel import _route_score
+    from custom_components.advance_moonraker_control.panel import _route_score
 
     offline = _panel_coordinator(hass)
     offline.last_update_success = False
@@ -1769,7 +1769,7 @@ def test_route_score_weights_fitness(hass):
 
 async def test_panel_pwa_manifest_and_service_worker(hass):
     """The PWA manifest and service worker routes serve install metadata."""
-    from custom_components.moonraker.panel import (
+    from custom_components.advance_moonraker_control.panel import (
         MoonrakerPanelManifestView,
         MoonrakerPanelServiceWorkerView,
     )
@@ -1780,7 +1780,7 @@ async def test_panel_pwa_manifest_and_service_worker(hass):
     body = json.loads(manifest.body.decode())
     assert body["name"] == "Advance_Moonraker_Control"
     assert body["display"] == "standalone"
-    assert body["scope"] == "/api/moonraker/"
+    assert body["scope"] == "/api/advance_moonraker_control/"
 
     worker = await MoonrakerPanelServiceWorkerView().get(MagicMock())
     assert worker.content_type == "application/javascript"
@@ -1791,7 +1791,7 @@ async def test_panel_printcast_endpoint(hass):
     """The printcast endpoint scores arbitrary files against live state."""
     import json
 
-    from custom_components.moonraker.panel import MoonrakerPanelPrintcastView
+    from custom_components.advance_moonraker_control.panel import MoonrakerPanelPrintcastView
 
     view = MoonrakerPanelPrintcastView(hass)
     coordinator = _panel_coordinator(hass)
@@ -1849,7 +1849,7 @@ async def test_panel_printcast_endpoint(hass):
 
 async def test_panel_action_mark_spool_dried(hass):
     """The mark_spool_dried action resets dose without printer calls."""
-    from custom_components.moonraker.panel import MoonrakerPanelActionView
+    from custom_components.advance_moonraker_control.panel import MoonrakerPanelActionView
 
     view = MoonrakerPanelActionView(hass)
     coordinator = _panel_coordinator(hass)
@@ -1874,7 +1874,7 @@ async def test_panel_action_mark_spool_dried(hass):
 
 def test_route_score_penalizes_low_printcast(hass):
     """A printer forecasting poorly loses router points."""
-    from custom_components.moonraker.panel import _route_score
+    from custom_components.advance_moonraker_control.panel import _route_score
 
     candidate = _panel_coordinator(
         hass, data={"status": {"print_stats": {"state": "standby"}}}
@@ -1898,7 +1898,7 @@ async def test_payload_includes_printcast(hass):
         "score": 88,
         "verdict": "CLEAR",
     }
-    from custom_components.moonraker.panel import _panel_payload
+    from custom_components.advance_moonraker_control.panel import _panel_payload
 
     payload = await _panel_payload(hass, coordinator)
     assert payload["printcast"]["score"] == 88

@@ -19,7 +19,7 @@ class MoonrakerControlPanel extends HTMLElement {
 
   set panel(panel) {
     this._panel = panel;
-    const frameUrl = panel?.config?.frame_url || "/api/moonraker/panel_embed";
+    const frameUrl = panel?.config?.frame_url || "/api/advance_moonraker_control/panel_embed";
     if (this._frame.src !== new URL(frameUrl, location.href).href) {
       this._frame.src = frameUrl;
     }
@@ -36,7 +36,7 @@ class MoonrakerControlPanel extends HTMLElement {
     window.visualViewport?.addEventListener("resize", this._resizeHandler);
     requestAnimationFrame(this._resizeHandler);
     if (!this._frame.src) {
-      this._frame.src = "/api/moonraker/panel_embed";
+      this._frame.src = "/api/advance_moonraker_control/panel_embed";
     }
     this._syncHass();
   }
@@ -61,11 +61,11 @@ class MoonrakerControlPanel extends HTMLElement {
     }
     const frameWindow = this._frame.contentWindow;
     frameWindow.hass = this._hass;
-    if (!frameWindow.moonrakerHassReady) {
-      frameWindow.moonrakerHassReady = true;
-      frameWindow.dispatchEvent(new frameWindow.Event("moonraker-hass-ready"));
+    if (!frameWindow.advanceMoonrakerControlHassReady) {
+      frameWindow.advanceMoonrakerControlHassReady = true;
+      frameWindow.dispatchEvent(new frameWindow.Event("advance-moonraker-control-hass-ready"));
     }
   }
 }
 
-customElements.define("moonraker-control-panel", MoonrakerControlPanel);
+customElements.define("advance-moonraker-control-panel", MoonrakerControlPanel);

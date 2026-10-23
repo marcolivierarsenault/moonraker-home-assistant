@@ -8,7 +8,7 @@ from homeassistant.components.select.const import DOMAIN as SELECT_DOMAIN
 from homeassistant.const import ATTR_ENTITY_ID, ATTR_OPTION
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.moonraker.const import DOMAIN
+from custom_components.advance_moonraker_control.const import DOMAIN
 
 from .const import MOCK_CONFIG
 
@@ -17,8 +17,8 @@ from .const import MOCK_CONFIG
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
     with (
-        patch("custom_components.moonraker.MoonrakerApiClient.start"),
-        patch("custom_components.moonraker.MoonrakerApiClient.stop"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.start"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.stop"),
     ):
         yield
 
@@ -55,7 +55,7 @@ async def test_file_select(hass):
 
 async def test_files_updater_normalizes_responses(hass):
     """The file-list updater normalizes list, dict, and malformed replies."""
-    from custom_components.moonraker.select import _files_updater
+    from custom_components.advance_moonraker_control.select import _files_updater
 
     coordinator = SimpleNamespace(
         async_fetch_data=AsyncMock(return_value=[{"path": "a.gcode"}])
@@ -73,7 +73,7 @@ async def test_files_updater_normalizes_responses(hass):
 
 async def test_select_option_ignores_unknown_choice(hass):
     """Selecting a file not in the list is a no-op."""
-    from custom_components.moonraker.select import MoonrakerFileSelect
+    from custom_components.advance_moonraker_control.select import MoonrakerFileSelect
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="x")
     coordinator = SimpleNamespace(

@@ -12,8 +12,8 @@ from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
 )
 
-from custom_components.moonraker.const import DOMAIN, PRINTSTATES
-from custom_components.moonraker.sensor import (
+from custom_components.advance_moonraker_control.const import DOMAIN, PRINTSTATES
+from custom_components.advance_moonraker_control.sensor import (
     _get_progress_value,
     calculate_current_layer,
     calculate_memory_used,
@@ -91,8 +91,8 @@ DEFAULT_VALUES = [
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
     with (
-        patch("custom_components.moonraker.MoonrakerApiClient.start"),
-        patch("custom_components.moonraker.MoonrakerApiClient.stop"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.start"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.stop"),
     ):
         yield
 
@@ -1385,7 +1385,7 @@ async def test_optional_sensors_ignores_empty_object_name(
 
 async def test_optional_data_updaters_fetch_their_payloads(hass):
     """History, queue, spoolman, and machine-update updaters wrap fetch results."""
-    from custom_components.moonraker.sensor import (
+    from custom_components.advance_moonraker_control.sensor import (
         _history_updater,
         _machine_update_updater,
         _queue_updater,

@@ -50,7 +50,7 @@ commands from forecast logic, HA restart requires explicit user approval.
       (local only — no Moonraker call; regression test asserting no API call)
 - [ ] File-select trigger: detect `virtual_sdcard.file_path` change while
       `print_stats.state == "standby"` → compute forecast → `hass.bus`
-      `moonraker_printcast` event with payload
+      `advance_moonraker_control_printcast` event with payload
 - [ ] Notify/TTS on file select when score <85 or verdict worsened; dedupe
       per `filename + verdict bucket`
 - [ ] Live mode: while printing, forecast relabeled "live" — twin-drift
@@ -60,14 +60,14 @@ commands from forecast logic, HA restart requires explicit user approval.
 
 - [ ] `panel.py`: `payload["printcast"]` = current forecast dict
 - [ ] `panel.py`: `MoonrakerPanelPrintcastView` GET
-      `/api/moonraker/panel_printcast?filename=` — computes per-file forecast
+      `/api/advance_moonraker_control/panel_printcast?filename=` — computes per-file forecast
       via `SERVER_FILES_METADATA`
 - [ ] `panel.html`: PRINTCAST card — score dial (theme vars), verdict chip,
       factor list w/ point deltas, top recommendation, humidity dose gauge,
       mass-ledger line, MARK DRIED chip, `partial` badge
 - [ ] `panel_client.js`: `renderPrintcast()` in refresh cycle; per-file score
       badge in G-code browser (lazy fetch on expand); mark-dried call;
-      `moonraker_printcast` event → toast + optional TTS
+      `advance_moonraker_control_printcast` event → toast + optional TTS
 - [ ] Theme compliance: all new colors via `var(--*)`, no literals
 
 ## P4 — Queue & fleet

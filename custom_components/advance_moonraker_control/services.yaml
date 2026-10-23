@@ -8,7 +8,7 @@ send_gcode:
       required: true
       selector:
         device:
-          integration: moonraker
+          integration: advance_moonraker_control
     gcode:
       name: "G-code"
       description: "G-code command to send to the printer"
@@ -26,7 +26,7 @@ start_print:
       required: true
       selector:
         device:
-          integration: moonraker
+          integration: advance_moonraker_control
     filename:
       name: "Filename"
       description: "G-code file to print, relative to the printer's gcodes root"
@@ -44,7 +44,7 @@ upload_gcode:
       required: true
       selector:
         device:
-          integration: moonraker
+          integration: advance_moonraker_control
     path:
       name: "Path"
       description: "Local file path on the Home Assistant host, inside an allowlisted directory"

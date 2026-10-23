@@ -9,14 +9,14 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
-from custom_components.moonraker import MoonrakerDataUpdateCoordinator
-from custom_components.moonraker.const import (
+from custom_components.advance_moonraker_control import MoonrakerDataUpdateCoordinator
+from custom_components.advance_moonraker_control.const import (
     CONF_OPTION_HUMIDITY_SENSOR,
     CONF_OPTION_NOTIFY_SERVICE,
     DOMAIN,
     SIGNAL_PRINTCAST,
 )
-from custom_components.moonraker.printcast import (
+from custom_components.advance_moonraker_control.printcast import (
     LEDGER_ARMED_PRINTS,
     SPOOL_DOSE_LIMIT,
     MoonrakerPrintcast,
@@ -30,8 +30,8 @@ from .const import MOCK_CONFIG
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
     with (
-        patch("custom_components.moonraker.MoonrakerApiClient.start"),
-        patch("custom_components.moonraker.MoonrakerApiClient.stop"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.start"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.stop"),
     ):
         yield
 

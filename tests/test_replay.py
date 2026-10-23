@@ -15,7 +15,7 @@ import pytest
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.moonraker import MoonrakerDataUpdateCoordinator
+from custom_components.advance_moonraker_control import MoonrakerDataUpdateCoordinator
 
 from .const import MOCK_CONFIG
 
@@ -39,10 +39,10 @@ BASE_STATUS = {
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
     with (
-        patch("custom_components.moonraker.MoonrakerApiClient.start"),
-        patch("custom_components.moonraker.MoonrakerApiClient.stop"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.start"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.stop"),
         patch(
-            "custom_components.moonraker._async_is_tcp_reachable",
+            "custom_components.advance_moonraker_control._async_is_tcp_reachable",
             new_callable=AsyncMock,
             return_value=True,
         ),
@@ -72,7 +72,7 @@ async def test_replay_scenario(hass, scenario):
     from homeassistant.helpers import issue_registry as ir
 
     config_entry = MockConfigEntry(
-        domain="moonraker",
+        domain="advance_moonraker_control",
         data=MOCK_CONFIG,
         options=scenario.get("options") or {},
         entry_id=f"replay_{scenario['name']}",
@@ -96,7 +96,7 @@ async def test_replay_scenario(hass, scenario):
         analyzer.analyze(status, now=float(frame["at"]))
         labels.extend(finding["label"] for finding in analyzer.findings)
         seen_issues.update(
-            issue_id for (domain, issue_id) in registry.issues if domain == "moonraker"
+            issue_id for (domain, issue_id) in registry.issues if domain == "advance_moonraker_control"
         )
 
     expected = scenario.get("expect") or {}

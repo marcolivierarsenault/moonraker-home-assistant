@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from custom_components.moonraker.const import PRINTSTATES
+from custom_components.advance_moonraker_control.const import PRINTSTATES
 
 from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers import device_registry as dr
@@ -21,7 +21,7 @@ from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
 )
 
-from custom_components.moonraker import (
+from custom_components.advance_moonraker_control import (
     _PRINTING_SCAN_INTERVAL,
     MoonrakerDataUpdateCoordinator,
     _async_is_tcp_reachable,
@@ -35,7 +35,7 @@ from custom_components.moonraker import (
     async_setup_entry,
     async_unload_entry,
 )
-from custom_components.moonraker.const import (
+from custom_components.advance_moonraker_control.const import (
     CONF_OPTION_POLLING_RATE,
     CONF_OPTION_QUIET_UNREACHABLE,
     CONF_PORT,
@@ -58,10 +58,10 @@ from .const import MOCK_CONFIG, MOCK_CONFIG_WITH_NAME
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
     with (
-        patch("custom_components.moonraker.MoonrakerApiClient.start"),
-        patch("custom_components.moonraker.MoonrakerApiClient.stop"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.start"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.stop"),
         patch(
-            "custom_components.moonraker._async_is_tcp_reachable",
+            "custom_components.advance_moonraker_control._async_is_tcp_reachable",
             new_callable=AsyncMock,
             return_value=True,
         ),
@@ -905,7 +905,7 @@ async def test_setup_entry_unreachable_logs_warning_by_default(hass, caplog):
 
     with (
         patch(
-            "custom_components.moonraker._async_is_tcp_reachable",
+            "custom_components.advance_moonraker_control._async_is_tcp_reachable",
             new_callable=AsyncMock,
             return_value=False,
         ),
@@ -930,7 +930,7 @@ async def test_setup_entry_empty_port_uses_default_for_reachability_probe(hass):
 
     with (
         patch(
-            "custom_components.moonraker._async_is_tcp_reachable",
+            "custom_components.advance_moonraker_control._async_is_tcp_reachable",
             new_callable=AsyncMock,
             return_value=False,
         ) as is_reachable,
@@ -953,7 +953,7 @@ async def test_setup_entry_unreachable_logs_debug_when_option_enabled(hass, capl
 
     with (
         patch(
-            "custom_components.moonraker._async_is_tcp_reachable",
+            "custom_components.advance_moonraker_control._async_is_tcp_reachable",
             new_callable=AsyncMock,
             return_value=False,
         ),
@@ -981,7 +981,7 @@ async def test_async_is_tcp_reachable_returns_true_when_connection_opens():
     writer.wait_closed = AsyncMock()
 
     with patch(
-        "custom_components.moonraker.asyncio.open_connection",
+        "custom_components.advance_moonraker_control.asyncio.open_connection",
         new_callable=AsyncMock,
         return_value=(MagicMock(), writer),
     ):
@@ -994,7 +994,7 @@ async def test_async_is_tcp_reachable_returns_true_when_connection_opens():
 async def test_async_is_tcp_reachable_returns_false_when_connection_fails():
     """Connection errors mark the endpoint as unreachable."""
     with patch(
-        "custom_components.moonraker.asyncio.open_connection",
+        "custom_components.advance_moonraker_control.asyncio.open_connection",
         new_callable=AsyncMock,
         side_effect=OSError,
     ):
@@ -1010,7 +1010,7 @@ async def test_async_fetch_data_unreachable_raises_update_failed(hass):
 
     with (
         patch(
-            "custom_components.moonraker._async_is_tcp_reachable",
+            "custom_components.advance_moonraker_control._async_is_tcp_reachable",
             new_callable=AsyncMock,
             return_value=False,
         ),
@@ -1037,7 +1037,7 @@ async def test_async_fetch_data_times_out(hass):
     )
 
     with (
-        patch("custom_components.moonraker.TIMEOUT", 0.01),
+        patch("custom_components.advance_moonraker_control.TIMEOUT", 0.01),
         pytest.raises(UpdateFailed),
     ):
         await coordinator.async_fetch_data(METHODS.PRINTER_INFO)
@@ -1052,7 +1052,7 @@ async def test_async_send_data_unreachable_raises_update_failed(hass):
 
     with (
         patch(
-            "custom_components.moonraker._async_is_tcp_reachable",
+            "custom_components.advance_moonraker_control._async_is_tcp_reachable",
             new_callable=AsyncMock,
             return_value=False,
         ),
@@ -1102,7 +1102,7 @@ async def test_failed_first_refresh(hass):
     """Test ConfigEntryNotReady when API raises an exception during entry setup."""
     with (
         patch(
-            "custom_components.moonraker.MoonrakerApiClient.stop",
+            "custom_components.advance_moonraker_control.MoonrakerApiClient.stop",
             new_callable=AsyncMock,
         ) as stop_client,
         patch(
@@ -1414,7 +1414,7 @@ async def test_send_gcode_unknown_device_is_ignored(hass):
 @pytest.mark.asyncio
 async def test_polling_interval_changes_on_print_state(hass, get_data):
     """Test polling interval changes based on print state transitions."""
-    from custom_components.moonraker.const import DOMAIN
+    from custom_components.advance_moonraker_control.const import DOMAIN
     from pytest_homeassistant_custom_component.common import MockConfigEntry
     from .const import MOCK_CONFIG
 
@@ -1458,7 +1458,7 @@ async def test_polling_interval_changes_on_print_state(hass, get_data):
 @pytest.mark.asyncio
 async def test_polling_interval_no_change_on_same_state(hass, get_data):
     """Test polling interval does not change or reschedule if state is unchanged."""
-    from custom_components.moonraker.const import DOMAIN
+    from custom_components.advance_moonraker_control.const import DOMAIN
     from pytest_homeassistant_custom_component.common import MockConfigEntry
     from .const import MOCK_CONFIG
 
@@ -1579,7 +1579,7 @@ async def test_upload_gcode_data_posts_to_http_api(hass):
     session.post = MagicMock(return_value=post_cm)
 
     with patch(
-        "custom_components.moonraker.async_get_clientsession",
+        "custom_components.advance_moonraker_control.async_get_clientsession",
         return_value=session,
     ):
         await coordinator.async_upload_gcode_data(b"G28\n", "benchy.gcode")
@@ -1607,7 +1607,7 @@ async def test_gcode_response_buffered(hass):
 
 def test_normalize_file_list_shapes():
     """server.files.list replies normalize to a dict with a files key."""
-    from custom_components.moonraker import _normalize_file_list
+    from custom_components.advance_moonraker_control import _normalize_file_list
 
     assert _normalize_file_list([{"path": "a"}]) == {"files": [{"path": "a"}]}
     assert _normalize_file_list({"files": [1]}) == {"files": [1]}
@@ -1616,7 +1616,7 @@ def test_normalize_file_list_shapes():
 
 def test_read_file_bytes(tmp_path):
     """_read_file_bytes reads raw bytes from disk."""
-    from custom_components.moonraker import _read_file_bytes
+    from custom_components.advance_moonraker_control import _read_file_bytes
 
     target = tmp_path / "part.gcode"
     target.write_bytes(b"G28\n")
@@ -1662,7 +1662,7 @@ class _MultipartRequest(dict):
 
 async def test_gcode_upload_view(hass):
     """The upload endpoint validates and forwards files to Moonraker."""
-    from custom_components.moonraker import MoonrakerGcodeUploadView
+    from custom_components.advance_moonraker_control import MoonrakerGcodeUploadView
 
     coordinator = MagicMock(spec=MoonrakerDataUpdateCoordinator)
     coordinator.async_upload_gcode_data = AsyncMock()
@@ -1705,7 +1705,7 @@ async def test_gcode_upload_view_requires_admin(hass):
     """Non-admin users cannot upload G-code through the endpoint."""
     from homeassistant.exceptions import Unauthorized
 
-    from custom_components.moonraker import MoonrakerGcodeUploadView
+    from custom_components.advance_moonraker_control import MoonrakerGcodeUploadView
 
     coordinator = MagicMock(spec=MoonrakerDataUpdateCoordinator)
     coordinator.async_upload_gcode_data = AsyncMock()
@@ -1723,7 +1723,7 @@ async def test_gcode_upload_view_requires_admin(hass):
 
 async def test_resolve_entry_ids_variants(hass):
     """Device ids resolve via registry, direct entry ids, and identifiers."""
-    from custom_components.moonraker import _async_resolve_entry_ids
+    from custom_components.advance_moonraker_control import _async_resolve_entry_ids
 
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="p")
     hass.data[DOMAIN] = {"p": config_entry}
@@ -1844,7 +1844,7 @@ async def test_upload_gcode_posts_to_moonraker(hass, tmp_path):
     session.post = MagicMock(return_value=_Ctx(upstream))
 
     with patch(
-        "custom_components.moonraker.async_get_clientsession", return_value=session
+        "custom_components.advance_moonraker_control.async_get_clientsession", return_value=session
     ):
         await coordinator.async_upload_gcode(str(target))
 
@@ -1962,7 +1962,7 @@ async def test_setup_tolerates_config_settings_failure(hass):
     config_entry.add_to_hass(hass)
 
     with patch(
-        "custom_components.moonraker.MoonrakerDataUpdateCoordinator.async_get_config_settings",
+        "custom_components.advance_moonraker_control.MoonrakerDataUpdateCoordinator.async_get_config_settings",
         new_callable=AsyncMock,
         side_effect=UpdateFailed(),
     ):

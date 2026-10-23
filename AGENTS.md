@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-Core integration code sits in `custom_components/moonraker/`: Home Assistant boots through `__init__.py`, entity platforms like `sensor.py`, `camera.py`, and `switch.py` expose printer features, while `entity.py` and `const.py` hold shared helpers and constants. User strings live in `translations/`, with assets such as screenshots under `assets/`. Update diagrams and docs in `docs/`, and mirror any new feature with tests under `tests/` using the same folder layout. Scripts for local tooling reside in `scripts/`; review them before adding new automation.
+Core integration code sits in `custom_components/advance_moonraker_control/`: Home Assistant boots through `__init__.py`, entity platforms like `sensor.py`, `camera.py`, and `switch.py` expose printer features, while `entity.py` and `const.py` hold shared helpers and constants. User strings live in `translations/`, with assets such as screenshots under `assets/`. Update diagrams and docs in `docs/`, and mirror any new feature with tests under `tests/` using the same folder layout. Scripts for local tooling reside in `scripts/`; review them before adding new automation.
 
 ## Build, Test, and Development Commands
 

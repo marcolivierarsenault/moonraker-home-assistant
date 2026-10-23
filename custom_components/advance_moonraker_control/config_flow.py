@@ -151,7 +151,7 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
             description_placeholders={
                 "docs_url": "https://github.com/thaliamontreux/"
-                "haos_hacs_moonraker_console#installation"
+                "HACS_Moonraker_Advanced#installation"
             },
         )
 

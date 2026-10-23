@@ -115,7 +115,7 @@ remedy string becomes `top_recommendation` — "re-probe bed mesh → +10 pts".
    `print_stats.state == "standby"` and a file is selected, the forecast is
    recomputed every analyze cycle.
 2. **On file select (the magic moment):** when `file_path` *changes* while
-   idle → fire HA event `moonraker_printcast` with the full forecast payload →
+   idle → fire HA event `advance_moonraker_control_printcast` with the full forecast payload →
    optional `notify_service`/TTS announcement: *"Printcast: 74, proceed with
    caution. Risks: spool saturation, stale mesh."* Deduped per
    `filename + verdict bucket`; only announced when score < 85 or worsened.
@@ -144,7 +144,7 @@ remedy string becomes `top_recommendation` — "re-probe bed mesh → +10 pts".
 | File attempt history | `file_stats` | ✅ live |
 | Mesh freshness/drift | `preflight.mesh_fresh`, mesh findings | ✅ live |
 | Klippy state, PSU/driver findings | existing analysis | ✅ live |
-| Notify service + TTS | `notify_service` option, `moonraker_print_event` bus pattern | ✅ live |
+| Notify service + TTS | `notify_service` option, `advance_moonraker_control_print_event` bus pattern | ✅ live |
 | Local-only button entities | `button.py` `press_fn` | ✅ pattern exists |
 
 **Zero new hardware required.** Every input already flows through the
@@ -156,7 +156,7 @@ coordinator except an optional dedicated room-humidity sensor.
 
 | File | Change |
 |---|---|
-| `const.py` | `CONF_OPTION_HUMIDITY_SENSOR`; `SIGNAL_PRINTCAST = "moonraker_printcast"` |
+| `const.py` | `CONF_OPTION_HUMIDITY_SENSOR`; `SIGNAL_PRINTCAST = "advance_moonraker_control_printcast"` |
 | `config_flow.py` | humidity `EntitySelector(device_class=HUMIDITY)` |
 | `translations/{en,es,fr}.json` | option label; issues `moisture_risk`, `extrusion_drift` |
 | `analyzer.py` | instantiate `MoonrakerPrintcast`; call per cycle; store keys `spool_dose`, `mass_ledger`, `extrusion_debt_ema`, `printcast_last_file`; moisture keys in `MATERIAL_PROFILES` |
@@ -165,7 +165,7 @@ coordinator except an optional dedicated room-humidity sensor.
 | `button.py` | "Mark Spool Dried" — local bookkeeping, no printer command |
 | `panel.py` | `payload["printcast"]`; `MoonrakerPanelPrintcastView` GET endpoint |
 | `panel.html` | PRINTCAST card markup (score dial, verdict chip, factor list, dose gauge, ledger line, MARK DRIED chip) |
-| `panel_client.js` | `renderPrintcast()`, file-row badges, mark-dried call, event toast on `moonraker_printcast` |
+| `panel_client.js` | `renderPrintcast()`, file-row badges, mark-dried call, event toast on `advance_moonraker_control_printcast` |
 | `docs/printcast.rst` **(new)** | concepts, model weights, calibration notes, setup; linked from `index.rst` |
 | `tests/test_printcast.py` **(new)** | full coverage of dose, ledger, model, triggers, store round-trip |
 | `tests/{test_sensor,test_panel,test_button}.py` | new entity/payload coverage |
@@ -194,7 +194,7 @@ coordinator except an optional dedicated room-humidity sensor.
 1. **P1 Engine:** `printcast.py` — dose tracker, mass ledger, scoring model,
    `MATERIAL_PROFILES.moisture`, store persistence, metrics/findings.
 2. **P2 Plumbing:** humidity option (const/config_flow/translations),
-   sensors, mark-dried button, file-select trigger + `moonraker_printcast`
+   sensors, mark-dried button, file-select trigger + `advance_moonraker_control_printcast`
    event + notify/TTS.
 3. **P3 Panel:** payload, PRINTCAST card, `panel_printcast` endpoint,
    file badges, mark-dried chip, event toast.

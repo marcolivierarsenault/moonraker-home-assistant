@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   validate:
-    if: github.repository == 'thaliamontreux/haos_hacs_moonraker_console'
+    if: github.repository == 'thaliamontreux/HACS_Moonraker_Advanced'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -30,7 +30,7 @@ jobs:
         uses: home-assistant/actions/hassfest@master
 
   tests:
-    if: github.repository == 'thaliamontreux/haos_hacs_moonraker_console'
+    if: github.repository == 'thaliamontreux/HACS_Moonraker_Advanced'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

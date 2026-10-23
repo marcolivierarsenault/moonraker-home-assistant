@@ -8,7 +8,7 @@ from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.moonraker.const import (
+from custom_components.advance_moonraker_control.const import (
     CONF_API_KEY,
     CONF_PORT,
     CONF_PRINTER_NAME,
@@ -43,7 +43,7 @@ async def _finish_setup(hass, result):
 
 async def test_requirements_must_be_accepted_before_connecting(hass):
     """Opening, declining and cancelling must not contact a printer."""
-    with patch("custom_components.moonraker.config_flow.MoonrakerApiClient") as client:
+    with patch("custom_components.advance_moonraker_control.config_flow.MoonrakerApiClient") as client:
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": config_entries.SOURCE_USER}
         )
@@ -61,7 +61,7 @@ async def test_requirements_must_be_accepted_before_connecting(hass):
 
 async def test_installation_requires_consent_even_with_supplied_data(hass):
     """Flow initialization cannot bypass consent by supplying connection data."""
-    with patch("custom_components.moonraker.config_flow.MoonrakerApiClient") as client:
+    with patch("custom_components.advance_moonraker_control.config_flow.MoonrakerApiClient") as client:
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": config_entries.SOURCE_USER}, data=MOCK_CONFIG
         )
@@ -71,7 +71,7 @@ async def test_installation_requires_consent_even_with_supplied_data(hass):
 
 async def test_features_cannot_skip_connection(hass):
     """A direct feature-step call cannot create an unvalidated entry."""
-    from custom_components.moonraker.config_flow import MoonrakerFlowHandler
+    from custom_components.advance_moonraker_control.config_flow import MoonrakerFlowHandler
 
     flow = MoonrakerFlowHandler()
     flow.hass = hass
@@ -87,8 +87,8 @@ async def test_installation_saves_features_and_only_reads_printer_info(hass):
     """The wizard keeps credentials separate from options and closes its client."""
     result = await _start_connection_flow(hass)
     with (
-        patch("custom_components.moonraker.config_flow.MoonrakerApiClient") as client,
-        patch("custom_components.moonraker.async_setup_entry", return_value=True),
+        patch("custom_components.advance_moonraker_control.config_flow.MoonrakerApiClient") as client,
+        patch("custom_components.advance_moonraker_control.async_setup_entry", return_value=True),
     ):
         api = client.return_value
         api.start = AsyncMock()
@@ -146,7 +146,7 @@ async def test_missing_optional_requirements_can_be_corrected(hass, options, err
     assert not hass.config_entries.async_entries(DOMAIN)
     # An empty selection disables the optional dependency; start with a fresh
     # schema's defaults, because the correction form retains submitted values.
-    from custom_components.moonraker.config_flow import OptionsFlowHandler
+    from custom_components.advance_moonraker_control.config_flow import OptionsFlowHandler
 
     defaults = OptionsFlowHandler.options_schema({})({})
     result = await hass.config_entries.flow.async_configure(result["flow_id"], defaults)
@@ -165,7 +165,7 @@ async def test_available_optional_services_are_saved_without_being_called(hass):
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], MOCK_CONFIG
     )
-    with patch("custom_components.moonraker.async_setup_entry", return_value=True):
+    with patch("custom_components.advance_moonraker_control.async_setup_entry", return_value=True):
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {
@@ -204,8 +204,8 @@ async def test_options_reject_missing_service_and_allow_correction(hass):
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
     with (
-        patch("custom_components.moonraker.MoonrakerApiClient.start"),
-        patch("custom_components.moonraker.MoonrakerApiClient.stop"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.start"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.stop"),
     ):
         yield
 
@@ -215,10 +215,10 @@ def error_connect_client_fixture():
     """Throw error when trying to connect."""
     with (
         patch(
-            "custom_components.moonraker.MoonrakerApiClient.start",
+            "custom_components.advance_moonraker_control.MoonrakerApiClient.start",
             side_effect=Exception,
         ),
-        patch("custom_components.moonraker.MoonrakerApiClient.stop"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.stop"),
     ):
         yield
 
@@ -234,7 +234,7 @@ async def test_successful_config_flow(hass):
     assert result["step_id"] == "user"
 
     with patch(
-        "custom_components.moonraker.MoonrakerApiClient.stop",
+        "custom_components.advance_moonraker_control.MoonrakerApiClient.stop",
         new_callable=AsyncMock,
     ) as stop_client:
         result = await hass.config_entries.flow.async_configure(
@@ -261,7 +261,7 @@ async def test_tmp_failing_config_flow(hass):
     assert result["step_id"] == "user"
 
     with patch(
-        "custom_components.moonraker.config_flow.MoonrakerFlowHandler._test_connection",
+        "custom_components.advance_moonraker_control.config_flow.MoonrakerFlowHandler._test_connection",
         return_value=False,
     ):
         result = await hass.config_entries.flow.async_configure(
@@ -485,7 +485,7 @@ async def test_server_api_key_when_good(hass):
 
     result = await _finish_setup(hass, result)
     assert result["type"] == FlowResultType.CREATE_ENTRY
-    assert result["title"] == "moonraker"
+    assert result["title"] == "advance_moonraker_control"
     assert result["data"] == {
         CONF_URL: "1.2.3.4",
         CONF_PORT: "7125",
@@ -510,7 +510,7 @@ async def test_server_api_key_when_empty(hass):
 
     result = await _finish_setup(hass, result)
     assert result["type"] == FlowResultType.CREATE_ENTRY
-    assert result["title"] == "moonraker"
+    assert result["title"] == "advance_moonraker_control"
     assert result["data"] == {
         CONF_URL: "1.2.3.4",
         CONF_PORT: "7125",
@@ -545,7 +545,7 @@ async def test_printer_name_when_good(hass):
 
     result = await _finish_setup(hass, result)
     assert result["type"] == FlowResultType.CREATE_ENTRY
-    assert result["title"] == "moonraker"
+    assert result["title"] == "advance_moonraker_control"
     assert result["data"] == {
         CONF_URL: "1.2.3.4",
         CONF_PORT: "7125",

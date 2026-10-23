@@ -12,7 +12,7 @@ Recommended: Home Assistant Cloud
 `Nabu Casa remote access <https://www.nabucasa.com/config/remote/>`_
 exposes your instance over an encrypted relay. Once enabled:
 
-* Open the panel from the remote URL — all ``/api/moonraker/*`` routes
+* Open the panel from the remote URL — all ``/api/advance_moonraker_control/*`` routes
   (telemetry, cameras, thumbnails, actions, file metadata) work through
   the same authenticated session.
 * Cameras stream through the Home Assistant proxy endpoints, so live
@@ -37,7 +37,7 @@ Security checklist for remote use
   destructive actions (cancel, delete, e-stop is always reachable).
 * Prefer Home Assistant accounts with MFA enabled for anyone who can
   reach the panel remotely.
-* ``/api/moonraker/panel_*`` endpoints require a valid Home Assistant
+* ``/api/advance_moonraker_control/panel_*`` endpoints require a valid Home Assistant
   session except the static code assets, which carry no printer data.
 
 Voice control

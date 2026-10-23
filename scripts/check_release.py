@@ -11,7 +11,7 @@ import re
 
 def validate(root: Path, tag: str | None = None) -> str:
     """Reject incomplete packages or mismatched version metadata."""
-    integration = root / "custom_components" / "moonraker"
+    integration = root / "custom_components" / "advance_moonraker_control"
     manifest = json.loads((integration / "manifest.json").read_text(encoding="utf-8"))
     hacs = json.loads((root / "hacs.json").read_text(encoding="utf-8"))
     constants = {
@@ -41,8 +41,10 @@ def validate(root: Path, tag: str | None = None) -> str:
         raise ValueError("Manifest, constants and bumpversion versions must match")
     if manifest["name"] != constants["NAME"] or hacs["name"] != constants["NAME"]:
         raise ValueError("HACS and integration names must match")
-    if manifest["domain"] != constants["DOMAIN"] or manifest["domain"] != "moonraker":
-        raise ValueError("Preserve the moonraker domain for existing installations")
+    if manifest["domain"] != constants["DOMAIN"] or manifest["domain"] != (
+        "advance_moonraker_control"
+    ):
+        raise ValueError("Domain must be advance_moonraker_control")
     if hacs.get("zip_release") or hacs.get("content_in_root"):
         raise ValueError("This package uses the custom_components source tree")
     directories = [
@@ -50,7 +52,7 @@ def validate(root: Path, tag: str | None = None) -> str:
         for path in (root / "custom_components").iterdir()
         if path.is_dir() and path.name != "__pycache__"
     ]
-    if directories != ["moonraker"]:
+    if directories != ["advance_moonraker_control"]:
         raise ValueError("HACS requires exactly one integration")
     for filename in (
         "__init__.py",

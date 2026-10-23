@@ -26,4 +26,4 @@ if [ -n "$PY_BIN" ] && ! "$PY_BIN" -c 'import fcntl' >/dev/null 2>&1; then
   export PYTHONPATH="tests/posix_compat${PYTHONPATH:+${SEP}${PYTHONPATH}}"
 fi
 
-"$PY_BIN" -m pytest --durations=10 --cov=custom_components.moonraker --cov-report=term-missing --cov-report=xml --cov-fail-under=100 tests
+"$PY_BIN" -m pytest --durations=10 --cov=custom_components.advance_moonraker_control --cov-report=term-missing --cov-report=xml --cov-fail-under=100 tests

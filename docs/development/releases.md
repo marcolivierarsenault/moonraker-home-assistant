@@ -1,10 +1,10 @@
 # Releasing Advance_Moonraker_Control
 
 The GitHub repository is
-`thaliamontreux/haos_hacs_moonraker_console`. Its public releases are the version
+`thaliamontreux/HACS_Moonraker_Advanced`. Its public releases are the version
 source for HACS. Do not publish this fork's releases to the upstream repository.
 
-All runtime files must be inside `custom_components/moonraker/`, including panel
+All runtime files must be inside `custom_components/advance_moonraker_control/`, including panel
 JavaScript, HTML and translations. HACS downloads that directory from the release
 tag. No separate ZIP asset or host installation script is required.
 Development utilities, tests and `TTS_Playback/` are not runtime dependencies.

@@ -9,6 +9,6 @@ if ! command -v node >/dev/null 2>&1; then
   exit 127
 fi
 
-node --check custom_components/moonraker/panel_client.js
-node --check custom_components/moonraker/panel_module.js
+node --check custom_components/advance_moonraker_control/panel_client.js
+node --check custom_components/advance_moonraker_control/panel_module.js
 node --test tests/panel_ui.test.cjs

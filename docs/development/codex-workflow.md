@@ -11,7 +11,7 @@ Deterministic GitHub Actions remain the source of truth for test results.
 ## One-time Codex Cloud setup
 
 1. Open Codex Cloud, connect the GitHub account, and grant access only to
-   `marcolivierarsenault/moonraker-home-assistant`.
+   `thaliamontreux/HACS_Moonraker_Advanced`.
 2. In Codex **Settings > Environments**, create a Codex Cloud environment for
    the repository.
 3. Pin Python to 3.14 in **Set package versions**.

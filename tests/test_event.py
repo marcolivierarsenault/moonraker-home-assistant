@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.moonraker.const import DOMAIN
+from custom_components.advance_moonraker_control.const import DOMAIN
 
 from .const import MOCK_CONFIG
 
@@ -14,10 +14,10 @@ from .const import MOCK_CONFIG
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
     with (
-        patch("custom_components.moonraker.MoonrakerApiClient.start"),
-        patch("custom_components.moonraker.MoonrakerApiClient.stop"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.start"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.stop"),
         patch(
-            "custom_components.moonraker._async_is_tcp_reachable",
+            "custom_components.advance_moonraker_control._async_is_tcp_reachable",
             return_value=True,
         ),
     ):
@@ -145,7 +145,7 @@ async def test_printcast_forecast_event(hass, get_default_api_response):
     """Printcast dispatches surface as printcast_forecast entity events."""
     from homeassistant.helpers.dispatcher import async_dispatcher_send
 
-    from custom_components.moonraker.const import SIGNAL_PRINTCAST
+    from custom_components.advance_moonraker_control.const import SIGNAL_PRINTCAST
 
     coordinator, _ = await _setup(hass, get_default_api_response)
     entity_id = "event.mainsail_print_events"

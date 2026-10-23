@@ -10,8 +10,8 @@ from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.moonraker.const import DOMAIN, METHODS, OBJ
-from custom_components.moonraker.number import (
+from custom_components.advance_moonraker_control.const import DOMAIN, METHODS, OBJ
+from custom_components.advance_moonraker_control.number import (
     MoonrakerNumber,
     MoonrakerNumberSensorDescription,
     _coerce_float,
@@ -24,8 +24,8 @@ from .const import MOCK_CONFIG
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
     with (
-        patch("custom_components.moonraker.MoonrakerApiClient.start"),
-        patch("custom_components.moonraker.MoonrakerApiClient.stop"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.start"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.stop"),
     ):
         yield
 

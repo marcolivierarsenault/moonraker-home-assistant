@@ -1,11 +1,11 @@
 # Advance_Moonraker_Control
 
 [![HACS custom integration](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://www.hacs.xyz/)
-[![GitHub release](https://img.shields.io/github/v/release/thaliamontreux/haos_hacs_moonraker_console)](https://github.com/thaliamontreux/haos_hacs_moonraker_console/releases)
+[![GitHub release](https://img.shields.io/github/v/release/thaliamontreux/HACS_Moonraker_Advanced)](https://github.com/thaliamontreux/HACS_Moonraker_Advanced/releases)
 
 A Home Assistant integration and authenticated printer control panel for
 Klipper printers running Moonraker. Install and update it through HACS from
-[this repository](https://github.com/thaliamontreux/haos_hacs_moonraker_console).
+[this repository](https://github.com/thaliamontreux/HACS_Moonraker_Advanced).
 It is an independent project, not an official Klipper or Home Assistant product.
 
 ## Features
@@ -63,7 +63,7 @@ or operating-system packages.
 1. Back up Home Assistant. If the upstream Moonraker integration is installed,
    read the migration section below first.
 2. Open **HACS → menu → Custom repositories**, add
-   `https://github.com/thaliamontreux/haos_hacs_moonraker_console`, and select
+   `https://github.com/thaliamontreux/HACS_Moonraker_Advanced`, and select
    **Integration**. This is a custom repository, not a default HACS listing.
 3. Download **Advance_Moonraker_Control** and restart Home Assistant when ready.
 4. In **Settings → Devices & services → Add integration**, search for
@@ -110,14 +110,12 @@ convenient. Until releases are published, HACS can offer the default branch
 as a development snapshot. Printer component update entities refer to printer
 software, not updates to this Home Assistant integration.
 
-The internal domain remains `moonraker` to preserve config entries, entity IDs,
-services and stored data. **Do not install the upstream integration alongside
-this fork**: both own `custom_components/moonraker`.
-
-To switch repositories, back up, remove the old repository download from HACS,
-and install this repository before restarting. Keep existing **Devices &
-services** entries and `.storage` data. Existing entries use Configure rather
-than rerunning the new-install wizard.
+The integration domain is `advance_moonraker_control`. This is an independent
+product: **do not run it alongside the original `moonraker` integration or the
+earlier `haos_hacs_moonraker_console` HACS entry** — remove those first, then
+add this repository. Configuration does not migrate automatically because
+entity IDs, storage keys, services and panel routes are namespaced by the new
+domain; re-add each printer and re-select optional features after installing.
 
 Releases use calendar versions `YYYY.MM.DD` (for example `2026.10.23`), one
 per day. Dated versions sort above the old `999.0.0` development builds, so
@@ -143,7 +141,7 @@ data formats.
 
 Hardware variants may differ from standard Moonraker. Upstream reports issues
 with FLSUN Speeder Pad and Sonic Pad; compatibility is not established.
-Report problems through [GitHub issues](https://github.com/thaliamontreux/haos_hacs_moonraker_console/issues).
+Report problems through [GitHub issues](https://github.com/thaliamontreux/HACS_Moonraker_Advanced/issues).
 
 ## Development and attribution
 
@@ -151,8 +149,10 @@ See [the release procedure](docs/development/releases.md) for versioning and
 GitHub releases, and `AGENTS.md` for checks. The release workflow validates
 the version/tag, HACS metadata, Hassfest, tests and docs before publishing.
 
-Based on the [original Moonraker Home Assistant integration](https://github.com/marcolivierarsenault/moonraker-home-assistant).
-Original authorship and [LICENSE](LICENSE) are preserved. This fork's extensions
-are developed by [Thalia Montreux](https://github.com/thaliamontreux).
-Thanks to [Clifford Roche](https://github.com/cmroche) for
-[moonraker-api](https://github.com/cmroche/moonraker-api).
+Credit for the original work goes to the author of the original
+`moonraker-home-assistant` integration, whose MIT-licensed codebase this
+project began from. Original authorship is preserved in [LICENSE](LICENSE).
+This project is an independent development maintained by
+[Thalia Montreux](https://github.com/thaliamontreux) — it is not affiliated
+with, endorsed by, or linked to the original project.
+Thanks to Clifford Roche for the `moonraker-api` Python library.

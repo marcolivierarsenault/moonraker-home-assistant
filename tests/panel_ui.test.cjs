@@ -256,12 +256,12 @@ function createPanelClient() {
     clearTimeout: () => {},
   });
   const parseSource = fs.readFileSync(
-    path.join(__dirname, "../custom_components/moonraker/toolpath_parse.js"),
+    path.join(__dirname, "../custom_components/advance_moonraker_control/toolpath_parse.js"),
     "utf8",
   );
   vm.runInContext(parseSource, context, { filename: "toolpath_parse.js" });
   const source = fs.readFileSync(
-    path.join(__dirname, "../custom_components/moonraker/panel_client.js"),
+    path.join(__dirname, "../custom_components/advance_moonraker_control/panel_client.js"),
     "utf8",
   );
   vm.runInContext(source, context, { filename: "panel_client.js" });
@@ -817,7 +817,7 @@ test("stale telemetry holds mutating commands but never blocks emergency stop", 
   assert.ok(toasts.some((text) => /STALE/i.test(text)));
 
   await context.act("emergency_stop");
-  assert.deepEqual(calls, ["moonraker/panel_action"]);
+  assert.deepEqual(calls, ["advance_moonraker_control/panel_action"]);
   assert.ok(toasts.some((text) => /EMERGENCY STOP DELIVERED/i.test(text)));
 
   vm.runInContext(
@@ -1015,7 +1015,7 @@ test("detail drawer opens and closes through its controls", () => {
 
 test("panel markup exposes the camera layouts, dashboard camera popup, wide console, and page details control", () => {
   const html = fs.readFileSync(
-    path.join(__dirname, "../custom_components/moonraker/panel.html"),
+    path.join(__dirname, "../custom_components/advance_moonraker_control/panel.html"),
     "utf8",
   );
   assert.match(html, /<option value="1x1">/);
@@ -1088,7 +1088,7 @@ test("custom panel sizes its iframe to the available viewport and responds to re
     requestAnimationFrame: (callback) => callback(),
   });
   const source = fs.readFileSync(
-    path.join(__dirname, "../custom_components/moonraker/panel_module.js"),
+    path.join(__dirname, "../custom_components/advance_moonraker_control/panel_module.js"),
     "utf8",
   );
   vm.runInContext(source, context, { filename: "panel_module.js" });
@@ -1255,8 +1255,8 @@ test("panel polling uses the reduced cadence and unload releases subscriptions",
   context.cleanupPanel();
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(unsubscribed, 1);
-  assert.equal(window.moonrakerRefreshTimer, null);
-  assert.equal(window.moonrakerStalenessTimer, null);
+  assert.equal(window.advanceMoonrakerControlRefreshTimer, null);
+  assert.equal(window.advanceMoonrakerControlStalenessTimer, null);
 });
 
 test("timelapse captures are serialized and bounded by retained image bytes", async () => {
@@ -2355,7 +2355,7 @@ test("energy accounting integrates watts into kWh and cost", () => {
 
 function loadTranslations(context) {
   const source = fs.readFileSync(
-    path.join(__dirname, "../custom_components/moonraker/panel_i18n.js"),
+    path.join(__dirname, "../custom_components/advance_moonraker_control/panel_i18n.js"),
     "utf8",
   );
   vm.runInContext(source, context, { filename: "panel_i18n.js" });
@@ -2638,7 +2638,7 @@ test("accessibility enhancement labels canvases, jog buttons, and the toast live
 
 test("panel markup ships theme, language, skip link, and mobile layout hooks", () => {
   const html = fs.readFileSync(
-    path.join(__dirname, "../custom_components/moonraker/panel.html"),
+    path.join(__dirname, "../custom_components/advance_moonraker_control/panel.html"),
     "utf8",
   );
   for (const id of [

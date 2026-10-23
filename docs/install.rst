@@ -2,7 +2,7 @@ Install Advance_Moonraker_Control
 ==================================================
 
 The maintained `installation guide
-<https://github.com/thaliamontreux/haos_hacs_moonraker_console#installation>`__
+<https://github.com/thaliamontreux/HACS_Moonraker_Advanced#installation>`__
 includes requirements, optional services, migration and troubleshooting.
 
 You need Home Assistant 2026.9.0+, HACS 2.0+ and an accessible Klipper/Moonraker
@@ -12,7 +12,7 @@ downloading. No separate database is needed; integration storage is created
 automatically as data is generated.
 
 1. Back up Home Assistant. Add
-   ``https://github.com/thaliamontreux/haos_hacs_moonraker_console`` to HACS
+   ``https://github.com/thaliamontreux/HACS_Moonraker_Advanced`` to HACS
    custom repositories with category **Integration**.
 2. Download **Advance_Moonraker_Control** and restart when ready.
 3. In **Settings → Devices & services → Add integration**, select
@@ -35,7 +35,12 @@ HACS checks GitHub releases in this repository. Back up, review release notes,
 install the chosen update and restart Home Assistant. Until a release is
 published, the default branch is a development download.
 
-The domain remains ``moonraker``. Do not install the original integration
-alongside this fork. Keep config entries and storage when switching HACS
-repositories. Releases use calendar versions ``YYYY.MM.DD``; these sort above
-the old ``999.0.0`` development builds, so they upgrade normally.
+The integration domain is ``advance_moonraker_control``. This is an
+independent product: remove the original ``moonraker`` integration and the
+earlier ``haos_hacs_moonraker_console`` HACS entry before installing — do not
+run two integrations for the same printer at once. Configuration does not
+migrate automatically because entity IDs, storage keys and panel routes are
+namespaced by the new domain; re-add the printer and re-select optional
+features after installing. Releases use calendar versions ``YYYY.MM.DD``;
+these sort above the old ``999.0.0`` development builds, so they upgrade
+normally.

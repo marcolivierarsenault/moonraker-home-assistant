@@ -6,7 +6,7 @@ blueprint:
     (for example a smart plug feeding the printer). Skips the switch if a
     new print started or the job queue is still busy.
   domain: automation
-  source_url: https://github.com/marcolivierarsenault/moonraker-home-assistant
+  source_url: https://github.com/thaliamontreux/HACS_Moonraker_Advanced
   input:
     print_event:
       name: Print event entity

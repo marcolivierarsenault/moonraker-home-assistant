@@ -2,7 +2,7 @@
 
 from unittest.mock import AsyncMock, patch
 
-from custom_components.moonraker.api import MoonrakerApiClient
+from custom_components.advance_moonraker_control.api import MoonrakerApiClient
 
 
 async def test_connect_client():
