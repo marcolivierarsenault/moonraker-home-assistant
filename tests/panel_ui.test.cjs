@@ -2866,3 +2866,51 @@ test("mesh surface view shows corner offsets and last-vs-current delta grid", ()
   assert.equal(document.getElementById("meshCorners").textContent, "—");
   assert.equal(document.getElementById("meshSurfaceMap").children.length, 0);
 });
+
+test("input and on-accent theme vars apply and canvas colors follow the theme", () => {
+  const { context, document } = createPanelClient();
+  const root = (document.documentElement = new FakeElement("html"));
+  vm.runInContext(
+    'printer = "printer-a"; displayPrefs.theme = "midnight"; applyTheme();',
+    context,
+  );
+  assert.equal(root.style["--input-bg"], "#071122");
+  assert.equal(root.style["--on-accent"], "#03101f");
+  assert.equal(vm.runInContext('statusRgb("ok")', context), "74, 222, 128");
+  assert.equal(vm.runInContext('statusRgb("bad")', context), "255, 93, 115");
+  assert.match(
+    vm.runInContext('cssRgba("--green", 0.5, "1,2,3")', context),
+    /^rgba\(74, 222, 128, 0\.5\)$/,
+  );
+
+  vm.runInContext('displayPrefs.theme = "nexus"; applyTheme();', context);
+  assert.equal(root.style["--input-bg"], undefined);
+  // Falls back to the CSS :root default via the provided fallback arg.
+  assert.equal(vm.runInContext('statusRgb("ok")', context), "0, 239, 145");
+});
+
+test("optional input vars validate in a custom theme", () => {
+  const { context } = createPanelClient();
+  const themed = {
+    ...VALID_THEME,
+    vars: {
+      ...VALID_THEME.vars,
+      "--input-bg": "#101820",
+      "--input-text": "#e0e8f0",
+      "--input-line": "#304050",
+      "--on-accent": "#000000",
+    },
+  };
+  assert.equal(
+    vm.runInContext(`validateTheme(${JSON.stringify(themed)}).ok`, context),
+    true,
+  );
+  const bad = { ...themed, vars: { ...themed.vars, "--input-bg": "nope" } };
+  assert.match(
+    vm.runInContext(
+      `validateTheme(${JSON.stringify(bad)}).errors.join(";")`,
+      context,
+    ),
+    /"--input-bg" has an invalid value/,
+  );
+});

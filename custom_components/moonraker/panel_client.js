@@ -400,7 +400,7 @@ function drawTemperatureGraph(canvasId, extruderTarget, bedTarget) {
   const width = canvas.width;
   const height = canvas.height;
   context.clearRect(0, 0, width, height);
-  context.fillStyle = "#030b08";
+  context.fillStyle = cssVar("--bg", "#030b08");
   context.fillRect(0, 0, width, height);
   const maximum =
     Math.max(
@@ -410,7 +410,7 @@ function drawTemperatureGraph(canvasId, extruderTarget, bedTarget) {
       Number(extruderTarget) || 0,
       Number(bedTarget) || 0,
     ) * 1.12;
-  context.strokeStyle = "rgba(41, 104, 70, .28)";
+  context.strokeStyle = cssRgba("--line-hi", 0.28, "rgba(41,104,70,.28)");
   context.lineWidth = 1;
   for (let row = 1; row < 4; row++) {
     const y = (height * row) / 4;
@@ -431,11 +431,11 @@ function drawTemperatureGraph(canvasId, extruderTarget, bedTarget) {
     });
     context.stroke();
   }
-  line(extHist, "#00ef91");
-  line(bedHist, "#39e8bd");
+  line(extHist, cssVar("--green", "#00ef91"));
+  line(bedHist, cssVar("--cyan", "#39e8bd"));
   [
-    [extruderTarget, "#00ef91"],
-    [bedTarget, "#39e8bd"],
+    [extruderTarget, cssVar("--green", "#00ef91")],
+    [bedTarget, cssVar("--cyan", "#39e8bd")],
   ].forEach(([target, color]) => {
     if (target == null) return;
     const y = height - (Number(target) / maximum) * height;
@@ -450,9 +450,9 @@ function drawTemperatureGraph(canvasId, extruderTarget, bedTarget) {
     context.globalAlpha = 1;
   });
   context.font = "10px monospace";
-  context.fillStyle = "#9bffc7";
+  context.fillStyle = cssVar("--green-soft", "#9bffc7");
   context.fillText(`NOZZLE ${fmt(extHist.at(-1), 0)}°`, 8, 13);
-  context.fillStyle = "#39e8bd";
+  context.fillStyle = cssVar("--cyan", "#39e8bd");
   context.fillText(`BED ${fmt(bedHist.at(-1), 0)}°`, 102, 13);
 }
 
@@ -1240,7 +1240,7 @@ function drawRetransmitSpark() {
   const height = canvas.height || 40;
   ctx.clearRect(0, 0, width, height);
   if (retransmitHistory.length < 2) {
-    ctx.fillStyle = "#4c745e";
+    ctx.fillStyle = cssVar("--muted", "#4c745e");
     ctx.font = "8px monospace";
     ctx.fillText("COLLECTING RETRANSMIT SAMPLES", 8, height / 2 + 3);
     return;
@@ -1254,7 +1254,7 @@ function drawRetransmitSpark() {
     const y = height - 6 - ((value - min) / span) * (height - 12);
     index ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
   });
-  ctx.strokeStyle = "#39e8bd";
+  ctx.strokeStyle = cssVar("--cyan", "#39e8bd");
   ctx.stroke();
 }
 
@@ -3506,7 +3506,7 @@ function drawToolpath() {
   const width = rect.width,
     height = rect.height;
   ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = "#030d0a";
+  ctx.fillStyle = cssVar("--bg", "#030d0a");
   ctx.fillRect(0, 0, width, height);
 
   const bounds = toolpathBounds;
@@ -3637,7 +3637,7 @@ function drawToolpath() {
           0.55 +
           0.45 * bucket.depthNorm
         ).toFixed(3)})`;
-        ctx.shadowColor = "rgba(247,203,100,.4)";
+        ctx.shadowColor = cssRgba("--amber", 0.4, "rgba(247,203,100,.4)");
         ctx.shadowBlur = 4;
       } else if (futureMode) {
         ctx.lineWidth = 1;
@@ -3655,7 +3655,7 @@ function drawToolpath() {
           0.42 +
           0.58 * bucket.depthNorm
         ).toFixed(3)})`;
-        ctx.shadowColor = "rgba(0,239,145,.28)";
+        ctx.shadowColor = cssRgba("--green", 0.28, "rgba(0,239,145,.28)");
         ctx.shadowBlur = 3;
       }
       ctx.beginPath();
@@ -3676,7 +3676,7 @@ function drawToolpath() {
     const foot = project([position[0], position[1], 0]);
     ctx.setLineDash([4, 4]);
     ctx.lineWidth = 1;
-    ctx.strokeStyle = "rgba(247,203,100,.35)";
+    ctx.strokeStyle = cssRgba("--amber", 0.35, "rgba(247,203,100,.35)");
     ctx.beginPath();
     ctx.moveTo(head.x, head.y);
     ctx.lineTo(foot.x, foot.y);
@@ -3684,12 +3684,12 @@ function drawToolpath() {
     ctx.setLineDash([]);
     ctx.beginPath();
     ctx.arc(foot.x, foot.y, 6, 0, Math.PI * 2);
-    ctx.strokeStyle = "rgba(247,203,100,.5)";
+    ctx.strokeStyle = cssRgba("--amber", 0.5, "rgba(247,203,100,.5)");
     ctx.stroke();
     ctx.beginPath();
     ctx.arc(head.x, head.y, 4.5, 0, Math.PI * 2);
-    ctx.fillStyle = "#f7cb64";
-    ctx.shadowColor = "#f7cb64";
+    ctx.fillStyle = cssVar("--amber", "#f7cb64");
+    ctx.shadowColor = cssVar("--amber", "#f7cb64");
     ctx.shadowBlur = 10;
     ctx.fill();
     ctx.shadowBlur = 0;
@@ -3698,7 +3698,7 @@ function drawToolpath() {
     ctx.lineTo(head.x + 8, head.y);
     ctx.moveTo(head.x, head.y - 8);
     ctx.lineTo(head.x, head.y + 8);
-    ctx.strokeStyle = "#f7cb64";
+    ctx.strokeStyle = cssVar("--amber", "#f7cb64");
     ctx.lineWidth = 1;
     ctx.stroke();
   }
@@ -3757,10 +3757,10 @@ function drawLayerSpark() {
       );
       ctx.fillStyle =
         index === currentIndex
-          ? "#f7cb64"
+          ? cssVar("--amber", "#f7cb64")
           : Number.isFinite(headZ) && index > currentIndex
-            ? "#1c6844"
-            : "#00ef91";
+            ? cssVar("--line-hi", "#1c6844")
+            : cssVar("--green", "#00ef91");
       ctx.fillRect(
         index * barWidth,
         height - barHeight,
@@ -3786,7 +3786,7 @@ function drawBuildPlate(ctx, project, bounds) {
     Math.ceil(Math.max(maxX - minX, maxY - minY) / 22 / 10) * 10,
   );
   ctx.lineWidth = 1;
-  ctx.strokeStyle = "rgba(28,104,68,.42)";
+  ctx.strokeStyle = cssRgba("--line-hi", 0.42, "rgba(28,104,68,.42)");
   ctx.beginPath();
   for (let x = Math.ceil(minX / step) * step; x <= maxX; x += step) {
     const a = project([x, minY, 0]),
@@ -3813,7 +3813,7 @@ function drawBuildPlate(ctx, project, bounds) {
     index ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
   });
   ctx.closePath();
-  ctx.strokeStyle = "rgba(0,239,145,.7)";
+  ctx.strokeStyle = cssRgba("--green", 0.7, "rgba(0,239,145,.7)");
   ctx.stroke();
   const top = [
     [minX, minY, bounds.maxZ],
@@ -3833,7 +3833,7 @@ function drawBuildPlate(ctx, project, bounds) {
     ctx.moveTo(a.x, a.y);
     ctx.lineTo(b.x, b.y);
   });
-  ctx.strokeStyle = "rgba(0,239,145,.17)";
+  ctx.strokeStyle = cssRgba("--green", 0.17, "rgba(0,239,145,.17)");
   ctx.stroke();
   const origin = project([0, 0, 0]);
   const xAxis = project([Math.min(maxX, 25), 0, 0]);
@@ -3841,9 +3841,9 @@ function drawBuildPlate(ctx, project, bounds) {
   const zAxis = project([0, 0, Math.max(bounds.maxZ, 25)]);
   ctx.lineWidth = 1.5;
   [
-    [origin, xAxis, "#ff536b", "X"],
-    [origin, yAxis, "#35e8bd", "Y"],
-    [origin, zAxis, "#00ef91", "Z"],
+    [origin, xAxis, cssVar("--red", "#ff536b"), "X"],
+    [origin, yAxis, cssVar("--cyan", "#35e8bd"), "Y"],
+    [origin, zAxis, cssVar("--green", "#00ef91"), "Z"],
   ].forEach(([a, b, color, label]) => {
     ctx.beginPath();
     ctx.moveTo(a.x, a.y);
@@ -3857,7 +3857,7 @@ function drawBuildPlate(ctx, project, bounds) {
 }
 
 function drawEmptyBuildPlate(ctx, width, height) {
-  ctx.strokeStyle = "rgba(0,130,76,.35)";
+  ctx.strokeStyle = cssRgba("--line-hi", 0.35, "rgba(0,130,76,.35)");
   ctx.lineWidth = 1;
   const pad = 26;
   for (let x = pad; x < width - pad; x += 20) {
@@ -3872,7 +3872,7 @@ function drawEmptyBuildPlate(ctx, width, height) {
     ctx.lineTo(width - pad, y);
     ctx.stroke();
   }
-  ctx.strokeStyle = "rgba(0,239,145,.65)";
+  ctx.strokeStyle = cssRgba("--green", 0.65, "rgba(0,239,145,.65)");
   ctx.strokeRect(pad, pad, width - pad * 2, height - pad * 2);
 }
 
@@ -4446,12 +4446,24 @@ const THEME_COLOR_VARS = [
   "--muted",
   "--glow",
   "--grid",
+  "--input-bg",
+  "--input-text",
+  "--input-line",
+  "--on-accent",
 ];
 const THEME_FONT_VARS = ["--mono", "--sans"];
 const THEME_VARS = [...THEME_COLOR_VARS, ...THEME_FONT_VARS];
 // Vars every theme file must define.
+const THEME_OPTIONAL_COLOR_VARS = [
+  "--glow",
+  "--grid",
+  "--input-bg",
+  "--input-text",
+  "--input-line",
+  "--on-accent",
+];
 const THEME_REQUIRED_VARS = THEME_COLOR_VARS.filter(
-  (name) => name !== "--glow" && name !== "--grid",
+  (name) => !THEME_OPTIONAL_COLOR_VARS.includes(name),
 );
 
 const THEMES = {
@@ -4462,6 +4474,10 @@ const THEMES = {
   midnight: {
     label: "MIDNIGHT OPS",
     vars: {
+      "--input-bg": "#071122",
+      "--input-text": "#c8dcf0",
+      "--input-line": "#1d3a5f",
+      "--on-accent": "#03101f",
       "--bg": "#050b16",
       "--panel": "#0a1424",
       "--panel-hi": "#101d33",
@@ -4481,6 +4497,10 @@ const THEMES = {
   ember: {
     label: "EMBER FORGE",
     vars: {
+      "--input-bg": "#170d07",
+      "--input-text": "#f0dcc8",
+      "--input-line": "#57301a",
+      "--on-accent": "#1c0e05",
       "--bg": "#130a05",
       "--panel": "#1c110a",
       "--panel-hi": "#291a10",
@@ -4500,6 +4520,10 @@ const THEMES = {
   carbon: {
     label: "CARBON",
     vars: {
+      "--input-bg": "#0e1216",
+      "--input-text": "#d7dde4",
+      "--input-line": "#2c343e",
+      "--on-accent": "#0b0d10",
       "--bg": "#0c0e11",
       "--panel": "#13161b",
       "--panel-hi": "#1b2027",
@@ -4519,6 +4543,10 @@ const THEMES = {
   solarized: {
     label: "SOLARIZED DARK",
     vars: {
+      "--input-bg": "#073642",
+      "--input-text": "#93a1a1",
+      "--input-line": "#164f5c",
+      "--on-accent": "#002b36",
       "--bg": "#002b36",
       "--panel": "#073642",
       "--panel-hi": "#0b4553",
@@ -4538,6 +4566,10 @@ const THEMES = {
   solarized_light: {
     label: "SOLARIZED LIGHT",
     vars: {
+      "--input-bg": "#eee8d5",
+      "--input-text": "#586e75",
+      "--input-line": "#c8bfa2",
+      "--on-accent": "#fdf6e3",
       "--bg": "#fdf6e3",
       "--panel": "#eee8d5",
       "--panel-hi": "#e3dcc3",
@@ -4557,6 +4589,10 @@ const THEMES = {
   violet: {
     label: "VIOLET GRID",
     vars: {
+      "--input-bg": "#150a26",
+      "--input-text": "#d8cdea",
+      "--input-line": "#41286b",
+      "--on-accent": "#100420",
       "--bg": "#11071f",
       "--panel": "#1a0d2e",
       "--panel-hi": "#251542",
@@ -4576,6 +4612,10 @@ const THEMES = {
   arctic: {
     label: "ARCTIC",
     vars: {
+      "--input-bg": "#ffffff",
+      "--input-text": "#20344a",
+      "--input-line": "#c3d3e0",
+      "--on-accent": "#ffffff",
       "--bg": "#e8f0f6",
       "--panel": "#f4f8fb",
       "--panel-hi": "#ffffff",
@@ -4595,6 +4635,10 @@ const THEMES = {
   stealth: {
     label: "STEALTH",
     vars: {
+      "--input-bg": "#050505",
+      "--input-text": "#9aa5ae",
+      "--input-line": "#1f1f1f",
+      "--on-accent": "#000000",
       "--bg": "#050505",
       "--panel": "#0a0a0a",
       "--panel-hi": "#101010",
@@ -4614,6 +4658,10 @@ const THEMES = {
   clinical: {
     label: "CLINICAL",
     vars: {
+      "--input-bg": "#ffffff",
+      "--input-text": "#1e2a33",
+      "--input-line": "#c9d4dc",
+      "--on-accent": "#ffffff",
       "--bg": "#f2f5f7",
       "--panel": "#ffffff",
       "--panel-hi": "#e9eef2",
@@ -4902,15 +4950,48 @@ function applyDisplayPrefs() {
   applyPanelLanguage(displayPrefs.language);
 }
 
+function cssVar(name, fallback) {
+  const root = document.documentElement;
+  const inline = root?.style?.getPropertyValue?.(name) || root?.style?.[name];
+  if (inline) return String(inline).trim();
+  const computed = window.getComputedStyle?.(root)?.getPropertyValue?.(name);
+  const value = computed && String(computed).trim();
+  return value || fallback;
+}
+
+function cssRgbTriplet(name, fallback) {
+  const raw = cssVar(name, "");
+  const hex = raw.match(/^#([0-9a-f]{3,8})$/i);
+  if (hex) {
+    let digits = hex[1];
+    if (digits.length === 3 || digits.length === 4)
+      digits = digits
+        .split("")
+        .map((char) => char + char)
+        .join("");
+    return `${parseInt(digits.slice(0, 2), 16)}, ${parseInt(
+      digits.slice(2, 4),
+      16,
+    )}, ${parseInt(digits.slice(4, 6), 16)}`;
+  }
+  const rgb = raw.match(/^rgba?\(([^)]+)\)$/);
+  if (rgb) return rgb[1].split(",").slice(0, 3).join(",");
+  return fallback;
+}
+
+function cssRgba(name, alpha, fallback) {
+  return `rgba(${cssRgbTriplet(name, "") || fallback}, ${alpha})`;
+}
+
 function statusRgb(kind) {
   const safe = displayPrefs.colorSafe;
   return kind === "bad"
     ? safe
       ? "255, 122, 61"
-      : "255, 83, 107"
+      : cssRgbTriplet("--red", "255, 83, 107")
     : safe
       ? "86, 180, 233"
-      : "0, 239, 145";
+      : cssRgbTriplet("--green", "0, 239, 145");
 }
 
 async function loadFileAnalysis(filename) {

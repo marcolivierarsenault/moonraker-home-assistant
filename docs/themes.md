@@ -56,15 +56,22 @@ function.
 
 Optional variables:
 
-| Variable  | Purpose                                              |
-| --------- | ---------------------------------------------------- |
-| `--glow`  | Radial glow tint at the top of the page (rgba)       |
-| `--grid`  | Background grid-line tint (rgba)                     |
-| `--mono`  | Monospace font stack for console/telemetry text      |
-| `--sans`  | Sans font stack for labels and body text             |
+| Variable       | Purpose                                                   |
+| -------------- | --------------------------------------------------------- |
+| `--glow`       | Radial glow tint at the top of the page (rgba)            |
+| `--grid`       | Background grid-line tint (rgba)                          |
+| `--input-bg`   | Input/select field background                             |
+| `--input-text` | Input/select field text                                   |
+| `--input-line` | Input/select field border                                 |
+| `--on-accent`  | Text drawn on accent-filled buttons (must contrast `--green`) |
+| `--mono`       | Monospace font stack for console/telemetry text           |
+| `--sans`       | Sans font stack for labels and body text                  |
 
-Omitting `--glow`/`--grid` inherits the NEXUS dark defaults. Font values may
-be any font-family stack such as `"Inter", "Segoe UI", sans-serif`.
+Omitting `--glow`/`--grid`/`--input-*`/`--on-accent` inherits the NEXUS dark
+defaults. Every surface in the panel — cards, tiles, inputs, toasts, charts,
+and all accent tints — derives from these variables via `color-mix()`, so a
+theme never leaves hardcoded green behind. Font values may be any font-family
+stack such as `"Inter", "Segoe UI", sans-serif`.
 
 ## Uploading a custom theme
 
