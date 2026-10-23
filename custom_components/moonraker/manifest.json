@@ -4,7 +4,7 @@
   "after_dependencies": ["mjpeg"],
   "codeowners": ["@thaliamontreux"],
   "config_flow": true,
-  "dependencies": ["panel_custom", "websocket_api"],
+  "dependencies": ["http", "panel_custom", "websocket_api"],
   "documentation": "https://github.com/thaliamontreux/haos_hacs_moonraker_console",
   "integration_type": "hub",
   "iot_class": "local_polling",

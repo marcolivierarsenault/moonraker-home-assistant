@@ -149,6 +149,10 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 {vol.Required("accept_requirements", default=False): bool}
             ),
             errors=errors,
+            description_placeholders={
+                "docs_url": "https://github.com/thaliamontreux/"
+                "haos_hacs_moonraker_console#installation"
+            },
         )
 
     async def async_step_features(self, user_input=None):
