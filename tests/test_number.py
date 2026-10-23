@@ -1,5 +1,6 @@
 """Test moonraker number."""
 
+import logging
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -534,7 +535,7 @@ async def test_temperature_fan_config_fallbacks(hass):
     assert uppercase_state.attributes["max"] == 65.0
 
 
-async def test_heater_generic_number_config_fallbacks(hass):
+async def test_heater_generic_number_config_fallbacks(hass, caplog):
     """Ensure heater_generic numbers handle config fallbacks."""
 
     class FakeCoordinator:
@@ -604,6 +605,7 @@ async def test_heater_generic_number_config_fallbacks(hass):
     def capture_entities(entities):
         added_entities.extend(entities)
 
+    caplog.set_level(logging.DEBUG, logger="custom_components.moonraker.number")
     await async_setup_temperature_target(coordinator, entry, capture_entities)
 
     assert len(coordinator.loaded) == 1
@@ -622,6 +624,7 @@ async def test_heater_generic_number_config_fallbacks(hass):
 
     assert coordinator.query_obj["heater_generic MIXED_CASE"] == {"target"}
     assert "heater_generic orphan_heater" not in coordinator.query_obj
+    assert "Skipping heater 'heater_generic orphan_heater'" in caplog.text
 
 
 def test_coerce_float_handles_invalid_input():
@@ -656,6 +659,7 @@ async def test_number_with_no_status_key_defaults_to_zero(hass):
         name="Stateless Control",
         status_key=None,
         update_code="M220 S",
+        max_value=200,
     )
 
     number = MoonrakerNumber(coordinator, entry, desc)

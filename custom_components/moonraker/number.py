@@ -109,6 +109,10 @@ async def async_setup_temperature_target(coordinator, entry, async_add_entities)
             # without their matching configfile settings. A HA Number
             # entity requires a numeric max_value, so skip these safely.
             if max_temp is None:
+                _LOGGER.debug(
+                    "Skipping heater '%s': no max_temp in configfile settings",
+                    obj,
+                )
                 continue
 
             desc = MoonrakerNumberSensorDescription(
@@ -392,9 +396,7 @@ class MoonrakerNumber(BaseMoonrakerEntity, NumberEntity):
         self._attr_name = description.name
         self._attr_has_entity_name = True
         self._attr_icon = description.icon
-        self._attr_native_max_value = (
-            float(description.max_value) if description.max_value is not None else None
-        )
+        self._attr_native_max_value = float(description.max_value)
         self._attr_native_min_value = (
             float(description.min_value) if description.min_value is not None else 0.0
         )
