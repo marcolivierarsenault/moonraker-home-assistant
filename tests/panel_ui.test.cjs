@@ -3108,6 +3108,13 @@ test("printcast card renders score, factors, and worsens to a toast", () => {
     document.getElementById("printcastDashDebt").textContent,
     "-1.4%",
   );
+  const dot = document.getElementById("forecastDot");
+  assert.ok(dot.className.includes("warn"));
+  assert.equal(document.getElementById("forecastPct").textContent, "PRINT 62%");
+  const pop = deepText(document.getElementById("forecastPop"));
+  assert.match(pop, /Printcast 62\/100 — CAUTION/);
+  assert.match(pop, /spool hydration\s+— 6.2 RH·h accumulated/);
+  assert.match(pop, /DO:\s+re-dry the spool/);
   assert.equal(document.getElementById("printcastMode").textContent, "PREFLIGHT");
   assert.equal(document.getElementById("printcastFile").textContent, "cube.gcode");
   assert.equal(document.getElementById("printcastSat").textContent, "62%");
@@ -3129,8 +3136,14 @@ test("printcast card renders score, factors, and worsens to a toast", () => {
   const worse = JSON.parse(JSON.stringify(payload));
   worse.printcast.score = 18;
   worse.printcast.verdict = "NO-GO";
+  worse.printcast.recommendation = "do not print";
   vm.runInContext(`renderPrintcast(${JSON.stringify(worse)})`, context);
   assert.match(document.getElementById("toast").textContent, /NO-GO/);
+  assert.ok(document.getElementById("forecastDot").className.includes("bad"));
+  assert.match(
+    deepText(document.getElementById("forecastPop")),
+    /DO:\s+do not print/,
+  );
   assert.equal(
     document.getElementById("printcastVerdict").style.color,
     "#f00",
@@ -3148,6 +3161,14 @@ test("printcast card tolerates empty and partial forecasts", () => {
   );
   assert.equal(document.getElementById("printcastDashScore").textContent, "—");
   assert.equal(document.getElementById("printcastDashSat").textContent, "—");
+  assert.equal(document.getElementById("forecastPct").textContent, "PRINT —");
+  assert.ok(
+    !document.getElementById("forecastDot").className.match(/ok|warn|bad/),
+  );
+  assert.match(
+    deepText(document.getElementById("forecastPop")),
+    /no forecast/,
+  );
   const factors = document.getElementById("printcastFactors");
   assert.match(deepText(factors), /no risk factors/);
 

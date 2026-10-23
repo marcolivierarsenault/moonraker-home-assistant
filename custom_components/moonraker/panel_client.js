@@ -1603,6 +1603,49 @@ function renderPrintcast(data) {
   }
   setText("printcastScore", score == null ? "—" : `${score}/100`);
   setText("printcastDashScore", score == null ? "—" : `${score}/100`);
+  const dot = byId("forecastDot");
+  if (dot) {
+    dot.className =
+      "forecast-dot" +
+      (cast.verdict === "CLEAR"
+        ? " ok"
+        : cast.verdict === "NO-GO"
+          ? " bad"
+          : score == null
+            ? ""
+            : " warn");
+  }
+  setText("forecastPct", score == null ? "PRINT —" : `PRINT ${score}%`);
+  const pop = byId("forecastPop");
+  if (pop) {
+    pop.replaceChildren();
+    const title = document.createElement("div");
+    title.className = "fp-title";
+    title.textContent =
+      score == null
+        ? "Printcast — no forecast"
+        : `Printcast ${score}/100 — ${cast.verdict || "—"}`;
+    pop.append(title);
+    (Array.isArray(cast.factors) ? cast.factors : []).forEach((factor) => {
+      const row = document.createElement("div");
+      row.className = "fp-factor" + (factor.nogo ? " nogo" : "");
+      const key = document.createElement("b");
+      key.textContent = `−${factor.points} ${String(factor.key || "").replace(/_/g, " ")}`;
+      const detail = document.createElement("span");
+      detail.textContent = ` — ${factor.detail || ""}`;
+      row.append(key, detail);
+      pop.append(row);
+    });
+    const rec = document.createElement("div");
+    rec.className = "fp-rec";
+    const lead = document.createElement("b");
+    lead.textContent = cast.recommendation ? "DO: " : "STATUS: ";
+    const body = document.createElement("span");
+    body.textContent =
+      cast.recommendation || "conditions look good — no action needed";
+    rec.append(lead, body);
+    pop.append(rec);
+  }
   const dashVerdict = byId("printcastDashVerdict");
   if (dashVerdict) {
     dashVerdict.textContent = cast.verdict || "—";

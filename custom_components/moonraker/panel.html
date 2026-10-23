@@ -622,6 +622,82 @@
         letter-spacing: 0.06em;
         text-transform: uppercase;
       }
+      .forecast-chip {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 6px;
+        border: 1px solid var(--line-hi);
+        color: var(--text);
+        font: 7px var(--mono);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        cursor: help;
+      }
+      .forecast-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--muted);
+      }
+      .forecast-dot.ok {
+        background: var(--green);
+        box-shadow: 0 0 6px var(--green);
+      }
+      .forecast-dot.warn {
+        background: var(--amber);
+        box-shadow: 0 0 6px var(--amber);
+      }
+      .forecast-dot.bad {
+        background: var(--red);
+        box-shadow: 0 0 6px var(--red);
+      }
+      .forecast-pop {
+        position: absolute;
+        top: calc(100% + 6px);
+        right: 0;
+        z-index: 70;
+        display: none;
+        min-width: 250px;
+        max-width: 330px;
+        padding: 8px 10px;
+        border: 1px solid var(--line-hi);
+        background: var(--panel);
+        color: var(--text);
+        font: 8px/1.55 var(--mono);
+        letter-spacing: normal;
+        text-transform: none;
+        text-align: left;
+        box-shadow:
+          0 0 0 1px color-mix(in srgb, var(--glow) 30%, transparent),
+          0 8px 20px color-mix(in srgb, var(--bg) 75%, transparent);
+      }
+      .forecast-chip:hover .forecast-pop,
+      .forecast-chip:focus-within .forecast-pop {
+        display: block;
+      }
+      .forecast-pop .fp-title {
+        color: var(--green-soft);
+        margin-bottom: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .forecast-pop .fp-factor b {
+        color: var(--amber);
+      }
+      .forecast-pop .fp-factor.nogo b {
+        color: var(--red);
+      }
+      .forecast-pop .fp-rec {
+        margin-top: 6px;
+        padding-top: 5px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+      }
+      .forecast-pop .fp-rec b {
+        color: var(--cyan);
+      }
       .row {
         display: flex;
         align-items: center;
@@ -1905,7 +1981,21 @@
             <div class="page-tools">
               <span class="micro">SYSTEM TIME</span
               ><span id="clock" class="pill">--:--:--</span
-              ><button class="top-button" data-details-toggle>MORE INFO</button
+              ><div
+                class="forecast-chip"
+                id="forecastChip"
+                tabindex="0"
+                aria-label="Print forecast details"
+              >
+                <i class="forecast-dot" id="forecastDot"></i
+                ><span id="forecastPct">PRINT —</span>
+                <div
+                  class="forecast-pop"
+                  id="forecastPop"
+                  role="tooltip"
+                ></div>
+              </div>
+              <button class="top-button" data-details-toggle>MORE INFO</button
               ><button class="top-button" data-action="refresh_files">
                 SYNC
               </button>
