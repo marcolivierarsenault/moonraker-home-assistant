@@ -360,7 +360,7 @@ window.NEXUS_I18N = {
     "Large Touch Targets": "Controles táctiles grandes",
     "Reduce Motion": "Reducir movimiento",
     Theme: "Tema",
-    "NEXUS DARK": "NEXUS OSCURO",
+    "ADVANCE DARK": "ADVANCE OSCURO",
     DAYLIGHT: "LUZ DE DÍA",
     "HIGH CONTRAST": "ALTO CONTRASTE",
     "FOLLOW HOME ASSISTANT": "SEGUIR A HOME ASSISTANT",
@@ -373,11 +373,11 @@ window.NEXUS_I18N = {
     "AUTO (HOME ASSISTANT)": "AUTO (HOME ASSISTANT)",
     "Large Touch raises controls toward 44px for kiosk screens. Reduce Motion disables camera transitions, orbit inertia, and glow; it also engages automatically when the OS requests reduced motion.":
       "Controles grandes eleva los controles hacia 44 px para pantallas de quiosco. Reducir movimiento desactiva transiciones, inercia y brillo; se activa automáticamente si el sistema lo solicita.",
-    "Follow Home Assistant switches between NEXUS Dark and Daylight with your HA theme. The colour-blind palette swaps green / red status colours for blue / orange.":
-      "Seguir a Home Assistant alterna entre NEXUS Oscuro y Luz de día según su tema de HA. La paleta para daltónicos cambia los colores verde / rojo por azul / naranja.",
+    "Follow Home Assistant switches between Advance Dark and Daylight with your HA theme. The colour-blind palette swaps green / red status colours for blue / orange.":
+      "Seguir a Home Assistant alterna entre Advance Oscuro y Luz de día según su tema de HA. La paleta para daltónicos cambia los colores verde / rojo por azul / naranja.",
     "Project Provenance / Development Build":
       "Procedencia / Versión de desarrollo",
-    "ABOUT NEXUS CONTROL": "ACERCA DE NEXUS CONTROL",
+    "ABOUT ADVANCE_MOONRAKER_CONTROL": "ACERCA DE ADVANCE_MOONRAKER_CONTROL",
     "DEVELOPMENT EXTENSIONS": "EXTENSIONES DE DESARROLLO",
     "Home Assistant Platforms": "Plataformas de Home Assistant",
     COMPONENTS: "COMPONENTES",
@@ -751,7 +751,7 @@ window.NEXUS_I18N = {
     "Large Touch Targets": "Grandes zones tactiles",
     "Reduce Motion": "Réduire les animations",
     Theme: "Thème",
-    "NEXUS DARK": "NEXUS SOMBRE",
+    "ADVANCE DARK": "ADVANCE SOMBRE",
     DAYLIGHT: "LUMIÈRE DU JOUR",
     "HIGH CONTRAST": "CONTRASTE ÉLEVÉ",
     "FOLLOW HOME ASSISTANT": "SUIVRE HOME ASSISTANT",
@@ -764,11 +764,11 @@ window.NEXUS_I18N = {
     "AUTO (HOME ASSISTANT)": "AUTO (HOME ASSISTANT)",
     "Large Touch raises controls toward 44px for kiosk screens. Reduce Motion disables camera transitions, orbit inertia, and glow; it also engages automatically when the OS requests reduced motion.":
       "Grandes zones tactiles agrandit les contrôles vers 44 px pour les écrans kiosque. Réduire les animations désactive les transitions, l'inertie et la lueur ; s'active automatiquement si le système le demande.",
-    "Follow Home Assistant switches between NEXUS Dark and Daylight with your HA theme. The colour-blind palette swaps green / red status colours for blue / orange.":
-      "Suivre Home Assistant bascule entre NEXUS Sombre et Lumière du jour selon votre thème HA. La palette adaptée remplace les couleurs vert / rouge par bleu / orange.",
+    "Follow Home Assistant switches between Advance Dark and Daylight with your HA theme. The colour-blind palette swaps green / red status colours for blue / orange.":
+      "Suivre Home Assistant bascule entre Advance Sombre et Lumière du jour selon votre thème HA. La palette adaptée remplace les couleurs vert / rouge par bleu / orange.",
     "Project Provenance / Development Build":
       "Provenance / Version de développement",
-    "ABOUT NEXUS CONTROL": "À PROPOS DE NEXUS CONTROL",
+    "ABOUT ADVANCE_MOONRAKER_CONTROL": "À PROPOS DE ADVANCE_MOONRAKER_CONTROL",
     "DEVELOPMENT EXTENSIONS": "EXTENSIONS DE DÉVELOPPEMENT",
     "Home Assistant Platforms": "Plateformes Home Assistant",
     COMPONENTS: "COMPOSANTS",

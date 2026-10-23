@@ -4817,7 +4817,7 @@ const THEME_REQUIRED_VARS = THEME_COLOR_VARS.filter(
 
 const THEMES = {
   nexus: {
-    label: "NEXUS DARK",
+    label: "ADVANCE DARK",
     vars: {},
   },
   midnight: {

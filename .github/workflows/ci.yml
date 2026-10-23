@@ -42,7 +42,9 @@ jobs:
         run: python3 -m pip install -r requirements.txt
 
       - name: "Run"
-        run: python3 -m ruff check .
+        run: |
+          python3 scripts/check_release.py
+          python3 -m ruff check .
 
   tests:
     runs-on: "ubuntu-latest"

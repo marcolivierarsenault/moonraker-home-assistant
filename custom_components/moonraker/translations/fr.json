@@ -1,6 +1,38 @@
 {
+  "title": "Advance_Moonraker_Control",
   "config": {
     "step": {
+      "requirements": {
+        "title": "Bienvenue dans Advance_Moonraker_Control",
+        "description": "Surveillez et contrôlez vos imprimantes Klipper : tableau de bord, températures, progression, caméras, fichiers, files d'attente, macros, console, trajectoires, maillage, énergie, historique, prévisions Printcast, alertes et intents Assist.\n\nPrérequis : Home Assistant 2026.9+, HACS 2+, une imprimante Klipper/Moonraker accessible et un stockage de configuration accessible en écriture. Home Assistant installe moonraker-api et charge les dépendances intégrées du panneau (cela peut précéder cet assistant). Les données sont enregistrées automatiquement dans Home Assistant. Aucun serveur SQL, mot de passe de base de données ou AppDaemon n'est nécessaire.\n\nFacultatif : caméra pour la vidéo, Spoolman pour les bobines, capteurs de puissance/température/humidité, service de notification, fournisseur AI task et caméra pour la vision, Assist/TTS/lecteurs pour les automatisations vocales. Installez-les séparément selon vos besoins ; HACS n'installe pas les logiciels de l'imprimante ni les paquets système.\n\nAcceptez pour configurer la connexion et les options. L'installation consulte seulement l'imprimante. Choisir ensuite un interrupteur active l'arrêt automatique après impression et refroidissement. Les prévisions ne garantissent pas la sécurité. HACS propose les mises à jour GitHub ; vous choisissez quand les installer et redémarrer. [Guide](https://github.com/thaliamontreux/haos_hacs_moonraker_console#installation).",
+        "data": {
+          "accept_requirements": "Je comprends et j'accepte les prérequis et les fonctions facultatives"
+        }
+      },
+      "features": {
+        "title": "Fonctions facultatives",
+        "description": "Connexion vérifiée. Laissez les entités et URL facultatives vides pour une installation de base ; elles restent modifiables dans Configurer. Installez d'abord les capteurs, notifications ou fournisseurs IA manquants. La vision IA exige une caméra et une entité AI task ; elle peut transmettre des images au fournisseur et entraîner des frais. Choisir un interrupteur active l'arrêt automatique après impression, refroidissement et délai indiqué. L'accès opérateur permet les réglages en direct. Validez pour créer l'intégration, les entités et le panneau ; les données sont enregistrées lorsqu'elles sont générées.",
+        "data": {
+          "polling_rate": "Intervalle d'interrogation (s)",
+          "quiet_unreachable_devices": "Journaliser les connexions échouées uniquement en DEBUG",
+          "camera_stream_url": "URL du flux vidéo",
+          "camera_snapshot_url": "URL de l'instantané",
+          "camera_port": "Port de la caméra",
+          "thumbnail_port": "Port des miniatures",
+          "power_sensor": "Capteur de puissance (W)",
+          "max_flow_mm3": "Débit volumétrique maximal (mm³/s)",
+          "energy_rate": "Coût par kWh",
+          "notify_service": "Service de notification",
+          "power_switch_entity": "Interrupteur — active l'arrêt automatique",
+          "power_off_delay_min": "Délai d'arrêt (min)",
+          "power_off_max_temp": "Température maximale pour l'arrêt (°C)",
+          "ambient_sensor": "Capteur de température ambiante",
+          "humidity_sensor": "Capteur d'humidité",
+          "ai_task_entity": "Entité AI task",
+          "vision_camera": "Caméra pour la vision IA",
+          "panel_role": "Accès au panneau pour les non-administrateurs"
+        }
+      },
       "user": {
         "description": "Informations de connexion Moonraker",
         "data": {
@@ -13,6 +45,10 @@
       }
     },
     "error": {
+      "entity_missing": "Configurez d'abord l'intégration correspondante et choisissez une entité existante, ou laissez ce champ vide.",
+      "vision_requires_pair": "La vision IA exige une entité AI task et une caméra. Configurez les deux ou laissez les deux vides.",
+      "notify_missing": "Configurez d'abord le service de notification. Saisissez son nom sans notify. ou laissez ce champ vide.",
+      "requirements_not_accepted": "Acceptez les prérequis pour continuer ou fermez cette fenêtre pour annuler.",
       "host_error": "Hôte non valide. N'incluez pas « http:// », « https:// », ni de barre oblique finale.",
       "port_error": "Port non valide, doit être un nombre entre 1 et 65535.",
       "api_key_error": "Clé API non valide, doit comporter 32 caractères alphanumériques.",
@@ -21,6 +57,12 @@
     }
   },
   "options": {
+    "error": {
+      "entity_missing": "Configurez d'abord l'intégration correspondante et choisissez une entité existante, ou laissez ce champ vide.",
+      "vision_requires_pair": "La vision IA exige une entité AI task et une caméra. Configurez les deux ou laissez les deux vides.",
+      "notify_missing": "Configurez d'abord le service de notification. Saisissez son nom sans notify. ou laissez ce champ vide.",
+      "port_error": "Saisissez un port de 1 à 65535 ou laissez ce champ vide."
+    },
     "step": {
       "init": {
         "data": {

@@ -1,5 +1,5 @@
-Welcome to Moonraker Home Assistant's documentation!
-====================================================
+Advance_Moonraker_Control documentation
+==================================================
 
 .. note::
 

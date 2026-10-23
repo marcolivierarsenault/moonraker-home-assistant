@@ -97,7 +97,7 @@ async def test_registers_custom_panel_with_ha_authenticated_connection():
         hass,
         frontend_url_path=PANEL_FRONTEND_PATH,
         webcomponent_name="moonraker-control-panel",
-        sidebar_title="Moonraker Control",
+        sidebar_title="Advance_Moonraker_Control",
         sidebar_icon="mdi:printer-3d",
         module_url=PANEL_MODULE_URL,
         embed_iframe=False,
@@ -1683,7 +1683,7 @@ async def test_panel_pwa_manifest_and_service_worker(hass):
     import json
 
     body = json.loads(manifest.body.decode())
-    assert body["name"] == "Moonraker Control Deck"
+    assert body["name"] == "Advance_Moonraker_Control"
     assert body["display"] == "standalone"
     assert body["scope"] == "/api/moonraker/"
 

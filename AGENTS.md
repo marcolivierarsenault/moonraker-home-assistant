@@ -13,7 +13,7 @@ Core integration code sits in `custom_components/moonraker/`: Home Assistant boo
 - `scripts/docs_build` — rebuild docs with warnings treated as errors.
 - `pre-commit run --all-files` — run formatting and quality hooks before pushing.
 - `scripts/prepush` — run pre-push checks (`pre-commit`, strict tests, and docs build when `docs/**` changed).
-- `scripts/version_bump major|minor|patch` — perform release version bumps through `bump2version`.
+- `scripts/version_bump [YYYY.MM.DD]` — set the calendar-date release version (defaults to today) and commit it.
 
 ## Coding Style & Naming Conventions
 
@@ -25,7 +25,7 @@ Place tests beside their feature under `tests/` and name files `test_<feature>.p
 
 ## Commit & Pull Request Guidelines
 
-Write short, imperative commit titles (`Add camera snapshot support`). Before pushing, run `scripts/prepush` (or at minimum `pre-commit run --all-files` and `scripts/test_strict`, plus `scripts/docs_build` for docs changes). PRs should explain user impact, list validation commands run, and link issues (`Fixes #123`) where relevant. Include updated screenshots or docs links for UI changes, and squash noisy work-in-progress commits before review. For version bumps, use `bump2version major|minor|patch` (or `scripts/version_bump ...`), which handles the commit automatically.
+Write short, imperative commit titles (`Add camera snapshot support`). Before pushing, run `scripts/prepush` (or at minimum `pre-commit run --all-files` and `scripts/test_strict`, plus `scripts/docs_build` for docs changes). PRs should explain user impact, list validation commands run, and link issues (`Fixes #123`) where relevant. Include updated screenshots or docs links for UI changes, and squash noisy work-in-progress commits before review. For version bumps, use `scripts/version_bump` (releases are dated `YYYY.MM.DD`), which updates all version files and commits automatically.
 
 ## Codex Workflow
 

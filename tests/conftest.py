@@ -5,6 +5,7 @@ import sys
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from pytest_homeassistant_custom_component.common import mock_component
 
 if sys.platform == "win32":
     import socket as _socket_module
@@ -59,6 +60,13 @@ if sys.platform == "win32":
         _socket_module.socketpair = _loopback_socketpair
 
 PYTEST_PLUGINS = "pytest_homeassistant_custom_component"
+
+
+@pytest.fixture(autouse=True)
+def mock_panel_dependencies(hass):
+    """Mock panel dependencies instead of booting Home Assistant's UI."""
+    mock_component(hass, "panel_custom")
+    mock_component(hass, "websocket_api")
 
 
 # This fixture enables loading custom integrations in all tests.

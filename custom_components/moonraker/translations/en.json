@@ -1,8 +1,41 @@
 {
+  "title": "Advance_Moonraker_Control",
   "config": {
     "step": {
+      "requirements": {
+        "title": "Welcome to Advance_Moonraker_Control",
+        "description": "Monitor and control Klipper printers: live dashboard, temperatures, progress, cameras, files and queues, macros, console, toolpath preview, bed mesh, energy tracking, print history, Printcast forecasts, alerts and Assist intents. Features depend on your printer and optional services. [Features and installation guide](https://github.com/thaliamontreux/haos_hacs_moonraker_console#installation).\n\nRequired: Home Assistant 2026.9 or newer, HACS 2 or newer, a working Klipper/Moonraker printer reachable from Home Assistant, and writable Home Assistant configuration storage. Home Assistant installs the pinned moonraker-api Python library and loads its built-in panel/websocket dependencies (this can happen before this wizard). Integration data is created automatically in Home Assistant storage; no SQL server, database password, AppDaemon or shell installer is required.\n\nOptional: configure a camera for video; Spoolman on the printer for spool inventory; power, temperature and humidity entities for measurements; a notification service for alerts; an AI task provider and camera for vision; Assist/TTS/media players for voice automations. Install these separately if you want those features; HACS cannot provision printer software or arbitrary OS packages.\n\nAccept to proceed to connection and optional-feature setup. Setup only reads printer information. Selecting a power switch later enables automatic power-off after a print and cooling. Forecasts and alerts do not guarantee print safety. HACS offers GitHub updates for your review; you choose when to install and restart.",
+        "data": {
+          "accept_requirements": "I understand and accept these requirements and optional features"
+        }
+      },
+      "features": {
+        "title": "Optional features",
+        "description": "Connection verified. Leave optional entities and URLs empty for a basic installation; you can change these later in Configure. Camera URLs override Moonraker webcam discovery. Install any missing sensors, notification service or AI provider through Home Assistant first. AI vision needs both a camera and an AI task entity and may send images to your chosen provider or incur charges.\n\nSelecting a power switch enables automatic power-off after print completion, the configured delay and cooling threshold. Leave it empty to keep power under manual control. Admin-only panel access is the default; operator access permits live adjustments. Submit to create the integration, entities, sidebar panel and persistent data as it is generated.",
+        "data": {
+          "polling_rate": "Integration polling rate (s)",
+          "quiet_unreachable_devices": "Log unreachable printer messages only at DEBUG level",
+          "camera_stream_url": "Camera stream URL (optional override)",
+          "camera_snapshot_url": "Camera snapshot URL (optional override)",
+          "camera_port": "Camera port",
+          "thumbnail_port": "Thumbnail port",
+          "power_sensor": "Printer power sensor (W)",
+          "max_flow_mm3": "Maximum volumetric flow (mm³/s)",
+          "energy_rate": "Energy rate (cost per kWh)",
+          "notify_service": "Notification service (e.g. mobile_app_myphone)",
+          "power_switch_entity": "Power switch — selecting enables automatic power-off",
+          "power_off_delay_min": "Automatic power-off delay after print (min)",
+          "power_off_max_temp": "Maximum hotend temperature for power-off (°C)",
+          "ambient_sensor": "Ambient temperature sensor",
+          "humidity_sensor": "Humidity sensor for spool moisture tracking",
+          "ai_task_entity": "AI task entity for vision checks",
+          "vision_camera": "Camera for AI print checks",
+          "panel_role": "Panel access for non-admin users"
+        }
+      },
       "user": {
-        "description": "Moonraker connection information",
+        "title": "Connect your printer",
+        "description": "Enter the Moonraker hostname or IP, port (normally 7125), TLS setting and API key if required. Get these from your printer administrator. Enter a host without http://, https:// or a path. The connection test reads printer information and closes its temporary connection; it sends no printer commands.",
         "data": {
           "url": "Host",
           "port": "Port",
@@ -13,6 +46,10 @@
       }
     },
     "error": {
+      "entity_missing": "Set up the corresponding integration first, then select an existing entity or leave this feature empty.",
+      "vision_requires_pair": "AI vision needs both an AI task entity and a camera. Configure both, or leave both empty.",
+      "notify_missing": "Set up this notification service first. Enter its name without the notify. prefix, or leave it empty.",
+      "requirements_not_accepted": "Accept the requirements to continue, or close this dialog to cancel.",
       "host_error": "Invalid host. Don't include \"http://\", \"https://\", or a trailing slash.",
       "port_error": "Invalid port, must be a number between 1 and 65535.",
       "api_key_error": "Invalid API key, must be 32 alphanumeric characters.",
@@ -21,8 +58,15 @@
     }
   },
   "options": {
+    "error": {
+      "entity_missing": "Set up the corresponding integration first, then select an existing entity or leave this feature empty.",
+      "vision_requires_pair": "AI vision needs both an AI task entity and a camera. Configure both, or leave both empty.",
+      "notify_missing": "Set up this notification service first. Enter its name without the notify. prefix, or leave it empty.",
+      "port_error": "Enter a port from 1 to 65535, or leave it empty."
+    },
     "step": {
       "init": {
+        "description": "Optional features require their corresponding Home Assistant entities or printer services. Leave unavailable features empty. Selecting a power switch enables automatic power-off after print completion and cooling. AI vision requires a camera and an AI task provider, which may upload images and incur charges.",
         "data": {
           "polling_rate": "Integration polling rate (s)",
           "quiet_unreachable_devices": "Log unreachable printer connection messages only at DEBUG level",

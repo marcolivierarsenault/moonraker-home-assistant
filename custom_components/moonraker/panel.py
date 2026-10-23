@@ -28,6 +28,7 @@ from .const import (
     DEFAULT_PORT,
     DOMAIN,
     METHODS,
+    NAME,
     PRINTING_POLLING_RATE,
     TIMEOUT,
     VERSION,
@@ -726,8 +727,8 @@ class MoonrakerPanelManifestView(HomeAssistantView):
         """Return the install manifest for the control deck."""
         return web.json_response(
             {
-                "name": "Moonraker Control Deck",
-                "short_name": "Moonraker",
+                "name": NAME,
+                "short_name": NAME,
                 "start_url": PANEL_EMBED_URL,
                 "scope": "/api/moonraker/",
                 "display": "standalone",
@@ -1422,7 +1423,7 @@ async def register_panel_views(hass: HomeAssistant) -> None:
         hass,
         frontend_url_path=PANEL_FRONTEND_PATH,
         webcomponent_name="moonraker-control-panel",
-        sidebar_title="Moonraker Control",
+        sidebar_title=NAME,
         sidebar_icon="mdi:printer-3d",
         module_url=PANEL_MODULE_URL,
         embed_iframe=False,

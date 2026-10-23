@@ -1,0 +1,60 @@
+name: Publish HACS release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    if: github.repository == 'thaliamontreux/haos_hacs_moonraker_console'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Check package and tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python scripts/check_release.py --tag "$RELEASE_TAG"
+      - name: Validate HACS
+        uses: hacs/action@main
+        with:
+          category: integration
+          ignore: brands
+      - name: Validate Home Assistant manifest
+        uses: home-assistant/actions/hassfest@master
+
+  tests:
+    if: github.repository == 'thaliamontreux/haos_hacs_moonraker_console'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: python -m pip install -r requirements.txt
+      - run: python -m ruff check .
+      - run: bash scripts/test_strict
+      - run: bash scripts/docs_build
+
+  publish:
+    needs: [validate, tests]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Publish source release for HACS
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" --verify-tag --generate-notes --title "Advance_Moonraker_Control $RELEASE_TAG"

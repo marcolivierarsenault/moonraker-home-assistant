@@ -1,6 +1,38 @@
 {
+  "title": "Advance_Moonraker_Control",
   "config": {
     "step": {
+      "requirements": {
+        "title": "Bienvenido a Advance_Moonraker_Control",
+        "description": "Supervise y controle impresoras Klipper: panel en vivo, temperaturas, progreso, cámaras, archivos, colas, macros, consola, trayectorias, malla, energía, historial, pronósticos Printcast, alertas e intents de Assist.\n\nRequiere Home Assistant 2026.9+, HACS 2+, una impresora Klipper/Moonraker accesible y almacenamiento de configuración con permiso de escritura. Home Assistant instala moonraker-api y carga las dependencias integradas del panel (puede hacerlo antes de este asistente). Los datos se guardan automáticamente en Home Assistant. No se necesita un servidor SQL, contraseña de base de datos ni AppDaemon.\n\nOpcional: cámara para vídeo, Spoolman para bobinas, sensores de potencia/temperatura/humedad, servicio de notificación, proveedor AI task y cámara para visión, y Assist/TTS/reproductores para automatizaciones de voz. Instálelos por separado si los necesita; HACS no instala software en la impresora ni paquetes del sistema.\n\nAl aceptar podrá configurar la conexión y las opciones. La instalación solo consulta la impresora. Seleccionar después un interruptor activa el apagado automático tras imprimir y enfriar. Los pronósticos no garantizan la seguridad. HACS ofrece actualizaciones de GitHub; usted decide cuándo instalar y reiniciar. [Guía](https://github.com/thaliamontreux/haos_hacs_moonraker_console#installation).",
+        "data": {
+          "accept_requirements": "Entiendo y acepto los requisitos y las funciones opcionales"
+        }
+      },
+      "features": {
+        "title": "Funciones opcionales",
+        "description": "Conexión verificada. Deje vacías las entidades y URL opcionales para una instalación básica; podrá cambiarlas después en Configurar. Instale antes los sensores, el servicio de notificación o el proveedor IA que falten. La visión IA requiere cámara y entidad AI task; puede enviar imágenes al proveedor y generar costes. Seleccionar un interruptor activa el apagado automático tras imprimir, enfriar y esperar el retardo indicado. El acceso de operador permite ajustes en vivo. Envíe para crear la integración, las entidades y el panel; los datos se guardan cuando se generan.",
+        "data": {
+          "polling_rate": "Intervalo de sondeo (s)",
+          "quiet_unreachable_devices": "Registrar conexiones fallidas solo en DEBUG",
+          "camera_stream_url": "URL de vídeo de cámara",
+          "camera_snapshot_url": "URL de instantánea",
+          "camera_port": "Puerto de cámara",
+          "thumbnail_port": "Puerto de miniatura",
+          "power_sensor": "Sensor de potencia (W)",
+          "max_flow_mm3": "Flujo volumétrico máximo (mm³/s)",
+          "energy_rate": "Coste por kWh",
+          "notify_service": "Servicio de notificación",
+          "power_switch_entity": "Interruptor — activa el apagado automático",
+          "power_off_delay_min": "Retardo de apagado (min)",
+          "power_off_max_temp": "Temperatura máxima para apagar (°C)",
+          "ambient_sensor": "Sensor de temperatura ambiente",
+          "humidity_sensor": "Sensor de humedad",
+          "ai_task_entity": "Entidad AI task",
+          "vision_camera": "Cámara para visión IA",
+          "panel_role": "Acceso al panel para usuarios no administradores"
+        }
+      },
       "user": {
         "description": "Información de conexión de Moonraker",
         "data": {
@@ -13,6 +45,10 @@
       }
     },
     "error": {
+      "entity_missing": "Configure primero la integración correspondiente y seleccione una entidad existente, o deje el campo vacío.",
+      "vision_requires_pair": "La visión IA requiere una entidad AI task y una cámara. Configure ambas o deje ambas vacías.",
+      "notify_missing": "Configure primero el servicio de notificación. Escriba el nombre sin notify. o deje el campo vacío.",
+      "requirements_not_accepted": "Acepte los requisitos para continuar o cierre el diálogo para cancelar.",
       "host_error": "Servidor no válido. No incluya \"http://\", \"https://\", ni una barra oblicua al final.",
       "port_error": "Puerto no válido, debe ser un número entre 1 y 65535.",
       "api_key_error": "Clave de la API no válida, debe tener 32 caracteres alfanuméricos.",
@@ -21,6 +57,12 @@
     }
   },
   "options": {
+    "error": {
+      "entity_missing": "Configure primero la integración correspondiente y seleccione una entidad existente, o deje el campo vacío.",
+      "vision_requires_pair": "La visión IA requiere una entidad AI task y una cámara. Configure ambas o deje ambas vacías.",
+      "notify_missing": "Configure primero el servicio de notificación. Escriba el nombre sin notify. o deje el campo vacío.",
+      "port_error": "Escriba un puerto de 1 a 65535 o deje el campo vacío."
+    },
     "step": {
       "init": {
         "data": {

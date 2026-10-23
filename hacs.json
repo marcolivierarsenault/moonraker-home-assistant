@@ -1,5 +1,5 @@
 {
-  "name": "Moonraker",
-  "hacs": "1.6.0",
-  "homeassistant": "0.118.0"
+  "name": "Advance_Moonraker_Control",
+  "hacs": "2.0.0",
+  "homeassistant": "2026.9.0"
 }

@@ -1,52 +1,18 @@
-[![GitHub Release][releases-shield]][releases]
-[![GitHub Activity][commits-shield]][commits]
-[![License][license-shield]][license]
-[![hacs][hacsbadge]][hacs]
-![install_badge](https://img.shields.io/badge/dynamic/json?color=41BDF5&logo=home-assistant&label=integration%20usage&suffix=%20installs&cacheSeconds=15600&url=https://analytics.home-assistant.io/custom_integrations.json&query=$.moonraker.total)
+# Advance_Moonraker_Control
 
-_Component to integrate with [Moonraker][integration_blueprint]._
+Monitor and control Klipper/Moonraker printers from Home Assistant: live data,
+cameras, files and queues, macros, console, toolpath and bed-mesh views, print
+history, energy estimates, Printcast forecasts, alerts and Assist intents.
 
-Non official integration for Moonraker and Klipper in Home Assistant.
+Install this repository as a HACS **custom integration**. Home Assistant
+installs the declared Python dependency and loads built-in panel components.
+No separate SQL database or AppDaemon installation is needed.
 
-This allows you home assistant to connect to your Klipper 3D printer and display:
+After downloading and restarting, add **Advance_Moonraker_Control** in
+Devices & services. The wizard explains requirements, asks for acceptance,
+checks the printer connection and collects optional settings.
 
-- Key information about the printer (sensors)
-- Show the camera image (if installed)
-- Thumbnail of what is being printed at the moment.
-- Emergency stop button
-- Button to trigger macros
-
-### Entities details
-
-[List of all sensors and details](https://moonraker-home-assistant.readthedocs.io/en/latest/entities/sensors.html)
-
-## Platform
-
-**This component will set up the following platforms.**
-
-| Platform | Description                                                                         |
-| -------- | ----------------------------------------------------------------------------------- |
-| `sensor` | Show various info printer info from Moonraker.                                      |
-| `camera` | Show camera livestream and thumbnail of current print.                              |
-| `button` | Allow to use simple macro (cannot change variables) and trigger emergency shutdown. |
-
-## Screenshots
-
-![sensor](https://raw.githubusercontent.com/marcolivierarsenault/moonraker-home-assistant/main/assets/sensors.png)
-![button](https://raw.githubusercontent.com/marcolivierarsenault/moonraker-home-assistant/main/assets/button.png)
-![camera](https://raw.githubusercontent.com/marcolivierarsenault/moonraker-home-assistant/main/assets/camera.png)
-![thumbnial](https://raw.githubusercontent.com/marcolivierarsenault/moonraker-home-assistant/main/assets/thumbnail.png)
-
-<!---->
-
----
-
-[integration_blueprint]: https://github.com/marcolivierarsenault/moonraker-home-assistant
-[commits-shield]: https://img.shields.io/github/commit-activity/y/marcolivierarsenault/moonraker-home-assistant.svg?style=for-the-badge
-[commits]: https://github.com/marcolivierarsenault/moonraker-home-assistant/commits/master
-[hacs]: https://hacs.xyz
-[hacsbadge]: https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge
-[license]: https://github.com/marcolivierarsenault/moonraker-home-assistant/blob/main/LICENSE
-[license-shield]: https://img.shields.io/github/license/marcolivierarsenault/moonraker-home-assistant.svg?style=for-the-badge
-[releases-shield]: https://img.shields.io/github/v/release/marcolivierarsenault/moonraker-home-assistant.svg?style=for-the-badge
-[releases]: https://github.com/marcolivierarsenault/moonraker-home-assistant/releases
+Read the [requirements, migration notes and installation guide](https://github.com/thaliamontreux/haos_hacs_moonraker_console#installation)
+before downloading. Camera, Spoolman, AI and voice services are optional and
+require their own configuration. HACS updates come from this repository's
+[GitHub releases](https://github.com/thaliamontreux/haos_hacs_moonraker_console/releases).

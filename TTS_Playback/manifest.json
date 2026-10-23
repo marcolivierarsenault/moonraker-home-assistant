@@ -1,0 +1,502 @@
+{
+ "voice_test": {
+  "text": "Nexus control voice alert test",
+  "file": "voice_test.mp3"
+ },
+ "print_resumed": {
+  "text": "Print resumed",
+  "file": "print_resumed.mp3"
+ },
+ "print_paused": {
+  "text": "Print paused",
+  "file": "print_paused.mp3"
+ },
+ "filament_runout": {
+  "text": "Filament runout detected",
+  "file": "filament_runout.mp3"
+ },
+ "pfx_print_started": {
+  "text": "Print started:",
+  "file": "pfx_print_started.mp3"
+ },
+ "pfx_print_complete": {
+  "text": "Print complete:",
+  "file": "pfx_print_complete.mp3"
+ },
+ "pfx_print_completed": {
+  "text": "Print completed:",
+  "file": "pfx_print_completed.mp3"
+ },
+ "pfx_print_cancelled": {
+  "text": "Print cancelled:",
+  "file": "pfx_print_cancelled.mp3"
+ },
+ "pfx_print_error": {
+  "text": "Print error:",
+  "file": "pfx_print_error.mp3"
+ },
+ "pfx_vision_alert": {
+  "text": "Print problem detected:",
+  "file": "pfx_vision_alert.mp3"
+ },
+ "pfx_printer_fault": {
+  "text": "Printer fault: Klippy reports",
+  "file": "pfx_printer_fault.mp3"
+ },
+ "pfx_progress": {
+  "text": "Print is",
+  "file": "pfx_progress.mp3"
+ },
+ "sfx_percent": {
+  "text": "percent complete",
+  "file": "sfx_percent.mp3"
+ },
+ "pfx_printcast": {
+  "text": "Printcast",
+  "file": "pfx_printcast.mp3"
+ },
+ "sfx_out_of_100": {
+  "text": "out of 100",
+  "file": "sfx_out_of_100.mp3"
+ },
+ "verdict_clear": {
+  "text": "clear",
+  "file": "verdict_clear.mp3"
+ },
+ "verdict_caution": {
+  "text": "caution",
+  "file": "verdict_caution.mp3"
+ },
+ "verdict_poor": {
+  "text": "poor",
+  "file": "verdict_poor.mp3"
+ },
+ "verdict_no_go": {
+  "text": "no go",
+  "file": "verdict_no_go.mp3"
+ },
+ "klippy_ready": {
+  "text": "ready",
+  "file": "klippy_ready.mp3"
+ },
+ "klippy_error": {
+  "text": "error",
+  "file": "klippy_error.mp3"
+ },
+ "klippy_shutdown": {
+  "text": "shutdown",
+  "file": "klippy_shutdown.mp3"
+ },
+ "klippy_startup": {
+  "text": "startup",
+  "file": "klippy_startup.mp3"
+ },
+ "klippy_disconnected": {
+  "text": "disconnected",
+  "file": "klippy_disconnected.mp3"
+ },
+ "num_0": {
+  "text": "0",
+  "file": "num_0.mp3"
+ },
+ "num_1": {
+  "text": "1",
+  "file": "num_1.mp3"
+ },
+ "num_2": {
+  "text": "2",
+  "file": "num_2.mp3"
+ },
+ "num_3": {
+  "text": "3",
+  "file": "num_3.mp3"
+ },
+ "num_4": {
+  "text": "4",
+  "file": "num_4.mp3"
+ },
+ "num_5": {
+  "text": "5",
+  "file": "num_5.mp3"
+ },
+ "num_6": {
+  "text": "6",
+  "file": "num_6.mp3"
+ },
+ "num_7": {
+  "text": "7",
+  "file": "num_7.mp3"
+ },
+ "num_8": {
+  "text": "8",
+  "file": "num_8.mp3"
+ },
+ "num_9": {
+  "text": "9",
+  "file": "num_9.mp3"
+ },
+ "num_10": {
+  "text": "10",
+  "file": "num_10.mp3"
+ },
+ "num_11": {
+  "text": "11",
+  "file": "num_11.mp3"
+ },
+ "num_12": {
+  "text": "12",
+  "file": "num_12.mp3"
+ },
+ "num_13": {
+  "text": "13",
+  "file": "num_13.mp3"
+ },
+ "num_14": {
+  "text": "14",
+  "file": "num_14.mp3"
+ },
+ "num_15": {
+  "text": "15",
+  "file": "num_15.mp3"
+ },
+ "num_16": {
+  "text": "16",
+  "file": "num_16.mp3"
+ },
+ "num_17": {
+  "text": "17",
+  "file": "num_17.mp3"
+ },
+ "num_18": {
+  "text": "18",
+  "file": "num_18.mp3"
+ },
+ "num_19": {
+  "text": "19",
+  "file": "num_19.mp3"
+ },
+ "num_20": {
+  "text": "20",
+  "file": "num_20.mp3"
+ },
+ "num_21": {
+  "text": "21",
+  "file": "num_21.mp3"
+ },
+ "num_22": {
+  "text": "22",
+  "file": "num_22.mp3"
+ },
+ "num_23": {
+  "text": "23",
+  "file": "num_23.mp3"
+ },
+ "num_24": {
+  "text": "24",
+  "file": "num_24.mp3"
+ },
+ "num_25": {
+  "text": "25",
+  "file": "num_25.mp3"
+ },
+ "num_26": {
+  "text": "26",
+  "file": "num_26.mp3"
+ },
+ "num_27": {
+  "text": "27",
+  "file": "num_27.mp3"
+ },
+ "num_28": {
+  "text": "28",
+  "file": "num_28.mp3"
+ },
+ "num_29": {
+  "text": "29",
+  "file": "num_29.mp3"
+ },
+ "num_30": {
+  "text": "30",
+  "file": "num_30.mp3"
+ },
+ "num_31": {
+  "text": "31",
+  "file": "num_31.mp3"
+ },
+ "num_32": {
+  "text": "32",
+  "file": "num_32.mp3"
+ },
+ "num_33": {
+  "text": "33",
+  "file": "num_33.mp3"
+ },
+ "num_34": {
+  "text": "34",
+  "file": "num_34.mp3"
+ },
+ "num_35": {
+  "text": "35",
+  "file": "num_35.mp3"
+ },
+ "num_36": {
+  "text": "36",
+  "file": "num_36.mp3"
+ },
+ "num_37": {
+  "text": "37",
+  "file": "num_37.mp3"
+ },
+ "num_38": {
+  "text": "38",
+  "file": "num_38.mp3"
+ },
+ "num_39": {
+  "text": "39",
+  "file": "num_39.mp3"
+ },
+ "num_40": {
+  "text": "40",
+  "file": "num_40.mp3"
+ },
+ "num_41": {
+  "text": "41",
+  "file": "num_41.mp3"
+ },
+ "num_42": {
+  "text": "42",
+  "file": "num_42.mp3"
+ },
+ "num_43": {
+  "text": "43",
+  "file": "num_43.mp3"
+ },
+ "num_44": {
+  "text": "44",
+  "file": "num_44.mp3"
+ },
+ "num_45": {
+  "text": "45",
+  "file": "num_45.mp3"
+ },
+ "num_46": {
+  "text": "46",
+  "file": "num_46.mp3"
+ },
+ "num_47": {
+  "text": "47",
+  "file": "num_47.mp3"
+ },
+ "num_48": {
+  "text": "48",
+  "file": "num_48.mp3"
+ },
+ "num_49": {
+  "text": "49",
+  "file": "num_49.mp3"
+ },
+ "num_50": {
+  "text": "50",
+  "file": "num_50.mp3"
+ },
+ "num_51": {
+  "text": "51",
+  "file": "num_51.mp3"
+ },
+ "num_52": {
+  "text": "52",
+  "file": "num_52.mp3"
+ },
+ "num_53": {
+  "text": "53",
+  "file": "num_53.mp3"
+ },
+ "num_54": {
+  "text": "54",
+  "file": "num_54.mp3"
+ },
+ "num_55": {
+  "text": "55",
+  "file": "num_55.mp3"
+ },
+ "num_56": {
+  "text": "56",
+  "file": "num_56.mp3"
+ },
+ "num_57": {
+  "text": "57",
+  "file": "num_57.mp3"
+ },
+ "num_58": {
+  "text": "58",
+  "file": "num_58.mp3"
+ },
+ "num_59": {
+  "text": "59",
+  "file": "num_59.mp3"
+ },
+ "num_60": {
+  "text": "60",
+  "file": "num_60.mp3"
+ },
+ "num_61": {
+  "text": "61",
+  "file": "num_61.mp3"
+ },
+ "num_62": {
+  "text": "62",
+  "file": "num_62.mp3"
+ },
+ "num_63": {
+  "text": "63",
+  "file": "num_63.mp3"
+ },
+ "num_64": {
+  "text": "64",
+  "file": "num_64.mp3"
+ },
+ "num_65": {
+  "text": "65",
+  "file": "num_65.mp3"
+ },
+ "num_66": {
+  "text": "66",
+  "file": "num_66.mp3"
+ },
+ "num_67": {
+  "text": "67",
+  "file": "num_67.mp3"
+ },
+ "num_68": {
+  "text": "68",
+  "file": "num_68.mp3"
+ },
+ "num_69": {
+  "text": "69",
+  "file": "num_69.mp3"
+ },
+ "num_70": {
+  "text": "70",
+  "file": "num_70.mp3"
+ },
+ "num_71": {
+  "text": "71",
+  "file": "num_71.mp3"
+ },
+ "num_72": {
+  "text": "72",
+  "file": "num_72.mp3"
+ },
+ "num_73": {
+  "text": "73",
+  "file": "num_73.mp3"
+ },
+ "num_74": {
+  "text": "74",
+  "file": "num_74.mp3"
+ },
+ "num_75": {
+  "text": "75",
+  "file": "num_75.mp3"
+ },
+ "num_76": {
+  "text": "76",
+  "file": "num_76.mp3"
+ },
+ "num_77": {
+  "text": "77",
+  "file": "num_77.mp3"
+ },
+ "num_78": {
+  "text": "78",
+  "file": "num_78.mp3"
+ },
+ "num_79": {
+  "text": "79",
+  "file": "num_79.mp3"
+ },
+ "num_80": {
+  "text": "80",
+  "file": "num_80.mp3"
+ },
+ "num_81": {
+  "text": "81",
+  "file": "num_81.mp3"
+ },
+ "num_82": {
+  "text": "82",
+  "file": "num_82.mp3"
+ },
+ "num_83": {
+  "text": "83",
+  "file": "num_83.mp3"
+ },
+ "num_84": {
+  "text": "84",
+  "file": "num_84.mp3"
+ },
+ "num_85": {
+  "text": "85",
+  "file": "num_85.mp3"
+ },
+ "num_86": {
+  "text": "86",
+  "file": "num_86.mp3"
+ },
+ "num_87": {
+  "text": "87",
+  "file": "num_87.mp3"
+ },
+ "num_88": {
+  "text": "88",
+  "file": "num_88.mp3"
+ },
+ "num_89": {
+  "text": "89",
+  "file": "num_89.mp3"
+ },
+ "num_90": {
+  "text": "90",
+  "file": "num_90.mp3"
+ },
+ "num_91": {
+  "text": "91",
+  "file": "num_91.mp3"
+ },
+ "num_92": {
+  "text": "92",
+  "file": "num_92.mp3"
+ },
+ "num_93": {
+  "text": "93",
+  "file": "num_93.mp3"
+ },
+ "num_94": {
+  "text": "94",
+  "file": "num_94.mp3"
+ },
+ "num_95": {
+  "text": "95",
+  "file": "num_95.mp3"
+ },
+ "num_96": {
+  "text": "96",
+  "file": "num_96.mp3"
+ },
+ "num_97": {
+  "text": "97",
+  "file": "num_97.mp3"
+ },
+ "num_98": {
+  "text": "98",
+  "file": "num_98.mp3"
+ },
+ "num_99": {
+  "text": "99",
+  "file": "num_99.mp3"
+ },
+ "num_100": {
+  "text": "100",
+  "file": "num_100.mp3"
+ }
+}
