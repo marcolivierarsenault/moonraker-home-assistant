@@ -61,7 +61,7 @@ async def test_status_intent_named_and_unknown(hass):
         {"name": {"value": "ender"}},
         None,
     )
-    assert "Ender is standby." == _speech(response)
+    assert _speech(response) == "Ender is standby."
 
     response = await intent.async_handle(
         hass,
@@ -91,12 +91,12 @@ async def test_pause_and_resume_intents(hass):
 
     response = await intent.async_handle(hass, "test", "MoonrakerPrintPause", {}, None)
     coordinator.async_send_data.assert_awaited_once_with(METHODS.PRINTER_PRINT_PAUSE)
-    assert "Pausing Voron." == _speech(response)
+    assert _speech(response) == "Pausing Voron."
 
     coordinator.data["status"]["print_stats"]["state"] = "paused"
     response = await intent.async_handle(hass, "test", "MoonrakerPrintResume", {}, None)
     coordinator.async_send_data.assert_awaited_with(METHODS.PRINTER_PRINT_RESUME)
-    assert "Resuming Voron." == _speech(response)
+    assert _speech(response) == "Resuming Voron."
 
 
 async def test_control_intent_idle_and_unreachable(hass):
@@ -106,7 +106,7 @@ async def test_control_intent_idle_and_unreachable(hass):
     async_register_intents(hass)
 
     response = await intent.async_handle(hass, "test", "MoonrakerPrintPause", {}, None)
-    assert "Voron is standby." == _speech(response)
+    assert _speech(response) == "Voron is standby."
 
     coordinator.async_send_data.side_effect = RuntimeError("down")
     response = await intent.async_handle(hass, "test", "MoonrakerPrintPause", {}, None)

@@ -4,7 +4,7 @@ from homeassistant.components.event import EventEntity
 from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
-from .const import DOMAIN, SIGNAL_PRINT_EVENT
+from .const import DOMAIN, SIGNAL_PRINT_EVENT, SIGNAL_PRINTCAST
 from .entity import BaseMoonrakerEntity
 
 EVENT_TYPES = (
@@ -14,6 +14,7 @@ EVENT_TYPES = (
     "print_completed",
     "print_cancelled",
     "print_error",
+    "printcast_forecast",
 )
 
 
@@ -46,6 +47,13 @@ class MoonrakerPrintEvent(BaseMoonrakerEntity, EventEntity):
                 self._handle_print_event,
             )
         )
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass,
+                f"{SIGNAL_PRINTCAST}_{self._entry_id}",
+                self._handle_printcast,
+            )
+        )
 
     @callback
     def _handle_print_event(self, payload: dict) -> None:
@@ -54,4 +62,18 @@ class MoonrakerPrintEvent(BaseMoonrakerEntity, EventEntity):
         if event_type not in self._attr_event_types:
             return
         self._trigger_event(event_type, {"filename": payload.get("filename") or ""})
+        self.async_write_ha_state()
+
+    @callback
+    def _handle_printcast(self, payload: dict) -> None:
+        """Fire a printcast_forecast event when a file select forecast lands."""
+        self._trigger_event(
+            "printcast_forecast",
+            {
+                "filename": payload.get("filename") or "",
+                "score": payload.get("score"),
+                "verdict": payload.get("verdict") or "",
+                "recommendation": payload.get("recommendation") or "",
+            },
+        )
         self.async_write_ha_state()

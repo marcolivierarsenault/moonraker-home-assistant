@@ -38,6 +38,7 @@
           "power_off_delay_min": "Retardo de apagado automático tras imprimir (min)",
           "power_off_max_temp": "Temperatura máxima del extrusor para apagar (°C)",
           "ambient_sensor": "Sensor de temperatura ambiente",
+          "humidity_sensor": "Sensor de humedad para el control de humedad de la bobina",
           "ai_task_entity": "Entidad de tarea IA para revisiones visuales",
           "vision_camera": "Cámara para revisiones IA de impresión"
         },
@@ -77,6 +78,14 @@
     "vision_alert": {
       "title": "Posible fallo de impresión visto en {printer}",
       "description": "La revisión de cámara marcó signos probables de fallo: plástico espagueti, pieza desprendida o primera capa defectuosa. Inspeccione la impresora antes de continuar."
+    },
+    "moisture_risk": {
+      "title": "Riesgo de humedad del filamento en {printer}",
+      "description": "La bobina activa ha absorbido suficiente humedad como para comprometer la calidad. Seque la bobina y márquela como seca en el panel antes del próximo trabajo."
+    },
+    "extrusion_drift": {
+      "title": "Deriva de extrusión detectada en {printer}",
+      "description": "La extrusión reportada cayó por debajo de la referencia de masa aprendida de esta impresora, una señal temprana de obstrucción parcial o subextrusión. Inspeccione el extrusor y la boquilla."
     }
   },
   "selector": {

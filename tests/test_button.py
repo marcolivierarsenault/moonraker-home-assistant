@@ -282,3 +282,33 @@ async def test_print_selected_file_requires_selection(hass):
             {ATTR_ENTITY_ID: entity_id},
             blocking=True,
         )
+
+
+async def test_mark_spool_dried_button(hass):
+    """The mark dried button resets dose locally and errors without a spool."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    entity_id = "button.mainsail_mark_spool_dried"
+    await _enable_button_entity(hass, config_entry, entity_id)
+
+    coordinator.analyzer.printcast.mark_dried = lambda: True
+    await hass.services.async_call(
+        BUTTON_DOMAIN,
+        SERVICE_PRESS,
+        {ATTR_ENTITY_ID: entity_id},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+
+    coordinator.analyzer.printcast.mark_dried = lambda: False
+    with pytest.raises(HomeAssistantError):
+        await hass.services.async_call(
+            BUTTON_DOMAIN,
+            SERVICE_PRESS,
+            {ATTR_ENTITY_ID: entity_id},
+            blocking=True,
+        )

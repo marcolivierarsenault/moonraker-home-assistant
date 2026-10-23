@@ -21,6 +21,12 @@ async def _async_print_selected_file(button):
     )
 
 
+async def _async_mark_spool_dried(button):
+    """Reset the active spool's Printcast hydration dose after a dry cycle."""
+    if not button.coordinator.analyzer.printcast.mark_dried():
+        raise HomeAssistantError("No active spool to mark dried")
+
+
 @dataclass(frozen=True)
 class MoonrakerButtonDescription(ButtonEntityDescription):
     """Class describing Mookraker button entities."""
@@ -160,6 +166,13 @@ BUTTONS: tuple[MoonrakerButtonDescription, ...] = (
             METHODS.PRINTER_GCODE_SCRIPT, {"script": "G28 Z"}
         ),
         icon="mdi:axis-z-arrow",
+        entity_registry_enabled_default=True,
+    ),
+    MoonrakerButtonDescription(
+        key="mark_spool_dried",
+        name="Mark Spool Dried",
+        press_fn=_async_mark_spool_dried,
+        icon="mdi:water-off-outline",
         entity_registry_enabled_default=True,
     ),
     MoonrakerButtonDescription(

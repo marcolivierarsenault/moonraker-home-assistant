@@ -53,6 +53,7 @@ PANEL_THUMB_URL = "/api/moonraker/panel_thumbnail"
 PANEL_SNAPSHOT_URL = "/api/moonraker/panel_webcam_snapshot"
 PANEL_ACTION_URL = "/api/moonraker/panel_action"
 PANEL_FILE_META_URL = "/api/moonraker/panel_file_meta"
+PANEL_PRINTCAST_URL = "/api/moonraker/panel_printcast"
 PANEL_MANIFEST_URL = "/api/moonraker/panel_manifest.json"
 PANEL_SW_URL = "/api/moonraker/panel_sw.js"
 PANEL_FRONTEND_PATH = "moonraker-control-deck"
@@ -125,6 +126,7 @@ _OPERATOR_ACTIONS = {
     "set_bed",
     "z_adjust",
     "cooldown",
+    "mark_spool_dried",
 }
 
 _PREHEAT_PRESETS = {
@@ -347,6 +349,10 @@ def _route_score(coordinator, needs: dict[str, Any]) -> dict[str, Any]:
         score += 10
     else:
         reasons.append("cold chamber")
+    cast = _finite_number(metrics.get("printability_score"))
+    if cast is not None and cast < 60:
+        score = max(0, score - 10)
+        reasons.append(f"low printcast ({cast:.0f})")
     return {"score": score, "reasons": reasons}
 
 
@@ -558,6 +564,10 @@ async def _panel_payload(hass: HomeAssistant, coordinator) -> dict[str, Any]:
             },
         },
         "analysis": coordinator.analyzer.as_dict(),
+        "printcast": dict(
+            getattr(getattr(coordinator.analyzer, "printcast", None), "forecast", {})
+            or {}
+        ),
         "api_key_configured": bool(entry.data.get(CONF_API_KEY)),
         "settings": {
             "host": entry.data.get(CONF_URL),
@@ -1014,6 +1024,46 @@ class MoonrakerPanelFileMetaView(_PanelViewBase):
         return self.json(payload)
 
 
+class MoonrakerPanelPrintcastView(_PanelViewBase):
+    """Compute a Printcast forecast for an arbitrary G-code file."""
+
+    url = PANEL_PRINTCAST_URL
+    name = "api:moonraker:panel_printcast"
+
+    async def get(self, request):
+        """Score a file against live machine state and its slicer metadata."""
+        coordinator = self._resolve(request.query.get("printer"))
+        if coordinator is None:
+            return self.json({"error": "no printer configured"}, status_code=404)
+        filename = str(request.query.get("filename") or "").strip()
+        if not filename:
+            return self.json({"error": "filename required"}, status_code=400)
+        from . import _normalize_gcode_path
+
+        normalized, _root = _normalize_gcode_path(filename)
+        if not normalized:
+            return self.json({"error": "invalid filename"}, status_code=400)
+        try:
+            meta = await coordinator.async_fetch_data(
+                METHODS.SERVER_FILES_METADATA, {"filename": normalized}
+            )
+        except UpdateFailed:
+            meta = {}
+        if not isinstance(meta, dict):
+            meta = {}
+        analyzer = coordinator.analyzer
+        status = (coordinator.data or {}).get("status") or {}
+        forecast = analyzer.printcast.build_forecast(
+            status,
+            time.time(),
+            analyzer.metrics.get("spool_saturation_pct"),
+            list(analyzer.findings),
+            filename=filename,
+            meta=meta,
+        )
+        return self.json(forecast)
+
+
 class MoonrakerPanelThumbnailView(_PanelViewBase):
     """Proxy a G-code thumbnail from Moonraker."""
 
@@ -1243,30 +1293,18 @@ class MoonrakerPanelActionView(_PanelViewBase):
             return None
 
         if action == "apply_queue_plan":
-            plan = coordinator.analyzer.metrics.get("queue_plan") or []
-            filenames = [item["filename"] for item in plan if item["filename"]]
-            if not filenames:
-                return "no queue plan available"
-            queue = (coordinator.data or {}).get("queue") or {}
-            job_ids = [
-                str(job.get("job_id"))
-                for job in queue.get("queued_jobs") or []
-                if isinstance(job, dict) and job.get("job_id")
-            ]
-            if job_ids:
-                await coordinator.async_send_data(
-                    METHODS.SERVER_JOB_QUEUE_DELETE_JOB, {"job_ids": job_ids}
-                )
-            await coordinator.async_send_data(
-                METHODS.SERVER_JOB_QUEUE_POST_JOB, {"filenames": filenames}
-            )
-            return None
+            return await self._run_apply_queue_plan(coordinator)
 
         if action in _QUEUE_ACTIONS:
             return await self._run_queue_action(coordinator, action, payload)
 
         if action == "refresh_files":
             await coordinator.async_refresh_files()
+            return None
+
+        if action == "mark_spool_dried":
+            if not coordinator.analyzer.printcast.mark_dried():
+                return "no active spool to mark dried"
             return None
 
         if action in _GCODE_ACTIONS:
@@ -1285,6 +1323,27 @@ class MoonrakerPanelActionView(_PanelViewBase):
             return None
 
         return "unknown action"
+
+    async def _run_apply_queue_plan(self, coordinator) -> str | None:
+        """Replace the Moonraker queue with the analyzer's planned filenames."""
+        plan = coordinator.analyzer.metrics.get("queue_plan") or []
+        filenames = [item["filename"] for item in plan if item["filename"]]
+        if not filenames:
+            return "no queue plan available"
+        queue = (coordinator.data or {}).get("queue") or {}
+        job_ids = [
+            str(job.get("job_id"))
+            for job in queue.get("queued_jobs") or []
+            if isinstance(job, dict) and job.get("job_id")
+        ]
+        if job_ids:
+            await coordinator.async_send_data(
+                METHODS.SERVER_JOB_QUEUE_DELETE_JOB, {"job_ids": job_ids}
+            )
+        await coordinator.async_send_data(
+            METHODS.SERVER_JOB_QUEUE_POST_JOB, {"filenames": filenames}
+        )
+        return None
 
     async def _run_queue_action(self, coordinator, action: str, payload) -> str | None:
         """Execute a job-queue action; return an error string or None."""
@@ -1355,6 +1414,7 @@ async def register_panel_views(hass: HomeAssistant) -> None:
     hass.http.register_view(MoonrakerPanelThumbnailView(hass))
     hass.http.register_view(MoonrakerPanelSnapshotView(hass))
     hass.http.register_view(MoonrakerPanelFileMetaView(hass))
+    hass.http.register_view(MoonrakerPanelPrintcastView(hass))
     hass.http.register_view(MoonrakerPanelActionView(hass))
     hass.http.register_view(MoonrakerPanelManifestView())
     hass.http.register_view(MoonrakerPanelServiceWorkerView())

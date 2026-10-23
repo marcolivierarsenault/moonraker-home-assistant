@@ -38,6 +38,7 @@
           "power_off_delay_min": "Délai d'arrêt automatique après impression (min)",
           "power_off_max_temp": "Température max de la buse pour l'arrêt (°C)",
           "ambient_sensor": "Capteur de température ambiante",
+          "humidity_sensor": "Capteur d'humidité pour le suivi d'humidité de la bobine",
           "ai_task_entity": "Entité de tâche IA pour les contrôles visuels",
           "vision_camera": "Caméra pour les contrôles IA d'impression"
         },
@@ -77,6 +78,14 @@
     "vision_alert": {
       "title": "Échec d'impression possible détecté sur {printer}",
       "description": "Le contrôle caméra a signalé des signes probables d'échec : plastique spaghetti, pièce détachée ou première couche défectueuse. Inspectez l'imprimante avant de continuer."
+    },
+    "moisture_risk": {
+      "title": "Risque d'humidité du filament sur {printer}",
+      "description": "La bobine active a absorbé assez d'humidité pour compromettre la qualité. Séchez la bobine et marquez-la comme sèche dans le panneau avant le prochain travail."
+    },
+    "extrusion_drift": {
+      "title": "Dérive d'extrusion détectée sur {printer}",
+      "description": "L'extrusion rapportée est passée sous la référence de masse apprise de cette imprimante, signe précoce d'un bouchage partiel ou d'une sous-extrusion. Inspectez l'extrudeur et la buse."
     }
   },
   "selector": {

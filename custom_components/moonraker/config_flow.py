@@ -18,6 +18,7 @@ from .const import (
     CONF_OPTION_AI_TASK_ENTITY,
     CONF_OPTION_AMBIENT_SENSOR,
     CONF_OPTION_ENERGY_RATE,
+    CONF_OPTION_HUMIDITY_SENSOR,
     CONF_OPTION_MAX_FLOW,
     CONF_OPTION_NOTIFY_SERVICE,
     CONF_OPTION_POWER_OFF_DELAY,
@@ -294,6 +295,19 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                         selector.EntitySelectorConfig(
                             domain="sensor",
                             device_class=SensorDeviceClass.TEMPERATURE,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_OPTION_HUMIDITY_SENSOR,
+                        description={
+                            "suggested_value": self.config_entry.options.get(
+                                CONF_OPTION_HUMIDITY_SENSOR
+                            )
+                        },
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(
+                            domain="sensor",
+                            device_class=SensorDeviceClass.HUMIDITY,
                         )
                     ),
                     vol.Optional(

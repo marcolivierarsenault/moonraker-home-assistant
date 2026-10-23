@@ -3056,3 +3056,105 @@ test("timelapse export reports unsupported without MediaRecorder", () => {
   vm.runInContext("exportTimelapseVideo()", context);
   assert.match(document.getElementById("toast").textContent, /UNSUPPORTED/i);
 });
+
+test("printcast card renders score, factors, and worsens to a toast", () => {
+  const { context, document } = createPanelClient();
+  const root = (document.documentElement = new FakeElement("html"));
+  root.style["--red"] = "#f00";
+  root.style["--green"] = "#0f0";
+  const payload = {
+    printcast: {
+      score: 62,
+      verdict: "CAUTION",
+      mode: "preflight",
+      filename: "gcodes/cube.gcode",
+      recommendation: "re-dry the spool",
+      factors: [
+        { key: "spool_hydration", points: 12, detail: "6.2 RH·h accumulated" },
+        { key: "mesh_age", points: 9, detail: "mesh 11 days old", nogo: false },
+      ],
+    },
+    analysis: {
+      metrics: {
+        spool_saturation_pct: 61.7,
+        spool_hydration_dose_rh_h: 6.2,
+        extrusion_debt_pct: -1.4,
+      },
+    },
+  };
+  vm.runInContext(`renderPrintcast(${JSON.stringify(payload)})`, context);
+
+  assert.equal(document.getElementById("printcastScore").textContent, "62/100");
+  assert.equal(
+    document.getElementById("printcastVerdict").textContent,
+    "CAUTION",
+  );
+  assert.equal(document.getElementById("printcastMode").textContent, "PREFLIGHT");
+  assert.equal(document.getElementById("printcastFile").textContent, "cube.gcode");
+  assert.equal(document.getElementById("printcastSat").textContent, "62%");
+  assert.equal(
+    document.getElementById("printcastDose").textContent,
+    "6.2 RH·h",
+  );
+  assert.equal(document.getElementById("printcastDebt").textContent, "-1.4%");
+  assert.equal(
+    document.getElementById("printcastRec").textContent,
+    "re-dry the spool",
+  );
+
+  const factors = document.getElementById("printcastFactors");
+  assert.match(deepText(factors), /spool hydration/);
+  assert.match(deepText(factors), /mesh 11 days old/);
+
+  // Same file worsening to NO-GO raises a toast.
+  const worse = JSON.parse(JSON.stringify(payload));
+  worse.printcast.score = 18;
+  worse.printcast.verdict = "NO-GO";
+  vm.runInContext(`renderPrintcast(${JSON.stringify(worse)})`, context);
+  assert.match(document.getElementById("toast").textContent, /NO-GO/);
+  assert.equal(
+    document.getElementById("printcastVerdict").style.color,
+    "#f00",
+  );
+});
+
+test("printcast card tolerates empty and partial forecasts", () => {
+  const { context, document } = createPanelClient();
+  vm.runInContext(`renderPrintcast({})`, context);
+  assert.equal(document.getElementById("printcastScore").textContent, "—");
+  assert.equal(document.getElementById("printcastVerdict").textContent, "—");
+  const factors = document.getElementById("printcastFactors");
+  assert.match(deepText(factors), /no risk factors/);
+
+  vm.runInContext(
+    `renderPrintcast({ printcast: {
+      score: 40, verdict: "POOR", mode: "live",
+      filename: "dir/body.gcode", partial: true, factors: []
+    }, analysis: { metrics: {} } })`,
+    context,
+  );
+  assert.equal(
+    document.getElementById("printcastFile").textContent,
+    "body.gcode (partial)",
+  );
+});
+
+test("mark dried button posts the mark_spool_dried action", async () => {
+  const { context, document, window } = createPanelClient();
+  let posted = null;
+  window.hass = {
+    callApi: async (method, _path, body) => {
+      if (method === "POST") posted = { method, body };
+      return { ok: true };
+    },
+    fetchWithAuth: async () => ({}),
+  };
+  vm.runInContext(
+    `printer = "p"; latestData = { status: {}, settings: {} }; lastDataAt = Date.now();`,
+    context,
+  );
+  vm.runInContext("bindAlertSettings()", context);
+  document.getElementById("printcastMarkDried").listeners.click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(posted.body.action, "mark_spool_dried");
+});

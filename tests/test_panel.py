@@ -344,6 +344,8 @@ def _panel_coordinator(hass, **overrides):
         "analyzer": SimpleNamespace(
             as_dict=MagicMock(return_value={"metrics": {}, "findings": []}),
             metrics={},
+            findings=[],
+            printcast=SimpleNamespace(forecast={}, mark_dried=lambda: True),
         ),
     }
     base.update(overrides)
@@ -1688,3 +1690,120 @@ async def test_panel_pwa_manifest_and_service_worker(hass):
     worker = await MoonrakerPanelServiceWorkerView().get(MagicMock())
     assert worker.content_type == "application/javascript"
     assert b"service worker" in worker.body
+
+
+async def test_panel_printcast_endpoint(hass):
+    """The printcast endpoint scores arbitrary files against live state."""
+    import json
+
+    from custom_components.moonraker.panel import MoonrakerPanelPrintcastView
+
+    view = MoonrakerPanelPrintcastView(hass)
+    coordinator = _panel_coordinator(hass)
+    coordinator.analyzer.printcast = SimpleNamespace(
+        forecast={},
+        build_forecast=MagicMock(
+            return_value={
+                "filename": "part.gcode",
+                "score": 92,
+                "verdict": "CLEAR",
+                "factors": [],
+            }
+        ),
+    )
+    view._resolve = MagicMock(return_value=coordinator)
+
+    response = await view.get(
+        SimpleNamespace(query={"printer": "printer-id", "filename": "part.gcode"})
+    )
+    assert response.status == 200
+    body = json.loads(response.body.decode())
+    assert body["score"] == 92
+    coordinator.analyzer.printcast.build_forecast.assert_called_once()
+
+    # Metadata fetch failure still yields a forecast.
+    coordinator.async_fetch_data.side_effect = UpdateFailed("down")
+    response = await view.get(
+        SimpleNamespace(query={"printer": "printer-id", "filename": "part.gcode"})
+    )
+    assert response.status == 200
+
+    # Non-dict metadata is tolerated.
+    coordinator.async_fetch_data.side_effect = None
+    coordinator.async_fetch_data.return_value = ["unexpected"]
+    response = await view.get(
+        SimpleNamespace(query={"printer": "printer-id", "filename": "part.gcode"})
+    )
+    assert response.status == 200
+
+    # Path traversal is rejected before any metadata call.
+    response = await view.get(
+        SimpleNamespace(query={"printer": "printer-id", "filename": "../secret.txt"})
+    )
+    assert response.status == 400
+
+    # Error paths.
+    response = await view.get(SimpleNamespace(query={"printer": "printer-id"}))
+    assert response.status == 400
+    view._resolve = MagicMock(return_value=None)
+    response = await view.get(
+        SimpleNamespace(query={"printer": "ghost", "filename": "x"})
+    )
+    assert response.status == 404
+
+
+async def test_panel_action_mark_spool_dried(hass):
+    """The mark_spool_dried action resets dose without printer calls."""
+    from custom_components.moonraker.panel import MoonrakerPanelActionView
+
+    view = MoonrakerPanelActionView(hass)
+    coordinator = _panel_coordinator(hass)
+    view._resolve = MagicMock(return_value=coordinator)
+    request = SimpleNamespace(
+        json=AsyncMock(
+            return_value={
+                "entry_id": "printer-id",
+                "action": "mark_spool_dried",
+            }
+        ),
+        get=MagicMock(return_value=SimpleNamespace(is_admin=True, name="boss")),
+    )
+    response = await view.post(request)
+    assert response.status == 200
+    coordinator.async_send_data.assert_not_called()
+
+    coordinator.analyzer.printcast.mark_dried = lambda: False
+    response = await view.post(request)
+    assert response.status == 400
+
+
+def test_route_score_penalizes_low_printcast(hass):
+    """A printer forecasting poorly loses router points."""
+    from custom_components.moonraker.panel import _route_score
+
+    candidate = _panel_coordinator(
+        hass, data={"status": {"print_stats": {"state": "standby"}}}
+    )
+    candidate.analyzer.metrics = {
+        "spool_material": "PLA",
+        "spool_remaining_mm": 9000.0,
+        "preflight": {"mesh_fresh": True},
+        "ambient_c": 22.0,
+        "printability_score": 35.0,
+    }
+    result = _route_score(candidate, {})
+    assert result["score"] == 90
+    assert "low printcast (35)" in result["reasons"]
+
+
+async def test_payload_includes_printcast(hass):
+    """The panel payload ships the live forecast dict."""
+    coordinator = _panel_coordinator(hass)
+    coordinator.analyzer.printcast.forecast = {
+        "score": 88,
+        "verdict": "CLEAR",
+    }
+    from custom_components.moonraker.panel import _panel_payload
+
+    payload = await _panel_payload(hass, coordinator)
+    assert payload["printcast"]["score"] == 88

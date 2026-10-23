@@ -139,3 +139,31 @@ async def test_notify_skipped_without_service(hass, get_default_api_response):
     coordinator.analyzer._notify("print_started", "cube.gcode")
     await hass.async_block_till_done()
     assert calls == []
+
+
+async def test_printcast_forecast_event(hass, get_default_api_response):
+    """Printcast dispatches surface as printcast_forecast entity events."""
+    from homeassistant.helpers.dispatcher import async_dispatcher_send
+
+    from custom_components.moonraker.const import SIGNAL_PRINTCAST
+
+    coordinator, _ = await _setup(hass, get_default_api_response)
+    entity_id = "event.mainsail_print_events"
+
+    async_dispatcher_send(
+        hass,
+        f"{SIGNAL_PRINTCAST}_{coordinator.config_entry.entry_id}",
+        {
+            "filename": "cube.gcode",
+            "score": 82,
+            "verdict": "CLEAR",
+            "recommendation": "go ahead",
+        },
+    )
+    await hass.async_block_till_done()
+
+    state = hass.states.get(entity_id)
+    assert state.attributes["event_type"] == "printcast_forecast"
+    assert state.attributes["filename"] == "cube.gcode"
+    assert state.attributes["score"] == 82
+    assert state.attributes["verdict"] == "CLEAR"

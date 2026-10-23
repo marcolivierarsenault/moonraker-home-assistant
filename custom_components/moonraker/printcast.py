@@ -689,6 +689,23 @@ class MoonrakerPrintcast:
         metrics["printcast_filename"] = forecast["filename"]
         metrics["printcast_mode"] = forecast["mode"]
 
+        # Stamp each queued job with its own forecast so the queue view can
+        # show which jobs are safe to run in current conditions.
+        queue_meta = (self.coordinator.data or {}).get("queue_meta") or {}
+        for item in metrics.get("queue_plan") or []:
+            job_name = str(item.get("filename") or "")
+            job_meta = queue_meta.get(job_name)
+            job_forecast = self.build_forecast(
+                status,
+                now,
+                saturation,
+                findings + out,
+                filename=job_name or None,
+                meta=job_meta if isinstance(job_meta, dict) else {},
+            )
+            item["printability"] = job_forecast["score"]
+            item["printability_verdict"] = job_forecast["verdict"]
+
         self._maybe_announce(status, forecast)
         return out
 

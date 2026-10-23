@@ -38,6 +38,7 @@
           "power_off_delay_min": "Auto power-off delay after print (min)",
           "power_off_max_temp": "Max hotend temperature for power-off (°C)",
           "ambient_sensor": "Ambient temperature sensor",
+          "humidity_sensor": "Humidity sensor for spool moisture tracking",
           "ai_task_entity": "AI task entity for vision checks",
           "vision_camera": "Camera for AI print checks",
           "panel_role": "Panel access for non-admin users"
@@ -82,6 +83,14 @@
     "config_changed": {
       "title": "Printer configuration changed on {printer}",
       "description": "The Klipper configuration snapshot differs from the one stored previously. Review recent printer.cfg edits if this was unexpected."
+    },
+    "moisture_risk": {
+      "title": "Filament moisture risk on {printer}",
+      "description": "The active spool has absorbed enough humidity to threaten print quality. Dry the spool and mark it dried in the panel before starting the next job."
+    },
+    "extrusion_drift": {
+      "title": "Extrusion drift detected on {printer}",
+      "description": "Reported filament extrusion has drifted below this printer's learned mass baseline across recent prints, which is an early partial-clog or under-extrusion signature. Inspect the extruder and nozzle."
     }
   },
   "selector": {

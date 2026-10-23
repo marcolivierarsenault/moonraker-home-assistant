@@ -714,6 +714,7 @@ function render(data) {
   renderComponents(data);
   renderBedMesh(status);
   renderMeshDecay(status);
+  renderPrintcast(data);
   renderHardware(status);
   renderVersions(data);
 
@@ -1576,6 +1577,87 @@ function renderTramWizard() {
     }
     rows.append(b, span);
   });
+}
+
+const PRINTCAST_RANK = { CLEAR: 0, CAUTION: 1, POOR: 2, "NO-GO": 3 };
+let lastPrintcastSignal = "";
+
+function renderPrintcast(data) {
+  const cast = data.printcast || {};
+  const metrics = (data.analysis || {}).metrics || {};
+  const score = cast.score;
+  setText("printcastScore", score == null ? "—" : `${score}/100`);
+  const verdictEl = byId("printcastVerdict");
+  const verdict = cast.verdict || "—";
+  if (verdictEl) {
+    verdictEl.textContent = verdict;
+    verdictEl.style.color =
+      verdict === "CLEAR"
+        ? cssVar("--green")
+        : verdict === "NO-GO"
+          ? cssVar("--red")
+          : verdict === "—"
+            ? ""
+            : cssVar("--amber");
+  }
+  const fileTail = String(cast.filename || "—").split("/").pop();
+  setText(
+    "printcastFile",
+    cast.partial ? `${fileTail} (partial)` : fileTail,
+  );
+  setText("printcastMode", String(cast.mode || "—").toUpperCase());
+  setText(
+    "printcastSat",
+    metrics.spool_saturation_pct == null
+      ? "—"
+      : `${fmt(metrics.spool_saturation_pct, 0)}%`,
+  );
+  setText(
+    "printcastDose",
+    metrics.spool_hydration_dose_rh_h == null
+      ? "—"
+      : `${fmt(metrics.spool_hydration_dose_rh_h, 1)} RH·h`,
+  );
+  setText(
+    "printcastDebt",
+    metrics.extrusion_debt_pct == null
+      ? "—"
+      : `${fmt(metrics.extrusion_debt_pct, 1)}%`,
+  );
+  setText("printcastRec", cast.recommendation || "—");
+
+  const wrap = byId("printcastFactors");
+  if (wrap) {
+    wrap.replaceChildren();
+    const factors = Array.isArray(cast.factors) ? cast.factors : [];
+    factors.forEach((factor) => {
+      const key = document.createElement("b");
+      key.textContent = `−${factor.points} ${String(factor.key || "").replace(/_/g, " ")}${factor.nogo ? " ⛔" : ""}`;
+      key.style.color = factor.nogo ? cssVar("--red") : cssVar("--amber");
+      const detail = document.createElement("span");
+      detail.textContent = factor.detail || "";
+      wrap.append(key, detail);
+    });
+    if (!factors.length) {
+      const ok = document.createElement("span");
+      ok.textContent = "no risk factors — conditions look good";
+      ok.style.color = cssVar("--green");
+      wrap.append(ok);
+    }
+  }
+
+  // Toast when the forecast worsens on the current file.
+  if (verdict === "—" || score == null) return;
+  const signal = `${cast.filename}|${verdict}`;
+  if (
+    signal !== lastPrintcastSignal &&
+    lastPrintcastSignal.split("|")[0] === String(cast.filename) &&
+    (PRINTCAST_RANK[verdict] ?? 0) >
+      (PRINTCAST_RANK[lastPrintcastSignal.split("|")[1]] ?? 0)
+  ) {
+    toast(`PRINTCAST ${score}/100 — ${verdict}: ${fileTail}`, 5000);
+  }
+  lastPrintcastSignal = signal;
 }
 
 function renderMeshSurface() {
@@ -4296,7 +4378,11 @@ let panelPushUnsub = null;
 let panelPushRequest = null;
 let panelPushLive = false;
 const STALE_AFTER_MS = 8000;
-const STALE_EXEMPT_ACTIONS = new Set(["emergency_stop", "refresh_files"]);
+const STALE_EXEMPT_ACTIONS = new Set([
+  "emergency_stop",
+  "refresh_files",
+  "mark_spool_dried",
+]);
 
 function updateStaleness() {
   const printing = ["printing", "paused"].includes(
@@ -5801,6 +5887,9 @@ function bindAlertSettings() {
   byId("energyRate")?.addEventListener?.("change", saveEnergyPrefs);
   byId("maxFlowInput")?.addEventListener?.("change", saveFlowPrefs);
   byId("meshRebaseline")?.addEventListener?.("click", resetMeshBaseline);
+  byId("printcastMarkDried")?.addEventListener?.("click", () => {
+    act("mark_spool_dried");
+  });
   byId("meshTramWizard")?.addEventListener?.("click", () => {
     const wrap = byId("tramWizard");
     if (!wrap) return;

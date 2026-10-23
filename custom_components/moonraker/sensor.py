@@ -523,6 +523,57 @@ ANALYZER_SENSORS: tuple[MoonrakerSensorDescription, ...] = (
         entity_registry_enabled_default=False,
     ),
     MoonrakerSensorDescription(
+        key="printability_score",
+        name="Printcast Printability",
+        value_fn=lambda sensor: sensor.coordinator.analyzer.metrics.get(
+            "printability_score"
+        ),
+        icon="mdi:weather-partly-cloudy",
+        unit=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        attributes_fn=lambda sensor: {
+            "verdict": sensor.coordinator.analyzer.metrics.get("printability_verdict"),
+            "factors": sensor.coordinator.analyzer.metrics.get("printability_factors"),
+            "recommendation": sensor.coordinator.analyzer.metrics.get(
+                "printability_recommendation"
+            ),
+        },
+    ),
+    MoonrakerSensorDescription(
+        key="spool_saturation",
+        name="Spool Saturation",
+        value_fn=lambda sensor: sensor.coordinator.analyzer.metrics.get(
+            "spool_saturation_pct"
+        ),
+        icon="mdi:water-percent",
+        unit=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        attributes_fn=lambda sensor: {
+            "hydration_dose_rh_h": sensor.coordinator.analyzer.metrics.get(
+                "spool_hydration_dose_rh_h"
+            ),
+            "humidity_pct": sensor.coordinator.analyzer.metrics.get("humidity_pct"),
+        },
+    ),
+    MoonrakerSensorDescription(
+        key="extrusion_debt",
+        name="Extrusion Debt",
+        value_fn=lambda sensor: sensor.coordinator.analyzer.metrics.get(
+            "extrusion_debt_pct"
+        ),
+        icon="mdi:scale-balance",
+        unit=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        attributes_fn=lambda sensor: {
+            "drift_pts": sensor.coordinator.analyzer.metrics.get(
+                "extrusion_debt_drift_pts"
+            ),
+            "ledger_entries": sensor.coordinator.analyzer.metrics.get(
+                "mass_ledger_entries"
+            ),
+        },
+    ),
+    MoonrakerSensorDescription(
         key="printer_health",
         name="Printer Health",
         value_fn=lambda sensor: analyzer_health_state(sensor.coordinator),

@@ -2094,6 +2094,19 @@ class MoonrakerAnalyzer:
             except (TypeError, ValueError):
                 config_recent = False
         sync("config_changed", config_recent, "warn")
+        sync(
+            "moisture_risk",
+            any(
+                "filament moisture risk" in finding["label"]
+                for finding in self.findings
+            ),
+            "warn",
+        )
+        sync(
+            "extrusion_drift",
+            any("extrusion drift" in finding["label"] for finding in self.findings),
+            "warn",
+        )
 
     def _reset_print_tracking(
         self, now: float, filename: str, findings: list[dict[str, str]]

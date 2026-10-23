@@ -38,10 +38,9 @@ async def async_setup_analyzer_binary_sensors(coordinator, entry, async_add_enti
         MoonrakerBinarySensorDescription(
             key="mesh_relevel_due",
             sensor_name="mesh_relevel_due",
-            is_on_fn=lambda sensor: sensor.coordinator.analyzer.metrics.get(
-                "mesh_status"
-            )
-            == "due",
+            is_on_fn=lambda sensor: (
+                sensor.coordinator.analyzer.metrics.get("mesh_status") == "due"
+            ),
             name="Mesh Relevel Due",
             subscriptions=[],
             icon="mdi:bed-clock",
