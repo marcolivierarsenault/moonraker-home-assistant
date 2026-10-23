@@ -3,7 +3,7 @@
 import logging
 from datetime import timedelta
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 from custom_components.moonraker.const import PRINTSTATES
@@ -168,6 +168,47 @@ def test_build_thumbnail_path_strips_dot_prefix():
     )
 
 
+async def test_tcp_reachable_success_closes_writer():
+    """A successful TCP probe returns True and closes the connection."""
+    writer = MagicMock()
+    writer.wait_closed = AsyncMock()
+
+    with patch(
+        "asyncio.open_connection",
+        new_callable=AsyncMock,
+        return_value=(MagicMock(), writer),
+    ):
+        assert await _async_is_tcp_reachable("1.2.3.4", DEFAULT_PORT)
+
+    writer.close.assert_called_once()
+    writer.wait_closed.assert_awaited_once()
+
+
+async def test_tcp_reachable_suppresses_close_errors():
+    """Errors while closing the probe connection are ignored."""
+    writer = MagicMock()
+    writer.wait_closed = AsyncMock(side_effect=OSError)
+
+    with patch(
+        "asyncio.open_connection",
+        new_callable=AsyncMock,
+        return_value=(MagicMock(), writer),
+    ):
+        assert await _async_is_tcp_reachable("1.2.3.4", DEFAULT_PORT)
+
+    writer.close.assert_called_once()
+
+
+async def test_tcp_unreachable_returns_false():
+    """A refused TCP probe returns False."""
+    with patch(
+        "asyncio.open_connection",
+        new_callable=AsyncMock,
+        side_effect=OSError,
+    ):
+        assert not await _async_is_tcp_reachable("1.2.3.4", DEFAULT_PORT)
+
+
 async def test_gcode_detail_skips_empty_normalized_filename(hass):
     """Return defaults when normalized filename is empty."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
@@ -326,6 +367,59 @@ async def test_setup_unload_and_reload_entry_with_name(hass):
     assert config_entry.entry_id not in hass.data[DOMAIN]
 
 
+@pytest.mark.parametrize(
+    ("printer_info", "expected_name"),
+    [
+        (
+            {
+                "device_type": "Anycubic Kobra 2 Pro",
+                "state": "ready",
+                "state_message": "Printer is ready",
+                "software_version": "",
+            },
+            "Anycubic Kobra 2 Pro",
+        ),
+        (
+            {
+                "state": "ready",
+                "state_message": "Printer is ready",
+                "software_version": "",
+            },
+            MOCK_CONFIG["url"],
+        ),
+    ],
+)
+async def test_setup_entry_without_hostname_uses_fallback_name(
+    hass, get_default_api_response, printer_info, expected_name
+):
+    """Use compatible names when printer.info does not include a hostname."""
+
+    async def load_data(endpoint, *args, **kwargs):
+        if endpoint == METHODS.PRINTER_INFO.value:
+            return printer_info
+
+        return get_default_api_response
+
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MOCK_CONFIG,
+        entry_id=f"missing_hostname_{expected_name}",
+    )
+    config_entry.add_to_hass(hass)
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        new_callable=AsyncMock,
+        side_effect=load_data,
+    ):
+        assert await hass.config_entries.async_setup(config_entry.entry_id)
+
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    assert config_entry.title == expected_name
+    assert coordinator.api_device_name == expected_name
+    assert await async_unload_entry(hass, config_entry)
+
+
 async def test_async_send_data_exception(hass):
     """Test async_post_exception."""
 
@@ -468,38 +562,19 @@ async def test_setup_entry_unreachable_logs_debug_when_option_enabled(hass, capl
     )
 
 
-async def test_async_is_tcp_reachable_returns_true_when_connection_opens():
-    """A successful TCP connection marks the endpoint as reachable."""
-    writer = MagicMock()
-    writer.wait_closed = AsyncMock()
-
-    with patch(
-        "custom_components.moonraker.asyncio.open_connection",
-        new_callable=AsyncMock,
-        return_value=(MagicMock(), writer),
-    ):
-        assert await _async_is_tcp_reachable("1.2.3.4", 7125) is True
-
-    writer.close.assert_called_once()
-    writer.wait_closed.assert_awaited_once()
-
-
-async def test_async_is_tcp_reachable_returns_false_when_connection_fails():
-    """Connection errors mark the endpoint as unreachable."""
-    with patch(
-        "custom_components.moonraker.asyncio.open_connection",
-        new_callable=AsyncMock,
-        side_effect=OSError,
-    ):
-        assert await _async_is_tcp_reachable("1.2.3.4", 7125) is False
-
-
-async def test_async_fetch_data_unreachable_raises_update_failed(hass):
-    """Fetching while disconnected and unreachable raises UpdateFailed."""
-    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+async def test_offline_poll_error_log_suppressed_when_option_enabled(hass, caplog):
+    """The coordinator's failed-refresh error log honors quiet mode."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MOCK_CONFIG,
+        options={CONF_OPTION_QUIET_UNREACHABLE: True},
+        entry_id="quiet_offline_poll",
+    )
     config_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(config_entry.entry_id)
+
     coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    assert coordinator.last_update_success
 
     with (
         patch(
@@ -507,18 +582,35 @@ async def test_async_fetch_data_unreachable_raises_update_failed(hass):
             new_callable=AsyncMock,
             return_value=False,
         ),
-        pytest.raises(UpdateFailed),
+        caplog.at_level(logging.DEBUG),
     ):
-        await coordinator.async_fetch_data(METHODS.PRINTER_INFO)
+        await coordinator.async_refresh()
+
+    assert not coordinator.last_update_success
+    assert not any(
+        record.levelno >= logging.WARNING
+        and "Error fetching moonraker data" in record.getMessage()
+        for record in caplog.records
+    )
+    assert any(
+        record.levelno == logging.DEBUG and "is unreachable" in record.getMessage()
+        for record in caplog.records
+    )
 
     assert await async_unload_entry(hass, config_entry)
 
 
-async def test_async_send_data_unreachable_raises_update_failed(hass):
-    """Sending while disconnected and unreachable raises UpdateFailed."""
-    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+async def test_offline_poll_fully_quiet_when_debug_disabled(hass, caplog):
+    """Without debug logging enabled, quiet mode emits no record at all."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MOCK_CONFIG,
+        options={CONF_OPTION_QUIET_UNREACHABLE: True},
+        entry_id="quiet_offline_no_debug",
+    )
     config_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(config_entry.entry_id)
+
     coordinator = hass.data[DOMAIN][config_entry.entry_id]
 
     with (
@@ -527,9 +619,185 @@ async def test_async_send_data_unreachable_raises_update_failed(hass):
             new_callable=AsyncMock,
             return_value=False,
         ),
+        caplog.at_level(logging.INFO),
+    ):
+        await coordinator.async_refresh()
+
+    assert not coordinator.last_update_success
+    assert not any(
+        "Error fetching moonraker data" in record.getMessage()
+        for record in caplog.records
+    )
+
+    assert await async_unload_entry(hass, config_entry)
+
+
+async def test_quiet_mode_rechecks_reachability_when_call_fails(hass, caplog):
+    """A printer that drops while the websocket looks connected stays quiet."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MOCK_CONFIG,
+        options={CONF_OPTION_QUIET_UNREACHABLE: True},
+        entry_id="quiet_stale_connection",
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    caplog.clear()
+
+    with (
+        patch.object(
+            type(coordinator.moonraker.client),
+            "is_connected",
+            new_callable=PropertyMock,
+            return_value=True,
+        ),
+        patch(
+            "moonraker_api.MoonrakerClient.call_method",
+            new_callable=AsyncMock,
+            side_effect=TimeoutError,
+        ),
+        patch(
+            "custom_components.moonraker._async_is_tcp_reachable",
+            new_callable=AsyncMock,
+            return_value=False,
+        ),
+        caplog.at_level(logging.DEBUG),
+    ):
+        await coordinator.async_refresh()
+
+    assert not coordinator.last_update_success
+    assert "is unreachable" in str(coordinator.last_exception)
+    assert not any(record.levelno >= logging.WARNING for record in caplog.records)
+
+    assert await async_unload_entry(hass, config_entry)
+
+
+async def test_quiet_mode_logs_other_failures_only_once(hass, caplog):
+    """Quiet mode logs a non-reachability failure only on the first refresh."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MOCK_CONFIG,
+        options={CONF_OPTION_QUIET_UNREACHABLE: True},
+        entry_id="quiet_other_failure_once",
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+
+    with (
+        patch(
+            "moonraker_api.MoonrakerClient.call_method",
+            new_callable=AsyncMock,
+            side_effect=Exception("boom"),
+        ),
+        caplog.at_level(logging.DEBUG),
+    ):
+        await coordinator.async_refresh()
+        await coordinator.async_refresh()
+
+    errors = [
+        record
+        for record in caplog.records
+        if record.levelno == logging.ERROR
+        and "Error fetching moonraker data" in record.getMessage()
+    ]
+    assert len(errors) == 1
+
+    assert await async_unload_entry(hass, config_entry)
+
+
+async def test_offline_poll_error_log_kept_by_default(hass, caplog):
+    """Without quiet mode the coordinator still logs offline polls as errors."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, entry_id="loud_offline_poll"
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+
+    with (
+        patch(
+            "custom_components.moonraker._async_is_tcp_reachable",
+            new_callable=AsyncMock,
+            return_value=False,
+        ),
+        caplog.at_level(logging.DEBUG),
+    ):
+        await coordinator.async_refresh()
+
+    assert not coordinator.last_update_success
+    assert any(
+        record.levelno == logging.ERROR
+        and "Error fetching moonraker data" in record.getMessage()
+        for record in caplog.records
+    )
+
+    assert await async_unload_entry(hass, config_entry)
+
+
+async def test_send_data_unreachable_raises_update_failed(hass, caplog):
+    """Sending data to an unreachable printer fails with a warning log."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, entry_id="send_unreachable"
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+
+    with (
+        patch(
+            "custom_components.moonraker._async_is_tcp_reachable",
+            new_callable=AsyncMock,
+            return_value=False,
+        ),
+        caplog.at_level(logging.DEBUG),
         pytest.raises(UpdateFailed),
     ):
         await coordinator.async_send_data(METHODS.PRINTER_EMERGENCY_STOP)
+
+    assert any(
+        record.levelno == logging.WARNING
+        and "connection to moonraker down" in record.getMessage()
+        for record in caplog.records
+    )
+
+    assert await async_unload_entry(hass, config_entry)
+
+
+async def test_quiet_mode_keeps_error_log_for_other_failures(hass, caplog):
+    """Quiet mode must not hide refresh failures unrelated to reachability."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MOCK_CONFIG,
+        options={CONF_OPTION_QUIET_UNREACHABLE: True},
+        entry_id="quiet_other_failure",
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+
+    with (
+        patch(
+            "moonraker_api.MoonrakerClient.call_method",
+            new_callable=AsyncMock,
+            side_effect=Exception("boom"),
+        ),
+        caplog.at_level(logging.DEBUG),
+    ):
+        await coordinator.async_refresh()
+
+    assert not coordinator.last_update_success
+    assert any(
+        record.levelno == logging.ERROR
+        and "Error fetching moonraker data" in record.getMessage()
+        for record in caplog.records
+    )
 
     assert await async_unload_entry(hass, config_entry)
 
@@ -590,7 +858,12 @@ async def test_set_custom_gcode_service(hass):
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
-    device_id = list(hass.data["device_registry"].devices.keys())
+    device_id = [
+        device.id
+        for device in dr.async_entries_for_config_entry(
+            dr.async_get(hass), config_entry.entry_id
+        )
+    ]
 
     # Test that the function call works in its entirety.
     with patch(
@@ -621,7 +894,12 @@ async def test_send_gcode_list_payload_normalizes_script(hass):
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
-    device_ids = list(hass.data["device_registry"].devices.keys())
+    device_ids = [
+        device.id
+        for device in dr.async_entries_for_config_entry(
+            dr.async_get(hass), config_entry.entry_id
+        )
+    ]
     target_device_id = device_ids[0]
 
     with patch(
@@ -654,7 +932,12 @@ async def test_send_gcode_empty_payload_skips_send(hass):
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
-    device_ids = list(hass.data["device_registry"].devices.keys())
+    device_ids = [
+        device.id
+        for device in dr.async_entries_for_config_entry(
+            dr.async_get(hass), config_entry.entry_id
+        )
+    ]
 
     with patch(
         "moonraker_api.MoonrakerClient.call_method", new_callable=AsyncMock
@@ -684,7 +967,12 @@ async def test_send_gcode_accepts_config_entry_id_and_deduplicates(hass):
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
-    device_ids = list(hass.data["device_registry"].devices.keys())
+    device_ids = [
+        device.id
+        for device in dr.async_entries_for_config_entry(
+            dr.async_get(hass), config_entry.entry_id
+        )
+    ]
     primary_device_id = device_ids[0]
 
     with patch(

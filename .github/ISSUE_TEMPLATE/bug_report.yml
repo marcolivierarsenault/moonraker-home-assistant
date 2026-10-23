@@ -1,0 +1,109 @@
+name: Bug report
+description: Report a reproducible problem with the Moonraker integration
+title: "[Bug]: "
+labels:
+  - bug
+  - ai:triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. The information below lets a maintainer
+        or coding agent investigate without guessing.
+
+        Do not include API keys, access tokens, public URLs, or other secrets.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the existing issues for the same problem.
+          required: true
+        - label: I reproduced the problem with the latest released integration version.
+          required: true
+        - label: I removed credentials and other private information from the logs.
+          required: true
+
+  - type: input
+    id: integration-version
+    attributes:
+      label: Integration version
+      description: The installed Moonraker integration version shown by HACS.
+      placeholder: 1.13.4
+    validations:
+      required: true
+
+  - type: input
+    id: home-assistant-version
+    attributes:
+      label: Home Assistant version
+      placeholder: 2026.8.0
+    validations:
+      required: true
+
+  - type: input
+    id: moonraker-version
+    attributes:
+      label: Moonraker version and implementation
+      description: Include the version and whether this is standard Moonraker, Rinkhals, or another compatible implementation.
+      placeholder: Moonraker 0.9.3, standard installation
+    validations:
+      required: true
+
+  - type: textarea
+    id: printer-setup
+    attributes:
+      label: Printer setup
+      description: Describe the printer, controller, Klipper/Moonraker installation, and UI such as Mainsail or Fluidd.
+      placeholder: Printer model, host hardware, operating system, Klipper distribution, and relevant add-ons
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Explain what happened and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Configure ...
+        2. Reload ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Home Assistant logs
+      description: Paste a sanitized excerpt, attach a sanitized log file, or explain why logs cannot be provided. See the logging guide linked below.
+      render: text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: test-branch
+    attributes:
+      label: Can you test a proposed fix?
+      description: Some hardware-specific issues require the reporter to test a branch and provide fresh logs.
+      options:
+        - "Yes"
+        - "No"
+        - "Maybe, with instructions"
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        New reports receive AI-assisted triage. A maintainer must explicitly
+        authorize code changes by applying the `ai:fix` label.
+
+        Logging instructions: https://moonraker-home-assistant.readthedocs.io/en/stable/support/logs.html

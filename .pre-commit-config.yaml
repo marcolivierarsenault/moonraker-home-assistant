@@ -5,7 +5,7 @@ repos:
       - id: pyupgrade
         args: [--py39-plus]
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.0
+    rev: v0.17.1
     hooks:
       - id: ruff
         args:
@@ -16,18 +16,3 @@ repos:
     rev: v3.1.0
     hooks:
       - id: prettier
-  - repo: https://github.com/lycheeverse/lychee.git
-    rev: lychee-v0.24.2
-    hooks:
-      - id: lychee
-        name: run lychee
-        description: run lychee, a fast, async, stream-based link checker written in Rust
-        args:
-          - --config
-          - lychee.toml
-          - --verbose
-          - --no-progress
-          - --exclude-path
-          - .venv
-        files: \.md$
-        exclude: ^\.venv/

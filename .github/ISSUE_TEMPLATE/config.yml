@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Connection troubleshooting
+    url: https://moonraker-home-assistant.readthedocs.io/en/stable/support/connection.html
+    about: Check common Moonraker connection problems before opening an issue.
+  - name: Collect Home Assistant logs
+    url: https://moonraker-home-assistant.readthedocs.io/en/stable/support/logs.html
+    about: Learn how to collect scoped, sanitized debug logs.

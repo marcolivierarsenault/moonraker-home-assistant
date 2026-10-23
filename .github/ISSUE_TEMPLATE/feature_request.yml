@@ -1,0 +1,70 @@
+name: Feature request
+description: Suggest an improvement to the Moonraker integration
+title: "[Feature]: "
+labels:
+  - enhancement
+  - ai:triage
+body:
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched the existing issues and did not find the same request.
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: Describe the user problem rather than only the desired implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: setup
+    attributes:
+      label: Printer setup
+      description: Include the printer, Moonraker implementation, and any relevant add-ons.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed behaviour
+      description: Explain what you would like Home Assistant to expose or do.
+    validations:
+      required: true
+
+  - type: textarea
+    id: moonraker-api
+    attributes:
+      label: Relevant Moonraker API
+      description: If known, link the Moonraker endpoint, object, event, or documentation involved.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
+
+  - type: dropdown
+    id: test-branch
+    attributes:
+      label: Can you test a proposed implementation?
+      options:
+        - "Yes"
+        - "No"
+        - "Maybe, with instructions"
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        New requests receive AI-assisted triage. A maintainer must explicitly
+        authorize implementation by applying the `ai:fix` label.
