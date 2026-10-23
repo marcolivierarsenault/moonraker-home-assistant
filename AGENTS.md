@@ -50,3 +50,8 @@ For issue-started work that has no existing PR, open AI-authored changes as a dr
 ## Security & Configuration Tips
 
 Do not commit printer tokens or sensitive logs; scrub `configuration.yaml` snippets before sharing. Use `.gitignore`d files for local secrets and confirm Home Assistant can authenticate before submitting configuration updates.
+
+## Live System Operations
+
+- Always offer the user the option to restart Home Assistant — never restart Core unilaterally.
+- Never interfere with the printer while it is printing. Do not run any action that can affect or stop the job (G-code, restarts, power changes, queue mutations). Passive reads (status queries, snapshots, file lists) are fine; anything else waits until the printer is idle.
