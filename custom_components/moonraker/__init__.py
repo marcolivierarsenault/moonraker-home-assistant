@@ -8,7 +8,6 @@ import uuid
 from datetime import timedelta
 from typing import Any
 
-import async_timeout
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
@@ -60,6 +59,14 @@ def _log_unreachable(entry: ConfigEntry, message: str, *args: Any) -> None:
         _LOGGER.warning(message, *args)
 
 
+class _QuietUnreachableUpdateFailed(UpdateFailed):
+    """Refresh failure caused by an unreachable printer in quiet mode.
+
+    Only refreshes aborted by this exception skip the coordinator failure
+    log; any other failure keeps its error level.
+    """
+
+
 def _normalize_moonraker_port(port: int | str | None) -> int:
     """Return the effective Moonraker port used at runtime."""
     if port is None or port == "":
@@ -76,7 +83,7 @@ async def _async_is_tcp_reachable(host: str, port: int | str | None) -> bool:
     """Return whether a TCP connection to the Moonraker endpoint can be opened."""
     writer: asyncio.StreamWriter | None = None
     try:
-        async with async_timeout.timeout(TIMEOUT):
+        async with asyncio.timeout(TIMEOUT):
             _reader, writer = await asyncio.open_connection(
                 host, _normalize_moonraker_port(port)
             )
@@ -227,7 +234,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             )
             raise ConfigEntryNotReady(f"Error connecting to {url}:{port}")
 
-        async with async_timeout.timeout(TIMEOUT):
+        async with asyncio.timeout(TIMEOUT):
             await api.start()
             printer_info = await api.client.call_method("printer.info")
             _LOGGER.debug(printer_info)
@@ -300,10 +307,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                     _LOGGER.warning("Unknown Moonraker device_id %s", device_id)
                     continue
             else:
-                if getattr(device, "config_entries", None):
-                    entry_ids.update(device.config_entries)
-                if device.primary_config_entry:
-                    entry_ids.add(device.primary_config_entry)
+                if hasattr(device, "config_entry_id"):
+                    if device.config_entry_id:
+                        entry_ids.add(device.config_entry_id)
+                else:
+                    # HA before 2026.8 has no DeviceEntry.config_entry_id.
+                    entry_ids.update(getattr(device, "config_entries", None) or ())
                 if not entry_ids:
                     for domain, identifier in device.identifiers:
                         if domain == DOMAIN:
@@ -403,6 +412,23 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             update_interval=SCAN_INTERVAL,
             config_entry=config_entry,
         )
+
+    async def _async_refresh(self, log_failures: bool = True, *args, **kwargs):
+        """Refresh data, keeping unreachable failures quiet when configured."""
+        if not _quiet_unreachable_logs(self.config_entry):
+            return await super()._async_refresh(log_failures, *args, **kwargs)
+
+        was_successful = self.last_update_success
+        await super()._async_refresh(False, *args, **kwargs)
+        err = self.last_exception
+        if (
+            log_failures
+            and was_successful
+            and not self.last_update_success
+            and isinstance(err, (UpdateFailed, TimeoutError))
+            and not isinstance(err, _QuietUnreachableUpdateFailed)
+        ):
+            self.logger.error("Error fetching %s data: %s", self.name, err)
 
     async def _async_update_data(self):
         """Update data via library."""
@@ -514,7 +540,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
                     self.config_entry.data.get(CONF_URL),
                     _entry_port(self.config_entry),
                 )
-                raise UpdateFailed()
+                raise self._unreachable_error()
             _LOGGER.warning("connection to moonraker down, restarting")
             await self.moonraker.start()
         try:
@@ -528,7 +554,26 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.debug(f"Query Result, uuid: {myuuid}: {result}")
             return result
         except Exception as exception:
+            # The websocket may still look connected right after the printer
+            # went offline, so recheck reachability before reporting.
+            if _quiet_unreachable_logs(
+                self.config_entry
+            ) and not await _async_is_tcp_reachable(
+                self.config_entry.data.get(CONF_URL),
+                _entry_port(self.config_entry),
+            ):
+                raise self._unreachable_error() from exception
             raise UpdateFailed() from exception
+
+    def _unreachable_error(self) -> UpdateFailed:
+        """Build the refresh failure for an unreachable Moonraker endpoint."""
+        error = (
+            f"{self.config_entry.data.get(CONF_URL)}:"
+            f"{_entry_port(self.config_entry)} is unreachable"
+        )
+        if _quiet_unreachable_logs(self.config_entry):
+            return _QuietUnreachableUpdateFailed(error)
+        return UpdateFailed(error)
 
     async def _async_send_data(self, query_path: METHODS, query_obj) -> None:
         if not self.moonraker.client.is_connected:
@@ -542,7 +587,10 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
                     self.config_entry.data.get(CONF_URL),
                     _entry_port(self.config_entry),
                 )
-                raise UpdateFailed()
+                raise UpdateFailed(
+                    f"{self.config_entry.data.get(CONF_URL)}:"
+                    f"{_entry_port(self.config_entry)} is unreachable"
+                )
             _LOGGER.warning("connection to moonraker down, restarting")
             await self.moonraker.start()
         try:

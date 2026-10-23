@@ -1,6 +1,8 @@
 Install via HACS
 ----------------
 
+Requires Home Assistant 2025.1 or newer.
+
 -  The installation is done inside `HACS <https://hacs.xyz/>`__ (Home
    Assistant Community Store). If you don’t have HACS, you must install
    it before adding this integration. `Installation instructions

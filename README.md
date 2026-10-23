@@ -4,7 +4,6 @@
 
 ## Currently unmaintained, if you are insterested to help maintain this, email me marcolivier.arsenault@gmail.com
 
-
 # Moonraker Home Assistant
 
 Non official integration for Moonraker and Klipper in Home Assistant (via HACS).
@@ -26,6 +25,8 @@ To access the list of all entities and their documentations, look at our [docume
 This software seems to have issues working on **FLSUN Speeder Pad** and **Sonic Pad**, so those are unsuported.
 
 # Install
+
+Requires Home Assistant 2025.1 or newer.
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=marcolivierarsenault&repository=moonraker-home-assistant&category=integration)
 

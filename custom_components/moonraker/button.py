@@ -174,9 +174,7 @@ async def async_setup_macros(coordinator, entry, async_add_entities):
     cmds = await coordinator.async_fetch_data(METHODS.PRINTER_GCODE_HELP)
     object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
     object_names = (
-        set(object_list.get("objects", []))
-        if isinstance(object_list, dict)
-        else set()
+        set(object_list.get("objects", [])) if isinstance(object_list, dict) else set()
     )
     macro_objects = {obj for obj in object_names if obj.startswith("gcode_macro ")}
 

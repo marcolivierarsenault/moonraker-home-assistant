@@ -62,6 +62,8 @@ In the integration options for the affected printer, enable
 ``Log unreachable printer connection messages only at DEBUG level``.
 When enabled, the integration first checks whether the Moonraker host and port are reachable and avoids starting the websocket client while the endpoint is offline.
 This suppresses the normal warning/error noise for intentionally powered-off printers, while DEBUG logging still retains diagnostic information.
+If a request fails while the connection still looks open, the endpoint is checked again, so a printer that was just switched off is also handled quietly.
+Failures unrelated to reachability are still logged as errors.
 
 Change IP/Hostname of your printer
 -------------------------------------
