@@ -53,6 +53,8 @@ PANEL_THUMB_URL = "/api/moonraker/panel_thumbnail"
 PANEL_SNAPSHOT_URL = "/api/moonraker/panel_webcam_snapshot"
 PANEL_ACTION_URL = "/api/moonraker/panel_action"
 PANEL_FILE_META_URL = "/api/moonraker/panel_file_meta"
+PANEL_MANIFEST_URL = "/api/moonraker/panel_manifest.json"
+PANEL_SW_URL = "/api/moonraker/panel_sw.js"
 PANEL_FRONTEND_PATH = "moonraker-control-deck"
 UPLOAD_URL = "/api/moonraker/gcode_upload"
 
@@ -703,6 +705,94 @@ class MoonrakerPanelWorkerView(_PanelAssetView):
         super().__init__(hass, _WORKER_PATH)
 
 
+class MoonrakerPanelManifestView(HomeAssistantView):
+    """Serve the web app manifest so the panel can install as a PWA."""
+
+    url = PANEL_MANIFEST_URL
+    name = "api:moonraker:panel_manifest"
+    requires_auth = False
+
+    async def get(self, request):
+        """Return the install manifest for the control deck."""
+        return web.json_response(
+            {
+                "name": "Moonraker Control Deck",
+                "short_name": "Moonraker",
+                "start_url": PANEL_EMBED_URL,
+                "scope": "/api/moonraker/",
+                "display": "standalone",
+                "background_color": "#050a08",
+                "theme_color": "#050a08",
+                "icons": [
+                    {
+                        "src": "/static/icons/favicon-192x192.png",
+                        "sizes": "192x192",
+                        "type": "image/png",
+                    },
+                    {
+                        "src": "/static/icons/favicon-512x512.png",
+                        "sizes": "512x512",
+                        "type": "image/png",
+                    },
+                ],
+            }
+        )
+
+
+_PANEL_SW_SOURCE = """/* Moonraker control deck service worker: installability + asset cache. */
+const SW_CACHE = "moonraker-deck-v1";
+const ASSETS = [
+  "/api/moonraker/panel_client.js",
+  "/api/moonraker/panel_i18n.js",
+  "/api/moonraker/toolpath_parse.js",
+  "/api/moonraker/toolpath_worker.js",
+];
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(SW_CACHE).then((cache) => cache.addAll(ASSETS)).catch(() => {}),
+  );
+  self.skipWaiting();
+});
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((key) => key !== SW_CACHE).map((key) => caches.delete(key))),
+    ),
+  );
+  self.clients.claim();
+});
+self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+  if (event.request.method !== "GET" || !ASSETS.includes(url.pathname)) return;
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        const clone = response.clone();
+        caches.open(SW_CACHE).then((cache) => cache.put(event.request, clone));
+        return response;
+      })
+      .catch(() => caches.match(event.request)),
+  );
+});
+"""
+
+
+class MoonrakerPanelServiceWorkerView(HomeAssistantView):
+    """Serve a minimal service worker so the panel can install as a PWA."""
+
+    url = PANEL_SW_URL
+    name = "api:moonraker:panel_sw"
+    requires_auth = False
+
+    async def get(self, request):
+        """Return the service worker source."""
+        return web.Response(
+            text=_PANEL_SW_SOURCE,
+            content_type="application/javascript",
+            headers={"Cache-Control": "no-store"},
+        )
+
+
 class MoonrakerUploadRedirectView(HomeAssistantView):
     """Redirect browser navigation to the upload UI in the control panel."""
 
@@ -1266,6 +1356,8 @@ async def register_panel_views(hass: HomeAssistant) -> None:
     hass.http.register_view(MoonrakerPanelSnapshotView(hass))
     hass.http.register_view(MoonrakerPanelFileMetaView(hass))
     hass.http.register_view(MoonrakerPanelActionView(hass))
+    hass.http.register_view(MoonrakerPanelManifestView())
+    hass.http.register_view(MoonrakerPanelServiceWorkerView())
     await async_register_panel(
         hass,
         frontend_url_path=PANEL_FRONTEND_PATH,

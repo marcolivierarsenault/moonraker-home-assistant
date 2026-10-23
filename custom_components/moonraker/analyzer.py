@@ -109,6 +109,10 @@ _FIRST_LAYER_PROMPT = (
     "the nozzle printing in mid-air, answer FAIL. Otherwise answer OK. "
     "Reply with exactly one word."
 )
+_CAPTION_PROMPT = (
+    "Describe this finished 3D print in 15 words or fewer: object shape, "
+    "surface quality, and any visible defects. Reply with the caption only."
+)
 
 # Approximate slicer material profiles: nozzle/bed target ranges in °C and
 # whether a warm enclosure is expected.
@@ -527,6 +531,8 @@ class MoonrakerAnalyzer:
         subscriptions: list[tuple[str, str]] = [
             ("motion_report", "live_extruder_velocity"),
         ]
+        if "exclude_object" in object_names:
+            subscriptions.append(("exclude_object", None))
         for name in object_names:
             if _HEATER_GENERIC_RE.match(name):
                 subscriptions.append((name, "temperature"))
@@ -1788,6 +1794,7 @@ class MoonrakerAnalyzer:
             )
             if state == "complete":
                 self._schedule_power_off()
+                self._schedule_caption(filename)
         self._prev_print_state = state
 
     def _dispatch_print_event(self, event_type: str, filename: str) -> None:
@@ -1866,8 +1873,8 @@ class MoonrakerAnalyzer:
                 self._async_vision_check("spaghetti", _SPAGHETTI_PROMPT)
             )
 
-    async def _async_vision_check(self, kind: str, prompt: str) -> None:
-        """Ask the configured ai_task entity to judge the camera frame."""
+    async def _async_ai_task(self, prompt: str) -> str | None:
+        """Run the configured ai_task entity on the camera frame."""
         try:
             response = await self.hass.services.async_call(
                 "ai_task",
@@ -1886,10 +1893,14 @@ class MoonrakerAnalyzer:
                 blocking=True,
                 return_response=True,
             )
-        except Exception as exception:  # noqa: BLE001 - vision is best-effort
-            _LOGGER.debug("Vision check %s failed: %s", kind, exception)
-            return
-        verdict = str((response or {}).get("data") or "").upper()
+        except Exception:  # noqa: BLE001 - ai_task is best-effort
+            _LOGGER.debug("ai_task request failed", exc_info=True)
+            return None
+        return str((response or {}).get("data") or "").strip() or None
+
+    async def _async_vision_check(self, kind: str, prompt: str) -> None:
+        """Ask the configured ai_task entity to judge the camera frame."""
+        verdict = str(await self._async_ai_task(prompt) or "").upper()
         if "FAIL" not in verdict:
             return
         detail = (
@@ -1909,6 +1920,26 @@ class MoonrakerAnalyzer:
         ) or {}
         self._notify("vision_alert", str(print_stats.get("filename") or ""))
         self._sync_repairs()
+
+    def _schedule_caption(self, filename: str) -> None:
+        """Queue an AI caption for the just-finished print, if configured."""
+        if not filename or not self._vision_enabled():
+            return
+        if self._vision_task is not None and not self._vision_task.done():
+            return
+        self._vision_task = self.hass.async_create_task(self._async_caption(filename))
+
+    async def _async_caption(self, filename: str) -> None:
+        """Attach an AI-generated caption to the last print record."""
+        caption = await self._async_ai_task(_CAPTION_PROMPT)
+        if not caption:
+            return
+        for record in reversed(self.print_history):
+            if record.get("filename") == filename:
+                record["caption"] = caption
+                break
+        self.metrics["last_print_caption"] = caption
+        self._mark_dirty()
 
     def _track_checkpoints(self, status: dict[str, Any], now: float) -> None:
         """Record periodic recovery checkpoints during a print."""

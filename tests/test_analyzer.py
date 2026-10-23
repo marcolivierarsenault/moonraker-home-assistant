@@ -452,9 +452,11 @@ def test_required_subscriptions(hass):
             "heater_generic chamber",
             "mcu",
             "fan",
+            "exclude_object",
         ]
     )
     assert ("motion_report", "live_extruder_velocity") in subs
+    assert ("exclude_object", None) in subs
     assert ("heater_generic chamber", "temperature") in subs
     assert ("heater_generic chamber", "power") in subs
     assert ("extruder", "power") in subs
@@ -2081,3 +2083,48 @@ def test_queue_ambient_hold(hass):
     analyzer.analyze(_base_status(), now=1100.0)
     assert analyzer.metrics["queue_plan"][0]["ambient_hold"] is False
     assert analyzer.metrics["queue_ambient_ready"] is True
+
+
+async def test_print_completion_caption(hass):
+    """A completed print gets an AI caption attached to its record."""
+    coordinator = _coordinator(hass, options=VISION_OPTIONS, entry_id="caption")
+    analyzer = coordinator.analyzer
+    calls = _register_ai_task(hass, "benchy, clean walls, no defects")
+    analyzer.energy_session = {"kwh": 0.0, "last_at": None, "filename": "job.gcode"}
+
+    status = _live_print_status()
+    analyzer.analyze(status, now=1000.0)
+    status["print_stats"]["state"] = "complete"
+    analyzer.analyze(status, now=1100.0)
+    await hass.async_block_till_done()
+
+    assert calls
+    assert analyzer.print_history[-1]["caption"] == ("benchy, clean walls, no defects")
+    assert analyzer.metrics["last_print_caption"] == ("benchy, clean walls, no defects")
+
+
+async def test_caption_empty_and_guards(hass):
+    """Empty captions attach nothing; guards skip scheduling."""
+    coordinator = _coordinator(hass, options=VISION_OPTIONS, entry_id="caption2")
+    analyzer = coordinator.analyzer
+    _register_ai_task(hass, "")
+    analyzer.energy_session = {"kwh": 0.0, "last_at": None, "filename": "job.gcode"}
+
+    status = _live_print_status()
+    analyzer.analyze(status, now=1000.0)
+    status["print_stats"]["state"] = "complete"
+    analyzer.analyze(status, now=1100.0)
+    await hass.async_block_till_done()
+    assert "caption" not in analyzer.print_history[-1]
+
+    # No filename / no vision config -> returns without scheduling.
+    analyzer._schedule_caption("")
+    coordinator2 = _coordinator(hass, entry_id="caption3")
+    coordinator2.analyzer._schedule_caption("job.gcode")
+
+    # A busy vision task blocks scheduling a second caption.
+    coordinator3 = _coordinator(hass, options=VISION_OPTIONS, entry_id="caption4")
+    busy = coordinator3.analyzer
+    busy._vision_task = hass.async_create_task(hass.async_block_till_done())
+    busy._schedule_caption("job.gcode")
+    await hass.async_block_till_done()

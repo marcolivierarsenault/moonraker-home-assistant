@@ -2975,3 +2975,84 @@ test("fleet tiles show router fit scores and OEE stats", () => {
   assert.equal(tiles2[0].querySelector(".fleet-route").textContent, "");
   assert.equal(tiles2[1].querySelector(".fleet-oee").textContent, "");
 });
+
+test("exclude object control lists skippable objects while printing", () => {
+  const { context, document } = createPanelClient();
+  const status = {
+    print_stats: { state: "printing" },
+    exclude_object: {
+      objects: [{ name: "benchy" }, { name: "cube" }, "tower"],
+      excluded_objects: ["cube"],
+      current_object: "benchy",
+    },
+  };
+  vm.runInContext(`renderExcludeObjects(${JSON.stringify(status)})`, context);
+  const wrap = document.getElementById("excludeWrap");
+  assert.equal(wrap.hidden, false);
+  const buttons = document
+    .getElementById("excludeList")
+    .querySelectorAll("button");
+  assert.equal(buttons.length, 3);
+  assert.equal(buttons[1].disabled, true);
+  assert.match(buttons[0].textContent, /SKIP benchy/);
+  assert.equal(buttons[0].dataset.script, 'EXCLUDE_OBJECT NAME="benchy"');
+  assert.match(buttons[0].dataset.confirm, /benchy/);
+
+  // Not printing -> hidden.
+  status.print_stats.state = "standby";
+  vm.runInContext(`renderExcludeObjects(${JSON.stringify(status)})`, context);
+  assert.equal(wrap.hidden, true);
+});
+
+test("tram wizard renders per-corner turn guidance", () => {
+  const { context, document } = createPanelClient();
+  vm.runInContext(
+    `latestData = { analysis: { metrics: { mesh_corner_offsets: [0.0, 0.24, 0.11, 0.03] } } }`,
+    context,
+  );
+  vm.runInContext("renderTramWizard()", context);
+  const text = deepText(document.getElementById("tramWizardRows"));
+  assert.match(text, /TRAMMED/);
+  assert.match(text, /\+0\.24mm · LOWER ≈0\.48 turn @0\.5 \/ 0\.32 @0\.75/);
+});
+
+test("file diff compares metadata fields between two files", () => {
+  const { context, document } = createPanelClient();
+  const a = {
+    estimated_time: 3600,
+    filament_total: 5000,
+    filament_type: "PLA",
+    layer_count: 300,
+    size: 1048576,
+  };
+  const b = {
+    estimated_time: 5400,
+    filament_total: 5000,
+    filament_type: "PETG",
+    layer_count: 300,
+    size: 1048576,
+  };
+  vm.runInContext(
+    `renderFileDiffRows(${JSON.stringify(a)}, ${JSON.stringify(b)})`,
+    context,
+  );
+  const text = deepText(document.getElementById("fileDiffRows"));
+  assert.match(text, /EST TIME/);
+  assert.match(text, /PETG/);
+  const spans = document.getElementById("fileDiffRows").children;
+  // Differing fields highlighted; identical fields plain.
+  const colored = spans.filter
+    ? spans.filter((el) => el.style && el.style.color)
+    : [];
+  assert.ok(deepText(document.getElementById("fileDiffRows")).includes("→"));
+});
+
+test("timelapse export reports unsupported without MediaRecorder", () => {
+  const { context, document } = createPanelClient();
+  vm.runInContext(
+    `timelapseFrames = [{ layer: 3, shots: { cam: { url: "blob:x", size: 10 } } }]`,
+    context,
+  );
+  vm.runInContext("exportTimelapseVideo()", context);
+  assert.match(document.getElementById("toast").textContent, /UNSUPPORTED/i);
+});

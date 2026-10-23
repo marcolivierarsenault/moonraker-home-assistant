@@ -721,6 +721,7 @@ function render(data) {
   selectedFile = data.selected_file || byId("fileSel").value;
   renderFiles();
   renderQueue(data.queue || {});
+  renderExcludeObjects(status);
   renderPower(data.power_devices || []);
   renderMacros(data.macros || []);
   renderHistory(data);
@@ -1027,6 +1028,39 @@ function renderQueue(queue) {
   if (!jobs.length) appendEmpty(container, "QUEUE EMPTY");
 }
 
+function renderExcludeObjects(status) {
+  const wrap = byId("excludeWrap");
+  const list = byId("excludeList");
+  if (!wrap || !list) return;
+  const ex = (status && status.exclude_object) || {};
+  const objects = Array.isArray(ex.objects) ? ex.objects : [];
+  const excluded = new Set(
+    (Array.isArray(ex.excluded_objects) ? ex.excluded_objects : []).map(String),
+  );
+  const state = String(((status || {}).print_stats || {}).state || "");
+  const active = state === "printing" || state === "paused";
+  const names = objects
+    .map((obj) => String((obj && obj.name) || obj || ""))
+    .filter(Boolean);
+  wrap.hidden = !(active && names.length);
+  list.replaceChildren();
+  if (wrap.hidden) return;
+  names.forEach((name) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    if (excluded.has(name)) {
+      btn.disabled = true;
+      btn.textContent = `SKIPPED ${name}`;
+    } else {
+      btn.dataset.action = "run_gcode";
+      btn.dataset.script = `EXCLUDE_OBJECT NAME=${JSON.stringify(name)}`;
+      btn.dataset.confirm = `Skip object "${name}" for the rest of this print?`;
+      btn.textContent = `SKIP ${name}`;
+    }
+    list.appendChild(btn);
+  });
+}
+
 function renderFiles() {
   const select = byId("fileSel");
   const filter = (byId("fileSearch").value || "").toLowerCase();
@@ -1045,6 +1079,8 @@ function renderFiles() {
     option.value = file.path;
     option.textContent = file.path;
     select.appendChild(option);
+    const row = document.createElement("div");
+    row.className = "file-row";
     const item = document.createElement("button");
     item.type = "button";
     item.className = `file-option${
@@ -1058,9 +1094,101 @@ function renderFiles() {
       ? `${(Number(file.size) / 1048576).toFixed(1)} MB`
       : "GCODE";
     item.append(name, size);
-    list.appendChild(item);
+    const diff = document.createElement("button");
+    diff.type = "button";
+    diff.className = "file-diff";
+    diff.dataset.fileDiff = file.path;
+    diff.textContent = "DIFF";
+    diff.title = "Compare with selected file";
+    row.append(item, diff);
+    list.appendChild(row);
   });
   select.value = selectedFile;
+}
+
+const FILE_DIFF_FIELDS = [
+  ["estimated_time", "EST TIME", (v) => duration(v)],
+  ["filament_total", "FILAMENT", (v) => `${(Number(v) / 1000).toFixed(1)}m`],
+  ["filament_weight_total", "WEIGHT", (v) => `${fmt(v, 1)}g`],
+  ["filament_type", "MATERIAL", String],
+  ["layer_count", "LAYERS", (v) => fmt(v, 0)],
+  ["layer_height", "LAYER HEIGHT", (v) => `${fmt(v, 2)}mm`],
+  ["object_height", "HEIGHT", (v) => `${fmt(v, 1)}mm`],
+  ["first_layer_extr_temp", "NOZZLE", (v) => `${fmt(v, 0)}°C`],
+  ["first_layer_bed_temp", "BED", (v) => `${fmt(v, 0)}°C`],
+  ["chamber_temp", "CHAMBER", (v) => `${fmt(v, 0)}°C`],
+  ["slicer", "SLICER", (v) => String(v || "—")],
+  ["nozzle_diameter", "NOZZLE Ø", (v) => `${fmt(v, 2)}mm`],
+  ["size", "SIZE", (v) => `${(Number(v) / 1048576).toFixed(1)} MB`],
+];
+
+async function fetchFileMeta(filename) {
+  const meta = await hassApi().callApi(
+    "GET",
+    `moonraker/panel_file_meta?printer=${encodeURIComponent(
+      printer,
+    )}&filename=${encodeURIComponent(filename)}`,
+  );
+  return meta && !meta.error ? meta : null;
+}
+
+async function diffFiles(other) {
+  const wrap = byId("fileDiff");
+  if (!selectedFile) {
+    toast("SELECT A BASELINE FILE FIRST");
+    return;
+  }
+  if (other === selectedFile) {
+    toast("FILE ALREADY SELECTED AS BASELINE");
+    return;
+  }
+  setText("fileDiffTitle", `${selectedFile} ⇄ ${other}`);
+  setText("fileDiffRows", "");
+  if (wrap) wrap.hidden = false;
+  try {
+    const [a, b] = await Promise.all([
+      fetchFileMeta(selectedFile),
+      fetchFileMeta(other),
+    ]);
+    if (!a || !b) {
+      setText("fileDiffRows", "METADATA UNAVAILABLE FOR ONE OR BOTH FILES");
+      return;
+    }
+    renderFileDiffRows(a, b);
+  } catch (_error) {
+    setText("fileDiffRows", "METADATA FETCH FAILED");
+  }
+}
+
+function renderFileDiffRows(a, b) {
+  const rows = byId("fileDiffRows");
+  rows.replaceChildren();
+  rows.className = "kv";
+  let differences = 0;
+  FILE_DIFF_FIELDS.forEach(([key, label, formatValue]) => {
+    const va = a[key];
+    const vb = b[key];
+    if (va == null && vb == null) return;
+    const differs =
+      Number.isFinite(Number(va)) && Number.isFinite(Number(vb))
+        ? Math.abs(Number(va) - Number(vb)) > 0.001
+        : va !== vb;
+    if (differs) differences += 1;
+    const field = document.createElement("b");
+    field.textContent = label;
+    const value = document.createElement("span");
+    value.textContent = `${formatValue(va)} → ${formatValue(vb)}`;
+    if (differs) value.style.color = "var(--amber)";
+    rows.append(field, value);
+  });
+  if (!differences) {
+    const field = document.createElement("b");
+    field.textContent = "IDENTICAL";
+    const value = document.createElement("span");
+    value.textContent = "no metadata differences";
+    value.style.color = "var(--green)";
+    rows.append(field, value);
+  }
 }
 
 function renderPower(devices) {
@@ -1417,6 +1545,37 @@ function renderMeshDecay(status) {
     grid.appendChild(cell);
   }
   renderMeshSurface();
+  renderTramWizard();
+}
+
+function renderTramWizard() {
+  const wrap = byId("tramWizard");
+  const rows = byId("tramWizardRows");
+  if (!wrap || !rows) return;
+  rows.replaceChildren();
+  const metrics = (latestData?.analysis || {}).metrics || {};
+  const corners = Array.isArray(metrics.mesh_corner_offsets)
+    ? metrics.mesh_corner_offsets
+    : [];
+  const labels = ["FL", "FR", "BL", "BR"];
+  labels.forEach((label, index) => {
+    const mm = Number(corners[index]);
+    const b = document.createElement("b");
+    b.textContent = label;
+    const span = document.createElement("span");
+    if (!Number.isFinite(mm)) {
+      span.textContent = "—";
+    } else if (mm < 0.02) {
+      span.textContent = "+0.00mm · TRAMMED";
+      span.style.color = "var(--green)";
+    } else {
+      const t5 = (mm / 0.5).toFixed(2);
+      const t75 = (mm / 0.75).toFixed(2);
+      span.textContent = `+${mm.toFixed(2)}mm · LOWER ≈${t5} turn @0.5 / ${t75} @0.75`;
+      span.style.color = "var(--amber)";
+    }
+    rows.append(b, span);
+  });
 }
 
 function renderMeshSurface() {
@@ -2907,6 +3066,11 @@ function bindInteractions() {
       else toast("NO SNAPSHOT URL CONFIGURED");
       return;
     }
+    const fileDiff = event.target.closest("[data-file-diff]");
+    if (fileDiff) {
+      diffFiles(fileDiff.dataset.fileDiff);
+      return;
+    }
     const fileOption = event.target.closest("[data-file-option]");
     if (fileOption) {
       selectedFile = fileOption.dataset.fileOption;
@@ -2918,6 +3082,10 @@ function bindInteractions() {
     }
     if (event.target.id === "jobDoneDismiss") {
       hideJobDoneCard();
+      return;
+    }
+    if (event.target.id === "tlExport") {
+      exportTimelapseVideo();
       return;
     }
     if (event.target.id === "tlClear") {
@@ -5388,6 +5556,95 @@ function evictTimelapseFrames() {
   }
 }
 
+function loadTimelapseImage(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+let timelapseExporting = false;
+
+async function exportTimelapseVideo() {
+  if (timelapseExporting) return;
+  if (!timelapseFrames.length) {
+    toast("NO TIMELAPSE FRAMES CAPTURED");
+    return;
+  }
+  if (
+    typeof MediaRecorder === "undefined" ||
+    !document.createElement("canvas").captureStream
+  ) {
+    toast("VIDEO EXPORT UNSUPPORTED IN THIS BROWSER");
+    return;
+  }
+  const mimeType = [
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=vp8",
+    "video/webm",
+  ].find((candidate) => MediaRecorder.isTypeSupported(candidate));
+  if (!mimeType) {
+    toast("NO WEBM ENCODER AVAILABLE");
+    return;
+  }
+  timelapseExporting = true;
+  toast("ENCODING TIMELAPSE VIDEO…", 8000);
+  try {
+    const shots = timelapseFrames
+      .map((entry) => ({ entry, shot: timelapseEntryShot(entry) }))
+      .filter((item) => item.shot && item.shot.url);
+    const first = await loadTimelapseImage(shots[0].shot.url);
+    if (!first) throw new Error("no decodable frames");
+    const canvas = document.createElement("canvas");
+    canvas.width = first.naturalWidth || 640;
+    canvas.height = first.naturalHeight || 480;
+    const ctx = canvas.getContext("2d");
+    const stream = canvas.captureStream(8);
+    const recorder = new MediaRecorder(stream, { mimeType });
+    const chunks = [];
+    recorder.ondataavailable = (event) => {
+      if (event.data && event.data.size) chunks.push(event.data);
+    };
+    recorder.start();
+    const frameDelay = 1000 / 8;
+    for (const item of shots) {
+      const img =
+        item.shot === shots[0].shot
+          ? first
+          : await loadTimelapseImage(item.shot.url);
+      if (!img) continue;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "rgba(0,0,0,.55)";
+      ctx.fillRect(8, 8, 130, 18);
+      ctx.fillStyle = "#9bffc7";
+      ctx.font = "12px monospace";
+      ctx.fillText(`LAYER ${item.entry.layer ?? "—"}`, 12, 21);
+      await new Promise((resolve) => setTimeout(resolve, frameDelay));
+    }
+    const blob = await new Promise((resolve) => {
+      recorder.onstop = () =>
+        resolve(new Blob(chunks, { type: mimeType.split(";")[0] }));
+      recorder.stop();
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `timelapse-${new Date()
+      .toISOString()
+      .slice(0, 19)
+      .replace(/[:T]/g, "-")}.webm`;
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    toast("TIMELAPSE VIDEO EXPORTED");
+  } catch (error) {
+    toast(`EXPORT FAILED / ${error.message || "encoder error"}`);
+  } finally {
+    timelapseExporting = false;
+  }
+}
+
 function syncTimelapseToScrub() {
   if (!timelapseFrames.length || !Number.isFinite(scrubZ)) return;
   let best = 0;
@@ -5544,6 +5801,12 @@ function bindAlertSettings() {
   byId("energyRate")?.addEventListener?.("change", saveEnergyPrefs);
   byId("maxFlowInput")?.addEventListener?.("change", saveFlowPrefs);
   byId("meshRebaseline")?.addEventListener?.("click", resetMeshBaseline);
+  byId("meshTramWizard")?.addEventListener?.("click", () => {
+    const wrap = byId("tramWizard");
+    if (!wrap) return;
+    wrap.hidden = !wrap.hidden;
+    if (!wrap.hidden) renderTramWizard();
+  });
   byId("ttsTest")?.addEventListener?.("click", () => {
     if (
       alertPrefs.engine !== "browser" &&
@@ -5747,3 +6010,8 @@ function startPanel() {
 
 window.addEventListener("moonraker-hass-ready", startPanel);
 if (window.hass?.callApi) startPanel();
+if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+  navigator.serviceWorker
+    .register("/api/moonraker/panel_sw.js")
+    .catch(() => {});
+}

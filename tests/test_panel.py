@@ -1668,3 +1668,23 @@ def test_route_score_weights_fitness(hass):
     }
     result = _route_score(ideal, {"filament_mm": 5000.0, "material": "ABS"})
     assert result == {"score": 100, "reasons": []}
+
+
+async def test_panel_pwa_manifest_and_service_worker(hass):
+    """The PWA manifest and service worker routes serve install metadata."""
+    from custom_components.moonraker.panel import (
+        MoonrakerPanelManifestView,
+        MoonrakerPanelServiceWorkerView,
+    )
+
+    manifest = await MoonrakerPanelManifestView().get(MagicMock())
+    import json
+
+    body = json.loads(manifest.body.decode())
+    assert body["name"] == "Moonraker Control Deck"
+    assert body["display"] == "standalone"
+    assert body["scope"] == "/api/moonraker/"
+
+    worker = await MoonrakerPanelServiceWorkerView().get(MagicMock())
+    assert worker.content_type == "application/javascript"
+    assert b"service worker" in worker.body

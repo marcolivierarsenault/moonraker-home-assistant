@@ -6,6 +6,8 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
+    <link rel="manifest" href="/api/moonraker/panel_manifest.json" />
+    <meta name="theme-color" content="#050a08" />
     <title>NEXUS CONTROL // Moonraker</title>
     <style>
       :root {
@@ -1165,6 +1167,21 @@
         overflow: auto;
         margin-top: 7px;
         border: 1px solid var(--line);
+      }
+      .file-row {
+        display: flex;
+        align-items: stretch;
+      }
+      .file-row .file-diff {
+        flex: 0 0 auto;
+        border: 0;
+        border-bottom: 1px solid var(--line);
+        padding: 0 7px;
+        color: var(--muted);
+        font: 7px var(--mono);
+      }
+      .file-row .file-diff:hover {
+        color: var(--amber);
       }
       .file-option {
         width: 100%;
@@ -2388,6 +2405,16 @@
                   <div class="notice" style="margin-top: 9px">
                     E-STOP halts motion immediately. Use only for an emergency.
                   </div>
+                  <div id="excludeWrap" hidden>
+                    <div class="row-label" style="margin-top: 10px">
+                      OBJECTS — SKIP ONE MID-PRINT
+                    </div>
+                    <div
+                      id="excludeList"
+                      class="row"
+                      style="flex-wrap: wrap"
+                    ></div>
+                  </div>
                 </article>
                 <article class="panel span-6">
                   <div class="panel-head">
@@ -2872,6 +2899,8 @@
                     </div>
                     <div class="panel-tools">
                       <span class="pill" id="meshDriftSummary">—</span
+                      ><button class="subtle" id="meshTramWizard">
+                        TRAM WIZARD</button
                       ><button class="subtle" id="meshRebaseline">
                         RE-BASELINE
                       </button>
@@ -2898,6 +2927,19 @@
                     ><b>Snapshots</b><span id="meshSnapshots">—</span>
                   </div>
                   <div id="meshSurfaceMap" class="mesh-grid"></div>
+                  <div id="tramWizard" hidden>
+                    <div class="row-label" style="margin-top: 10px">
+                      GUIDED TRAMMING — adjust while watching live
+                    </div>
+                    <div id="tramWizardRows" class="kv"></div>
+                    <p class="micro">
+                      Each corner shows its height above the lowest. Lower the
+                      high corners (or raise the rest) by that amount. Turn
+                      estimates assume common 0.5mm and 0.75mm screw pitches —
+                      run a fresh mesh after each pass and watch the offsets
+                      converge to zero.
+                    </p>
+                  </div>
                   <p class="micro">
                     Corner offsets are mm each corner sits above the lowest —
                     tram the high corners down by that amount. The grid shows
@@ -3071,6 +3113,10 @@
                   </div>
                   <div class="file-list" id="fileList">
                     <div class="empty-state">LOADING FILE LIST</div>
+                  </div>
+                  <div id="fileDiff" hidden>
+                    <div class="row-label" id="fileDiffTitle">FILE DIFF</div>
+                    <div id="fileDiffRows" class="kv"></div>
                   </div>
                 </article>
                 <article class="panel span-12">
@@ -3254,7 +3300,10 @@
                       <div class="panel-kicker">Layer Capture</div>
                       <h2 class="panel-title">TIMELAPSE</h2>
                     </div>
-                    <button class="subtle" id="tlClear">CLEAR</button>
+                    <div class="panel-tools">
+                      <button class="subtle" id="tlExport">EXPORT</button
+                      ><button class="subtle" id="tlClear">CLEAR</button>
+                    </div>
                   </div>
                   <img
                     id="tlFrame"
