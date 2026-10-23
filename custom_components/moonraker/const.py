@@ -55,12 +55,14 @@ CONF_OPTION_POWER_SWITCH = "power_switch_entity"
 CONF_OPTION_POWER_OFF_DELAY = "power_off_delay_min"
 CONF_OPTION_POWER_OFF_MAX_TEMP = "power_off_max_temp"
 CONF_OPTION_AMBIENT_SENSOR = "ambient_sensor"
+CONF_OPTION_HUMIDITY_SENSOR = "humidity_sensor"
 CONF_OPTION_AI_TASK_ENTITY = "ai_task_entity"
 CONF_OPTION_VISION_CAMERA = "vision_camera"
 CONF_OPTION_PANEL_ROLE = "panel_role"
 DEFAULT_POWER_OFF_DELAY_MIN = 15.0
 DEFAULT_POWER_OFF_MAX_TEMP = 50.0
 SIGNAL_PRINT_EVENT = "moonraker_print_event"
+SIGNAL_PRINTCAST = "moonraker_printcast"
 
 # API dict keys
 DEVICE_TYPE = "device_type"

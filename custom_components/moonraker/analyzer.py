@@ -379,6 +379,9 @@ class MoonrakerAnalyzer:
         self._save_unsub: Callable[[], None] | None = None
         self._power_off_unsub: Callable[[], None] | None = None
         self._power_off_armed = False
+        from .printcast import MoonrakerPrintcast
+
+        self.printcast = MoonrakerPrintcast(self, self._mark_dirty)
 
     async def async_load(self) -> None:
         """Restore persisted baselines, history, and energy totals."""
@@ -466,6 +469,7 @@ class MoonrakerAnalyzer:
                 self.config_changed_at = config_changed
             self._oee_printing_s = _finite_number(stored.get("oee_printing_s")) or 0.0
             self._oee_window_s = _finite_number(stored.get("oee_window_s")) or 0.0
+            self.printcast.load_state(stored)
         self.metrics["total_kwh"] = round(self.total_kwh, 4)
         self._store_loaded = True
         if self._store_dirty:
@@ -504,6 +508,7 @@ class MoonrakerAnalyzer:
                     "checkpoints": list(self.checkpoints),
                     "oee_printing_s": self._oee_printing_s,
                     "oee_window_s": self._oee_window_s,
+                    **self.printcast.dump_state(),
                 }
             )
         except Exception:  # noqa: BLE001 - persistence failure is non-fatal
@@ -580,6 +585,7 @@ class MoonrakerAnalyzer:
         self._maybe_schedule_vision(status, now)
         findings.extend(self._analyze_queue_plan())
         findings.extend(self._vision_alerts)
+        findings.extend(self.printcast.analyze(status, now, findings))
         self.findings = findings
         self._sync_repairs()
 
@@ -2286,6 +2292,12 @@ class MoonrakerAnalyzer:
         if len(self.file_stats) > FILE_STATS_LIMIT:
             del self.file_stats[next(iter(self.file_stats))]
 
+        if state == "complete":
+            self.printcast.record_mass(
+                filename,
+                _finite_number(data.get("filament_total")),
+                _finite_number(print_stats.get("filament_used")),
+            )
         self.print_history.append(record)
         self.print_history = self.print_history[-PRINT_HISTORY_LIMIT:]
         self._mark_dirty()
@@ -2314,6 +2326,9 @@ class MoonrakerAnalyzer:
             "golden_runs": dict(self.golden_runs),
             "eta_factors": dict(self.eta_factors),
             "energy_session": dict(self.energy_session),
+            "printcast": dict(self.printcast.forecast),
+            "spool_dose": dict(self.printcast.spool_dose),
+            "mass_ledger": list(self.printcast.mass_ledger),
             "config": {
                 "max_flow_mm3": self.max_flow_mm3,
                 "energy_rate": self.energy_rate,
