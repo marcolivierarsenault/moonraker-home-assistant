@@ -1586,6 +1586,21 @@ function renderPrintcast(data) {
   const cast = data.printcast || {};
   const metrics = (data.analysis || {}).metrics || {};
   const score = cast.score;
+  const badge = byId("printcastBadge");
+  if (badge) {
+    badge.textContent =
+      score == null
+        ? "PRINTCAST —"
+        : `PRINTCAST ${score} · ${cast.verdict || "—"}`;
+    badge.style.color =
+      cast.verdict === "CLEAR"
+        ? cssVar("--green")
+        : cast.verdict === "NO-GO"
+          ? cssVar("--red")
+          : score == null
+            ? ""
+            : cssVar("--amber");
+  }
   setText("printcastScore", score == null ? "—" : `${score}/100`);
   const verdictEl = byId("printcastVerdict");
   const verdict = cast.verdict || "—";
