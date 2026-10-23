@@ -1007,8 +1007,7 @@ async def test_send_gcode_identifier_fallback(hass):
     original_async_get = dev_reg.async_get
     identifier_device_id = "identifier-device"
     identifier_device = SimpleNamespace(
-        config_entries=set(),
-        primary_config_entry=None,
+        config_entry_id=None,
         identifiers={(DOMAIN, config_entry.entry_id)},
     )
 
@@ -1040,6 +1039,52 @@ async def test_send_gcode_identifier_fallback(hass):
     assert await async_unload_entry(hass, config_entry)
 
 
+async def test_send_gcode_legacy_config_entries(hass):
+    """Use config_entries on devices without config_entry_id (HA before 2026.8)."""
+
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, entry_id="legacy_config_entries"
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    dev_reg = dr.async_get(hass)
+    original_async_get = dev_reg.async_get
+    legacy_device_id = "legacy-device"
+    legacy_device = SimpleNamespace(
+        config_entries={config_entry.entry_id},
+        identifiers=set(),
+    )
+
+    def async_get_override(device_id):
+        if device_id == legacy_device_id:
+            return legacy_device
+        return original_async_get(device_id)
+
+    with (
+        patch.object(dev_reg, "async_get", side_effect=async_get_override),
+        patch(
+            "moonraker_api.MoonrakerClient.call_method", new_callable=AsyncMock
+        ) as mock_call,
+    ):
+        await hass.services.async_call(
+            DOMAIN,
+            "send_gcode",
+            {
+                "device_id": [legacy_device_id],
+                "gcode": "M115",
+            },
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+
+    mock_call.assert_awaited_once_with(
+        METHODS.PRINTER_GCODE_SCRIPT.value, script="M115"
+    )
+    assert await async_unload_entry(hass, config_entry)
+
+
 async def test_send_gcode_skips_device_without_entries(hass):
     """Skip devices that cannot be linked to config entries."""
 
@@ -1054,8 +1099,7 @@ async def test_send_gcode_skips_device_without_entries(hass):
     original_async_get = dev_reg.async_get
     orphan_device_id = "orphan-device"
     orphan_device = SimpleNamespace(
-        config_entries=set(),
-        primary_config_entry=None,
+        config_entry_id=None,
         identifiers=set(),
     )
 
@@ -1099,8 +1143,7 @@ async def test_send_gcode_skips_unloaded_entries(hass):
     original_async_get = dev_reg.async_get
     missing_device_id = "missing-device"
     missing_device = SimpleNamespace(
-        config_entries={"ghost-entry"},
-        primary_config_entry=None,
+        config_entry_id="ghost-entry",
         identifiers=set(),
     )
 

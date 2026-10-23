@@ -1,10 +1,10 @@
 """Adds config flow for Moonraker."""
 
+import asyncio
 import logging
 
 from typing import Any
 
-import async_timeout
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
@@ -140,7 +140,7 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         try:
             await api.start()
-            async with async_timeout.timeout(TIMEOUT):
+            async with asyncio.timeout(TIMEOUT):
                 await api.client.call_method("printer.info")
                 return True
         except Exception:
