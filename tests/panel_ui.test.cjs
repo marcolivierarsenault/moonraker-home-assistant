@@ -154,7 +154,7 @@ function matches(element, selector) {
   const attribute = selector.match(/^\[data-([\w-]+)\]$/);
   if (attribute) {
     const key = attribute[1].replace(/-([a-z])/g, (_match, letter) =>
-      letter.toUpperCase()
+      letter.toUpperCase(),
     );
     return Object.hasOwn(element.dataset, key);
   }
@@ -253,12 +253,12 @@ function createPanelClient() {
   });
   const parseSource = fs.readFileSync(
     path.join(__dirname, "../custom_components/moonraker/toolpath_parse.js"),
-    "utf8"
+    "utf8",
   );
   vm.runInContext(parseSource, context, { filename: "toolpath_parse.js" });
   const source = fs.readFileSync(
     path.join(__dirname, "../custom_components/moonraker/panel_client.js"),
-    "utf8"
+    "utf8",
   );
   vm.runInContext(source, context, { filename: "panel_client.js" });
   return { context, document, window };
@@ -287,9 +287,9 @@ test("camera page supports 1x1, 1x2, and 2x2 layouts and pauses hidden streams",
     document.getElementById("cameraLayout").value = layout;
     vm.runInContext(
       `activeScreen = "camera"; cameraLayout = ${JSON.stringify(
-        layout
+        layout,
       )}; cameraGridSignature = ""; renderCamera(webcams);`,
-      context
+      context,
     );
     const grid = document.getElementById("cameraGrid");
     const tiles = grid.querySelectorAll(".camera-tile");
@@ -308,7 +308,7 @@ test("camera page supports 1x1, 1x2, and 2x2 layouts and pauses hidden streams",
     document
       .getElementById("dashboardCameraGrid")
       .querySelectorAll("img")
-      .every((image) => image.src === "")
+      .every((image) => image.src === ""),
   );
 });
 
@@ -321,7 +321,7 @@ test("camera selectors can assign a source to a tile", () => {
   document.getElementById("cameraLayout").value = "1x2";
   vm.runInContext(
     'activeScreen = "camera"; cameraLayout = "1x2"; cameraGridSignature = ""; renderCamera(webcams);',
-    context
+    context,
   );
   const tiles = document
     .getElementById("cameraGrid")
@@ -330,7 +330,7 @@ test("camera selectors can assign a source to a tile", () => {
   secondSelector.value = "Front";
   vm.runInContext(
     'cameraAssignments[1] = "Front"; renderCamera(webcams);',
-    context
+    context,
   );
   assert.equal(tiles[1].querySelector("img").src, "http://camera/front");
 });
@@ -351,9 +351,9 @@ test("dashboard renders one, two, and four selected camera streams", () => {
   ]) {
     vm.runInContext(
       `activeScreen = "dashboard"; dashboardCameraLayout = ${JSON.stringify(
-        layout
+        layout,
       )}; dashboardCameraSignature = ""; renderCamera(webcams);`,
-      context
+      context,
     );
     const grid = document.getElementById("dashboardCameraGrid");
     const tiles = grid.querySelectorAll(".dashboard-camera-tile");
@@ -380,7 +380,7 @@ test("dashboard camera popup assigns sources, handles missing cameras, and persi
   ];
   vm.runInContext(
     'printer = "printer-a"; activeScreen = "dashboard"; renderCamera(webcams); bindInteractions();',
-    context
+    context,
   );
 
   const click = document.listeners.click;
@@ -404,11 +404,11 @@ test("dashboard camera popup assigns sources, handles missing cameras, and persi
     document
       .getElementById("dashboardCameraGrid")
       .querySelectorAll(".dashboard-camera-tile").length,
-    4
+    4,
   );
   assert.equal(
     document.getElementById("dashboardCameraOptions").children.length,
-    4
+    4,
   );
 
   change({
@@ -426,11 +426,11 @@ test("dashboard camera popup assigns sources, handles missing cameras, and persi
   assert.equal(tiles[2].querySelector("img").src, "");
   assert.match(
     tiles[2].querySelector(".camera-tile-empty").textContent,
-    /NO CAMERA ASSIGNED/
+    /NO CAMERA ASSIGNED/,
   );
 
   const saved = JSON.parse(
-    window.localStorage.getItem("nexus-dashboard-cameras:printer-a")
+    window.localStorage.getItem("nexus-dashboard-cameras:printer-a"),
   );
   assert.equal(saved.layout, "4");
   assert.equal(saved.assignments[3], "Side");
@@ -459,33 +459,33 @@ test("toolpath projection renders increasing Z upward on screen", () => {
     { yaw: -0.72, pitch: 0.7 },
   ]) {
     const low = read(
-      `projectPoint([0,0,0], ${JSON.stringify(camera)}, 1, 0, 0, 800, 600)`
+      `projectPoint([0,0,0], ${JSON.stringify(camera)}, 1, 0, 0, 800, 600)`,
     );
     const high = read(
-      `projectPoint([0,0,50], ${JSON.stringify(camera)}, 1, 0, 0, 800, 600)`
+      `projectPoint([0,0,50], ${JSON.stringify(camera)}, 1, 0, 0, 800, 600)`,
     );
     assert.ok(
       high.y < low.y,
-      `z=50 must project above z=0 at pitch ${camera.pitch}`
+      `z=50 must project above z=0 at pitch ${camera.pitch}`,
     );
   }
 
   const topBack = read(
-    `projectPoint([0,50,0], { yaw: 0, pitch: 0.035 }, 1, 0, 0, 800, 600)`
+    `projectPoint([0,50,0], { yaw: 0, pitch: 0.035 }, 1, 0, 0, 800, 600)`,
   );
   const topFront = read(
-    `projectPoint([0,0,0], { yaw: 0, pitch: 0.035 }, 1, 0, 0, 800, 600)`
+    `projectPoint([0,0,0], { yaw: 0, pitch: 0.035 }, 1, 0, 0, 800, 600)`,
   );
   assert.ok(
     topBack.y < topFront.y,
-    "top view should render +Y toward the top of the screen"
+    "top view should render +Y toward the top of the screen",
   );
 });
 
 test("toolpath view presets cover seven angles and settle on target", () => {
   const { context } = createPanelClient();
   const views = JSON.parse(
-    vm.runInContext("JSON.stringify(CAMERA_VIEWS)", context)
+    vm.runInContext("JSON.stringify(CAMERA_VIEWS)", context),
   );
   assert.deepEqual(Object.keys(views).sort(), [
     "back",
@@ -499,13 +499,13 @@ test("toolpath view presets cover seven angles and settle on target", () => {
 
   vm.runInContext(
     'toolpathCamera.panX = 30; toolpathCamera.zoom = 2; setToolpathView("back");',
-    context
+    context,
   );
   const settled = JSON.parse(
     vm.runInContext(
       "JSON.stringify({ yaw: toolpathCamera.yaw, pitch: toolpathCamera.pitch, zoom: toolpathCamera.zoom, panX: toolpathCamera.panX, anim: cameraAnim })",
-      context
-    )
+      context,
+    ),
   );
   assert.equal(settled.anim, null);
   assert.equal(settled.yaw, Math.PI);
@@ -553,7 +553,7 @@ test("live entity pushes update toolhead target and progress", async () => {
   };
   vm.runInContext(
     'printer = "entry-1"; latestData = { status: { toolhead: { position: [10, 20, 5, 0] } } };',
-    context
+    context,
   );
   await context.resolveLiveEntities();
   context.ensureLiveSubscription();
@@ -618,7 +618,7 @@ test("tts alerts respect quiet hours, event toggles, and announce transitions", 
     `printer = "entry-1";
     alertPrefs.engine = "browser";
     alertPrefs.quietStart = "22:00"; alertPrefs.quietEnd = "07:00";`,
-    context
+    context,
   );
   const quiet = (minutes) =>
     vm.runInContext(`isQuietTime(${minutes})`, context);
@@ -629,7 +629,7 @@ test("tts alerts respect quiet hours, event toggles, and announce transitions", 
   assert.equal(quiet(7 * 60), false);
   vm.runInContext(
     'alertPrefs.quietStart = "08:00"; alertPrefs.quietEnd = "17:00";',
-    context
+    context,
   );
   assert.equal(quiet(9 * 60), true);
   assert.equal(quiet(20 * 60), false);
@@ -646,25 +646,25 @@ test("tts alerts respect quiet hours, event toggles, and announce transitions", 
     'alertPrefs.quietStart = ""; alertPrefs.quietEnd = ""; alertPrefsKey = "seed"; checkAlerts(' +
       JSON.stringify(data("standby")) +
       ")",
-    context
+    context,
   );
   assert.equal(spoken.length, 0);
 
   vm.runInContext(
     "checkAlerts(" + JSON.stringify(data("printing")) + ")",
-    context
+    context,
   );
   assert.deepEqual(spoken, ["Print started: part.gcode"]);
 
   vm.runInContext(
     "checkAlerts(" + JSON.stringify(data("paused")) + ")",
-    context
+    context,
   );
   assert.match(spoken[1], /paused/);
 
   vm.runInContext(
     "checkAlerts(" + JSON.stringify(data("complete")) + ")",
-    context
+    context,
   );
   assert.match(spoken[2], /complete/);
 
@@ -683,13 +683,13 @@ test("tts alerts respect quiet hours, event toggles, and announce transitions", 
     "alertPrefs.events.progress = false; checkAlerts(" +
       JSON.stringify(data("printing")) +
       ")",
-    context
+    context,
   );
   assert.ok(!spoken.slice(before).some((text) => /percent/i.test(text)));
 
   vm.runInContext(
     'alertPrefs.quietStart = "00:00"; alertPrefs.quietEnd = "23:59";',
-    context
+    context,
   );
   vm.runInContext(
     "checkAlerts(" +
@@ -698,11 +698,11 @@ test("tts alerts respect quiet hours, event toggles, and announce transitions", 
         status: { print_stats: { state: "error", filename: "x" } },
       }) +
       ")",
-    context
+    context,
   );
   assert.ok(
     spoken.some((text) => /fault|error/i.test(text)),
-    "errors bypass quiet hours"
+    "errors bypass quiet hours",
   );
 });
 
@@ -720,7 +720,7 @@ test("tts announcements fan out to every selected media player", () => {
     `alertPrefs.engine = "tts.google_translate_en_com";
     alertPrefs.players = ["media_player.kitchen", "media_player.living_room"];
     alertPrefs.quietStart = ""; alertPrefs.quietEnd = "";`,
-    context
+    context,
   );
   context.speak("Print complete");
   assert.equal(calls.length, 2);
@@ -728,7 +728,7 @@ test("tts announcements fan out to every selected media player", () => {
   assert.equal(calls[0].body.media_player_entity_id, "media_player.kitchen");
   assert.equal(
     calls[1].body.media_player_entity_id,
-    "media_player.living_room"
+    "media_player.living_room",
   );
   assert.equal(calls[0].body.message, "Print complete");
 
@@ -748,11 +748,11 @@ test("command history is bounded, per-printer, session-only, and only records su
   assert.equal(
     document.getElementById("commandHistory").querySelectorAll(".command-entry")
       .length,
-    100
+    100,
   );
   assert.equal(
     document.getElementById("commandHistoryCount").textContent,
-    "100 COMMANDS"
+    "100 COMMANDS",
   );
 
   window.hass = {
@@ -761,12 +761,12 @@ test("command history is bounded, per-printer, session-only, and only records su
   };
   vm.runInContext(
     "lastDataAt = Date.now(); latestData = { available: true };",
-    context
+    context,
   );
   await context.act("run_gcode", null, null, { script: "M105" });
   assert.equal(
     document.getElementById("commandHistoryCount").textContent,
-    "100 COMMANDS"
+    "100 COMMANDS",
   );
   assert.match(deepText(document.getElementById("commandHistory")), /M105/);
 
@@ -774,16 +774,16 @@ test("command history is bounded, per-printer, session-only, and only records su
   await context.act("run_gcode", null, null, { script: "G1 X999" });
   assert.doesNotMatch(
     deepText(document.getElementById("commandHistory")),
-    /G1 X999/
+    /G1 X999/,
   );
 
   vm.runInContext(
     'printer = "printer-b"; renderSentCommandHistory();',
-    context
+    context,
   );
   assert.equal(
     document.getElementById("commandHistoryCount").textContent,
-    "0 COMMANDS"
+    "0 COMMANDS",
   );
 });
 
@@ -803,7 +803,7 @@ test("stale telemetry holds mutating commands but never blocks emergency stop", 
 
   vm.runInContext(
     "latestData = { available: true, settings: { idle_poll_seconds: 5 }, status: {} }; lastDataAt = Date.now() - 30000;",
-    context
+    context,
   );
   assert.equal(context.updateStaleness(), true);
   assert.equal(document.getElementById("staleBanner").hidden, false);
@@ -818,7 +818,7 @@ test("stale telemetry holds mutating commands but never blocks emergency stop", 
 
   vm.runInContext(
     "lastDataAt = Date.now(); latestData = { available: true };",
-    context
+    context,
   );
   assert.equal(context.updateStaleness(), false);
   assert.equal(document.getElementById("staleBanner").hidden, true);
@@ -845,21 +845,21 @@ test("system status binds printer, firmware, server, CPU, and host temperature v
   context.renderSystem(
     data,
     { "temperature_host host_temp": { temperature: 42.5 } },
-    "PRINTING"
+    "PRINTING",
   );
 
   assert.equal(
     document.getElementById("systemPrinterState").textContent,
-    "ready"
+    "ready",
   );
   assert.equal(document.getElementById("systemKlippy").textContent, "ready");
   assert.equal(
     document.getElementById("systemKlipperVersion").textContent,
-    "klipper-v0.12"
+    "klipper-v0.12",
   );
   assert.equal(
     document.getElementById("systemMoonrakerVersion").textContent,
-    "moonraker-v0.9"
+    "moonraker-v0.9",
   );
   assert.equal(document.getElementById("systemCpu").textContent, "Test SBC");
   assert.equal(document.getElementById("systemHostTemp").textContent, "42.5°C");
@@ -868,7 +868,7 @@ test("system status binds printer, firmware, server, CPU, and host temperature v
   context.renderSystem(data, {}, "PRINTING");
   assert.equal(
     document.getElementById("systemHostTemp").textContent,
-    "NOT REPORTED"
+    "NOT REPORTED",
   );
 });
 
@@ -966,16 +966,16 @@ test("page details cover each page and never reveal a raw API key", () => {
   for (const screen of screens) {
     vm.runInContext(
       `activeScreen = ${JSON.stringify(screen)}; renderPageDetails(testData);`,
-      context
+      context,
     );
     assert.ok(
       document.getElementById("detailsRows").children.length > 0,
-      `${screen} should render details`
+      `${screen} should render details`,
     );
   }
   vm.runInContext(
     'activeScreen = "network"; renderPageDetails(testData);',
-    context
+    context,
   );
   const detailsText = deepText(document.getElementById("detailsRows"));
   assert.match(detailsText, /CONFIGURED \/ VALUE HIDDEN/);
@@ -1012,7 +1012,7 @@ test("detail drawer opens and closes through its controls", () => {
 test("panel markup exposes the camera layouts, dashboard camera popup, wide console, and page details control", () => {
   const html = fs.readFileSync(
     path.join(__dirname, "../custom_components/moonraker/panel.html"),
-    "utf8"
+    "utf8",
   );
   assert.match(html, /<option value="1x1">/);
   assert.match(html, /<option value="1x2">/);
@@ -1021,7 +1021,7 @@ test("panel markup exposes the camera layouts, dashboard camera popup, wide cons
   assert.match(html, /id="cameraConfig"[\s\S]*role="dialog"/);
   assert.match(
     html,
-    /id="dashboardCameraLayout"[\s\S]*<option value="1">1 camera<\/option>[\s\S]*<option value="2">2 cameras stacked<\/option>[\s\S]*<option value="4">4 cameras<\/option>/
+    /id="dashboardCameraLayout"[\s\S]*<option value="1">1 camera<\/option>[\s\S]*<option value="2">2 cameras stacked<\/option>[\s\S]*<option value="4">4 cameras<\/option>/,
   );
   assert.match(html, /id="dashboardCameraOptions"/);
   assert.match(html, /data-camera-config/);
@@ -1032,15 +1032,15 @@ test("panel markup exposes the camera layouts, dashboard camera popup, wide cons
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(([, id]) => id);
   assert.deepEqual(
     ids.filter((id, index) => ids.indexOf(id) !== index),
-    []
+    [],
   );
   assert.match(
     html,
-    /\.toolpath-box\s*\{[^}]*height:\s*clamp\(280px,\s*44vh,\s*560px\)/
+    /\.toolpath-box\s*\{[^}]*height:\s*clamp\(280px,\s*44vh,\s*560px\)/,
   );
   assert.match(
     html,
-    /@media \(max-width: 720px\)[\s\S]*\.toolpath-box\s*\{\s*height:\s*clamp\(260px,\s*52vh,\s*420px\)/
+    /@media \(max-width: 720px\)[\s\S]*\.toolpath-box\s*\{\s*height:\s*clamp\(260px,\s*52vh,\s*420px\)/,
   );
 });
 
@@ -1085,7 +1085,7 @@ test("custom panel sizes its iframe to the available viewport and responds to re
   });
   const source = fs.readFileSync(
     path.join(__dirname, "../custom_components/moonraker/panel_module.js"),
-    "utf8"
+    "utf8",
   );
   vm.runInContext(source, context, { filename: "panel_module.js" });
   const panel = new registeredClass();
@@ -1146,7 +1146,7 @@ test("toolpath sampling keeps the full build height when G-code exceeds the segm
       stride: state.sampleStride,
     };
   })()`,
-    context
+    context,
   );
 
   assert.ok(result.count <= 28000);
@@ -1274,7 +1274,7 @@ test("timelapse captures are serialized and bounded by retained image bytes", as
     availableWebcams = [{ name: "Front", snapshot_url: "/snapshot" }];
     dashboardCameraAssignments = ["Front"];
     liveLayer = 1;`,
-    context
+    context,
   );
 
   const firstCapture = context.captureTimelapseFrame();
@@ -1325,7 +1325,7 @@ test("active G-code filename falls back to virtual sdcard path tail", () => {
     vm.runInContext(`activeGcodeFilename(${JSON.stringify(status)})`, context);
   assert.equal(
     filename({ print_stats: { filename: "job.gcode" } }),
-    "job.gcode"
+    "job.gcode",
   );
   assert.equal(
     filename({
@@ -1333,13 +1333,13 @@ test("active G-code filename falls back to virtual sdcard path tail", () => {
         file_path: "/home/pi/printer_data/gcodes/sub/job.gcode",
       },
     }),
-    "sub/job.gcode"
+    "sub/job.gcode",
   );
   assert.equal(
     filename({
       virtual_sdcard: { file_path: "/home/pi/printer_data/gcodes/job.gcode" },
     }),
-    "job.gcode"
+    "job.gcode",
   );
   assert.equal(filename({}), "");
 });
@@ -1531,7 +1531,7 @@ test("toolpath parses through a worker and falls back inline on failure", async 
       rangeEnd: Infinity,
       stride: 1,
       signal: new AbortController().signal,
-    }
+    },
   );
   assert.ok(fallback.segments.length > 0);
   assert.ok(fallback.simSeconds > 0);
@@ -1579,7 +1579,7 @@ test("loadToolpath serves cached results without refetching", async () => {
     },
     "cube.gcode",
     "k-cache",
-    new AbortController().signal
+    new AbortController().signal,
   );
   for (let i = 0; i < 10; i++) {
     idb.flush();
@@ -1606,7 +1606,7 @@ test("toolpath auto-loads files up to the 128MB cap and rejects larger", async (
 
   await vm.runInContext(
     `updateToolpath({ entry_id: "p", status: { print_stats: { filename: "big.gcode" }, virtual_sdcard: { file_size: 78710369, progress: 0 } } })`,
-    context
+    context,
   );
   assert.equal(vm.runInContext("toolpathRequested", context), true);
   assert.equal(vm.runInContext("toolpathKey", context), "p:big.gcode");
@@ -1614,7 +1614,7 @@ test("toolpath auto-loads files up to the 128MB cap and rejects larger", async (
 
   await vm.runInContext(
     `updateToolpath({ entry_id: "p", status: { print_stats: { filename: "huge.gcode" }, virtual_sdcard: { file_size: 140 * 1024 * 1024, progress: 0 } } })`,
-    context
+    context,
   );
   assert.equal(vm.runInContext("toolpathRequested", context), false);
 });
@@ -1674,8 +1674,8 @@ test("parser accumulates simulated time per layer including dwells", () => {
   context.parseGcodeLine("G4 P2000", state, 0, 1);
   assert.ok(
     Math.abs(
-      state.simSeconds - (afterMove + 2 + (state.simSeconds - afterMove - 2))
-    ) >= 0
+      state.simSeconds - (afterMove + 2 + (state.simSeconds - afterMove - 2)),
+    ) >= 0,
   );
   assert.ok(state.simSeconds > afterMove + 1.9);
   context.parseGcodeLine("G1 Z0.2", state, 0, 1);
@@ -1691,7 +1691,7 @@ test("layer spark shows current layer time and remaining simulated ETA", () => {
     ];
     toolpathSimSeconds = 180;
     latestData = { status: { print_stats: { state: "standby" } } };`,
-    context
+    context,
   );
   context.drawLayerSpark();
   assert.ok(document.getElementById("simEta").textContent.includes("3m"));
@@ -1699,7 +1699,7 @@ test("layer spark shows current layer time and remaining simulated ETA", () => {
   vm.runInContext(
     `latestData = { status: { print_stats: { state: "printing" },
     toolhead: { position: [0, 0, 0.35, 0] } } };`,
-    context
+    context,
   );
   context.drawLayerSpark();
   assert.ok(document.getElementById("layerEta").textContent.includes("1m"));
@@ -1715,7 +1715,7 @@ test("toolpath scrubber syncs the timelapse frame to the scrubbed layer", () => 
       { layer: 20, z: 4.0, shots: { Front: { url: "blob:c", size: 10 } }, size: 10 }
     ];
     scrubZ = 1.55;`,
-    context
+    context,
   );
   context.syncTimelapseToScrub();
   const scrub = document.getElementById("tlScrub");
@@ -1752,7 +1752,7 @@ test("timelapse captures every assigned camera and replays per camera or grid", 
     ];
     dashboardCameraAssignments = ["Front", "Side"];
     liveLayer = 3;`,
-    context
+    context,
   );
   await context.captureTimelapseFrame();
   assert.equal(requests.length, 2);
@@ -1761,14 +1761,14 @@ test("timelapse captures every assigned camera and replays per camera or grid", 
   assert.equal(vm.runInContext("timelapseFrames.length", context), 1);
   assert.equal(
     vm.runInContext("Object.keys(timelapseFrames[0].shots).length", context),
-    2
+    2,
   );
 
   const cameraSelect = document.getElementById("tlCamera");
   assert.equal(cameraSelect.hidden, false);
   assert.deepEqual(
     cameraSelect.options.map((option) => option.value),
-    ["Front", "Side", "*"]
+    ["Front", "Side", "*"],
   );
 
   vm.runInContext('timelapseViewCamera = "Side"', context);
@@ -1808,7 +1808,7 @@ test("completion card shows estimate delta, live photo, and gated reprint", asyn
     `printer = "p";
     availableWebcams = [{ name: "Front", snapshot_url: "/snap" }];
     dashboardCameraAssignments = ["Front"];`,
-    context
+    context,
   );
   context.bindInteractions();
 
@@ -1834,11 +1834,11 @@ test("completion card shows estimate delta, live photo, and gated reprint", asyn
   const card = document.getElementById("jobDoneCard");
   assert.equal(card.hidden, false);
   assert.ok(
-    document.getElementById("jobDoneDelta").textContent.includes("10%")
+    document.getElementById("jobDoneDelta").textContent.includes("10%"),
   );
   assert.equal(document.getElementById("jobDonePhoto").hidden, false);
   assert.ok(
-    document.getElementById("jobDonePhoto").src.startsWith("blob:photo-")
+    document.getElementById("jobDonePhoto").src.startsWith("blob:photo-"),
   );
   const reprint = document.getElementById("jobDoneReprint");
   assert.equal(reprint.disabled, true);
@@ -1865,7 +1865,7 @@ test("start_queue is held during quiet hours until pressed again", async () => {
     alertPrefs.quietStart = "00:00"; alertPrefs.quietEnd = "23:59";
     latestData = { status: { print_stats: { state: "standby" } }, settings: {} };
     lastDataAt = Date.now();`,
-    context
+    context,
   );
 
   const button = document.createElement("button");
@@ -1925,9 +1925,9 @@ test("fleet strip renders per-printer tiles and switches printers on click", () 
   // Single-printer payloads hide the strip entirely.
   vm.runInContext(
     `renderFleet({ entry_id: "a", fleet: [${JSON.stringify(
-      payload.fleet[0]
+      payload.fleet[0],
     )}] })`,
-    context
+    context,
   );
   assert.equal(strip.hidden, true);
   assert.equal(strip.children.length, 0);
@@ -1945,15 +1945,15 @@ test("printer health decodes mcu retransmits and console fault signatures", () =
   };
   const findings = vm.runInContext(
     `analyzePrinterHealth(${JSON.stringify(data)})`,
-    context
+    context,
   );
   const mcu = findings.find((f) => f.label === "MCU RETRANSMIT");
   assert.equal(mcu.severity, "warn");
   assert.match(mcu.detail, /12 B/);
   assert.ok(
     findings.some(
-      (f) => f.label === "MCU SHUTDOWN LOGGED" && f.severity === "bad"
-    )
+      (f) => f.label === "MCU SHUTDOWN LOGGED" && f.severity === "bad",
+    ),
   );
   assert.ok(findings.some((f) => f.label === "TIMER TOO CLOSE"));
   assert.ok(findings.some((f) => f.label === "MOVE OUT OF RANGE"));
@@ -1965,7 +1965,7 @@ test("printer health decodes mcu retransmits and console fault signatures", () =
   assert.ok(chips.length >= 4);
   assert.equal(
     document.getElementById("healthSummary").textContent,
-    "FAULTS LOGGED"
+    "FAULTS LOGGED",
   );
 
   // Clean stream reports CLEAN with a healthy chip.
@@ -1984,7 +1984,7 @@ test("maintenance ledger counts down hours and filament and resets per item", ()
   };
   vm.runInContext(
     `printer = "p1"; renderMaintenance({ history: ${JSON.stringify(totals)} })`,
-    context
+    context,
   );
   const list = document.getElementById("maintenanceList");
   assert.equal(list.children.length, 5);
@@ -1999,7 +1999,7 @@ test("maintenance ledger counts down hours and filament and resets per item", ()
   };
   vm.runInContext(
     `renderMaintenance({ history: ${JSON.stringify(later)} })`,
-    context
+    context,
   );
   assert.match(deepText(list.children[0]), /400 H LEFT/);
 
@@ -2007,7 +2007,7 @@ test("maintenance ledger counts down hours and filament and resets per item", ()
   list.children[0].children[3].listeners.click();
   vm.runInContext(
     `renderMaintenance({ history: ${JSON.stringify(later)} })`,
-    context
+    context,
   );
   assert.match(deepText(list.children[0]), /500 H LEFT/);
   assert.match(deepText(list.children[1]), /200 H LEFT/);
@@ -2021,7 +2021,7 @@ test("maintenance ledger counts down hours and filament and resets per item", ()
   };
   vm.runInContext(
     `renderMaintenance({ history: ${JSON.stringify(overdue)} })`,
-    context
+    context,
   );
   assert.match(deepText(list.children[1]), /0 H LEFT/);
   assert.ok(list.children[1].className.includes("due"));
@@ -2036,7 +2036,7 @@ test("file analysis renders GO/NO-GO verdicts from spool, bounds, and quiet hour
       bed_bounds: { x: { min: 0, max: 235 }, y: { min: 0, max: 235 }, z: { min: 0, max: 250 } },
       status: { toolhead: { axis_maximum: [235, 235, 250] } },
     };`,
-    context
+    context,
   );
   const base = {
     estimated_time: 3600,
@@ -2063,12 +2063,12 @@ test("file analysis renders GO/NO-GO verdicts from spool, bounds, and quiet hour
   // Material mismatch blocks the job.
   vm.runInContext(
     `renderFileAnalysis(${JSON.stringify({ ...base, filament_type: "PETG" })})`,
-    context
+    context,
   );
   assert.equal(verdict.textContent, "NO-GO");
   assert.match(
     deepText(document.getElementById("analysisWarnings")),
-    /MATERIAL MISMATCH/
+    /MATERIAL MISMATCH/,
   );
 
   // Insufficient filament and over-tall object both block.
@@ -2078,27 +2078,27 @@ test("file analysis renders GO/NO-GO verdicts from spool, bounds, and quiet hour
       filament_weight_total: 500,
       object_height: 300,
     })})`,
-    context
+    context,
   );
   assert.equal(verdict.textContent, "NO-GO");
   assert.match(
     deepText(document.getElementById("analysisWarnings")),
-    /NEEDS 500 G/
+    /NEEDS 500 G/,
   );
   assert.match(
     deepText(document.getElementById("analysisWarnings")),
-    /EXCEEDS Z HEIGHT/
+    /EXCEEDS Z HEIGHT/,
   );
 
   // Quiet-hours finish shows up as a warning.
   vm.runInContext(
     `alertPrefs = { engine: "off", players: [], events: {}, quietStart: "00:00", quietEnd: "23:59", quietBypass: true };
      renderFileAnalysis(${JSON.stringify(base)})`,
-    context
+    context,
   );
   assert.match(
     deepText(document.getElementById("analysisWarnings")),
-    /QUIET HOURS/
+    /QUIET HOURS/,
   );
 });
 
@@ -2114,21 +2114,21 @@ test("bed mesh decay baselines, detects drift, and re-baselines", () => {
   const first = JSON.parse(
     vm.runInContext(
       `JSON.stringify(analyzeMeshDecay({ bed_mesh: { mesh_matrix: [[0.1, 0.0], [0.0, -0.1]] } }))`,
-      context
-    )
+      context,
+    ),
   );
   assert.equal(first.rmsDrift, 0);
   assert.equal(first.maxDrift, 0);
   assert.ok(
-    window.localStorage.getItem("nexusMeshV1.printer-a").includes("baseline")
+    window.localStorage.getItem("nexusMeshV1.printer-a").includes("baseline"),
   );
 
   // A shifted surface reports RMS and per-cell drift.
   const shifted = JSON.parse(
     vm.runInContext(
       `JSON.stringify(analyzeMeshDecay({ bed_mesh: { mesh_matrix: [[0.3, 0.0], [0.0, -0.3]] } }))`,
-      context
-    )
+      context,
+    ),
   );
   assert.ok(shifted.rmsDrift > 0.14, `rms ${shifted.rmsDrift}`);
   assert.ok(Math.abs(shifted.maxDrift - 0.2) < 1e-9);
@@ -2136,32 +2136,32 @@ test("bed mesh decay baselines, detects drift, and re-baselines", () => {
   // Rendering flags the drift and paints the heatmap.
   vm.runInContext(
     `renderMeshDecay({ bed_mesh: { mesh_matrix: [[0.3, 0.0], [0.0, -0.3]] } })`,
-    context
+    context,
   );
   assert.equal(
     document.getElementById("meshDriftSummary").textContent,
-    "RE-LEVEL SUGGESTED"
+    "RE-LEVEL SUGGESTED",
   );
   assert.equal(document.getElementById("meshDriftMap").children.length, 4);
   assert.match(
     document.getElementById("meshDriftMap").children[0].style.background,
-    /0, 239, 145/
+    /0, 239, 145/,
   );
   assert.match(
     document.getElementById("meshDriftMap").children[3].style.background,
-    /255, 83, 107/
+    /255, 83, 107/,
   );
 
   // Re-baseline resets drift to zero.
   vm.runInContext(
     "latestData = { status: { bed_mesh: { mesh_matrix: [[0.3, 0.0], [0.0, -0.3]] } } }; resetMeshBaseline();",
-    context
+    context,
   );
   const after = JSON.parse(
     vm.runInContext(
       `JSON.stringify(analyzeMeshDecay({ bed_mesh: { mesh_matrix: [[0.3, 0.0], [0.0, -0.3]] } }))`,
-      context
-    )
+      context,
+    ),
   );
   assert.equal(after.rmsDrift, 0);
 
@@ -2170,14 +2170,14 @@ test("bed mesh decay baselines, detects drift, and re-baselines", () => {
   assert.equal(
     vm.runInContext(
       'analyzeMeshDecay({ bed_mesh: { mesh_matrix: "x" } })',
-      context
+      context,
     ),
-    null
+    null,
   );
   vm.runInContext("renderMeshDecay({})", context);
   assert.equal(
     document.getElementById("meshDriftSummary").textContent,
-    "NO MESH DATA"
+    "NO MESH DATA",
   );
   vm.runInContext("latestData = { status: {} }; resetMeshBaseline();", context);
 });
@@ -2188,13 +2188,13 @@ test("thermal sentinel flags saturated heaters and PID oscillation", () => {
   // Duty pinned at 100% while temperature falls = failing heater cartridge.
   vm.runInContext(
     `thermalSamples = { EXTRUDER: Array.from({ length: 30 }, (_, i) => ({ at: ${Date.now()} - (30 - i) * 1000, t: 210 - i * 0.5, p: 1 })) };`,
-    context
+    context,
   );
   const saturated = JSON.parse(
     vm.runInContext(
       `JSON.stringify(analyzeThermalHealth({ extruder: { temperature: 194, power: 1, target: 220 } }))`,
-      context
-    )
+      context,
+    ),
   );
   assert.equal(saturated[0].severity, "bad");
   assert.match(saturated[0].label, /SATURATED/);
@@ -2202,34 +2202,34 @@ test("thermal sentinel flags saturated heaters and PID oscillation", () => {
   // Sustained ±4°C oscillation around target = badly tuned PID.
   vm.runInContext(
     `thermalSamples = { BED: Array.from({ length: 80 }, (_, i) => ({ at: ${Date.now()} - (80 - i) * 1000, t: 60 + Math.sin(i / 2) * 4, p: 0.5 })) };`,
-    context
+    context,
   );
   const oscillating = JSON.parse(
     vm.runInContext(
       `JSON.stringify(analyzeThermalHealth({ heater_bed: { temperature: 60, power: 0.5, target: 60 } }))`,
-      context
-    )
+      context,
+    ),
   );
   assert.ok(
     oscillating.some(
       (finding) =>
-        finding.severity === "warn" && /OSCILLATION/.test(finding.label)
-    )
+        finding.severity === "warn" && /OSCILLATION/.test(finding.label),
+    ),
   );
 
   // Cold idle heaters and short histories stay quiet.
   const quiet = JSON.parse(
     vm.runInContext(
       `thermalSamples = {}; JSON.stringify(analyzeThermalHealth({ extruder: { temperature: 24, power: 0, target: 0 } }))`,
-      context
-    )
+      context,
+    ),
   );
   assert.equal(quiet.length, 0);
   const short = JSON.parse(
     vm.runInContext(
       `thermalSamples = {}; JSON.stringify(analyzeThermalHealth({ "heater_generic chamber": { temperature: 40, power: 0.3, target: 45 } }))`,
-      context
-    )
+      context,
+    ),
   );
   assert.equal(short.length, 0);
 });
@@ -2241,16 +2241,16 @@ test("volumetric flow headroom reports melt-limit saturation", () => {
   // 12 mm/s * 2.405 mm² ≈ 28.9 mm³/s — well above the 15 mm³/s rating.
   vm.runInContext(
     `renderFlowHeadroom({ motion_report: { live_extruder_velocity: 12 } })`,
-    context
+    context,
   );
   assert.match(
     document.getElementById("flowVolumetric").textContent,
-    /28\.9 mm³\/s/
+    /28\.9 mm³\/s/,
   );
   assert.equal(document.getElementById("flowHeadroom").textContent, "0%");
   assert.equal(
     document.getElementById("flowHeadroomPill").textContent,
-    "AT MELT LIMIT"
+    "AT MELT LIMIT",
   );
   assert.equal(document.getElementById("flowHeadroomBar").style.width, "100%");
 
@@ -2259,8 +2259,8 @@ test("volumetric flow headroom reports melt-limit saturation", () => {
   const finding = JSON.parse(
     vm.runInContext(
       `JSON.stringify(renderFlowHeadroom({ motion_report: { live_extruder_velocity: 12 } }))`,
-      context
-    )
+      context,
+    ),
   );
   assert.equal(finding.severity, "warn");
   assert.match(finding.label, /FLOW SATURATED/);
@@ -2268,11 +2268,11 @@ test("volumetric flow headroom reports melt-limit saturation", () => {
   // Comfortable flow reads as headroom; idle reports IDLE and clears the timer.
   vm.runInContext(
     `renderFlowHeadroom({ motion_report: { live_extruder_velocity: 2 } })`,
-    context
+    context,
   );
   assert.equal(
     document.getElementById("flowHeadroomPill").textContent,
-    "HEADROOM OK"
+    "HEADROOM OK",
   );
   assert.match(document.getElementById("flowHeadroom").textContent, /68%/);
   vm.runInContext("renderFlowHeadroom({})", context);
@@ -2285,7 +2285,7 @@ test("energy accounting integrates watts into kWh and cost", () => {
   vm.runInContext('printer = "printer-a";', context);
   window.localStorage.setItem(
     "nexusEnergy.printer-a",
-    JSON.stringify({ sensor: "sensor.printer_power", rate: 0.3 })
+    JSON.stringify({ sensor: "sensor.printer_power", rate: 0.3 }),
   );
   window.hass = {
     states: {
@@ -2333,26 +2333,26 @@ test("energy accounting integrates watts into kWh and cost", () => {
     `updateEnergy(${JSON.stringify({
       status: { print_stats: { state: "printing", filename: "other.gcode" } },
     })})`,
-    context
+    context,
   );
   assert.equal(document.getElementById("energyNow").textContent, "1500 W");
 
   // Missing sensor state degrades to NO SENSOR.
   vm.runInContext(
     'energyPrefs.sensor = "sensor.missing"; updateEnergy({})',
-    context
+    context,
   );
   assert.equal(document.getElementById("energyNow").textContent, "NO SENSOR");
   assert.equal(
     document.getElementById("energyStatus").textContent,
-    "NO SENSOR"
+    "NO SENSOR",
   );
 });
 
 function loadTranslations(context) {
   const source = fs.readFileSync(
     path.join(__dirname, "../custom_components/moonraker/panel_i18n.js"),
-    "utf8"
+    "utf8",
   );
   vm.runInContext(source, context, { filename: "panel_i18n.js" });
 }
@@ -2361,15 +2361,15 @@ test("translation tables cover the same keys in every language and all screen ti
   const { context } = createPanelClient();
   loadTranslations(context);
   const tables = JSON.parse(
-    vm.runInContext("JSON.stringify(window.NEXUS_I18N)", context)
+    vm.runInContext("JSON.stringify(window.NEXUS_I18N)", context),
   );
   const titles = JSON.parse(
-    vm.runInContext("JSON.stringify(SCREEN_TITLES)", context)
+    vm.runInContext("JSON.stringify(SCREEN_TITLES)", context),
   );
   assert.deepEqual(Object.keys(tables).sort(), ["es", "fr"]);
   assert.deepEqual(
     Object.keys(tables.es).sort(),
-    Object.keys(tables.fr).sort()
+    Object.keys(tables.fr).sort(),
   );
   for (const [lang, table] of Object.entries(tables)) {
     for (const [source, translated] of Object.entries(table)) {
@@ -2378,7 +2378,7 @@ test("translation tables cover the same keys in every language and all screen ti
       assert.equal(
         source,
         source.replace(/\s+/g, " ").trim(),
-        `${lang}:${source} has unnormalized whitespace`
+        `${lang}:${source} has unnormalized whitespace`,
       );
     }
     for (const [kicker, title] of Object.values(titles)) {
@@ -2425,30 +2425,30 @@ test("panel language resolves from HA, translates static and dynamic text, and r
   assert.equal(dynamic.textContent, "Dashboard Layout");
   assert.equal(
     input.getAttribute("placeholder"),
-    "FILTRER LES FICHIERS G-CODE"
+    "FILTRER LES FICHIERS G-CODE",
   );
   assert.equal(unknown.textContent, "PRINT_START_MACRO");
   assert.equal(
     document.getElementById("screenTitle").textContent,
-    "Tableau de bord"
+    "Tableau de bord",
   );
   assert.equal(
     document.getElementById("pageKicker").textContent,
-    "APPAREIL / VUE EN DIRECT"
+    "APPAREIL / VUE EN DIRECT",
   );
 
   vm.runInContext(
     'setText("flowHeadroomPill", "IDLE"); setText("energyNow", "123 W"); toast("MESH BASELINE RESET");',
-    context
+    context,
   );
   assert.equal(
     document.getElementById("flowHeadroomPill").textContent,
-    "INACTIF"
+    "INACTIF",
   );
   assert.equal(document.getElementById("energyNow").textContent, "123 W");
   assert.equal(
     document.getElementById("toast").textContent,
-    "RÉFÉRENCE DU MAILLAGE RÉINITIALISÉE"
+    "RÉFÉRENCE DU MAILLAGE RÉINITIALISÉE",
   );
 
   vm.runInContext('applyPanelLanguage("en")', context);
@@ -2470,7 +2470,7 @@ test("display preferences apply theme, text size, colour-safe palette, and persi
   const root = (document.documentElement = new FakeElement("html"));
   vm.runInContext(
     'printer = "printer-a"; loadDisplayPrefs(); bindInteractions();',
-    context
+    context,
   );
   assert.equal(root.dataset.theme, undefined);
   assert.equal(vm.runInContext('statusRgb("ok")', context), "0, 239, 145");
@@ -2485,7 +2485,7 @@ test("display preferences apply theme, text size, colour-safe palette, and persi
   assert.equal(vm.runInContext('statusRgb("ok")', context), "86, 180, 233");
   assert.equal(vm.runInContext('statusRgb("bad")', context), "255, 122, 61");
   const saved = JSON.parse(
-    window.localStorage.getItem("nexus-display:printer-a")
+    window.localStorage.getItem("nexus-display:printer-a"),
   );
   assert.equal(saved.theme, "contrast");
   assert.equal(saved.colorSafe, true);
@@ -2521,18 +2521,18 @@ test("colour-safe mode recolours the bed mesh map without green/red hues", () =>
   const { context, document } = createPanelClient();
   vm.runInContext(
     "displayPrefs.colorSafe = true; renderBedMesh({ bed_mesh: { mesh_matrix: [[-0.2, 0.0, 0.2]] } });",
-    context
+    context,
   );
   const cells = document.getElementById("bedMeshMap").children;
   assert.match(cells[0].style.background, /^hsl\(210 /);
   assert.match(cells[2].style.background, /^hsl\(24 /);
   vm.runInContext(
     "displayPrefs.colorSafe = false; renderBedMesh({ bed_mesh: { mesh_matrix: [[-0.2, 0.0, 0.2]] } });",
-    context
+    context,
   );
   assert.match(
     document.getElementById("bedMeshMap").children[2].style.background,
-    /^hsl\(0 72%/
+    /^hsl\(0 72%/,
   );
 });
 
@@ -2586,7 +2586,7 @@ test("navigation exposes aria-current, arrow-key focus, and Escape closes the de
   assert.equal(document.getElementById("pageDetails").hidden, true);
   assert.equal(
     document.getElementById("pageDetails").getAttribute("aria-hidden"),
-    "true"
+    "true",
   );
 });
 
@@ -2609,19 +2609,19 @@ test("accessibility enhancement labels canvases, jog buttons, and the toast live
   vm.runInContext("enhanceAccessibility()", context);
   assert.equal(
     document.getElementById("layerSpark").getAttribute("role"),
-    "img"
+    "img",
   );
   assert.equal(
     document.getElementById("tempGraph").getAttribute("aria-label"),
-    "Hotend and bed temperature graph"
+    "Hotend and bed temperature graph",
   );
   assert.equal(
     document.getElementById("toolpathCanvas").getAttribute("aria-label"),
-    "Existing"
+    "Existing",
   );
   assert.equal(
     document.getElementById("toast").getAttribute("aria-live"),
-    "polite"
+    "polite",
   );
   assert.equal(jogX.getAttribute("aria-label"), "Jog X minus");
   assert.equal(jogZ.getAttribute("aria-label"), "Jog Z plus");
@@ -2635,7 +2635,7 @@ test("accessibility enhancement labels canvases, jog buttons, and the toast live
 test("panel markup ships theme, language, skip link, and mobile layout hooks", () => {
   const html = fs.readFileSync(
     path.join(__dirname, "../custom_components/moonraker/panel.html"),
-    "utf8"
+    "utf8",
   );
   for (const id of [
     "displayTheme",
@@ -2678,7 +2678,7 @@ test("built-in themes apply their CSS variable maps and clear cleanly", () => {
   const root = (document.documentElement = new FakeElement("html"));
   vm.runInContext(
     'printer = "printer-a"; loadCustomThemes(); populateThemeSelect(); displayPrefs.theme = "midnight"; applyTheme();',
-    context
+    context,
   );
   assert.equal(root.dataset.theme, "midnight");
   assert.equal(root.style["--bg"], "#050b16");
@@ -2727,7 +2727,7 @@ test("validateTheme accepts a valid file and reports every defect", () => {
   delete missing.vars["--red"];
   assert.match(
     validate(missing).errors.join(";"),
-    /missing required variable "--red"/
+    /missing required variable "--red"/,
   );
 
   const badColor = {
@@ -2742,7 +2742,7 @@ test("validateTheme accepts a valid file and reports every defect", () => {
   };
   assert.match(
     validate(unknown).errors.join(";"),
-    /unknown variable "--bogus"/
+    /unknown variable "--bogus"/,
   );
 
   const longName = { ...VALID_THEME, name: "x".repeat(60) };
@@ -2774,7 +2774,7 @@ test("uploaded custom theme is stored, listed, and applied", () => {
   };
   vm.runInContext(
     'printer = "printer-a"; handleThemeUpload({ name: "t.json" });',
-    context
+    context,
   );
   const stored = JSON.parse(window.localStorage.getItem("nexus-custom-themes"));
   assert.ok(stored["custom:test-theme"]);
@@ -2786,7 +2786,7 @@ test("uploaded custom theme is stored, listed, and applied", () => {
   assert.ok(values.includes("custom:test-theme"));
   assert.match(
     document.getElementById("themeUploadStatus").textContent,
-    /installed/
+    /installed/,
   );
 });
 
@@ -2801,11 +2801,11 @@ test("invalid theme upload is rejected with a readable message", () => {
   };
   vm.runInContext(
     'printer = "p"; handleThemeUpload({ name: "t.json" });',
-    context
+    context,
   );
   assert.match(
     document.getElementById("themeUploadStatus").textContent,
-    /not valid JSON/
+    /not valid JSON/,
   );
 
   context.FileReader = class {
@@ -2817,6 +2817,52 @@ test("invalid theme upload is rejected with a readable message", () => {
   vm.runInContext('handleThemeUpload({ name: "t.json" });', context);
   assert.match(
     document.getElementById("themeUploadStatus").textContent,
-    /missing required variable/
+    /missing required variable/,
   );
+});
+
+test("mesh surface view shows corner offsets and last-vs-current delta grid", () => {
+  const { context, document } = createPanelClient();
+  const zeros = [
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0],
+  ];
+  const shifted = [
+    [0, 0, 0],
+    [0, 0.1, 0],
+    [0, 0, 0],
+  ];
+  vm.runInContext(
+    `latestData = { analysis: {
+      metrics: {
+        mesh_corner_offsets: [0.0, 0.12, 0.0, 0.08],
+        mesh_tilt_delta: 0.03,
+        mesh_surface_delta_rms: 0.04,
+      },
+      mesh_history: [
+        { residuals: ${JSON.stringify(zeros)} },
+        { residuals: ${JSON.stringify(shifted)} },
+      ],
+    } }; renderMeshSurface();`,
+    context,
+  );
+  assert.equal(
+    document.getElementById("meshCorners").textContent,
+    "FL +0.00 · FR +0.12 · BL +0.00 · BR +0.08",
+  );
+  assert.equal(document.getElementById("meshTiltDelta").textContent, "30 µm");
+  assert.equal(
+    document.getElementById("meshSurfaceDelta").textContent,
+    "40 µm",
+  );
+  assert.equal(document.getElementById("meshSnapshots").textContent, "2");
+  assert.equal(document.getElementById("meshSurfaceMap").children.length, 9);
+
+  vm.runInContext(
+    "latestData = { analysis: { mesh_history: [] } }; renderMeshSurface();",
+    context,
+  );
+  assert.equal(document.getElementById("meshCorners").textContent, "—");
+  assert.equal(document.getElementById("meshSurfaceMap").children.length, 0);
 });

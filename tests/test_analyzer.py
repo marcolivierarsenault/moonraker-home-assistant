@@ -1343,3 +1343,110 @@ async def test_queue_meta_updater(hass):
     coordinator.async_fetch_data = AsyncMock()
     assert (await _queue_meta_updater(coordinator))["queue_meta"] == {}
     coordinator.async_fetch_data.assert_not_called()
+
+
+def _tilted_mesh(a, b, c, rows=3, cols=3):
+    """Build a mesh on the plane z = a*col + b*row + c."""
+    return [[a * j + b * i + c for j in range(cols)] for i in range(rows)]
+
+
+def test_mesh_surface_decomposition(hass):
+    """Test test mesh surface decomposition."""
+    analyzer = _coordinator(hass).analyzer
+    status = _base_status()
+    status["bed_mesh"] = {"mesh_matrix": _tilted_mesh(0.05, 0.0, 0.02)}
+    analyzer.analyze(status, now=1000.0)
+    assert analyzer.metrics["mesh_tilt_a"] == pytest.approx(0.05)
+    assert analyzer.metrics["mesh_tilt_b"] == pytest.approx(0.0)
+    # Corners (FL, FR, BL, BR) relative to lowest: X tilt raises the right side.
+    assert analyzer.metrics["mesh_corner_offsets"] == [0.0, 0.1, 0.0, 0.1]
+    assert analyzer.metrics["mesh_surface_rms_mm"] == pytest.approx(0.0)
+    assert len(analyzer.mesh_history) == 1
+
+
+def test_mesh_tram_shift_finding(hass):
+    """Test test mesh tram shift finding."""
+    analyzer = _coordinator(hass).analyzer
+    status = _base_status()
+    status["bed_mesh"] = {"mesh_matrix": _tilted_mesh(0.0, 0.0, 0.0)}
+    analyzer.analyze(status, now=1000.0)
+    # Same surface, tram tilted 0.05mm/cell along X.
+    status["bed_mesh"] = {"mesh_matrix": _tilted_mesh(0.05, 0.0, 0.0)}
+    analyzer.analyze(status, now=1100.0)
+    assert analyzer.metrics["mesh_tilt_delta"] == pytest.approx(0.05)
+    labels = [finding["label"] for finding in analyzer.findings]
+    assert "tram shifted" in labels
+    assert "bed surface changed" not in labels
+    assert len(analyzer.mesh_history) == 2
+
+
+def test_mesh_surface_change_finding(hass):
+    """Test test mesh surface change finding."""
+    analyzer = _coordinator(hass).analyzer
+    status = _base_status()
+    status["bed_mesh"] = {"mesh_matrix": _tilted_mesh(0.0, 0.0, 0.0)}
+    analyzer.analyze(status, now=1000.0)
+    # Same tilt, but one cell deformed +0.2mm — surface moved, tram did not.
+    changed = _tilted_mesh(0.0, 0.0, 0.0)
+    changed[1][1] = 0.2
+    status["bed_mesh"] = {"mesh_matrix": changed}
+    analyzer.analyze(status, now=1100.0)
+    assert analyzer.metrics["mesh_tilt_delta"] < 0.02
+    assert analyzer.metrics["mesh_surface_delta_rms"] >= 0.05
+    labels = [finding["label"] for finding in analyzer.findings]
+    assert "bed surface changed" in labels
+
+
+def test_mesh_same_fingerprint_keeps_history(hass):
+    """Test test mesh same fingerprint keeps history."""
+    analyzer = _coordinator(hass).analyzer
+    status = _base_status()
+    matrix = _tilted_mesh(0.01, 0.02, 0.0)
+    status["bed_mesh"] = {"mesh_matrix": matrix}
+    analyzer.analyze(status, now=1000.0)
+    analyzer.analyze(status, now=1100.0)
+    assert len(analyzer.mesh_history) == 1
+    assert analyzer.metrics["mesh_tilt_delta"] == 0.0
+
+
+def test_mesh_degenerate_grid_no_crash(hass):
+    """Test test mesh degenerate grid no crash."""
+    analyzer = _coordinator(hass).analyzer
+    status = _base_status()
+    status["bed_mesh"] = {"mesh_matrix": [[0.1, 0.2, 0.3]]}
+    analyzer.analyze(status, now=1000.0)
+    assert analyzer.metrics["mesh_tilt_a"] == 0.0
+    assert analyzer.metrics["mesh_corner_offsets"] == [0.0, 0.0, 0.0, 0.0]
+
+
+def test_mesh_history_capped_and_persisted(hass):
+    """Test test mesh history capped and persisted."""
+    analyzer = _coordinator(hass).analyzer
+    status = _base_status()
+    for index in range(15):
+        status["bed_mesh"] = {"mesh_matrix": _tilted_mesh(0.0, 0.0, index * 0.01)}
+        analyzer.analyze(status, now=1000.0 + index)
+    assert len(analyzer.mesh_history) == 12
+    assert analyzer.metrics["mesh_snapshots"] == 12
+
+    as_dict = analyzer.as_dict()
+    assert len(as_dict["mesh_history"]) == 12
+    assert as_dict["mesh_history"][-1]["tilt_a"] is not None
+
+
+async def test_mesh_history_restored_from_store(hass):
+    """Test test mesh history restored from store."""
+    analyzer = _coordinator(hass).analyzer
+    await analyzer.async_load()
+    status = _base_status()
+    status["bed_mesh"] = {"mesh_matrix": _tilted_mesh(0.0, 0.0, 0.0)}
+    analyzer.analyze(status, now=1000.0)
+    status["bed_mesh"] = {"mesh_matrix": _tilted_mesh(0.0, 0.0, 0.01)}
+    analyzer.analyze(status, now=1100.0)
+    assert len(analyzer.mesh_history) == 2
+    await analyzer._async_save()
+
+    restored = _coordinator(hass, entry_id="analyzer").analyzer
+    await restored.async_load()
+    assert len(restored.mesh_history) == 2
+    assert restored.mesh_history[-1]["residuals"] is not None

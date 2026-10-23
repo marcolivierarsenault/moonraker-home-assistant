@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -39,14 +39,15 @@
       }
       body {
         color: var(--text);
-        background: radial-gradient(
-            ellipse at 52% -20%,
-            var(--glow),
-            transparent 48%
-          ),
+        background:
+          radial-gradient(ellipse at 52% -20%, var(--glow), transparent 48%),
           linear-gradient(var(--grid) 1px, transparent 1px),
           linear-gradient(90deg, var(--grid) 1px, transparent 1px), var(--bg);
-        background-size: auto, 32px 32px, 32px 32px, auto;
+        background-size:
+          auto,
+          32px 32px,
+          32px 32px,
+          auto;
         font-family: var(--sans);
         font-size: 13px;
       }
@@ -241,7 +242,9 @@
           rgba(0, 239, 145, 0.16),
           rgba(0, 239, 145, 0.015)
         );
-        box-shadow: inset 2px 0 var(--green), 0 0 11px rgba(0, 239, 145, 0.06);
+        box-shadow:
+          inset 2px 0 var(--green),
+          0 0 11px rgba(0, 239, 145, 0.06);
       }
       .fleet-strip {
         display: grid;
@@ -830,7 +833,8 @@
         height: clamp(280px, 44vh, 560px);
         overflow: hidden;
         border: 1px solid #14452d;
-        background: linear-gradient(rgba(0, 112, 66, 0.13) 1px, transparent 1px),
+        background:
+          linear-gradient(rgba(0, 112, 66, 0.13) 1px, transparent 1px),
           linear-gradient(90deg, rgba(0, 112, 66, 0.13) 1px, transparent 1px),
           #030d0a;
         background-size: 18px 18px;
@@ -2847,6 +2851,22 @@
                     Each cell shows deviation from your saved baseline mesh.
                     Green cells moved up, red moved down. Re-baseline after
                     re-leveling or a nozzle swap.
+                  </p>
+                  <div class="panel-kicker" style="margin-top: 12px">
+                    Tram Tilt vs Surface Shape (server)
+                  </div>
+                  <div class="kv">
+                    <b>Corner Offsets</b><span id="meshCorners">—</span
+                    ><b>Tilt Shift</b><span id="meshTiltDelta">—</span
+                    ><b>Surface Δ RMS</b><span id="meshSurfaceDelta">—</span
+                    ><b>Snapshots</b><span id="meshSnapshots">—</span>
+                  </div>
+                  <div id="meshSurfaceMap" class="mesh-grid"></div>
+                  <p class="micro">
+                    Corner offsets are mm each corner sits above the lowest —
+                    tram the high corners down by that amount. The grid shows
+                    how the bed surface itself changed between the last two
+                    meshes, with frame tilt removed.
                   </p>
                 </article>
               </div>

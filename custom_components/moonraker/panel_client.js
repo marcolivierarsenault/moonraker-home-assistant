@@ -3,15 +3,15 @@ const API = {
     `moonraker/panel_data?printer=${encodeURIComponent(printer || "")}`,
   thumb: (printer, filename) =>
     `/api/moonraker/panel_thumbnail?printer=${encodeURIComponent(
-      printer || ""
+      printer || "",
     )}${filename ? `&filename=${encodeURIComponent(filename)}` : ""}`,
   snapshot: (printer, camera) =>
     `/api/moonraker/panel_webcam_snapshot?printer=${encodeURIComponent(
-      printer || ""
+      printer || "",
     )}&camera=${encodeURIComponent(camera || "")}`,
   gcode: (printer, filename) =>
     `/api/moonraker/panel_gcode?printer=${encodeURIComponent(
-      printer || ""
+      printer || "",
     )}&filename=${encodeURIComponent(filename || "")}`,
   action: "moonraker/panel_action",
   upload: "/api/moonraker/gcode_upload",
@@ -67,7 +67,7 @@ function resolvePanelLanguage(choice) {
           window.hass?.locale?.language ||
             window.hass?.language ||
             window.navigator?.language ||
-            "en"
+            "en",
         );
   const code = requested.toLowerCase().slice(0, 2);
   return window.NEXUS_I18N?.[code] ? code : "en";
@@ -91,7 +91,7 @@ function translateStatic(root = document) {
         () => element.textContent,
         (text) => {
           element.textContent = text;
-        }
+        },
       );
       continue;
     }
@@ -102,7 +102,7 @@ function translateStatic(root = document) {
         () => node.textContent,
         (text) => {
           node.textContent = text;
-        }
+        },
       );
     }
   }
@@ -288,7 +288,7 @@ async function subscribePanelPush() {
     (data) => {
       panelPushLive = true;
       handlePanelPayload(data);
-    }
+    },
   );
   panelPushRequest = request;
   try {
@@ -408,7 +408,7 @@ function drawTemperatureGraph(canvasId, extruderTarget, bedTarget) {
       ...extHist,
       ...bedHist,
       Number(extruderTarget) || 0,
-      Number(bedTarget) || 0
+      Number(bedTarget) || 0,
     ) * 1.12;
   context.strokeStyle = "rgba(41, 104, 70, .28)";
   context.lineWidth = 1;
@@ -460,7 +460,7 @@ function findNamedStatus(status, pattern) {
   return (
     Object.entries(status || {}).find(
       ([name, value]) =>
-        pattern.test(name) && value && typeof value === "object"
+        pattern.test(name) && value && typeof value === "object",
     )?.[1] || {}
   );
 }
@@ -503,7 +503,7 @@ function render(data) {
   stateLed.className = "led";
   stateChip.append(
     stateLed,
-    document.createTextNode(data.available ? printState : "OFFLINE")
+    document.createTextNode(data.available ? printState : "OFFLINE"),
   );
   stateChip.classList.toggle("bad", !data.available);
   setText("klippyChip", `KLIPPY ${(data.printer_info || {}).state || "—"}`);
@@ -513,8 +513,8 @@ function render(data) {
       printStats.filename || "NONE"
     } // ${(progress * 100).toFixed(1)}% // NOZZLE ${fmt(
       extruder.temperature,
-      0
-    )}°C // BED ${fmt(bed.temperature, 0)}°C`
+      0,
+    )}°C // BED ${fmt(bed.temperature, 0)}°C`,
   );
 
   const ring = byId("ringFg");
@@ -523,7 +523,7 @@ function render(data) {
   setText("fname", printStats.filename || "NO ACTIVE G-CODE");
   const remaining = Math.max(
     0,
-    (meta.estimated_time || 0) - (printStats.print_duration || 0)
+    (meta.estimated_time || 0) - (printStats.print_duration || 0),
   );
   setText("eta", `ETA ${duration(remaining)}`);
   setText("elapsed", duration(printStats.print_duration));
@@ -555,7 +555,7 @@ function render(data) {
   setText("dashboardState", printState);
   setText(
     "dashboardAvailability",
-    data.available ? "STREAMING" : "UNAVAILABLE"
+    data.available ? "STREAMING" : "UNAVAILABLE",
   );
   setText("printPageState", printState);
   setText("printPageFile", printStats.filename || "NO ACTIVE G-CODE");
@@ -568,13 +568,13 @@ function render(data) {
   setText("printHeight", `${fmt(meta.layer_height, 2)} mm`);
   setText(
     "printFilament",
-    `${fmt((printStats.filament_used || 0) / 1000, 2)} m`
+    `${fmt((printStats.filament_used || 0) / 1000, 2)} m`,
   );
   setText("printEstimate", duration(meta.estimated_time));
   setText("printMetaEstimate", duration(meta.estimated_time));
   setText(
     "printMetaFilament",
-    `${fmt((meta.filament_total || 0) / 1000, 2)} m`
+    `${fmt((meta.filament_total || 0) / 1000, 2)} m`,
   );
   setText("printMetaObjectHeight", `${fmt(meta.object_height, 2)} mm`);
   setText("printMetaLayerCount", meta.layer_count ?? "—");
@@ -582,7 +582,7 @@ function render(data) {
     "printToolpathStatus",
     toolpathReady
       ? "INTERACTIVE TOOLPATH READY / DASHBOARD VIEW"
-      : "PREVIEW LOADS FROM ACTIVE G-CODE ON DASHBOARD"
+      : "PREVIEW LOADS FROM ACTIVE G-CODE ON DASHBOARD",
   );
   setText("tuneProgress", `${(progress * 100).toFixed(1)}%`);
   setText("tuneEta", `ETA ${duration(remaining)}`);
@@ -592,21 +592,21 @@ function render(data) {
   setText("dashNozzleTarget", `${fmt(extruder.target, 0)}°C`);
   byId("extBar").style.width = `${Math.min(
     ((extruder.temperature || 0) / 300) * 100,
-    100
+    100,
   )}%`;
   setText(
     "extNow",
-    `${fmt(extruder.temperature, 0)}°C / ${fmt(extruder.target, 0)}°C`
+    `${fmt(extruder.temperature, 0)}°C / ${fmt(extruder.target, 0)}°C`,
   );
   setText(
     "extBarT",
-    `${fmt(extruder.temperature, 0)} / ${fmt(extruder.target, 0)}°C`
+    `${fmt(extruder.temperature, 0)} / ${fmt(extruder.target, 0)}°C`,
   );
   setText("dashBed", `${fmt(bed.temperature, 0)}°C`);
   setText("dashBedTarget", `${fmt(bed.target, 0)}°C`);
   byId("bedBar").style.width = `${Math.min(
     ((bed.temperature || 0) / 130) * 100,
-    100
+    100,
   )}%`;
   setText("bedNow", `${fmt(bed.temperature, 0)}°C / ${fmt(bed.target, 0)}°C`);
   setText("bedBarT", `${fmt(bed.temperature, 0)} / ${fmt(bed.target, 0)}°C`);
@@ -619,13 +619,13 @@ function render(data) {
   const chamber = findNamedStatus(status, /chamber|enclosure/i);
   setText(
     "dashChamber",
-    chamber.temperature == null ? "—" : `${fmt(chamber.temperature, 0)}°C`
+    chamber.temperature == null ? "—" : `${fmt(chamber.temperature, 0)}°C`,
   );
   setText(
     "dashHumidity",
     chamber.humidity == null
       ? "SENSOR / NOT REPORTED"
-      : `HUMIDITY ${fmt(chamber.humidity, 0)}%`
+      : `HUMIDITY ${fmt(chamber.humidity, 0)}%`,
   );
   setText("dashSpeed", `${Math.round((gcodeMove.speed_factor || 0) * 100)}%`);
   setText("dashFlow", `${Math.round((gcodeMove.extrude_factor || 0) * 100)}%`);
@@ -642,16 +642,16 @@ function render(data) {
   setText("speedFactor", `${Math.round((gcodeMove.speed_factor || 0) * 100)}%`);
   setText(
     "flowFactor",
-    `${Math.round((gcodeMove.extrude_factor || 0) * 100)}%`
+    `${Math.round((gcodeMove.extrude_factor || 0) * 100)}%`,
   );
   setText("fanNow", `${Math.round((fan.speed || 0) * 100)}%`);
   setText(
     "tuneSpeedFactor",
-    `${Math.round((gcodeMove.speed_factor || 0) * 100)}%`
+    `${Math.round((gcodeMove.speed_factor || 0) * 100)}%`,
   );
   setText(
     "tuneFlowFactor",
-    `${Math.round((gcodeMove.extrude_factor || 0) * 100)}%`
+    `${Math.round((gcodeMove.extrude_factor || 0) * 100)}%`,
   );
   setText("tuneMoveSpeed", `${fmt(gcodeMove.speed, 0)} mm/s`);
   setText("tuneState", printState);
@@ -678,7 +678,7 @@ function render(data) {
 
   setText(
     "extrusionFilUsed",
-    `${fmt((printStats.filament_used || 0) / 1000, 2)} m`
+    `${fmt((printStats.filament_used || 0) / 1000, 2)} m`,
   );
   setText("extrusionFilEst", `${fmt((meta.filament_total || 0) / 1000, 2)} m`);
   setText("extrusionLayer", layerLabel);
@@ -688,11 +688,11 @@ function render(data) {
   setText("extrusionSpeed", `${fmt(gcodeMove.speed, 0)} mm/s`);
   setText(
     "extrusionSpeedFactor",
-    `${Math.round((gcodeMove.speed_factor || 0) * 100)}%`
+    `${Math.round((gcodeMove.speed_factor || 0) * 100)}%`,
   );
   setText(
     "extrusionFlowFactor",
-    `${Math.round((gcodeMove.extrude_factor || 0) * 100)}%`
+    `${Math.round((gcodeMove.extrude_factor || 0) * 100)}%`,
   );
   setText("extrusionTemp", `${fmt(extruder.temperature, 0)}°C`);
   setText("extrusionFan", `${Math.round((fan.speed || 0) * 100)}%`);
@@ -755,13 +755,13 @@ function renderSettings(data) {
   setText("settingTls", settings.tls ? "ENABLED" : "DISABLED");
   setText(
     "settingIdlePoll",
-    settings.idle_poll_seconds == null ? "—" : `${settings.idle_poll_seconds}s`
+    settings.idle_poll_seconds == null ? "—" : `${settings.idle_poll_seconds}s`,
   );
   setText(
     "settingPrintPoll",
     settings.print_poll_seconds == null
       ? "—"
-      : `${settings.print_poll_seconds}s`
+      : `${settings.print_poll_seconds}s`,
   );
   setText("settingQuiet", settings.quiet_unreachable ? "ENABLED" : "DISABLED");
   setText("settingVersion", data.integration_version || "—");
@@ -770,7 +770,7 @@ function renderSettings(data) {
   setText("networkTls", settings.tls ? "ENABLED" : "DISABLED");
   setText(
     "networkApiKey",
-    data.api_key_configured ? "CONFIGURED / VALUE HIDDEN" : "NOT CONFIGURED"
+    data.api_key_configured ? "CONFIGURED / VALUE HIDDEN" : "NOT CONFIGURED",
   );
 }
 
@@ -783,7 +783,7 @@ function renderSystem(data, status, printState) {
   const moonraker = versions.moonraker || {};
   const hostTemp = findNamedStatus(
     status,
-    /temperature_host|host_temperature|temperature_sensor.*(host|rpi)/i
+    /temperature_host|host_temperature|temperature_sensor.*(host|rpi)/i,
   );
   const printerState = printerInfo.state || printState || "—";
   const klippyState = printerInfo.state || "—";
@@ -829,7 +829,7 @@ function renderComponents(data) {
   const platformList = byId("platformList");
   platformList.replaceChildren();
   platforms.forEach((platform) =>
-    appendObjectRow(platformList, platform, "LOADED")
+    appendObjectRow(platformList, platform, "LOADED"),
   );
   if (!platforms.length) appendEmpty(platformList, "NO PLATFORMS REPORTED");
 
@@ -841,8 +841,8 @@ function renderComponents(data) {
     appendObjectRow(
       objectList,
       object.name,
-      object.fields == null ? "ALL FIELDS" : object.fields.join(", ")
-    )
+      object.fields == null ? "ALL FIELDS" : object.fields.join(", "),
+    ),
   );
   if (!objects.length) appendEmpty(objectList, "NO SUBSCRIBED OBJECTS");
 }
@@ -899,11 +899,11 @@ function renderBedMesh(status) {
           : 72;
         cell.className = "mesh-cell";
         cell.style.background = `hsl(${hue} ${saturation}% ${Math.round(
-          26 + 20 * (1 - Math.abs(ratio - 0.5) * 2)
+          26 + 20 * (1 - Math.abs(ratio - 0.5) * 2),
         )}%)`;
         cell.textContent = Number.isFinite(numeric) ? numeric.toFixed(3) : "—";
         container.appendChild(cell);
-      })
+      }),
     );
     const minPoint = (mesh.mesh_min || []).join(", ");
     const maxPoint = (mesh.mesh_max || []).join(", ");
@@ -911,17 +911,17 @@ function renderBedMesh(status) {
       "meshBounds",
       `PROBED ${matrix.length} × ${matrix[0].length} / MIN ${fmt(
         min,
-        3
+        3,
       )} / MAX ${fmt(max, 3)} / Δ ${fmt(spread, 3)} MM / AREA ${
         minPoint || "—"
-      } → ${maxPoint || "—"}`
+      } → ${maxPoint || "—"}`,
     );
   } else {
     container.style.gridTemplateColumns = "1fr";
     appendEmpty(container, "BED MESH MATRIX NOT REPORTED BY PRINTER");
     setText(
       "meshBounds",
-      "Klipper bed_mesh must be configured and probed to show a height map."
+      "Klipper bed_mesh must be configured and probed to show a height map.",
     );
   }
 }
@@ -931,7 +931,7 @@ function renderHardware(status) {
     ([name, value]) =>
       /mcu|stepper|heater|fan|probe|temperature|bed_mesh/i.test(name) &&
       value &&
-      typeof value === "object"
+      typeof value === "object",
   );
   const container = byId("hardwareTable");
   container.replaceChildren();
@@ -940,13 +940,13 @@ function renderHardware(status) {
       Object.entries(values)
         .filter(([key]) =>
           /temperature|target|speed|value|position|status|state|offset|current/i.test(
-            key
-          )
+            key,
+          ),
         )
         .slice(0, 7)
         .map(
           ([key, value]) =>
-            `${key}:${Array.isArray(value) ? value.join(",") : value}`
+            `${key}:${Array.isArray(value) ? value.join(",") : value}`,
         )
         .join(" / ") || "STATUS AVAILABLE";
     appendObjectRow(container, name, summary);
@@ -1031,7 +1031,7 @@ function renderFiles() {
   const select = byId("fileSel");
   const filter = (byId("fileSearch").value || "").toLowerCase();
   const visibleFiles = lastFiles.filter(
-    (file) => !filter || file.path.toLowerCase().includes(filter)
+    (file) => !filter || file.path.toLowerCase().includes(filter),
   );
   select.replaceChildren();
   const list = byId("fileList");
@@ -1099,21 +1099,21 @@ function renderMacros(macros) {
     const caption = document.createElement("span");
     caption.textContent = `KLIPPER MACRO / ${String(index + 1).padStart(
       2,
-      "0"
+      "0",
     )}`;
     button.appendChild(caption);
     return button;
   });
   const full = byId("macroRow");
   full.replaceChildren(
-    ...(buttons.length ? buttons : [emptyElement("NO MACROS DISCOVERED")])
+    ...(buttons.length ? buttons : [emptyElement("NO MACROS DISCOVERED")]),
   );
   setText("macroCount", `${macros.length} MACROS`);
   const dashboard = byId("dashboardMacros");
   dashboard.replaceChildren(
     ...(buttons.length
       ? buttons.slice(0, 6).map((button) => button.cloneNode(true))
-      : [emptyElement("NO MACROS REPORTED")])
+      : [emptyElement("NO MACROS REPORTED")]),
   );
 }
 
@@ -1166,7 +1166,7 @@ function renderFleet(data) {
     temps.className = "fleet-temps";
     temps.textContent = `E ${fmt(member.hotend, 0)}° / B ${fmt(
       member.bed,
-      0
+      0,
     )}°`;
     tile.append(name, state, temps);
     tile.addEventListener("click", () => selectFleetPrinter(member.id));
@@ -1277,8 +1277,8 @@ function renderHealth(data) {
   const worst = findings.some((finding) => finding.severity === "bad")
     ? "FAULTS LOGGED"
     : findings.some((finding) => finding.severity === "warn")
-    ? "WARNINGS"
-    : "CLEAN";
+      ? "WARNINGS"
+      : "CLEAN";
   setText("healthSummary", worst);
   drawRetransmitSpark();
 }
@@ -1297,7 +1297,7 @@ function analyzeMeshDecay(status) {
   let stored = null;
   try {
     stored = JSON.parse(
-      window.localStorage?.getItem(meshStorageKey()) || "null"
+      window.localStorage?.getItem(meshStorageKey()) || "null",
     );
   } catch {
     stored = null;
@@ -1306,16 +1306,16 @@ function analyzeMeshDecay(status) {
     Array.isArray(stored?.baseline) &&
     stored.baseline.length === matrix.length &&
     stored.baseline.every(
-      (row, index) => Array.isArray(row) && row.length === matrix[index].length
+      (row, index) => Array.isArray(row) && row.length === matrix[index].length,
     );
   if (!sameShape) {
     const baseline = matrix.map((row) =>
-      row.map((value) => Number(value) || 0)
+      row.map((value) => Number(value) || 0),
     );
     try {
       window.localStorage?.setItem(
         meshStorageKey(),
-        JSON.stringify({ baseline, at: Date.now() })
+        JSON.stringify({ baseline, at: Date.now() }),
       );
     } catch {
       /* storage full or unavailable */
@@ -1339,7 +1339,7 @@ function analyzeMeshDecay(status) {
       count += 1;
       if (Math.abs(delta) > maxDrift) maxDrift = Math.abs(delta);
       return delta;
-    })
+    }),
   );
   return {
     baselineAt: stored.at || 0,
@@ -1369,13 +1369,13 @@ function renderMeshDecay(status) {
   summary.textContent = due
     ? "RE-LEVEL SUGGESTED"
     : warn
-    ? "DRIFT RISING"
-    : "MESH STABLE";
+      ? "DRIFT RISING"
+      : "MESH STABLE";
   setText(
     "meshBaselineAt",
     analysis.baselineAt
       ? new Date(analysis.baselineAt).toLocaleDateString()
-      : "—"
+      : "—",
   );
   setText("meshRmsDrift", `${(analysis.rmsDrift * 1000).toFixed(0)} µm`);
   setText("meshMaxDrift", `${(analysis.maxDrift * 1000).toFixed(0)} µm`);
@@ -1392,6 +1392,79 @@ function renderMeshDecay(status) {
     cell.title = `${Math.round(delta * 1000)} µm`;
     grid.appendChild(cell);
   }
+  renderMeshSurface();
+}
+
+function renderMeshSurface() {
+  const analysis = latestData?.analysis || {};
+  const metrics = analysis.metrics || {};
+  const history = Array.isArray(analysis.mesh_history)
+    ? analysis.mesh_history
+    : [];
+  const cornerNames = ["FL", "FR", "BL", "BR"];
+  const corners = Array.isArray(metrics.mesh_corner_offsets)
+    ? metrics.mesh_corner_offsets
+    : [];
+  setText(
+    "meshCorners",
+    corners.length === 4
+      ? corners
+          .map(
+            (value, index) =>
+              `${cornerNames[index]} +${(Number(value) || 0).toFixed(2)}`,
+          )
+          .join(" · ")
+      : "—",
+  );
+  const tiltDelta = Number(metrics.mesh_tilt_delta);
+  setText(
+    "meshTiltDelta",
+    Number.isFinite(tiltDelta) && history.length > 1
+      ? `${(tiltDelta * 1000).toFixed(0)} µm`
+      : "—",
+  );
+  const surfaceDelta = Number(metrics.mesh_surface_delta_rms);
+  setText(
+    "meshSurfaceDelta",
+    Number.isFinite(surfaceDelta) && history.length > 1
+      ? `${(surfaceDelta * 1000).toFixed(0)} µm`
+      : "—",
+  );
+  setText("meshSnapshots", history.length ? String(history.length) : "—");
+
+  const grid = byId("meshSurfaceMap");
+  if (!grid) return;
+  grid.replaceChildren();
+  const current = history[history.length - 1]?.residuals;
+  const previous = history[history.length - 2]?.residuals;
+  const sameShape =
+    Array.isArray(current) &&
+    Array.isArray(previous) &&
+    current.length === previous.length &&
+    current.every(
+      (row, index) =>
+        Array.isArray(row) &&
+        Array.isArray(previous[index]) &&
+        row.length === previous[index].length,
+    );
+  if (!sameShape) return;
+  const rows = current.length;
+  const cols = current[0]?.length || 0;
+  grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+  for (let i = 0; i < rows; i++) {
+    for (let j = 0; j < cols; j++) {
+      const delta =
+        (Number(current[i][j]) || 0) - (Number(previous[i][j]) || 0);
+      const cell = document.createElement("div");
+      cell.className = "mesh-cell";
+      const magnitude = Math.min(1, Math.abs(delta) / 0.1);
+      cell.style.background = `rgba(${statusRgb(
+        delta >= 0 ? "ok" : "bad",
+      )}, ${(0.08 + magnitude * 0.5).toFixed(2)})`;
+      cell.title = `${Math.round(delta * 1000)} µm`;
+      grid.appendChild(cell);
+    }
+  }
 }
 
 function resetMeshBaseline() {
@@ -1407,7 +1480,7 @@ function resetMeshBaseline() {
       JSON.stringify({
         baseline: matrix.map((row) => row.map((value) => Number(value) || 0)),
         at: Date.now(),
-      })
+      }),
     );
   } catch {
     /* storage unavailable */
@@ -1485,7 +1558,7 @@ function loadFlowPrefs() {
   try {
     const stored = JSON.parse(
       window.localStorage?.getItem(`nexusMaxFlow.${printer || "default"}`) ||
-        "null"
+        "null",
     );
     maxFlowMm3 = Number(stored) > 0 ? Number(stored) : 15;
   } catch {
@@ -1502,7 +1575,7 @@ function saveFlowPrefs() {
   try {
     window.localStorage?.setItem(
       `nexusMaxFlow.${printer || "default"}`,
-      JSON.stringify(maxFlowMm3)
+      JSON.stringify(maxFlowMm3),
     );
   } catch {
     /* storage unavailable */
@@ -1533,10 +1606,10 @@ function renderFlowHeadroom(status) {
       mm3 <= 0
         ? "IDLE"
         : ratio >= 0.95
-        ? "AT MELT LIMIT"
-        : ratio >= 0.8
-        ? "HIGH FLOW"
-        : "HEADROOM OK";
+          ? "AT MELT LIMIT"
+          : ratio >= 0.8
+            ? "HIGH FLOW"
+            : "HEADROOM OK";
   }
   if (ratio >= 0.95 && mm3 > 0) {
     if (!flowSaturatedSince) flowSaturatedSince = Date.now();
@@ -1561,7 +1634,7 @@ function loadEnergyPrefs() {
   try {
     const stored = JSON.parse(
       window.localStorage?.getItem(`nexusEnergy.${printer || "default"}`) ||
-        "null"
+        "null",
     );
     energyPrefs = {
       sensor: stored?.sensor || "",
@@ -1584,7 +1657,7 @@ function saveEnergyPrefs() {
   try {
     window.localStorage?.setItem(
       `nexusEnergy.${printer || "default"}`,
-      JSON.stringify(energyPrefs)
+      JSON.stringify(energyPrefs),
     );
   } catch {
     /* storage unavailable */
@@ -1623,13 +1696,13 @@ function updateEnergy(data) {
   }
   setText(
     "energyPrint",
-    energySession.file ? `${fmt(energySession.kwh * 1000, 0)} Wh` : "—"
+    energySession.file ? `${fmt(energySession.kwh * 1000, 0)} Wh` : "—",
   );
   setText(
     "energyCost",
     energySession.file && energyPrefs.rate > 0
       ? `$${fmt(energySession.kwh * energyPrefs.rate, 2)}`
-      : "—"
+      : "—",
   );
 }
 
@@ -1640,7 +1713,7 @@ function populateEnergyEntities() {
   for (const entityId of Object.keys(states).sort()) {
     if (!entityId.startsWith("sensor.")) continue;
     const unit = String(
-      states[entityId]?.attributes?.unit_of_measurement || ""
+      states[entityId]?.attributes?.unit_of_measurement || "",
     ).toLowerCase();
     const deviceClass = states[entityId]?.attributes?.device_class;
     if (deviceClass !== "power" && unit !== "w" && unit !== "kw") continue;
@@ -1670,7 +1743,7 @@ function maintenanceItems(printSeconds, filamentMeters) {
   let stored = null;
   try {
     stored = JSON.parse(
-      window.localStorage?.getItem(maintenanceStorageKey()) || "null"
+      window.localStorage?.getItem(maintenanceStorageKey()) || "null",
     );
   } catch {
     stored = null;
@@ -1683,7 +1756,7 @@ function maintenanceItems(printSeconds, filamentMeters) {
     try {
       window.localStorage?.setItem(
         maintenanceStorageKey(),
-        JSON.stringify(stored)
+        JSON.stringify(stored),
       );
     } catch {
       /* storage unavailable */
@@ -1700,7 +1773,7 @@ function resetMaintenanceItem(index, printSeconds, filamentMeters) {
   try {
     window.localStorage?.setItem(
       maintenanceStorageKey(),
-      JSON.stringify(items)
+      JSON.stringify(items),
     );
   } catch {
     /* storage unavailable */
@@ -1745,14 +1818,14 @@ function renderMaintenance(data) {
     reset.className = "subtle";
     reset.textContent = "RESET";
     reset.addEventListener("click", () =>
-      resetMaintenanceItem(index, printSeconds, filamentMeters)
+      resetMaintenanceItem(index, printSeconds, filamentMeters),
     );
     row.append(name, track, remain, reset);
     container.appendChild(row);
   });
   setText(
     "maintSummary",
-    dueCount ? `${dueCount} SERVICE${dueCount > 1 ? "S" : ""} DUE` : "ALL OK"
+    dueCount ? `${dueCount} SERVICE${dueCount > 1 ? "S" : ""} DUE` : "ALL OK",
   );
 }
 
@@ -1817,14 +1890,14 @@ function saveDashboardCameraPrefs() {
     resolveCameraAssignments(
       availableWebcams,
       dashboardCameraAssignments,
-      dashboardCameraCount()
+      dashboardCameraCount(),
     );
     window.localStorage?.setItem(
       dashboardCameraStorageKey(),
       JSON.stringify({
         layout: dashboardCameraLayout,
         assignments: dashboardCameraAssignments.slice(0, 4),
-      })
+      }),
     );
   } catch (_error) {
     // Dashboard camera choices still apply for this session if storage is unavailable.
@@ -1840,11 +1913,11 @@ function renderDashboardCameras() {
   resolveCameraAssignments(
     availableWebcams,
     dashboardCameraAssignments,
-    tileCount
+    tileCount,
   );
   const sourceSignature = availableWebcams
     .map(
-      (camera) => `${camera.name}:${camera.stream_url}:${camera.snapshot_url}`
+      (camera) => `${camera.name}:${camera.stream_url}:${camera.snapshot_url}`,
     )
     .join("|");
   const signature = `${dashboardCameraLayout}/${sourceSignature}`;
@@ -1879,24 +1952,24 @@ function renderDashboardCameras() {
     (tile, index) => {
       const camera = cameraFor(
         availableWebcams,
-        dashboardCameraAssignments[index]
+        dashboardCameraAssignments[index],
       );
       const streamActive = setCameraImage(
         tile.querySelector("img"),
         camera,
-        dashboardVisible
+        dashboardVisible,
       );
       const placeholder = tile.querySelector(".camera-tile-empty");
       placeholder.textContent = !camera?.name
         ? "NO CAMERA ASSIGNED"
         : !camera.stream_url
-        ? "STREAM UNAVAILABLE"
-        : "STREAM PAUSED / OPEN DASHBOARD";
+          ? "STREAM UNAVAILABLE"
+          : "STREAM PAUSED / OPEN DASHBOARD";
       placeholder.style.display = streamActive ? "none" : "grid";
       tile.querySelector("[data-dashboard-camera-title]").textContent =
         camera?.name || "NO CAMERA";
       tile.querySelector("[data-camera-fullscreen]").disabled = !streamActive;
-    }
+    },
   );
   panel.style.display =
     dashboardVisible && availableWebcams.length ? "" : "none";
@@ -1904,7 +1977,7 @@ function renderDashboardCameras() {
     "dashboardCameraStatus",
     availableWebcams.length
       ? `${availableWebcams.length} SOURCES / ${tileCount} TILES`
-      : "CAMERA SOURCE NOT CONFIGURED"
+      : "CAMERA SOURCE NOT CONFIGURED",
   );
 }
 
@@ -1915,7 +1988,7 @@ function renderDashboardCameraConfig() {
   resolveCameraAssignments(
     availableWebcams,
     dashboardCameraAssignments,
-    tileCount
+    tileCount,
   );
   const layoutSelect = byId("dashboardCameraLayout");
   if (layoutSelect) layoutSelect.value = dashboardCameraLayout;
@@ -1946,7 +2019,7 @@ function renderDashboardCameraConfig() {
   }
   setText(
     "dashboardCameraSummary",
-    `${availableWebcams.length} SOURCES / ${tileCount} TILES`
+    `${availableWebcams.length} SOURCES / ${tileCount} TILES`,
   );
 }
 
@@ -1983,7 +2056,7 @@ function renderCamera(webcams) {
   const grid = byId("cameraGrid");
   const sourceSignature = availableWebcams
     .map(
-      (camera) => `${camera.name}:${camera.stream_url}:${camera.snapshot_url}`
+      (camera) => `${camera.name}:${camera.stream_url}:${camera.snapshot_url}`,
     )
     .join("|");
   const signature = `${cameraLayout}/${sourceSignature}`;
@@ -2043,7 +2116,7 @@ function renderCamera(webcams) {
   tiles.forEach((tile, index) => {
     const selector = tile.querySelector("[data-camera-slot]");
     const camera = availableWebcams.find(
-      (item) => item.name === cameraAssignments[index]
+      (item) => item.name === cameraAssignments[index],
     );
     selector.value = camera?.name || "";
     const image = tile.querySelector("img");
@@ -2052,8 +2125,8 @@ function renderCamera(webcams) {
     placeholder.textContent = !camera?.name
       ? "NO CAMERA ASSIGNED"
       : !camera.stream_url
-      ? "STREAM UNAVAILABLE"
-      : "STREAM PAUSED / OPEN CAMERA PAGE";
+        ? "STREAM UNAVAILABLE"
+        : "STREAM PAUSED / OPEN CAMERA PAGE";
     placeholder.style.display = streamActive ? "none" : "grid";
     const fullscreenButton = tile.querySelector("[data-camera-fullscreen]");
     fullscreenButton.disabled = !streamActive;
@@ -2074,11 +2147,13 @@ function renderCamera(webcams) {
   byId("cameraEmpty").style.display = availableWebcams.length ? "none" : "grid";
   setText(
     "cameraName",
-    primary?.name ? `PRIMARY / ${primary.name}` : "CAMERA SOURCE NOT CONFIGURED"
+    primary?.name
+      ? `PRIMARY / ${primary.name}`
+      : "CAMERA SOURCE NOT CONFIGURED",
   );
   setText(
     "cameraGridStatus",
-    `${availableWebcams.length} CAMERAS / ${tileCount} TILES`
+    `${availableWebcams.length} CAMERAS / ${tileCount} TILES`,
   );
   setText("networkCameras", String(availableWebcams.length));
 }
@@ -2109,13 +2184,13 @@ function renderSentCommandHistory() {
   if (!history) return;
   history.replaceChildren();
   const entries = sentCommandHistory.filter(
-    (entry) => entry.printer === printer
+    (entry) => entry.printer === printer,
   );
   setText("commandHistoryCount", `${entries.length} COMMANDS`);
   if (!entries.length) {
     appendEmpty(
       history,
-      "COMMANDS SENT FROM THIS PRINTER SESSION WILL APPEAR HERE"
+      "COMMANDS SENT FROM THIS PRINTER SESSION WILL APPEAR HERE",
     );
     return;
   }
@@ -2159,7 +2234,7 @@ async function act(action, value, preset, extra) {
   if (preset) body.preset = preset;
   if (
     ["print_file", "select_file", "enqueue_file", "delete_file"].includes(
-      action
+      action,
     )
   )
     body.filename = value;
@@ -2174,13 +2249,13 @@ async function act(action, value, preset, extra) {
         result.ok
           ? "EMERGENCY STOP DELIVERED"
           : `E-STOP DELIVERY FAILED / ${result.error || "REQUEST REJECTED"}`,
-        6000
+        6000,
       );
     } else {
       toast(
         result.ok
           ? `COMMAND OK / ${action.toUpperCase()}`
-          : `COMMAND ERROR / ${result.error || action}`
+          : `COMMAND ERROR / ${result.error || action}`,
       );
     }
     refresh();
@@ -2189,7 +2264,7 @@ async function act(action, value, preset, extra) {
       action === "emergency_stop"
         ? `E-STOP DELIVERY FAILED / ${error.message || "request failed"}`
         : `COMMAND ERROR / ${error.message || "request failed"}`,
-      action === "emergency_stop" ? 6000 : 3200
+      action === "emergency_stop" ? 6000 : 3200,
     );
   }
 }
@@ -2255,7 +2330,7 @@ async function uploadFile(event) {
     toast(
       response.ok
         ? `UPLOAD OK / ${result.filename || file.name}`
-        : `UPLOAD ERROR / ${result.error || response.status}`
+        : `UPLOAD ERROR / ${result.error || response.status}`,
     );
     if (response.ok) byId("upFile").value = "";
     setTimeout(refresh, 800);
@@ -2336,8 +2411,8 @@ function detailRowsForScreen(name, data) {
         .filter(
           ([key, value]) =>
             /temperature|target|power|speed|rpm|position|state|status|offset|value/i.test(
-              key
-            ) && value != null
+              key,
+            ) && value != null,
         )
         .slice(0, 8);
       if (fields.length)
@@ -2346,9 +2421,9 @@ function detailRowsForScreen(name, data) {
           fields
             .map(
               ([key, value]) =>
-                `${key}: ${Array.isArray(value) ? value.join(",") : value}`
+                `${key}: ${Array.isArray(value) ? value.join(",") : value}`,
             )
-            .join(" / ")
+            .join(" / "),
         );
     });
   };
@@ -2361,40 +2436,40 @@ function detailRowsForScreen(name, data) {
       "Current / total layer",
       `${printStats.info?.current_layer ?? "—"} / ${
         printStats.info?.total_layer ?? meta.layer_count ?? "—"
-      }`
+      }`,
     );
     add("Estimated duration", duration(meta.estimated_time));
     add(
       "Object height",
-      meta.object_height == null ? null : `${fmt(meta.object_height, 2)} mm`
+      meta.object_height == null ? null : `${fmt(meta.object_height, 2)} mm`,
     );
     add(
       "Filament estimate",
       meta.filament_total == null
         ? null
-        : `${fmt(Number(meta.filament_total) / 1000, 2)} m`
+        : `${fmt(Number(meta.filament_total) / 1000, 2)} m`,
     );
     add(
       "Toolhead XYZ",
-      status.toolhead?.position?.slice(0, 3).map((value) => fmt(value, 2))
+      status.toolhead?.position?.slice(0, 3).map((value) => fmt(value, 2)),
     );
     add("Homed axes", status.toolhead?.homed_axes);
   } else if (name === "movement") {
     add(
       "Machine position",
-      status.toolhead?.position?.slice(0, 3).map((value) => fmt(value, 2))
+      status.toolhead?.position?.slice(0, 3).map((value) => fmt(value, 2)),
     );
     add("Homed axes", status.toolhead?.homed_axes);
     add("Move speed", status.gcode_move?.speed);
     add("Speed factor", status.gcode_move?.speed_factor);
     add(
       "Coordinate mode",
-      status.gcode_move?.absolute_coordinates ? "ABSOLUTE" : "RELATIVE"
+      status.gcode_move?.absolute_coordinates ? "ABSOLUTE" : "RELATIVE",
     );
     addObjects(/endstop|probe/i);
   } else if (name === "thermal") {
     addObjects(
-      /^(extruder\d*|heater_bed|heater_generic|temperature_sensor|temperature_fan|fan|controller_fan|heater_fan)/i
+      /^(extruder\d*|heater_bed|heater_generic|temperature_sensor|temperature_fan|fan|controller_fan|heater_fan)/i,
     );
   } else if (name === "extruder") {
     addObjects(/^(extruder\d*|filament_switch_sensor|filament_motion_sensor)/i);
@@ -2403,7 +2478,7 @@ function detailRowsForScreen(name, data) {
       "Filament used",
       printStats.filament_used == null
         ? null
-        : `${fmt(Number(printStats.filament_used) / 1000, 2)} m`
+        : `${fmt(Number(printStats.filament_used) / 1000, 2)} m`,
     );
     add("Active tool", status.toolhead?.extruder);
   } else if (name === "bedmesh") {
@@ -2416,13 +2491,13 @@ function detailRowsForScreen(name, data) {
       "Mesh dimensions",
       mesh.mesh_matrix?.length
         ? `${mesh.mesh_matrix.length} × ${mesh.mesh_matrix[0]?.length || 0}`
-        : null
+        : null,
     );
     add(
       "Mesh min / max",
       matrix.length
         ? `${fmt(Math.min(...matrix), 4)} / ${fmt(Math.max(...matrix), 4)}`
-        : null
+        : null,
     );
     add("Probe", status.probe?.last_query);
     add("Homed axes", status.toolhead?.homed_axes);
@@ -2437,7 +2512,7 @@ function detailRowsForScreen(name, data) {
     add("Klippy state", printerInfo.klippy_state);
   } else if (name === "files") {
     const selected = (data.files || []).find(
-      (file) => file.path === data.selected_file
+      (file) => file.path === data.selected_file,
     );
     add("G-code file count", data.files?.length ?? 0);
     add("Selected file", data.selected_file);
@@ -2445,12 +2520,12 @@ function detailRowsForScreen(name, data) {
       "Selected file size",
       selected?.size == null
         ? null
-        : `${fmt(Number(selected.size) / 1048576, 2)} MB`
+        : `${fmt(Number(selected.size) / 1048576, 2)} MB`,
     );
     add("Last modified", selected?.modified);
   } else if (name === "history") {
     Object.entries(data.history?.job_totals || {}).forEach(([key, value]) =>
-      add(key.replace(/_/g, " "), value)
+      add(key.replace(/_/g, " "), value),
     );
   } else if (name === "camera") {
     add("Configured cameras", (data.webcams || []).length);
@@ -2459,14 +2534,14 @@ function detailRowsForScreen(name, data) {
         camera.name,
         `STREAM ${camera.stream_url ? "AVAILABLE" : "MISSING"} / SNAPSHOT ${
           camera.snapshot_url ? "AVAILABLE" : "MISSING"
-        }`
-      )
+        }`,
+      ),
     );
   } else if (name === "console") {
     add("Buffered G-code responses", data.gcode_responses?.length ?? 0);
     add(
       "Panel-session commands",
-      sentCommandHistory.filter((entry) => entry.printer === printer).length
+      sentCommandHistory.filter((entry) => entry.printer === printer).length,
     );
     add("Klippy state", printerInfo.klippy_state);
   } else if (name === "hardware") {
@@ -2475,8 +2550,8 @@ function detailRowsForScreen(name, data) {
         `POWER / ${device.device}`,
         `${device.status || "UNKNOWN"}${
           device.locked_while_printing ? " / LOCKED WHILE PRINTING" : ""
-        }`
-      )
+        }`,
+      ),
     );
     addObjects(/mcu|stepper|probe|sensor|fan|heater/i);
   } else if (name === "system") {
@@ -2485,19 +2560,19 @@ function detailRowsForScreen(name, data) {
     add("System provider", data.system_info?.provider);
     add(
       "CPU model",
-      data.system_info?.cpu_info?.model || data.system_info?.cpu_info?.cpu_desc
+      data.system_info?.cpu_info?.model || data.system_info?.cpu_info?.cpu_desc,
     );
     add("Integration version", data.integration_version);
   } else if (name === "network") {
     const settings = data.settings || {};
     add(
       "Printer endpoint",
-      settings.host ? `${settings.host}:${settings.port}` : null
+      settings.host ? `${settings.host}:${settings.port}` : null,
     );
     add("TLS", settings.tls ? "ENABLED" : "DISABLED");
     add(
       "API key",
-      data.api_key_configured ? "CONFIGURED / VALUE HIDDEN" : "NOT CONFIGURED"
+      data.api_key_configured ? "CONFIGURED / VALUE HIDDEN" : "NOT CONFIGURED",
     );
     add("WebSocket push", "Moonraker status subscription");
   } else if (name === "settings") {
@@ -2506,13 +2581,13 @@ function detailRowsForScreen(name, data) {
       "Idle refresh",
       settings.idle_poll_seconds == null
         ? null
-        : `${settings.idle_poll_seconds}s`
+        : `${settings.idle_poll_seconds}s`,
     );
     add(
       "Print refresh",
       settings.print_poll_seconds == null
         ? null
-        : `${settings.print_poll_seconds}s`
+        : `${settings.print_poll_seconds}s`,
     );
     add("Quiet unreachable logs", settings.quiet_unreachable ? "ON" : "OFF");
     add("Connected platforms", (data.platforms || []).join(", "));
@@ -2522,8 +2597,8 @@ function detailRowsForScreen(name, data) {
     (data.tracked_objects || []).forEach((object) =>
       add(
         object.name,
-        object.fields == null ? "ALL FIELDS" : object.fields.join(", ")
-      )
+        object.fields == null ? "ALL FIELDS" : object.fields.join(", "),
+      ),
     );
   }
   return rows;
@@ -2541,7 +2616,7 @@ function renderPageDetails(data = latestData) {
       ? `Snapshot received ${new Date().toLocaleTimeString([], {
           hour12: false,
         })}. Optional fields are omitted when unsupported.`
-      : "Printer state is unavailable; displayed details may be stale."
+      : "Printer state is unavailable; displayed details may be stale.",
   );
   const container = byId("detailsRows");
   container.replaceChildren();
@@ -2557,7 +2632,7 @@ function setScreen(name) {
   document
     .querySelectorAll(".screen")
     .forEach((screen) =>
-      screen.classList.toggle("active", screen.dataset.screen === name)
+      screen.classList.toggle("active", screen.dataset.screen === name),
     );
   document.querySelectorAll(".nav-item").forEach((item) => {
     const active = item.dataset.screenTarget === name;
@@ -2584,8 +2659,8 @@ function setJogStep(button) {
     .forEach((item) =>
       item.classList.toggle(
         "is-active",
-        item.dataset.jogStep === button.dataset.jogStep
-      )
+        item.dataset.jogStep === button.dataset.jogStep,
+      ),
     );
   setText("moveStepValue", String(jogStep));
 }
@@ -2596,7 +2671,10 @@ function setToolpathView(view) {
   document
     .querySelectorAll("[data-toolpath-view]")
     .forEach((button) =>
-      button.classList.toggle("is-active", button.dataset.toolpathView === view)
+      button.classList.toggle(
+        "is-active",
+        button.dataset.toolpathView === view,
+      ),
     );
   animateCameraTo({
     yaw: preset.yaw,
@@ -2674,7 +2752,7 @@ function stepOrbitInertia() {
   toolpathCamera.yaw += orbitVelocityX;
   toolpathCamera.pitch = Math.max(
     0.025,
-    Math.min(1.55, toolpathCamera.pitch + orbitVelocityY)
+    Math.min(1.55, toolpathCamera.pitch + orbitVelocityY),
   );
   drawToolpath();
   orbitInertiaFrame = requestAnimationFrame(stepOrbitInertia);
@@ -2735,7 +2813,7 @@ function enhanceAccessibility() {
     const direction = Number(button.dataset.dir) > 0 ? "plus" : "minus";
     button.setAttribute(
       "aria-label",
-      `Jog ${button.dataset.axis} ${direction}`
+      `Jog ${button.dataset.axis} ${direction}`,
     );
   });
 }
@@ -2756,7 +2834,7 @@ function bindInteractions() {
     }
     if (event.target.closest("[data-clear-command-history]")) {
       sentCommandHistory = sentCommandHistory.filter(
-        (entry) => entry.printer !== printer
+        (entry) => entry.printer !== printer,
       );
       renderSentCommandHistory();
       return;
@@ -3026,13 +3104,13 @@ async function updateToolpath(data) {
       fileSize > MAX_TOOLPATH_BYTES
         ? "FILE TOO LARGE"
         : toolpathRequested
-        ? "LOAD TOOLPATH"
-        : "LOAD 3D PREVIEW";
+          ? "LOAD TOOLPATH"
+          : "LOAD 3D PREVIEW";
     if (!toolpathRequested) {
       renderToolpathStatus(
         fileSize > MAX_TOOLPATH_BYTES
           ? "FILE EXCEEDS 128 MB PREVIEW LIMIT"
-          : "G-CODE READY / PRESS LOAD 3D PREVIEW"
+          : "G-CODE READY / PRESS LOAD 3D PREVIEW",
       );
     }
   }
@@ -3124,7 +3202,7 @@ function applyToolpathResult(result) {
   renderToolpathStatus(
     toolpathReady
       ? `SIMULATED PATH / ${segments.length.toLocaleString()} SAMPLED MOVES`
-      : toolpathError
+      : toolpathError,
   );
   drawToolpath();
 }
@@ -3259,7 +3337,7 @@ async function parseToolpathInline(response, options) {
         lines[index],
         state,
         fractionAt(offset),
-        stride
+        stride,
       );
       if (segment && offset >= rangeStart && offset <= rangeEnd)
         addToolpathSegment(segments, bounds, segment, state);
@@ -3283,7 +3361,7 @@ async function parseToolpathInline(response, options) {
           line,
           state,
           fractionAt(parsedChars),
-          stride
+          stride,
         );
         if (segment && parsedChars >= rangeStart && parsedChars <= rangeEnd)
           addToolpathSegment(segments, bounds, segment, state);
@@ -3301,7 +3379,7 @@ async function parseToolpathInline(response, options) {
         buffer,
         state,
         fractionAt(parsedChars),
-        stride
+        stride,
       );
       if (segment && parsedChars >= rangeStart && parsedChars <= rangeEnd)
         addToolpathSegment(segments, bounds, segment, state);
@@ -3337,7 +3415,7 @@ async function loadToolpath(data, filename, key, signal) {
     }
     const response = await hassApi().fetchWithAuth(
       API.gcode(entryId, filename),
-      { signal }
+      { signal },
     );
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
@@ -3347,7 +3425,7 @@ async function loadToolpath(data, filename, key, signal) {
       Number(response.headers.get("Content-Length")) || reportedSize;
     if (totalBytes > MAX_TOOLPATH_BYTES)
       throw new Error(
-        "G-code file exceeds the 128 MB interactive preview limit"
+        "G-code file exceeds the 128 MB interactive preview limit",
       );
     const startCandidate = Number(metadata.gcode_start_byte);
     const endCandidate = Number(metadata.gcode_end_byte);
@@ -3359,7 +3437,7 @@ async function loadToolpath(data, filename, key, signal) {
       : totalBytes || Number.POSITIVE_INFINITY;
     const stride = Math.max(
       1,
-      Math.ceil(totalBytes / (MAX_TOOLPATH_SEGMENTS * 70))
+      Math.ceil(totalBytes / (MAX_TOOLPATH_SEGMENTS * 70)),
     );
     const result = await parseToolpathStream(response, {
       rangeStart,
@@ -3368,7 +3446,7 @@ async function loadToolpath(data, filename, key, signal) {
       signal,
       onProgress: (count) =>
         renderToolpathStatus(
-          `PARSING G-CODE / ${count.toLocaleString()} PATH SEGMENTS`
+          `PARSING G-CODE / ${count.toLocaleString()} PATH SEGMENTS`,
         ),
     });
     if (result === null || key !== toolpathKey) return;
@@ -3469,8 +3547,8 @@ function drawToolpath() {
     0.01,
     Math.min(
       (width - 54) / Math.max(1, maxU - minU),
-      (height - 42) / Math.max(1, maxV - minV)
-    ) * toolpathCamera.zoom
+      (height - 42) / Math.max(1, maxV - minV),
+    ) * toolpathCamera.zoom,
   );
   const project = (point) =>
     projectPoint(point, toolpathCamera, scale, centerU, centerV, width, height);
@@ -3481,7 +3559,7 @@ function drawToolpath() {
   const depthMin = Math.min(...transformed.map((point) => point.d));
   const depthSpan = Math.max(
     1e-6,
-    Math.max(...transformed.map((point) => point.d)) - depthMin
+    Math.max(...transformed.map((point) => point.d)) - depthMin,
   );
   const zSpan = Math.max(1e-6, bounds.maxZ - bounds.minZ);
   const position = liveHeadDrawn || currentToolheadPosition();
@@ -3510,12 +3588,12 @@ function drawToolpath() {
   ) {
     scrubControl.value = Math.min(
       Math.max(scrubZ, Number(scrubControl.min)),
-      Number(scrubControl.max)
+      Number(scrubControl.max),
     );
   }
   setText(
     "layerScrubLabel",
-    Number.isFinite(scrubZ) ? `Z ${fmt(scrubZ, 2)}` : "Z —"
+    Number.isFinite(scrubZ) ? `Z ${fmt(scrubZ, 2)}` : "Z —",
   );
   const splitZ = Number.isFinite(scrubZ) ? scrubZ : null;
   ctx.lineCap = "round";
@@ -3533,7 +3611,7 @@ function drawToolpath() {
         b = project(segment.b);
       const depthNorm = Math.max(
         0,
-        Math.min(((a.depth + b.depth) / 2 - depthMin) / depthSpan, 1)
+        Math.min(((a.depth + b.depth) / 2 - depthMin) / depthSpan, 1),
       );
       const zNorm = Math.max(0, Math.min((midZ - bounds.minZ) / zSpan, 1));
       const activeLayer =
@@ -3545,12 +3623,12 @@ function drawToolpath() {
       if (!bucket)
         buckets.set(
           key,
-          (bucket = { depthNorm, zNorm, activeLayer, lines: [] })
+          (bucket = { depthNorm, zNorm, activeLayer, lines: [] }),
         );
       bucket.lines.push(a.x, a.y, b.x, b.y);
     }
     const ordered = [...buckets.values()].sort(
-      (left, right) => left.depthNorm - right.depthNorm
+      (left, right) => left.depthNorm - right.depthNorm,
     );
     for (const bucket of ordered) {
       if (bucket.activeLayer) {
@@ -3627,7 +3705,7 @@ function drawToolpath() {
   const headText = position
     ? ` / HEAD X${fmt(position[0], 1)} Y${fmt(position[1], 1)} Z${fmt(
         position[2],
-        1
+        1,
       )}`
     : "";
   renderToolpathStatus(
@@ -3635,7 +3713,7 @@ function drawToolpath() {
       ? `SIMULATED EXTRUSION PATH / ${toolpathSegments.length.toLocaleString()} SAMPLES / ${(
           progress * 100
         ).toFixed(1)}%${headText}`
-      : toolpathError || "LOADING ACTIVE G-CODE"
+      : toolpathError || "LOADING ACTIVE G-CODE",
   );
   drawLayerSpark();
 }
@@ -3651,11 +3729,11 @@ function drawLayerSpark() {
   }
   const position = liveHeadDrawn || currentToolheadPosition();
   const printing = ["printing", "paused"].includes(
-    String(latestData?.status?.print_stats?.state)
+    String(latestData?.status?.print_stats?.state),
   );
   const headZ = printing && position ? position[2] : Number.NaN;
   const maxSeconds = Math.max(
-    ...toolpathLayerStats.map((layer) => layer.seconds)
+    ...toolpathLayerStats.map((layer) => layer.seconds),
   );
   let layerSeconds = null;
   let currentIndex = -1;
@@ -3675,25 +3753,25 @@ function drawLayerSpark() {
     toolpathLayerStats.forEach((layer, index) => {
       const barHeight = Math.max(
         1,
-        (layer.seconds / (maxSeconds || 1)) * (height - 4)
+        (layer.seconds / (maxSeconds || 1)) * (height - 4),
       );
       ctx.fillStyle =
         index === currentIndex
           ? "#f7cb64"
           : Number.isFinite(headZ) && index > currentIndex
-          ? "#1c6844"
-          : "#00ef91";
+            ? "#1c6844"
+            : "#00ef91";
       ctx.fillRect(
         index * barWidth,
         height - barHeight,
         Math.max(1, barWidth - 0.5),
-        barHeight
+        barHeight,
       );
     });
   }
   setText(
     "layerEta",
-    `LAYER ${Number.isFinite(layerSeconds) ? duration(layerSeconds) : "—"}`
+    `LAYER ${Number.isFinite(layerSeconds) ? duration(layerSeconds) : "—"}`,
   );
   setText("simEta", `SIM ETA ${duration(Math.max(0, remaining))}`);
 }
@@ -3705,7 +3783,7 @@ function drawBuildPlate(ctx, project, bounds) {
     maxY = Math.max(220, bounds.maxY + 5);
   const step = Math.max(
     10,
-    Math.ceil(Math.max(maxX - minX, maxY - minY) / 22 / 10) * 10
+    Math.ceil(Math.max(maxX - minX, maxY - minY) / 22 / 10) * 10,
   );
   ctx.lineWidth = 1;
   ctx.strokeStyle = "rgba(28,104,68,.42)";
@@ -3818,7 +3896,7 @@ function getLiveProgress(data) {
     return Math.max(0, Math.min(position / size, 1));
   }
   const fallback = Number(
-    status.display_status?.progress ?? card.progress ?? 0
+    status.display_status?.progress ?? card.progress ?? 0,
   );
   return Number.isFinite(fallback) ? Math.max(0, Math.min(fallback, 1)) : 0;
 }
@@ -3874,7 +3952,7 @@ function ensureLiveSubscription() {
   const generation = ++liveSubscriptionGeneration;
   try {
     Promise.resolve(
-      connection.subscribeEvents(handleLiveStateChanged, "state_changed")
+      connection.subscribeEvents(handleLiveStateChanged, "state_changed"),
     )
       .then((unsubscribe) => {
         if (generation !== liveSubscriptionGeneration) {
@@ -3952,10 +4030,10 @@ function stepHeadAnimation() {
   if (liveHeadTarget) {
     const previous = liveHeadDrawn || liveHeadTarget;
     const next = previous.map(
-      (value, index) => value + (liveHeadTarget[index] - value) * 0.38
+      (value, index) => value + (liveHeadTarget[index] - value) * 0.38,
     );
     liveHeadDrawn = next.every(
-      (value, index) => Math.abs(value - liveHeadTarget[index]) < 0.05
+      (value, index) => Math.abs(value - liveHeadTarget[index]) < 0.05,
     )
       ? liveHeadTarget.slice()
       : next;
@@ -3970,7 +4048,7 @@ function stepHeadAnimation() {
     liveHeadDrawn &&
     liveHeadTarget &&
     liveHeadDrawn.some(
-      (value, index) => Math.abs(value - liveHeadTarget[index]) >= 0.05
+      (value, index) => Math.abs(value - liveHeadTarget[index]) >= 0.05,
     )
   ) {
     scheduleHeadAnimation();
@@ -4030,7 +4108,7 @@ const STALE_EXEMPT_ACTIONS = new Set(["emergency_stop", "refresh_files"]);
 
 function updateStaleness() {
   const printing = ["printing", "paused"].includes(
-    String(latestData?.status?.print_stats?.state)
+    String(latestData?.status?.print_stats?.state),
   );
   const intervalSeconds = printing
     ? Number(latestData?.settings?.print_poll_seconds) || 40 / 3
@@ -4068,8 +4146,8 @@ function loadAlertPrefs() {
       alertPrefs.players = Array.isArray(saved.players)
         ? saved.players.map(String)
         : saved.player
-        ? [String(saved.player)]
-        : [];
+          ? [String(saved.player)]
+          : [];
       alertPrefs.quietStart = String(saved.quietStart || "");
       alertPrefs.quietEnd = String(saved.quietEnd || "");
       alertPrefs.quietBypass = saved.quietBypass !== false;
@@ -4102,7 +4180,7 @@ function applyAlertPrefs() {
     assign(
       alertEventInputId(event),
       alertPrefs.events[event] !== false,
-      "checked"
+      "checked",
     );
 }
 
@@ -4223,7 +4301,7 @@ function checkAlerts(data) {
     Object.entries(status).some(
       ([name, value]) =>
         name.startsWith("filament_switch_sensor") &&
-        value?.filament_detected === false
+        value?.filament_detected === false,
     );
 
   if (!alertState.seeded) {
@@ -4296,7 +4374,7 @@ function showJobDoneCard(data) {
   setText("jobDoneName", String(stats.filename || "—").toUpperCase());
   setText(
     "jobDoneTime",
-    duration(stats.print_duration ?? stats.total_duration)
+    duration(stats.print_duration ?? stats.total_duration),
   );
   const estimate = Number(meta.estimated_time);
   const actual = Number(stats.print_duration);
@@ -4304,16 +4382,16 @@ function showJobDoneCard(data) {
     "jobDoneDelta",
     Number.isFinite(estimate) && estimate > 0 && Number.isFinite(actual)
       ? `${actual >= estimate ? "+" : "−"}${Math.abs(
-          ((actual - estimate) / estimate) * 100
+          ((actual - estimate) / estimate) * 100,
         ).toFixed(0)}%`
-      : "—"
+      : "—",
   );
   setText("jobDoneFil", `${fmt((stats.filament_used || 0) / 1000, 2)} m`);
   setText(
     "jobDoneLayers",
     `${info.current_layer ?? "—"} / ${
       info.total_layer ?? meta.layer_count ?? "—"
-    }`
+    }`,
   );
   const image = byId("jobDoneThumb");
   if (image) {
@@ -4373,7 +4451,7 @@ const THEME_FONT_VARS = ["--mono", "--sans"];
 const THEME_VARS = [...THEME_COLOR_VARS, ...THEME_FONT_VARS];
 // Vars every theme file must define.
 const THEME_REQUIRED_VARS = THEME_COLOR_VARS.filter(
-  (name) => name !== "--glow" && name !== "--grid"
+  (name) => name !== "--glow" && name !== "--grid",
 );
 
 const THEMES = {
@@ -4701,7 +4779,7 @@ function themeKeyFor(name) {
 function loadCustomThemes() {
   try {
     const raw = JSON.parse(
-      window.localStorage?.getItem(CUSTOM_THEMES_KEY) || "{}"
+      window.localStorage?.getItem(CUSTOM_THEMES_KEY) || "{}",
     );
     customThemes =
       raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
@@ -4714,7 +4792,7 @@ function saveCustomThemes() {
   try {
     window.localStorage?.setItem(
       CUSTOM_THEMES_KEY,
-      JSON.stringify(customThemes)
+      JSON.stringify(customThemes),
     );
   } catch {
     /* storage unavailable */
@@ -4796,7 +4874,7 @@ function applyDisplayPrefs() {
   document.body?.classList?.toggle?.("large-touch", displayPrefs.largeTouch);
   document.body?.classList?.toggle?.(
     "reduced-motion",
-    reducedMotionPreferred()
+    reducedMotionPreferred(),
   );
   const largeTouch = byId("displayLargeTouch");
   if (largeTouch) largeTouch.checked = displayPrefs.largeTouch;
@@ -4831,8 +4909,8 @@ function statusRgb(kind) {
       ? "255, 122, 61"
       : "255, 83, 107"
     : safe
-    ? "86, 180, 233"
-    : "0, 239, 145";
+      ? "86, 180, 233"
+      : "0, 239, 145";
 }
 
 async function loadFileAnalysis(filename) {
@@ -4859,8 +4937,8 @@ async function loadFileAnalysis(filename) {
     const meta = await hassApi().callApi(
       "GET",
       `moonraker/panel_file_meta?printer=${encodeURIComponent(
-        printer
-      )}&filename=${encodeURIComponent(filename)}`
+        printer,
+      )}&filename=${encodeURIComponent(filename)}`,
     );
     if (analysisFile !== filename) return;
     renderFileAnalysis(meta);
@@ -4878,7 +4956,7 @@ function renderFileAnalysis(meta) {
     if (verdict) verdict.hidden = true;
     setText(
       "analysisStatus",
-      meta?.error ? String(meta.error).toUpperCase() : "METADATA UNAVAILABLE"
+      meta?.error ? String(meta.error).toUpperCase() : "METADATA UNAVAILABLE",
     );
     return;
   }
@@ -4897,7 +4975,7 @@ function renderFileAnalysis(meta) {
     ? bedBounds.z.max
     : axisMax?.[2];
   const hasBounds = [meta.x_min, meta.x_max, meta.y_min, meta.y_max].every(
-    (value) => Number.isFinite(Number(value))
+    (value) => Number.isFinite(Number(value)),
   );
   const spoolDetails = latestData?.spool_details || {};
   const spoolFilament = spoolDetails.filament || {};
@@ -4953,7 +5031,7 @@ function renderFileAnalysis(meta) {
       "OBJECT BOUNDS",
       `X ${fmt(meta.x_min, 0)}–${fmt(meta.x_max, 0)} · Y ${fmt(
         meta.y_min,
-        0
+        0,
       )}–${fmt(meta.y_max, 0)}`,
     ]);
     if (
@@ -4992,15 +5070,15 @@ function renderFileAnalysis(meta) {
       blockers.push(
         `NEEDS ${fmt(neededWeight, 0)} G BUT SPOOL HOLDS ${fmt(
           remainingWeight,
-          0
-        )} G`
+          0,
+        )} G`,
       );
     } else if (neededWeight > remainingWeight * 0.9) {
       warnings.push(
         `FILAMENT TIGHT — ${fmt(neededWeight, 0)} G OF ${fmt(
           remainingWeight,
-          0
-        )} G REMAINING`
+          0,
+        )} G REMAINING`,
       );
     }
   }
@@ -5015,8 +5093,8 @@ function renderFileAnalysis(meta) {
     blockers.push(
       `NEEDS ${fmt(neededLength / 1000, 1)} M BUT SPOOL HOLDS ${fmt(
         remainingLength / 1000,
-        1
-      )} M`
+        1,
+      )} M`,
     );
   }
   const metaMaterial = String(meta.filament_type || "")
@@ -5032,7 +5110,7 @@ function renderFileAnalysis(meta) {
     !metaMaterial.startsWith(spoolMaterial)
   ) {
     blockers.push(
-      `MATERIAL MISMATCH — FILE WANTS ${metaMaterial}, SPOOL IS ${spoolMaterial}`
+      `MATERIAL MISMATCH — FILE WANTS ${metaMaterial}, SPOOL IS ${spoolMaterial}`,
     );
   }
   if (Number.isFinite(Number(meta.estimated_time)) && meta.estimated_time > 0) {
@@ -5060,7 +5138,7 @@ function renderFileAnalysis(meta) {
     "analysisStatus",
     `${meta.size ? `${(meta.size / 1048576).toFixed(1)} MB · ` : ""}${
       blockers.length ? "BLOCKED" : "READY"
-    }`
+    }`,
   );
   const statsContainer = byId("analysisStats");
   if (statsContainer) {
@@ -5098,8 +5176,8 @@ function renderFileAnalysis(meta) {
       loadAuthedImage(
         thumb,
         `${API.thumb(printer)}&filename=${encodeURIComponent(
-          analysisFile
-        )}&t=${Date.now()}`
+          analysisFile,
+        )}&t=${Date.now()}`,
       );
     else clearAuthedImage(thumb);
   }
@@ -5109,7 +5187,7 @@ function timelapseCameras() {
   const cameras = dashboardCameraAssignments
     .filter(Boolean)
     .map((name) =>
-      availableWebcams.find((candidate) => candidate.name === name)
+      availableWebcams.find((candidate) => candidate.name === name),
     )
     .filter((camera) => camera?.snapshot_url);
   if (cameras.length) return cameras;
@@ -5157,7 +5235,7 @@ async function captureTimelapseFrame() {
       try {
         const response = await hassApi().fetchWithAuth(
           API.snapshot(printer, camera.name),
-          { signal: controller.signal }
+          { signal: controller.signal },
         );
         if (!response?.ok) continue;
         const contentLength = Number(response.headers?.get?.("Content-Length"));
@@ -5258,7 +5336,7 @@ function renderTimelapseStatus(showLatest = false) {
     }
     const wanted = [...names, "*"];
     const existing = Array.from(cameraSelect.options || []).map(
-      (option) => option.value
+      (option) => option.value,
     );
     if (JSON.stringify(existing) !== JSON.stringify(wanted)) {
       cameraSelect.replaceChildren();
@@ -5287,7 +5365,7 @@ function renderTimelapseFrame() {
   if (!timelapseFrames.length) return;
   const index = Math.min(
     Math.max(Number(scrub?.value) || 0, 0),
-    timelapseFrames.length - 1
+    timelapseFrames.length - 1,
   );
   const entry = timelapseFrames[index];
   if (gridView && timelapseViewCamera === "*") {
@@ -5317,7 +5395,7 @@ function renderTimelapseFrame() {
   }
   setText(
     "tlLayer",
-    entry.layer != null ? `LAYER ${entry.layer}` : `FRAME ${index + 1}`
+    entry.layer != null ? `LAYER ${entry.layer}` : `FRAME ${index + 1}`,
   );
 }
 
@@ -5408,7 +5486,7 @@ function bindToolpathCanvas() {
       if (lastPinchDistance > 0 && distance > 0) {
         toolpathCamera.zoom = Math.max(
           0.45,
-          Math.min(3.5, (toolpathCamera.zoom * distance) / lastPinchDistance)
+          Math.min(3.5, (toolpathCamera.zoom * distance) / lastPinchDistance),
         );
         drawToolpath();
       }
@@ -5427,7 +5505,7 @@ function bindToolpathCanvas() {
       toolpathCamera.yaw += deltaX * 0.009;
       toolpathCamera.pitch = Math.max(
         0.025,
-        Math.min(1.55, toolpathCamera.pitch + deltaY * 0.008)
+        Math.min(1.55, toolpathCamera.pitch + deltaY * 0.008),
       );
       orbitVelocityX = deltaX * 0.009;
       orbitVelocityY = deltaY * 0.008;
@@ -5457,11 +5535,11 @@ function bindToolpathCanvas() {
       event.preventDefault();
       toolpathCamera.zoom = Math.max(
         0.45,
-        Math.min(3.5, toolpathCamera.zoom * (event.deltaY < 0 ? 1.1 : 0.91))
+        Math.min(3.5, toolpathCamera.zoom * (event.deltaY < 0 ? 1.1 : 0.91)),
       );
       drawToolpath();
     },
-    { passive: false }
+    { passive: false },
   );
   window.addEventListener("resize", drawToolpath);
 }
@@ -5474,7 +5552,7 @@ function startPanelTimers() {
   if (!window.moonrakerStalenessTimer) {
     window.moonrakerStalenessTimer = setInterval(
       updateStaleness,
-      PANEL_STALENESS_CHECK_MS
+      PANEL_STALENESS_CHECK_MS,
     );
   }
 }

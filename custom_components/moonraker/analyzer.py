@@ -53,6 +53,8 @@ PRINT_HISTORY_LIMIT = 50
 THERMAL_SAMPLE_LIMIT = 120
 RETRANSMIT_SAMPLE_LIMIT = 120
 MESH_RMS_DUE_MM = 0.10
+MESH_HISTORY_LIMIT = 12
+MESH_TILT_SHIFT_WARN = 0.02
 MESH_MAX_DUE_MM = 0.15
 MESH_RMS_WARN_MM = 0.05
 MESH_MAX_WARN_MM = 0.08
@@ -145,6 +147,80 @@ def _matrix_from_mesh(mesh: dict[str, Any]) -> list[list[float]] | None:
     return rows
 
 
+def _fit_plane(matrix: list[list[float]]) -> tuple[float, float, float]:
+    """Least-squares fit z = a*col + b*row + c over the mesh grid.
+
+    A tilted tram moves every cell by a plane; fitting and removing that
+    plane isolates the bed's surface shape (waviness) from frame tilt.
+    Returns (a, b, c) in mm per grid index.
+    """
+    rows = len(matrix)
+    cols = len(matrix[0]) if rows else 0
+    if not rows or not cols or rows * cols < 3:
+        return (0.0, 0.0, 0.0)
+    sx = sy = sxx = syy = sxy = sxz = syz = sz = 0.0
+    for i, row in enumerate(matrix):
+        for j, value in enumerate(row):
+            sx += j
+            sy += i
+            sxx += j * j
+            syy += i * i
+            sxy += i * j
+            sxz += j * value
+            syz += i * value
+            sz += value
+    n = float(rows * cols)
+    # Normal equations for the 3x3 system, solved by Gaussian elimination.
+    system = [
+        [sxx, sxy, sx, sxz],
+        [sxy, syy, sy, syz],
+        [sx, sy, n, sz],
+    ]
+    for pivot in range(3):
+        lead = max(range(pivot, 3), key=lambda r: abs(system[r][pivot]))
+        system[pivot], system[lead] = system[lead], system[pivot]
+        divisor = system[pivot][pivot]
+        if abs(divisor) < 1e-12:
+            return (0.0, 0.0, 0.0)
+        system[pivot] = [term / divisor for term in system[pivot]]
+        for other in range(3):
+            if other == pivot:
+                continue
+            factor = system[other][pivot]
+            system[other] = [
+                term - factor * system[pivot][index]
+                for index, term in enumerate(system[other])
+            ]
+    return (system[0][3], system[1][3], system[2][3])
+
+
+def _mesh_surface_stats(matrix: list[list[float]]) -> dict[str, Any]:
+    """Decompose a mesh into tilt plane, corner offsets, and residual RMS."""
+    rows = len(matrix)
+    cols = len(matrix[0]) if rows else 0
+    a, b, c = _fit_plane(matrix)
+    residuals = [
+        [value - (a * j + b * i + c) for j, value in enumerate(row)]
+        for i, row in enumerate(matrix)
+    ]
+    squares = sum(residual * residual for row in residuals for residual in row)
+    residual_rms = math.sqrt(squares / max(1, rows * cols))
+    corner_points = [(0, 0), (0, cols - 1), (rows - 1, 0), (rows - 1, cols - 1)]
+    corner_heights = [a * j + b * i + c for i, j in corner_points]
+    lowest = min(corner_heights)
+    corners = [round(height - lowest, 4) for height in corner_heights]
+    fingerprint = repr([[round(value, 4) for value in row] for row in matrix])
+    return {
+        "tilt_a": a,
+        "tilt_b": b,
+        "intercept": c,
+        "corners": corners,
+        "residuals": residuals,
+        "residual_rms": residual_rms,
+        "fp": fingerprint,
+    }
+
+
 def _drift_stats(matrix: list[list[float]], baseline: list[list[float]]) -> dict:
     """Compute RMS/max drift between two same-shaped matrices."""
     if len(matrix) != len(baseline) or any(
@@ -209,6 +285,7 @@ class MoonrakerAnalyzer:
             maxlen=RETRANSMIT_SAMPLE_LIMIT
         )
         self._mesh_baseline: dict[str, Any] | None = None
+        self.mesh_history: list[dict[str, Any]] = []
         self._flow_saturated_since: float | None = None
         self._stall_window: dict[str, float] | None = None
         self._prev_print_state: str | None = None
@@ -258,6 +335,11 @@ class MoonrakerAnalyzer:
             baseline = stored.get("mesh_baseline")
             if isinstance(baseline, dict) and isinstance(baseline.get("matrix"), list):
                 self._mesh_baseline = baseline
+            mesh_history = stored.get("mesh_history")
+            if isinstance(mesh_history, list):
+                self.mesh_history = [
+                    record for record in mesh_history if isinstance(record, dict)
+                ][-MESH_HISTORY_LIMIT:]
             history = stored.get("print_history")
             if isinstance(history, list):
                 self.print_history = [
@@ -303,6 +385,7 @@ class MoonrakerAnalyzer:
             await self._store.async_save(
                 {
                     "mesh_baseline": self._mesh_baseline,
+                    "mesh_history": self.mesh_history[-MESH_HISTORY_LIMIT:],
                     "print_history": self.print_history[-PRINT_HISTORY_LIMIT:],
                     "total_kwh": round(self.total_kwh, 6),
                     "heatup_history": self._heatup_history,
@@ -363,7 +446,7 @@ class MoonrakerAnalyzer:
         findings.extend(self._analyze_heatup(status, now))
         findings.extend(self._analyze_spool())
         findings.extend(self._analyze_material(status))
-        self._analyze_mesh(status)
+        findings.extend(self._analyze_mesh(status, now))
         findings.extend(self._analyze_kinematics(status))
         self._track_energy(status, now)
         self._track_print_state(status, now, findings)
@@ -867,12 +950,14 @@ class MoonrakerAnalyzer:
 
     # -- bed mesh drift ---------------------------------------------------------
 
-    def _analyze_mesh(self, status: dict[str, Any]) -> None:
+    def _analyze_mesh(
+        self, status: dict[str, Any], now: float | None = None
+    ) -> list[dict[str, str]]:
         mesh = status.get("bed_mesh") or {}
         matrix = _matrix_from_mesh(mesh)
         if matrix is None:
             self.metrics["mesh_status"] = "unknown"
-            return
+            return []
         if self._mesh_baseline is None:
             self._mesh_baseline = {"matrix": matrix, "at": _now_ts()}
             self._mark_dirty()
@@ -890,6 +975,96 @@ class MoonrakerAnalyzer:
         self.metrics["mesh_baseline_at"] = _iso(
             float(self._mesh_baseline.get("at") or 0)
         )
+        return self._track_mesh_surface(matrix, now or _now_ts())
+
+    def _track_mesh_surface(
+        self, matrix: list[list[float]], now: float
+    ) -> list[dict[str, str]]:
+        """Decompose the mesh into tram tilt + surface, and keep a history.
+
+        The fitted plane isolates frame tilt (tram) from the bed surface:
+        if the tram shifts, the raw mesh changes everywhere while the
+        residuals (waviness) stay identical.
+        """
+        stats = _mesh_surface_stats(matrix)
+        self.metrics["mesh_tilt_a"] = round(stats["tilt_a"], 4)
+        self.metrics["mesh_tilt_b"] = round(stats["tilt_b"], 4)
+        self.metrics["mesh_corner_offsets"] = stats["corners"]
+        self.metrics["mesh_surface_rms_mm"] = round(stats["residual_rms"], 4)
+
+        findings: list[dict[str, str]] = []
+        last = self.mesh_history[-1] if self.mesh_history else None
+        if last and last.get("fp") == stats["fp"]:
+            self.metrics["mesh_surface_delta_rms"] = round(
+                _finite_number(last.get("residual_rms")) or 0.0, 4
+            )
+            self.metrics["mesh_tilt_delta"] = 0.0
+            self.metrics["mesh_snapshots"] = len(self.mesh_history)
+            return findings
+
+        if last:
+            prev_residuals = last.get("residuals")
+            same_shape = (
+                isinstance(prev_residuals, list)
+                and len(prev_residuals) == len(stats["residuals"])
+                and all(
+                    isinstance(row, list) and len(row) == len(stats["residuals"][0])
+                    for row in prev_residuals
+                )
+            )
+            if same_shape:
+                delta = _drift_stats(stats["residuals"], prev_residuals)
+                self.metrics["mesh_surface_delta_rms"] = round(delta["rms"], 4)
+            else:
+                delta = {"rms": 0.0}
+                self.metrics["mesh_surface_delta_rms"] = 0.0
+            tilt_delta = abs(
+                stats["tilt_a"] - (_finite_number(last.get("tilt_a")) or 0.0)
+            ) + abs(stats["tilt_b"] - (_finite_number(last.get("tilt_b")) or 0.0))
+            self.metrics["mesh_tilt_delta"] = round(tilt_delta, 4)
+            if tilt_delta >= MESH_TILT_SHIFT_WARN:
+                findings.append(
+                    {
+                        "severity": "warn",
+                        "label": "tram shifted",
+                        "detail": (
+                            f"bed tilt changed by {tilt_delta * 1000:.0f}µm "
+                            "since the last mesh — re-check corner tramming"
+                        ),
+                    }
+                )
+            elif delta["rms"] >= MESH_RMS_WARN_MM:
+                severity = "bad" if delta["rms"] >= MESH_RMS_DUE_MM else "warn"
+                findings.append(
+                    {
+                        "severity": severity,
+                        "label": "bed surface changed",
+                        "detail": (
+                            f"surface shape moved {delta['rms'] * 1000:.0f}µm "
+                            "RMS excluding tilt — the bed itself changed"
+                        ),
+                    }
+                )
+        else:
+            self.metrics["mesh_surface_delta_rms"] = 0.0
+            self.metrics["mesh_tilt_delta"] = 0.0
+
+        self.mesh_history.append(
+            {
+                "at": _iso(now),
+                "fp": stats["fp"],
+                "matrix": matrix,
+                "tilt_a": stats["tilt_a"],
+                "tilt_b": stats["tilt_b"],
+                "corners": stats["corners"],
+                "residuals": stats["residuals"],
+                "residual_rms": stats["residual_rms"],
+            }
+        )
+        self.mesh_history = self.mesh_history[-MESH_HISTORY_LIMIT:]
+        self.metrics["mesh_snapshots"] = len(self.mesh_history)
+        self._mark_dirty()
+        return findings
 
     def reset_mesh_baseline(self) -> bool:
         """Capture the current mesh as the new baseline."""
@@ -899,7 +1074,7 @@ class MoonrakerAnalyzer:
             return False
         self._mesh_baseline = {"matrix": matrix, "at": _now_ts()}
         self._mark_dirty()
-        self._analyze_mesh(status)
+        self._analyze_mesh(status, _now_ts())
         return True
 
     # -- energy -----------------------------------------------------------------
@@ -1298,6 +1473,7 @@ class MoonrakerAnalyzer:
                 name: len(samples) for name, samples in self.thermal_history.items()
             },
             "print_history": list(self.print_history),
+            "mesh_history": [dict(record) for record in self.mesh_history],
             "energy_session": dict(self.energy_session),
             "config": {
                 "max_flow_mm3": self.max_flow_mm3,
