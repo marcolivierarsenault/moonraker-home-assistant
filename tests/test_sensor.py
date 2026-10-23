@@ -97,6 +97,40 @@ def bypass_connect_client_fixture():
         yield
 
 
+async def test_sensor_missing_printer_info_state(hass, get_default_api_response):
+    """Sensor setup must not fail when printer.info lacks a state field."""
+    wrapped_printer_info = {"result": {"state_message": "Printer is ready"}}
+
+    def _call_method_side_effect(method, *args, **kwargs):
+        if method == "printer.info":
+            return wrapped_printer_info
+        return {**get_default_api_response}
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        side_effect=_call_method_side_effect,
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        coordinator = hass.data[DOMAIN][config_entry.entry_id]
+        await coordinator.async_request_refresh()
+        await hass.async_block_till_done()
+
+    registry = get_entity_registry(hass)
+    entity_id = registry.async_get_entity_id("sensor", DOMAIN, "test_state")
+    assert entity_id is not None
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.state == "unknown"
+
+    bed_id = registry.async_get_entity_id("sensor", DOMAIN, "test_heater_bed_temp")
+    assert bed_id is not None
+    assert hass.states.get(bed_id).state == "60.01"
+
+
 @pytest.fixture(name="data_for_calculate_pct")
 def data_for_calculate_pct_fixture():
     """data_for_calculate_pct."""

@@ -5,6 +5,7 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -1206,6 +1207,14 @@ async def async_setup_machine_update_sensors(coordinator, entry, async_add_entit
         )
 
 
+def _evaluate_sensor_value(sensor) -> Any:
+    """Evaluate a sensor value, treating absent response fields as unavailable."""
+    try:
+        return sensor.entity_description.value_fn(sensor)
+    except (AttributeError, IndexError, KeyError, TypeError):
+        return None
+
+
 class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
     """MoonrakerSensor Sensor class."""
 
@@ -1218,14 +1227,14 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
         self._attr_name = description.name
         self._attr_has_entity_name = True
         self.entity_description: MoonrakerSensorDescription = description
-        self._attr_native_value = description.value_fn(self)
+        self._attr_native_value = _evaluate_sensor_value(self)
         self._attr_icon = description.icon
         self._attr_native_unit_of_measurement = description.unit
 
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        self._attr_native_value = self.entity_description.value_fn(self)
+        self._attr_native_value = _evaluate_sensor_value(self)
         self.async_write_ha_state()
 
     @property

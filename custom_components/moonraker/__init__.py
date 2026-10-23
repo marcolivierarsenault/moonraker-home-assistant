@@ -1172,7 +1172,13 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
                     status[object_name] = {**current_object_data, **object_data}
                 else:
                     status[object_name] = object_data
-            current_data.update(query_data)
+            current_data.update(
+                {
+                    key: value
+                    for key, value in query_data.items()
+                    if key in ("status", "eventtime")
+                }
+            )
             current_data["status"] = status
             self.data = current_data
 
