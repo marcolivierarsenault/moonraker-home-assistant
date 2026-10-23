@@ -8,7 +8,6 @@ import uuid
 from datetime import timedelta
 from typing import Any
 
-import async_timeout
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
@@ -84,7 +83,7 @@ async def _async_is_tcp_reachable(host: str, port: int | str | None) -> bool:
     """Return whether a TCP connection to the Moonraker endpoint can be opened."""
     writer: asyncio.StreamWriter | None = None
     try:
-        async with async_timeout.timeout(TIMEOUT):
+        async with asyncio.timeout(TIMEOUT):
             _reader, writer = await asyncio.open_connection(
                 host, _normalize_moonraker_port(port)
             )
@@ -235,7 +234,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             )
             raise ConfigEntryNotReady(f"Error connecting to {url}:{port}")
 
-        async with async_timeout.timeout(TIMEOUT):
+        async with asyncio.timeout(TIMEOUT):
             await api.start()
             printer_info = await api.client.call_method("printer.info")
             _LOGGER.debug(printer_info)
@@ -308,10 +307,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                     _LOGGER.warning("Unknown Moonraker device_id %s", device_id)
                     continue
             else:
-                if getattr(device, "config_entries", None):
-                    entry_ids.update(device.config_entries)
-                if device.primary_config_entry:
-                    entry_ids.add(device.primary_config_entry)
+                if hasattr(device, "config_entry_id"):
+                    if device.config_entry_id:
+                        entry_ids.add(device.config_entry_id)
+                else:
+                    # HA before 2026.8 has no DeviceEntry.config_entry_id.
+                    entry_ids.update(getattr(device, "config_entries", None) or ())
                 if not entry_ids:
                     for domain, identifier in device.identifiers:
                         if domain == DOMAIN:

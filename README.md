@@ -26,6 +26,8 @@ This software seems to have issues working on **FLSUN Speeder Pad** and **Sonic 
 
 # Install
 
+Requires Home Assistant 2025.1 or newer.
+
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=marcolivierarsenault&repository=moonraker-home-assistant&category=integration)
 
 ## Install via HACS
