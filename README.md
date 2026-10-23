@@ -4,7 +4,6 @@
 
 ## Currently unmaintained, if you are insterested to help maintain this, email me marcolivier.arsenault@gmail.com
 
-
 # Moonraker Home Assistant
 
 Non official integration for Moonraker and Klipper in Home Assistant (via HACS).

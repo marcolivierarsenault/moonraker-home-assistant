@@ -1,5 +1,7 @@
 """moonraker Client."""
 
+from asyncio import get_running_loop
+
 from moonraker_api import MoonrakerClient, MoonrakerListener
 
 
@@ -22,6 +24,7 @@ class MoonrakerApiClient(MoonrakerListener):
             listener=self,
             host=url,
             port=port,
+            loop=get_running_loop(),
             session=session,
             api_key=api_key,
             ssl=tls,
