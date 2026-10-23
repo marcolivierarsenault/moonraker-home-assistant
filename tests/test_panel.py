@@ -1267,6 +1267,101 @@ async def test_console_lines_merges_store_and_live(hass):
     assert _console_lines(coordinator, {"gcode_store": "bad"}) == ["b", "c"]
 
 
+def test_parse_screws_tilt_klipper_output():
+    """SCREWS_TILT_CALCULATE output yields per-screw turns and direction."""
+    from custom_components.moonraker.panel import _parse_screws_tilt
+
+    lines = [
+        "Send: SCREWS_TILT_CALCULATE",
+        "// front left screw (base) : x=30.0, y=30.0, z=0.02250",
+        "// front right screw : x=230.0, y=30.0, z=0.15250 : adjust CW 00:10",
+        "// rear right screw : x=230.0, y=230.0, z=-0.10000 : adjust CCW 01:35",
+        "// rear left screw : x=30.0, y=230.0, z=0.30000 : adjust CW 2:96",
+        "ok",
+    ]
+    result = _parse_screws_tilt(lines)
+    assert result["calibrated"] is True
+    assert result["base"] == "front left screw"
+    screws = result["screws"]
+    assert len(screws) == 4
+    assert screws[0]["base"] is True
+    assert screws[0]["turns"] is None
+    assert screws[1]["direction"] == "CW"
+    assert screws[1]["turns"] == pytest.approx(10 / 60)
+    assert screws[2]["direction"] == "CCW"
+    assert screws[2]["turns"] == pytest.approx((60 + 35) / 60)
+    # Nonstandard clock values still normalize to fractional turns.
+    assert screws[3]["turns"] == pytest.approx((120 + 96) / 60)
+
+
+def test_parse_screws_tilt_uses_newest_block_and_ignores_noise():
+    """Only the last SCREWS_TILT_CALCULATE run is reported."""
+    from custom_components.moonraker.panel import _parse_screws_tilt
+
+    lines = [
+        "Send: SCREWS_TILT_CALCULATE",
+        "screw1 (base) : x=1.0, y=1.0, z=0.1 : adjust CW 00:05",
+        "unrelated junk",
+        "Send: SCREWS_TILT_CALCULATE",
+        "screwA (base) : x=2.0, y=2.0, z=0.2",
+        "screwB : x=3.0, y=3.0, z=0.3 : adjust CCW 00:15",
+    ]
+    result = _parse_screws_tilt(lines)
+    assert [s["name"] for s in result["screws"]] == ["screwa", "screwb"]
+    assert _parse_screws_tilt([]) == {}
+    assert _parse_screws_tilt(["no calibration here"]) == {}
+
+
+def test_parse_probe_calibrate_and_seen_commands():
+    """PROBE_CALIBRATE z_offset and command presence are detected."""
+    from custom_components.moonraker.panel import (
+        _calibration_seen,
+        _parse_probe_calibrate,
+    )
+
+    lines = [
+        "Send: PROBE_CALIBRATE",
+        "// probe: z_offset: 2.345",
+        "Send: BED_MESH_CALIBRATE",
+        "// probe: z_offset: 2.500",
+    ]
+    assert _parse_probe_calibrate(lines) == pytest.approx(2.5)
+    assert _parse_probe_calibrate(["z_offset = not-a-number"]) is None
+    assert _parse_probe_calibrate([]) is None
+    seen = _calibration_seen(lines)
+    assert seen == {
+        "bed_mesh": True,
+        "screws_tilt": False,
+        "probe_calibrate": True,
+    }
+    assert _calibration_seen([]) == {
+        "bed_mesh": False,
+        "screws_tilt": False,
+        "probe_calibrate": False,
+    }
+
+
+async def test_panel_payload_includes_calibration(hass):
+    """Console history feeds the calibration block in the panel payload."""
+    from custom_components.moonraker.panel import _panel_payload
+
+    coordinator = _panel_coordinator(
+        hass,
+        gcode_responses=[
+            "Send: SCREWS_TILT_CALCULATE",
+            "screw1 (base) : x=30.0, y=30.0, z=0.02",
+            "screw2 : x=230.0, y=30.0, z=0.15 : adjust CW 00:10",
+        ],
+    )
+    payload = await _panel_payload(hass, coordinator)
+    calibration = payload["calibration"]
+    assert calibration["calibrated"] is True
+    assert calibration["screws"][1]["direction"] == "CW"
+    assert calibration["screws"][1]["turns"] == pytest.approx(10 / 60)
+    assert calibration["seen"]["screws_tilt"] is True
+    assert calibration["probe_z_offset"] is None
+
+
 async def test_panel_payload_layers_and_klippy(hass):
     """The payload exposes computed layer counters and printer state."""
     from custom_components.moonraker.panel import _panel_payload

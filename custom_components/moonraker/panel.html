@@ -734,6 +734,88 @@
         border: 0;
         background: var(--line);
       }
+      .tram-settings {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 14px;
+        margin-bottom: 8px;
+      }
+      .tram-setting {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font: 8px var(--mono);
+      }
+      .tram-setting b {
+        color: var(--muted);
+        font-weight: 400;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .tram-setting input {
+        width: 52px;
+        padding: 2px 4px;
+        border: 1px solid var(--line);
+        background: transparent;
+        color: var(--text);
+        font: 9px var(--mono);
+        text-align: right;
+      }
+      .tram-dials {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .tram-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        min-width: 86px;
+        padding: 6px;
+        border: 1px solid var(--line);
+      }
+      .tram-card.done {
+        border-color: color-mix(in srgb, var(--green) 40%, var(--line));
+      }
+      .tram-card b {
+        font: 8px var(--mono);
+        color: var(--text);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .tram-detail {
+        font: 7.5px var(--mono);
+        color: var(--amber);
+        text-align: center;
+      }
+      .tram-card.done .tram-detail {
+        color: var(--green);
+      }
+      .tram-dial {
+        width: 80px;
+        height: 80px;
+      }
+      .tram-dial-face {
+        fill: color-mix(in srgb, var(--text) 3%, transparent);
+        stroke: var(--line);
+        stroke-width: 1;
+      }
+      .tram-tick {
+        stroke: color-mix(in srgb, var(--muted) 55%, transparent);
+        stroke-width: 1.6;
+      }
+      .tram-tick.lit {
+        stroke: var(--amber);
+        stroke-width: 3;
+      }
+      .tram-arrow {
+        fill: var(--amber);
+      }
+      .tram-dial-num {
+        fill: var(--text);
+        font: 13px var(--mono);
+      }
       .notice {
         padding: 6px 8px;
         border-left: 2px solid var(--amber);
@@ -3062,13 +3144,12 @@
                     <div class="row-label" style="margin-top: 10px">
                       GUIDED TRAMMING — adjust while watching live
                     </div>
-                    <div id="tramWizardRows" class="kv"></div>
+                    <div id="tramWizardRows"></div>
                     <p class="micro">
-                      Each corner shows its height above the lowest. Lower the
-                      high corners (or raise the rest) by that amount. Turn
-                      estimates assume common 0.5mm and 0.75mm screw pitches —
-                      run a fresh mesh after each pass and watch the offsets
-                      converge to zero.
+                      Set your bed screw's notch count and thread pitch — each
+                      dial lights the notches to turn and the direction arrow.
+                      Run a fresh mesh or SCREWS_TILT_CALCULATE after each pass
+                      and watch the offsets converge to zero.
                     </p>
                   </div>
                   <p class="micro">

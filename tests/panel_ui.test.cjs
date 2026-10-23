@@ -180,6 +180,10 @@ class FakeDocument {
     return new FakeElement(tagName);
   }
 
+  createElementNS(_namespace, tagName) {
+    return new FakeElement(tagName);
+  }
+
   addEventListener(type, callback) {
     this.listeners[type] = callback;
   }
@@ -3013,7 +3017,61 @@ test("tram wizard renders per-corner turn guidance", () => {
   vm.runInContext("renderTramWizard()", context);
   const text = deepText(document.getElementById("tramWizardRows"));
   assert.match(text, /TRAMMED/);
-  assert.match(text, /\+0\.24mm · LOWER ≈0\.48 turn @0\.5 \/ 0\.32 @0\.75/);
+  assert.match(text, /CW 2\.7 notches/);
+});
+
+test("tram math converts clock and mm to turns and notches", () => {
+  const { context } = createPanelClient();
+  assert.equal(
+    vm.runInContext(`clockToTurns("01:20")`, context).toFixed(4),
+    "1.3333",
+  );
+  assert.equal(
+    vm.runInContext(`clockToTurns("00:07")`, context).toFixed(4),
+    "0.1167",
+  );
+  assert.equal(vm.runInContext(`clockToTurns("bad")`, context), null);
+  assert.equal(
+    vm.runInContext(`turnsToNotches(1.3333, 8)`, context).toFixed(2),
+    "10.67",
+  );
+  assert.equal(
+    vm.runInContext(`mmToTurns(0.24, 0.7)`, context).toFixed(4),
+    "0.3429",
+  );
+});
+
+test("tram dial draws N configurable notches and lit direction", () => {
+  const { context, document } = createPanelClient();
+  vm.runInContext(
+    `displayPrefs.tramNotches = 10; displayPrefs.screwPitch = 0.7;`,
+    context,
+  );
+  vm.runInContext(
+    `latestData = { calibration: { screws: [
+      {name:"screw1",base:true,x:20,y:20,z:0.01,direction:null,clock:null,turns:null},
+      {name:"screw2",base:false,x:200,y:20,z:0.2,direction:"CCW",clock:"00:15",turns:0.25}
+    ], seen: {bed_mesh:true}, probe_z_offset: 1.234 } }`,
+    context,
+  );
+  vm.runInContext("renderTramWizard()", context);
+  const text = deepText(document.getElementById("tramWizardRows"));
+  assert.match(text, /screw1 \(base\)/);
+  assert.match(text, /screw2/);
+  assert.match(text, /REFERENCE/);
+  assert.match(text, /CCW 2\.5 notches/);
+  assert.match(text, /1\.234/);
+  assert.match(text, /BED_MESH ran/);
+  const ticks = vm.runInContext(
+    `document.getElementById("tramWizardRows").querySelectorAll(".tram-tick").length`,
+    context,
+  );
+  assert.equal(ticks, 20);
+  const lit = vm.runInContext(
+    `document.getElementById("tramWizardRows").querySelectorAll(".lit").length`,
+    context,
+  );
+  assert.equal(lit, 3);
 });
 
 test("file diff compares metadata fields between two files", () => {

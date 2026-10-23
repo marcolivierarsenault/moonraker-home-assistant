@@ -1549,34 +1549,224 @@ function renderMeshDecay(status) {
   renderTramWizard();
 }
 
+const TRAM_NOTCHES_DEFAULT = 8;
+const TRAM_PITCH_DEFAULT = 0.7;
+const TRAM_NOTCH_MIN = 2;
+const TRAM_NOTCH_MAX = 48;
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+function tramNotchCount() {
+  const count = parseInt(displayPrefs.tramNotches, 10);
+  return Number.isFinite(count) &&
+    count >= TRAM_NOTCH_MIN &&
+    count <= TRAM_NOTCH_MAX
+    ? count
+    : TRAM_NOTCHES_DEFAULT;
+}
+
+function tramScrewPitch() {
+  const pitch = Number(displayPrefs.screwPitch);
+  return Number.isFinite(pitch) && pitch > 0 ? pitch : TRAM_PITCH_DEFAULT;
+}
+
+function clockToTurns(clock) {
+  const match = /^(\d+):(\d{1,2})$/.exec(String(clock || ""));
+  if (!match) return null;
+  return (parseInt(match[1], 10) * 60 + parseInt(match[2], 10)) / 60;
+}
+
+function turnsToNotches(turns, notches) {
+  if (!Number.isFinite(turns) || !Number.isFinite(notches)) return 0;
+  return Math.abs(turns) * notches;
+}
+
+function mmToTurns(mm, pitch) {
+  if (!Number.isFinite(mm) || !Number.isFinite(pitch) || pitch <= 0) return null;
+  return mm / pitch;
+}
+
+function _svgEl(tag, attrs) {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const [name, value] of Object.entries(attrs)) {
+    if (name === "class") el.className = value;
+    else el.setAttribute(name, String(value));
+  }
+  return el;
+}
+
+function buildNotchDial(turns, direction, notches) {
+  // A dial with `notches` tick marks; the ticks covering the required
+  // rotation are lit in the direction given (CW = clockwise from top).
+  const svg = _svgEl("svg", { viewBox: "0 0 100 100", class: "tram-dial" });
+  const cx = 50;
+  const cy = 50;
+  const rInner = 30;
+  const rOuter = 44;
+  const lit = Math.ceil(turnsToNotches(turns, notches));
+  svg.appendChild(
+    _svgEl("circle", { cx, cy, r: rInner - 4, class: "tram-dial-face" }),
+  );
+  for (let i = 0; i < notches; i += 1) {
+    const angle = (i / notches) * Math.PI * 2 - Math.PI / 2;
+    const covered =
+      lit > 0 && (direction === "CCW" ? i >= notches - lit : i < lit);
+    svg.appendChild(
+      _svgEl("line", {
+        x1: cx + Math.cos(angle) * rInner,
+        y1: cy + Math.sin(angle) * rInner,
+        x2: cx + Math.cos(angle) * rOuter,
+        y2: cy + Math.sin(angle) * rOuter,
+        class: `tram-tick${covered ? " lit" : ""}`,
+      }),
+    );
+  }
+  if (direction && lit > 0) {
+    // Direction arrow at the top of the dial.
+    const sign = direction === "CCW" ? -1 : 1;
+    svg.appendChild(
+      _svgEl("path", {
+        d: `M ${cx + 10 * sign} ${cy - rInner + 4} ` +
+          `L ${cx} ${cy - rInner - 2} ` +
+          `L ${cx - 10 * sign} ${cy - rInner + 4} Z`,
+        class: "tram-arrow",
+      }),
+    );
+  }
+  const label = _svgEl("text", {
+    x: cx,
+    y: cy + 4,
+    class: "tram-dial-num",
+    "text-anchor": "middle",
+  });
+  label.textContent =
+    turns == null ? "—" : turnsToNotches(turns, notches).toFixed(1);
+  svg.appendChild(label);
+  return svg;
+}
+
+function _tramSetting(label, id, value, min, max, step) {
+  const wrap = document.createElement("label");
+  wrap.className = "tram-setting";
+  const name = document.createElement("b");
+  name.textContent = label;
+  const input = document.createElement("input");
+  input.type = "number";
+  input.id = id;
+  input.min = String(min);
+  input.max = String(max);
+  input.step = String(step);
+  input.value = String(value);
+  input.addEventListener("change", () => {
+    const parsed = Number(input.value);
+    if (!Number.isFinite(parsed)) return;
+    if (id === "tramNotchesInput")
+      displayPrefs.tramNotches = Math.round(parsed);
+    else displayPrefs.screwPitch = parsed;
+    saveDisplayPrefs();
+    renderTramWizard();
+  });
+  wrap.append(name, input);
+  return wrap;
+}
+
+function _tramDialCard(entry, notches, pitch) {
+  const card = document.createElement("div");
+  card.className = "tram-card";
+  card.appendChild(buildNotchDial(entry.turns, entry.direction, notches));
+  const name = document.createElement("b");
+  name.textContent = entry.label;
+  const detail = document.createElement("span");
+  detail.className = "tram-detail";
+  if (entry.turns == null || Math.abs(entry.turns) < 0.005) {
+    detail.textContent = entry.base ? "REFERENCE" : "TRAMMED";
+    card.classList.add("done");
+  } else {
+    const count = turnsToNotches(entry.turns, notches).toFixed(1);
+    const degrees = (Math.abs(entry.turns) * 360).toFixed(0);
+    const mmMove = (Math.abs(entry.turns) * pitch).toFixed(3);
+    detail.textContent =
+      `${entry.direction || "CW"} ${count} notches ` +
+      `(${degrees}° · ${mmMove}mm)`;
+  }
+  card.append(name, detail);
+  return card;
+}
+
 function renderTramWizard() {
   const wrap = byId("tramWizard");
   const rows = byId("tramWizardRows");
   if (!wrap || !rows) return;
   rows.replaceChildren();
   const metrics = (latestData?.analysis || {}).metrics || {};
-  const corners = Array.isArray(metrics.mesh_corner_offsets)
-    ? metrics.mesh_corner_offsets
-    : [];
-  const labels = ["FL", "FR", "BL", "BR"];
-  labels.forEach((label, index) => {
-    const mm = Number(corners[index]);
-    const b = document.createElement("b");
-    b.textContent = label;
-    const span = document.createElement("span");
-    if (!Number.isFinite(mm)) {
-      span.textContent = "—";
-    } else if (mm < 0.02) {
-      span.textContent = "+0.00mm · TRAMMED";
-      span.style.color = "var(--green)";
-    } else {
-      const t5 = (mm / 0.5).toFixed(2);
-      const t75 = (mm / 0.75).toFixed(2);
-      span.textContent = `+${mm.toFixed(2)}mm · LOWER ≈${t5} turn @0.5 / ${t75} @0.75`;
-      span.style.color = "var(--amber)";
-    }
-    rows.append(b, span);
-  });
+  const calibration = latestData?.calibration || {};
+  const notches = tramNotchCount();
+  const pitch = tramScrewPitch();
+
+  const settings = document.createElement("div");
+  settings.className = "tram-settings";
+  settings.append(
+    _tramSetting(
+      "NOTCHES/WHEEL",
+      "tramNotchesInput",
+      notches,
+      TRAM_NOTCH_MIN,
+      TRAM_NOTCH_MAX,
+      1,
+    ),
+    _tramSetting("SCREW PITCH mm", "tramPitchInput", pitch, 0.01, 10, 0.05),
+  );
+  rows.appendChild(settings);
+
+  const screws = Array.isArray(calibration.screws) ? calibration.screws : [];
+  const entries = screws.length
+    ? screws.map((screw) => ({
+        label: screw.base ? `${screw.name} (base)` : screw.name,
+        position: `x${screw.x} y${screw.y}`,
+        direction: screw.direction,
+        turns: screw.turns,
+        base: screw.base,
+      }))
+    : (Array.isArray(metrics.mesh_corner_offsets)
+          ? metrics.mesh_corner_offsets
+          : []
+        ).map((mm, index) => ({
+          label: ["FL", "FR", "BL", "BR"][index],
+          position: "mesh",
+          direction: "CW",
+          turns: mmToTurns(Number(mm), pitch),
+          base: false,
+        }));
+
+  const dials = document.createElement("div");
+  dials.className = "tram-dials";
+  entries.forEach((entry) =>
+    dials.appendChild(_tramDialCard(entry, notches, pitch)),
+  );
+  rows.appendChild(dials);
+
+  const legend = document.createElement("p");
+  legend.className = "micro";
+  legend.textContent = screws.length
+    ? "SCREWS_TILT_CALCULATE measured each corner. Turn each dial's lit notches in the arrow direction; the base screw stays put."
+    : "Derived from bed-mesh corner heights — run SCREWS_TILT_CALCULATE for Klipper's own readings. Turn each dial's lit notches clockwise (tighten lowers that corner).";
+  rows.appendChild(legend);
+
+  const extras = document.createElement("div");
+  extras.className = "kv";
+  const seen = calibration.seen || {};
+  const bMesh = document.createElement("b");
+  bMesh.textContent = "BED_MESH ran";
+  const vMesh = document.createElement("span");
+  vMesh.textContent = seen.bed_mesh ? "yes" : "no";
+  const bProbe = document.createElement("b");
+  bProbe.textContent = "Probe Z offset";
+  const vProbe = document.createElement("span");
+  const zOff =
+    calibration.probe_z_offset ??
+    latestData?.status?.probe?.z_offset;
+  vProbe.textContent = Number.isFinite(zOff) ? zOff.toFixed(3) : "—";
+  extras.append(bMesh, vMesh, bProbe, vProbe);
+  rows.appendChild(extras);
 }
 
 const PRINTCAST_RANK = { CLEAR: 0, CAUTION: 1, POOR: 2, "NO-GO": 3 };

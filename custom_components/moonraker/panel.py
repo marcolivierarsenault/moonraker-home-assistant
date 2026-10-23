@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import os
+import re
 import time
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
@@ -257,6 +258,98 @@ def _console_lines(coordinator, gcode_store) -> list[str]:
         else:
             lines.append(line)
     return lines[-300:]
+
+
+_SCREW_LINE_RE = re.compile(
+    r"^(.+?)(\s*\(base\))?\s*:\s*"
+    r"x=\s*(-?[\d.]+)\s*,\s*y=\s*(-?[\d.]+)\s*,\s*z=\s*(-?[\d.]+)"
+    r"(?:\s*:\s*adjust\s+(CW|CCW)\s+(\d+):(\d+))?",
+    re.IGNORECASE,
+)
+
+
+def _parse_screws_tilt(lines: list[str]) -> dict[str, Any]:
+    """Parse the newest SCREWS_TILT_CALCULATE block from console lines.
+
+    Klipper emits one line per screw after SCREWS_TILT_CALCULATE::
+
+        screw1 (base) : x=  10.0, y=  20.0, z= 0.25000 : adjust CW 01:20
+        screw2 : x= 190.0, y=  20.0, z= 0.12000 : adjust CCW 00:07
+
+    ``HH:MM`` is clock notation: MM minutes of one full turn. The base
+    screw carries no adjustment because every other screw references it.
+    """
+    screws: list[dict[str, Any]] = []
+    in_block = False
+    for raw in lines:
+        line = raw.strip().lstrip("$/ ").strip()
+        if "SCREWS_TILT_CALCULATE" in line.upper():
+            screws = []
+            in_block = True
+            continue
+        match = _SCREW_LINE_RE.match(line)
+        if in_block and match:
+            direction, hours, minutes = match.group(6), match.group(7), match.group(8)
+            turns = None
+            if direction is not None:
+                turns = ((int(hours) * 60) + int(minutes)) / 60.0
+            screws.append(
+                {
+                    "name": match.group(1).lower(),
+                    "base": bool(match.group(2)),
+                    "x": float(match.group(3)),
+                    "y": float(match.group(4)),
+                    "z": float(match.group(5)),
+                    "direction": direction,
+                    "clock": f"{hours}:{minutes}" if direction else None,
+                    "turns": turns,
+                }
+            )
+            continue
+        if in_block and screws:
+            in_block = False
+    if not screws:
+        return {}
+    base = next((s for s in screws if s["base"]), screws[0])
+    return {
+        "screws": screws,
+        "base": base["name"],
+        "calibrated": True,
+    }
+
+
+def _parse_probe_calibrate(lines: list[str]) -> float | None:
+    """Return the newest z_offset reported by PROBE_CALIBRATE output."""
+    z_offset = None
+    for raw in lines:
+        line = raw.strip().lower()
+        marker = line.find("z_offset")
+        if marker < 0:
+            continue
+        tail = line[marker:].replace("z_offset", "", 1).lstrip(" :=")
+        try:
+            z_offset = float(tail.split()[0])
+        except (IndexError, ValueError):
+            continue
+    return z_offset
+
+
+def _calibration_seen(lines: list[str]) -> dict[str, bool]:
+    """Report which calibration commands appear in the console history."""
+    commands = {
+        "bed_mesh": False,
+        "screws_tilt": False,
+        "probe_calibrate": False,
+    }
+    for raw in lines:
+        upper = raw.upper()
+        if "BED_MESH_CALIBRATE" in upper:
+            commands["bed_mesh"] = True
+        elif "SCREWS_TILT" in upper:
+            commands["screws_tilt"] = True
+        elif "PROBE_CALIBRATE" in upper:
+            commands["probe_calibrate"] = True
+    return commands
 
 
 def _fleet_summary(coordinator) -> dict[str, Any]:
@@ -520,6 +613,7 @@ async def _panel_payload(hass: HomeAssistant, coordinator) -> dict[str, Any]:
         }
         for object_name, fields in coordinator.query_obj.get("objects", {}).items()
     ]
+    console_lines = _console_lines(coordinator, aux.get("gcode_store"))
 
     return {
         "entry_id": coordinator.config_entry.entry_id,
@@ -542,7 +636,12 @@ async def _panel_payload(hass: HomeAssistant, coordinator) -> dict[str, Any]:
         "power_devices": power_devices,
         "macros": macros,
         "webcams": webcams,
-        "gcode_responses": _console_lines(coordinator, aux.get("gcode_store")),
+        "gcode_responses": console_lines,
+        "calibration": {
+            **_parse_screws_tilt(console_lines),
+            "probe_z_offset": _parse_probe_calibrate(console_lines),
+            "seen": _calibration_seen(console_lines),
+        },
         "files": [
             {
                 "path": file.get("path"),
