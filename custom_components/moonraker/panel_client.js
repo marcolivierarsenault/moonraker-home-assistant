@@ -1602,6 +1602,19 @@ function renderPrintcast(data) {
             : cssVar("--amber");
   }
   setText("printcastScore", score == null ? "—" : `${score}/100`);
+  setText("printcastDashScore", score == null ? "—" : `${score}/100`);
+  const dashVerdict = byId("printcastDashVerdict");
+  if (dashVerdict) {
+    dashVerdict.textContent = cast.verdict || "—";
+    dashVerdict.style.color =
+      cast.verdict === "CLEAR"
+        ? cssVar("--green")
+        : cast.verdict === "NO-GO"
+          ? cssVar("--red")
+          : cast.verdict === "—" || cast.verdict == null
+            ? ""
+            : cssVar("--amber");
+  }
   const verdictEl = byId("printcastVerdict");
   const verdict = cast.verdict || "—";
   if (verdictEl) {
@@ -1621,24 +1634,24 @@ function renderPrintcast(data) {
     cast.partial ? `${fileTail} (partial)` : fileTail,
   );
   setText("printcastMode", String(cast.mode || "—").toUpperCase());
-  setText(
-    "printcastSat",
+  const satText =
     metrics.spool_saturation_pct == null
       ? "—"
-      : `${fmt(metrics.spool_saturation_pct, 0)}%`,
-  );
-  setText(
-    "printcastDose",
+      : `${fmt(metrics.spool_saturation_pct, 0)}%`;
+  const doseText =
     metrics.spool_hydration_dose_rh_h == null
       ? "—"
-      : `${fmt(metrics.spool_hydration_dose_rh_h, 1)} RH·h`,
-  );
-  setText(
-    "printcastDebt",
+      : `${fmt(metrics.spool_hydration_dose_rh_h, 1)} RH·h`;
+  const debtText =
     metrics.extrusion_debt_pct == null
       ? "—"
-      : `${fmt(metrics.extrusion_debt_pct, 1)}%`,
-  );
+      : `${fmt(metrics.extrusion_debt_pct, 1)}%`;
+  setText("printcastSat", satText);
+  setText("printcastDose", doseText);
+  setText("printcastDebt", debtText);
+  setText("printcastDashSat", satText);
+  setText("printcastDashDose", doseText);
+  setText("printcastDashDebt", debtText);
   setText("printcastRec", cast.recommendation || "—");
 
   const wrap = byId("printcastFactors");

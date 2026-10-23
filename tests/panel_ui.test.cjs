@@ -3091,6 +3091,23 @@ test("printcast card renders score, factors, and worsens to a toast", () => {
   );
   const badge = document.getElementById("printcastBadge");
   assert.equal(badge.textContent, "PRINTCAST 62 · CAUTION");
+  assert.equal(
+    document.getElementById("printcastDashScore").textContent,
+    "62/100",
+  );
+  assert.equal(
+    document.getElementById("printcastDashVerdict").textContent,
+    "CAUTION",
+  );
+  assert.equal(document.getElementById("printcastDashSat").textContent, "62%");
+  assert.equal(
+    document.getElementById("printcastDashDose").textContent,
+    "6.2 RH·h",
+  );
+  assert.equal(
+    document.getElementById("printcastDashDebt").textContent,
+    "-1.4%",
+  );
   assert.equal(document.getElementById("printcastMode").textContent, "PREFLIGHT");
   assert.equal(document.getElementById("printcastFile").textContent, "cube.gcode");
   assert.equal(document.getElementById("printcastSat").textContent, "62%");
@@ -3129,6 +3146,8 @@ test("printcast card tolerates empty and partial forecasts", () => {
     document.getElementById("printcastBadge").textContent,
     "PRINTCAST —",
   );
+  assert.equal(document.getElementById("printcastDashScore").textContent, "—");
+  assert.equal(document.getElementById("printcastDashSat").textContent, "—");
   const factors = document.getElementById("printcastFactors");
   assert.match(deepText(factors), /no risk factors/);
 
