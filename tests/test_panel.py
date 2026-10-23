@@ -342,7 +342,8 @@ def _panel_coordinator(hass, **overrides):
         "async_fetch_data": AsyncMock(return_value={}),
         "async_add_listener": MagicMock(return_value=lambda: None),
         "analyzer": SimpleNamespace(
-            as_dict=MagicMock(return_value={"metrics": {}, "findings": []})
+            as_dict=MagicMock(return_value={"metrics": {}, "findings": []}),
+            metrics={},
         ),
     }
     base.update(overrides)
@@ -1451,6 +1452,13 @@ def test_fleet_summary_variants(hass):
         "hotend": 210.0,
         "bed": 60.0,
         "filename": "job.gcode",
+        "material": None,
+        "ambient_c": None,
+        "oee": {
+            "utilization_pct": None,
+            "success_rate_pct": None,
+            "throughput_gh": None,
+        },
     }
 
     coordinator.data = {"status": {"virtual_sdcard": {"progress": 0.5}}}
@@ -1559,6 +1567,13 @@ async def test_panel_payload_fleet_bed_bounds_and_spool(hass):
             "hotend": 200.0,
             "bed": 60.0,
             "filename": "job.gcode",
+            "material": None,
+            "ambient_c": None,
+            "oee": {
+                "utilization_pct": None,
+                "success_rate_pct": None,
+                "throughput_gh": None,
+            },
         }
     ]
 
@@ -1568,3 +1583,88 @@ async def test_panel_payload_fleet_bed_bounds_and_spool(hass):
     assert payload2["bed_bounds"] == {}
 
     hass.data[DOMAIN].pop("real")
+
+
+def test_route_needs_picks_first_real_job(hass):
+    """Route needs summarize the first queued job with metadata."""
+    from custom_components.moonraker.panel import _route_needs
+
+    coordinator = _panel_coordinator(hass, data={"queue": {"queued_jobs": "bad"}})
+    assert _route_needs(coordinator) == {}
+
+    coordinator = _panel_coordinator(
+        hass,
+        data={
+            "queue": {"queued_jobs": [{"job_id": "1"}, {"filename": "a.gcode"}]},
+            "queue_meta": {
+                "a.gcode": {"filament_total": 5000.0, "filament_type": "ABS"}
+            },
+        },
+    )
+    assert _route_needs(coordinator) == {
+        "filename": "a.gcode",
+        "filament_mm": 5000.0,
+        "material": "ABS",
+    }
+
+    coordinator = _panel_coordinator(
+        hass, data={"queue": {"queued_jobs": [{"filename": "b.gcode"}]}}
+    )
+    assert _route_needs(coordinator)["filament_mm"] is None
+
+    coordinator = _panel_coordinator(
+        hass, data={"queue": {"queued_jobs": [{"job_id": "1"}, "junk"]}}
+    )
+    assert _route_needs(coordinator) == {}
+
+
+def test_route_score_weights_fitness(hass):
+    """The router scores idle, compatible printers highest."""
+    from custom_components.moonraker.panel import _route_score
+
+    offline = _panel_coordinator(hass)
+    offline.last_update_success = False
+    assert _route_score(offline, {}) == {"score": 0, "reasons": ["offline"]}
+
+    busy = _panel_coordinator(
+        hass,
+        data={"status": {"print_stats": {"state": "printing"}}},
+    )
+    busy.analyzer.metrics = {
+        "spool_material": "PLA",
+        "spool_remaining_mm": 100.0,
+        "preflight": {"mesh_fresh": False},
+        "ambient_c": 10.0,
+    }
+    result = _route_score(busy, {"filament_mm": 5000.0, "material": "ABS"})
+    assert result["score"] == 10
+    assert "busy (printing)" in result["reasons"]
+    assert "loaded PLA" in result["reasons"]
+    assert "insufficient filament" in result["reasons"]
+    assert "stale mesh" in result["reasons"]
+    assert "cold chamber" not in result["reasons"]  # PLA is not high-shrink
+
+    cold = _panel_coordinator(
+        hass,
+        data={"status": {"print_stats": {"state": "standby"}}},
+    )
+    cold.analyzer.metrics = {
+        "spool_material": "ABS",
+        "ambient_c": 10.0,
+    }
+    result = _route_score(cold, {})
+    assert result["score"] == 90
+    assert "cold chamber" in result["reasons"]
+
+    ideal = _panel_coordinator(
+        hass,
+        data={"status": {"print_stats": {"state": "standby"}}},
+    )
+    ideal.analyzer.metrics = {
+        "spool_material": "ABS+",
+        "spool_remaining_mm": 9000.0,
+        "preflight": {"mesh_fresh": True},
+        "ambient_c": 35.0,
+    }
+    result = _route_score(ideal, {"filament_mm": 5000.0, "material": "ABS"})
+    assert result == {"score": 100, "reasons": []}

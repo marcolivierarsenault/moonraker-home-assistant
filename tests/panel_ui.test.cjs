@@ -2914,3 +2914,64 @@ test("optional input vars validate in a custom theme", () => {
     /"--input-bg" has an invalid value/,
   );
 });
+
+test("fleet tiles show router fit scores and OEE stats", () => {
+  const { context, document } = createPanelClient();
+  const payload = {
+    entry_id: "a",
+    fleet: [
+      {
+        id: "a",
+        name: "Voron",
+        state: "printing",
+        progress: 0.4,
+        hotend: 210,
+        bed: 60,
+        available: true,
+        oee: {
+          utilization_pct: 61.5,
+          success_rate_pct: 92.0,
+          throughput_gh: 7.2,
+        },
+      },
+      {
+        id: "b",
+        name: "Ender",
+        state: "standby",
+        progress: null,
+        hotend: null,
+        bed: null,
+        available: true,
+        oee: {},
+      },
+    ],
+    router: {
+      needs: { filename: "part.gcode", filament_mm: 5000, material: "PLA" },
+      scores: {
+        a: { score: 45, reasons: ["busy (printing)", "insufficient filament"] },
+        b: { score: 100, reasons: [] },
+      },
+    },
+  };
+  vm.runInContext(`renderFleet(${JSON.stringify(payload)})`, context);
+  const tiles = document
+    .getElementById("fleetStrip")
+    .querySelectorAll(".fleet-tile");
+  assert.match(deepText(tiles[0]), /FIT 45/);
+  assert.match(deepText(tiles[0]), /U 62% · OK 92% · 7.2g\/h/);
+  assert.match(deepText(tiles[1]), /FIT 100/);
+  assert.equal(
+    tiles[0].querySelector(".fleet-route").title,
+    "busy (printing); insufficient filament",
+  );
+  // No router needs -> no FIT badge; missing OEE -> no stats line.
+  vm.runInContext(
+    `renderFleet(${JSON.stringify({ ...payload, router: { needs: {}, scores: {} } })})`,
+    context,
+  );
+  const tiles2 = document
+    .getElementById("fleetStrip")
+    .querySelectorAll(".fleet-tile");
+  assert.equal(tiles2[0].querySelector(".fleet-route").textContent, "");
+  assert.equal(tiles2[1].querySelector(".fleet-oee").textContent, "");
+});

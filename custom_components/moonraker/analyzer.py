@@ -334,6 +334,9 @@ class MoonrakerAnalyzer:
         )
         self._ring_last_at: float | None = None
         self._print_start_ambient: float | None = None
+        self._oee_printing_s = 0.0
+        self._oee_window_s = 0.0
+        self._oee_last_at: float | None = None
         self._print_flow_sum = 0.0
         self._print_flow_count = 0
         self._print_temp_samples: list[float] = []
@@ -457,6 +460,8 @@ class MoonrakerAnalyzer:
             config_changed = stored.get("config_changed_at")
             if isinstance(config_changed, str):
                 self.config_changed_at = config_changed
+            self._oee_printing_s = _finite_number(stored.get("oee_printing_s")) or 0.0
+            self._oee_window_s = _finite_number(stored.get("oee_window_s")) or 0.0
         self.metrics["total_kwh"] = round(self.total_kwh, 4)
         self._store_loaded = True
         if self._store_dirty:
@@ -493,6 +498,8 @@ class MoonrakerAnalyzer:
                     "config_hash": self.config_hash,
                     "config_changed_at": self.config_changed_at,
                     "checkpoints": list(self.checkpoints),
+                    "oee_printing_s": self._oee_printing_s,
+                    "oee_window_s": self._oee_window_s,
                 }
             )
         except Exception:  # noqa: BLE001 - persistence failure is non-fatal
@@ -560,6 +567,7 @@ class MoonrakerAnalyzer:
         self._track_twin(status, now)
         self._record_telemetry(status, now)
         self._update_preflight(status, now)
+        self._update_oee(status, now)
         self._track_energy(status, now)
         self._track_print_state(status, now, findings)
         self._track_checkpoints(status, now)
@@ -873,10 +881,19 @@ class MoonrakerAnalyzer:
         if not isinstance(jobs, list) or not jobs:
             self.metrics["queue_plan"] = []
             self.metrics["queue_plan_differs"] = False
+            self.metrics["queue_ambient_ready"] = None
             return []
         meta = data.get("queue_meta") or {}
         remaining_mm = self._spool_remaining_mm(data.get("spool_details") or {})
         material = self.metrics.get("spool_material")
+        ambient = self._ambient_temp()
+        material_upper = str(material or "").upper()
+        cold_hold = (
+            ambient is not None
+            and ambient < CHAMBER_WARM_MIN_C
+            and any(token in material_upper for token in HIGH_SHRINK_MATERIALS)
+        )
+        self.metrics["queue_ambient_ready"] = not cold_hold
 
         entries: list[dict[str, Any]] = []
         findings: list[dict[str, str]] = []
@@ -939,8 +956,12 @@ class MoonrakerAnalyzer:
         # Spool reservation: cumulative filament across runnable jobs must not
         # oversubscribe what is left on the spool.
         reserved_mm = 0.0
+        ambient_held = False
         for item in plan:
             filament_mm = _finite_number(item.get("filament_mm"))
+            item["ambient_hold"] = bool(cold_hold and item["ok"])
+            if item["ambient_hold"]:
+                ambient_held = True
             if not item["ok"] or filament_mm is None or remaining_mm is None:
                 item["overruns_spool"] = False
                 continue
@@ -959,6 +980,18 @@ class MoonrakerAnalyzer:
                         ),
                     }
                 )
+        if ambient_held:
+            findings.append(
+                {
+                    "severity": "warn",
+                    "label": "ambient hold",
+                    "detail": (
+                        f"chamber at {ambient:.0f}°C is below the "
+                        f"{CHAMBER_WARM_MIN_C:.0f}°C floor for {material_upper}"
+                        " — warm the chamber before starting queued jobs"
+                    ),
+                }
+            )
         self.metrics["queue_reserved_mm"] = round(reserved_mm, 0)
         self.metrics["queue_plan"] = plan
         self.metrics["queue_plan_differs"] = [item["job_id"] for item in plan] != [
@@ -1622,6 +1655,40 @@ class MoonrakerAnalyzer:
         )
         self.metrics["preflight"] = checks
         self.metrics["preflight_ready"] = checks["ready"]
+
+    def _update_oee(self, status: dict[str, Any], now: float) -> None:
+        """Track utilization, success rate, and throughput for OEE reporting."""
+        if self._oee_last_at is not None:
+            delta = now - self._oee_last_at
+            if 0 < delta <= 600:
+                self._oee_window_s += delta
+                if self._is_printing(status):
+                    self._oee_printing_s += delta
+        self._oee_last_at = now
+        if self._oee_window_s > 300:
+            self.metrics["oee_utilization_pct"] = round(
+                self._oee_printing_s / self._oee_window_s * 100, 1
+            )
+        else:
+            self.metrics["oee_utilization_pct"] = None
+        attempts = 0
+        completed = 0
+        for stats in self.file_stats.values():
+            attempts += int(stats.get("attempts") or 0)
+            completed += int(stats.get("completed") or 0)
+        self.metrics["oee_success_rate_pct"] = (
+            round(completed / attempts * 100, 1) if attempts else None
+        )
+        filament_mm = 0.0
+        hours = 0.0
+        for record in self.print_history:
+            filament_mm += _finite_number(record.get("filament_used_mm")) or 0.0
+            hours += (_finite_number(record.get("print_duration_s")) or 0.0) / 3600
+        grams = filament_mm * FILAMENT_AREA_MM2 * 1.24 / 1000
+        self.metrics["oee_throughput_gh"] = (
+            round(grams / hours, 1) if hours > 0 else None
+        )
+        self.metrics["oee_tracked_prints"] = len(self.print_history)
 
     def track_config_drift(self, config: dict[str, Any]) -> None:
         """Hash the printer config and flag silent changes."""

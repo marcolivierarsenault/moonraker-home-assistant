@@ -32,6 +32,7 @@ from .const import (
     TIMEOUT,
     VERSION,
 )
+from .analyzer import CHAMBER_WARM_MIN_C, HIGH_SHRINK_MATERIALS, _finite_number
 from .sensor import calculate_current_layer, calculate_total_layer
 
 if TYPE_CHECKING:
@@ -265,6 +266,7 @@ def _fleet_summary(coordinator) -> dict[str, Any]:
         progress = virtual.get("progress")
     if not isinstance(progress, int | float):
         progress = None
+    metrics = coordinator.analyzer.metrics
     return {
         "id": coordinator.config_entry.entry_id,
         "name": coordinator.api_device_name,
@@ -274,7 +276,76 @@ def _fleet_summary(coordinator) -> dict[str, Any]:
         "hotend": (status.get("extruder") or {}).get("temperature"),
         "bed": (status.get("heater_bed") or {}).get("temperature"),
         "filename": print_stats.get("filename"),
+        "material": metrics.get("spool_material"),
+        "ambient_c": metrics.get("ambient_c"),
+        "oee": {
+            "utilization_pct": metrics.get("oee_utilization_pct"),
+            "success_rate_pct": metrics.get("oee_success_rate_pct"),
+            "throughput_gh": metrics.get("oee_throughput_gh"),
+        },
     }
+
+
+def _route_needs(coordinator) -> dict[str, Any]:
+    """Summarize the requesting printer's next queued job for routing."""
+    data = coordinator.data or {}
+    jobs = (data.get("queue") or {}).get("queued_jobs")
+    if not isinstance(jobs, list):
+        return {}
+    meta = data.get("queue_meta") or {}
+    for job in jobs:
+        if not isinstance(job, dict) or not job.get("filename"):
+            continue
+        job_meta = meta.get(str(job.get("filename")))
+        job_meta = job_meta if isinstance(job_meta, dict) else {}
+        return {
+            "filename": job.get("filename"),
+            "filament_mm": job_meta.get("filament_total"),
+            "material": job_meta.get("filament_type"),
+        }
+    return {}
+
+
+def _route_score(coordinator, needs: dict[str, Any]) -> dict[str, Any]:
+    """Score how fit a fleet printer is for the next queued job."""
+    if not coordinator.last_update_success:
+        return {"score": 0, "reasons": ["offline"]}
+    status = (coordinator.data or {}).get("status") or {}
+    state = (status.get("print_stats") or {}).get("state")
+    metrics = coordinator.analyzer.metrics
+    score = 0
+    reasons: list[str] = []
+    if state in (None, "standby", "complete", "cancelled", "error"):
+        score += 40
+    else:
+        reasons.append(f"busy ({state})")
+    loaded = str(metrics.get("spool_material") or "").upper()
+    wanted = str(needs.get("material") or "").upper()
+    if not wanted or not loaded or wanted in loaded or loaded in wanted:
+        score += 20
+    else:
+        reasons.append(f"loaded {loaded or 'unknown'}")
+    remaining_mm = _finite_number(metrics.get("spool_remaining_mm"))
+    needed_mm = _finite_number(needs.get("filament_mm"))
+    if needed_mm is None or remaining_mm is None or remaining_mm >= needed_mm:
+        score += 20
+    else:
+        reasons.append("insufficient filament")
+    preflight = metrics.get("preflight") or {}
+    if preflight.get("mesh_fresh") is not False:
+        score += 10
+    else:
+        reasons.append("stale mesh")
+    ambient = _finite_number(metrics.get("ambient_c"))
+    if (
+        ambient is None
+        or ambient >= CHAMBER_WARM_MIN_C
+        or not any(token in loaded for token in HIGH_SHRINK_MATERIALS)
+    ):
+        score += 10
+    else:
+        reasons.append("cold chamber")
+    return {"score": score, "reasons": reasons}
 
 
 def _spool_details(spool) -> dict[str, Any]:
@@ -477,6 +548,13 @@ async def _panel_payload(hass: HomeAssistant, coordinator) -> dict[str, Any]:
             for entry_id, other in _coordinators(hass).items()
         ],
         "fleet": [_fleet_summary(other) for other in _coordinators(hass).values()],
+        "router": {
+            "needs": _route_needs(coordinator),
+            "scores": {
+                entry_id: _route_score(other, _route_needs(coordinator))
+                for entry_id, other in _coordinators(hass).items()
+            },
+        },
         "analysis": coordinator.analyzer.as_dict(),
         "api_key_configured": bool(entry.data.get(CONF_API_KEY)),
         "settings": {

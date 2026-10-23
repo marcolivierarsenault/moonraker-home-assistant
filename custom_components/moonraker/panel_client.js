@@ -1168,7 +1168,31 @@ function renderFleet(data) {
       member.bed,
       0,
     )}°`;
-    tile.append(name, state, temps);
+    const route = document.createElement("span");
+    route.className = "fleet-route";
+    const scores = (data.router && data.router.scores) || {};
+    const routeInfo = scores[member.id];
+    if (routeInfo && data.router.needs && data.router.needs.filename) {
+      route.textContent = `FIT ${routeInfo.score}`;
+      if (routeInfo.reasons && routeInfo.reasons.length) {
+        route.title = routeInfo.reasons.join("; ");
+      }
+    }
+    const oee = document.createElement("span");
+    oee.className = "fleet-oee";
+    const stats = member.oee || {};
+    const oeeBits = [];
+    if (Number.isFinite(Number(stats.utilization_pct))) {
+      oeeBits.push(`U ${fmt(stats.utilization_pct, 0)}%`);
+    }
+    if (Number.isFinite(Number(stats.success_rate_pct))) {
+      oeeBits.push(`OK ${fmt(stats.success_rate_pct, 0)}%`);
+    }
+    if (Number.isFinite(Number(stats.throughput_gh))) {
+      oeeBits.push(`${fmt(stats.throughput_gh, 1)}g/h`);
+    }
+    oee.textContent = oeeBits.join(" · ");
+    tile.append(name, state, route, temps, oee);
     tile.addEventListener("click", () => selectFleetPrinter(member.id));
     strip.appendChild(tile);
   });

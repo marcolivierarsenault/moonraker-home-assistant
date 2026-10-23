@@ -2002,3 +2002,82 @@ class TestAnalyzerEdgeBranches:
         }
         analyzer._record_print(status, "complete", now=1001.0)
         assert len(analyzer.file_stats) == 60
+
+
+def test_oee_metrics_track_utilization_success_throughput(hass):
+    """OEE counters derive utilization, success rate, and throughput."""
+    analyzer = _coordinator(hass).analyzer
+    status = _live_print_status()
+    analyzer.analyze(status, now=1000.0)
+    analyzer.analyze(status, now=1000.0 + 700)  # gap >600s is ignored
+    analyzer.analyze(status, now=2300.0)
+    status_idle = _base_status()
+    analyzer.analyze(status_idle, now=2700.0)
+    # 600s printing out of 1000s observed -> 60% utilization.
+    assert analyzer.metrics["oee_utilization_pct"] == 60.0
+
+    analyzer.file_stats = {
+        "a.gcode": {"attempts": 3, "completed": 2, "faults": []},
+        "b.gcode": {"attempts": 1, "completed": 1, "faults": []},
+    }
+    analyzer.print_history = [{"filament_used_mm": 2405.0, "print_duration_s": 3600.0}]
+    analyzer._update_oee(status_idle, now=3000.0)
+    assert analyzer.metrics["oee_success_rate_pct"] == 75.0
+    # 2405mm * 2.405mm^2 * 1.24g/cm3 / 1000 / 1h = ~7.17 g/h.
+    assert analyzer.metrics["oee_throughput_gh"] == pytest.approx(7.2, abs=0.1)
+    assert analyzer.metrics["oee_tracked_prints"] == 1
+
+
+def test_oee_empty_metrics(hass):
+    """OEE metrics stay null until enough data exists."""
+    analyzer = _coordinator(hass).analyzer
+    analyzer._update_oee(_base_status(), now=1000.0)
+    analyzer._update_oee(_base_status(), now=1100.0)
+    assert analyzer.metrics["oee_utilization_pct"] is None
+    assert analyzer.metrics["oee_success_rate_pct"] is None
+    assert analyzer.metrics["oee_throughput_gh"] is None
+
+
+async def test_oee_state_persists(hass):
+    """OEE counters survive a store round-trip."""
+    coordinator = _coordinator(hass)
+    analyzer = coordinator.analyzer
+    await analyzer.async_load()
+    analyzer._oee_printing_s = 600.0
+    analyzer._oee_window_s = 1000.0
+    analyzer._mark_dirty()
+    await analyzer._async_save()
+
+    restored = _coordinator(hass, entry_id="analyzer").analyzer
+    await restored.async_load()
+    assert restored._oee_printing_s == 600.0
+    assert restored._oee_window_s == 1000.0
+
+
+def test_queue_ambient_hold(hass):
+    """Cold chambers hold high-shrink queue jobs until warm."""
+    coordinator = _coordinator(hass, entry_id="ambientq")
+    analyzer = coordinator.analyzer
+    analyzer.ambient_sensor = "sensor.chamber"
+    hass.states.async_set("sensor.chamber", "15")
+    coordinator.data = {
+        "status": {"print_stats": {"state": "standby"}},
+        "queue": {"queued_jobs": [{"filename": "a.gcode", "job_id": "1"}]},
+        "queue_meta": {"a.gcode": {"filament_total": 100.0}},
+        "spool_details": {
+            "filament": {"material": "ABS", "density": 1.24, "diameter": 1.75},
+            "remaining_weight": 500.0,
+        },
+    }
+    analyzer.analyze(_base_status(), now=1000.0)
+    plan = analyzer.metrics["queue_plan"]
+    assert plan[0]["ambient_hold"] is True
+    assert analyzer.metrics["queue_ambient_ready"] is False
+    labels = [finding["label"] for finding in analyzer.findings]
+    assert "ambient hold" in labels
+
+    # Warm chamber releases the hold.
+    hass.states.async_set("sensor.chamber", "35")
+    analyzer.analyze(_base_status(), now=1100.0)
+    assert analyzer.metrics["queue_plan"][0]["ambient_hold"] is False
+    assert analyzer.metrics["queue_ambient_ready"] is True
