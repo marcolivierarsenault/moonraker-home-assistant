@@ -1,0 +1,18 @@
+language: "en"
+intents:
+  MoonrakerPrintStatus:
+    data:
+      - sentences:
+          - "what is the {name} doing"
+          - "what's the {name} doing"
+          - "{name} status"
+          - "{name} print status"
+          - "{name} print progress"
+          - "how is the {name} doing"
+          - "how far along is the {name}"
+      - sentences:
+          - "printer status"
+          - "print status"
+          - "print progress"
+        requires_context:
+          domain: moonraker

@@ -1,0 +1,14 @@
+language: "en"
+intents:
+  MoonrakerPrintPause:
+    data:
+      - sentences:
+          - "pause the {name}"
+          - "pause the {name} print"
+          - "pause printing on the {name}"
+          - "hold the {name}"
+      - sentences:
+          - "pause the printer"
+          - "pause the print"
+        requires_context:
+          domain: moonraker

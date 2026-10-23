@@ -1,0 +1,14 @@
+language: "en"
+intents:
+  MoonrakerPrintResume:
+    data:
+      - sentences:
+          - "resume the {name}"
+          - "resume the {name} print"
+          - "resume printing on the {name}"
+          - "unpause the {name}"
+      - sentences:
+          - "resume the printer"
+          - "resume the print"
+        requires_context:
+          domain: moonraker
