@@ -22,6 +22,8 @@
         --amber: #e6c165;
         --text: #c9e8d7;
         --muted: #5e8871;
+        --glow: rgba(0, 239, 145, 0.12);
+        --grid: rgba(0, 110, 66, 0.05);
         --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
         --sans: "Arial Narrow", "Segoe UI", Arial, sans-serif;
       }
@@ -39,12 +41,11 @@
         color: var(--text);
         background: radial-gradient(
             ellipse at 52% -20%,
-            rgba(0, 239, 145, 0.12),
+            var(--glow),
             transparent 48%
           ),
-          linear-gradient(rgba(0, 110, 66, 0.055) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(0, 110, 66, 0.045) 1px, transparent 1px),
-          var(--bg);
+          linear-gradient(var(--grid) 1px, transparent 1px),
+          linear-gradient(90deg, var(--grid) 1px, transparent 1px), var(--bg);
         background-size: auto, 32px 32px, 32px 32px, auto;
         font-family: var(--sans);
         font-size: 13px;
@@ -3683,13 +3684,16 @@
                     /></label>
                     <label class="config-row"
                       ><span>Theme</span
-                      ><select id="displayTheme">
-                        <option value="nexus">NEXUS DARK</option>
-                        <option value="daylight">DAYLIGHT</option>
-                        <option value="contrast">HIGH CONTRAST</option>
-                        <option value="auto">FOLLOW HOME ASSISTANT</option>
-                      </select></label
+                      ><select id="displayTheme"></select></label
                     ><label class="config-row"
+                      ><span>Custom Theme</span
+                      ><input
+                        type="file"
+                        id="themeUpload"
+                        accept=".json,application/json"
+                    /></label>
+                    <p class="micro" id="themeUploadStatus"></p>
+                    <label class="config-row"
                       ><span>Text Size</span
                       ><select id="displayTextSize">
                         <option value="normal">NORMAL</option>

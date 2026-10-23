@@ -2886,6 +2886,10 @@ function bindInteractions() {
     if (target.id === "showFuturePath" || target.id === "clipFutureLayers")
       drawToolpath();
     if (target.id === "layerFollow") drawToolpath();
+    if (target.id === "themeUpload") {
+      handleThemeUpload(target.files?.[0]);
+      return;
+    }
     if (DISPLAY_CONTROL_IDS.includes(target.id)) {
       readDisplayControls();
       saveDisplayPrefs();
@@ -4346,7 +4350,216 @@ const DISPLAY_DEFAULTS = {
   colorSafe: false,
   language: "auto",
 };
-const DISPLAY_THEMES = ["nexus", "daylight", "contrast", "auto"];
+
+// CSS custom properties a theme may set. Color vars require a color value;
+// font vars accept a font-family stack.
+const THEME_COLOR_VARS = [
+  "--bg",
+  "--panel",
+  "--panel-hi",
+  "--line",
+  "--line-hi",
+  "--green",
+  "--green-soft",
+  "--cyan",
+  "--red",
+  "--amber",
+  "--text",
+  "--muted",
+  "--glow",
+  "--grid",
+];
+const THEME_FONT_VARS = ["--mono", "--sans"];
+const THEME_VARS = [...THEME_COLOR_VARS, ...THEME_FONT_VARS];
+// Vars every theme file must define.
+const THEME_REQUIRED_VARS = THEME_COLOR_VARS.filter(
+  (name) => name !== "--glow" && name !== "--grid"
+);
+
+const THEMES = {
+  nexus: {
+    label: "NEXUS DARK",
+    vars: {},
+  },
+  midnight: {
+    label: "MIDNIGHT OPS",
+    vars: {
+      "--bg": "#050b16",
+      "--panel": "#0a1424",
+      "--panel-hi": "#101d33",
+      "--line": "#1d3a5f",
+      "--line-hi": "#2f6db3",
+      "--green": "#4ade80",
+      "--green-soft": "#a7f3c9",
+      "--cyan": "#4fc3ff",
+      "--red": "#ff5d73",
+      "--amber": "#f5b94e",
+      "--text": "#c8dcf0",
+      "--muted": "#5d7d9e",
+      "--glow": "rgba(79, 195, 255, 0.1)",
+      "--grid": "rgba(47, 109, 179, 0.06)",
+    },
+  },
+  ember: {
+    label: "EMBER FORGE",
+    vars: {
+      "--bg": "#130a05",
+      "--panel": "#1c110a",
+      "--panel-hi": "#291a10",
+      "--line": "#57301a",
+      "--line-hi": "#a35a26",
+      "--green": "#ffb454",
+      "--green-soft": "#ffd8a8",
+      "--cyan": "#ff8a5c",
+      "--red": "#ff5470",
+      "--amber": "#f5d020",
+      "--text": "#f0dcc8",
+      "--muted": "#96755c",
+      "--glow": "rgba(255, 138, 76, 0.1)",
+      "--grid": "rgba(163, 90, 38, 0.07)",
+    },
+  },
+  carbon: {
+    label: "CARBON",
+    vars: {
+      "--bg": "#0c0e11",
+      "--panel": "#13161b",
+      "--panel-hi": "#1b2027",
+      "--line": "#2c343e",
+      "--line-hi": "#4a5563",
+      "--green": "#7dc4ff",
+      "--green-soft": "#bfe1ff",
+      "--cyan": "#8fd0d8",
+      "--red": "#e46a76",
+      "--amber": "#d9b13b",
+      "--text": "#d7dde4",
+      "--muted": "#6e7a88",
+      "--glow": "rgba(125, 196, 255, 0.07)",
+      "--grid": "rgba(90, 100, 110, 0.07)",
+    },
+  },
+  solarized: {
+    label: "SOLARIZED DARK",
+    vars: {
+      "--bg": "#002b36",
+      "--panel": "#073642",
+      "--panel-hi": "#0b4553",
+      "--line": "#164f5c",
+      "--line-hi": "#2a6b78",
+      "--green": "#859900",
+      "--green-soft": "#b7c95c",
+      "--cyan": "#2aa198",
+      "--red": "#dc322f",
+      "--amber": "#b58900",
+      "--text": "#93a1a1",
+      "--muted": "#586e75",
+      "--glow": "rgba(42, 161, 152, 0.1)",
+      "--grid": "rgba(42, 161, 152, 0.07)",
+    },
+  },
+  solarized_light: {
+    label: "SOLARIZED LIGHT",
+    vars: {
+      "--bg": "#fdf6e3",
+      "--panel": "#eee8d5",
+      "--panel-hi": "#e3dcc3",
+      "--line": "#c8bfa2",
+      "--line-hi": "#a89a76",
+      "--green": "#719e07",
+      "--green-soft": "#4a6b04",
+      "--cyan": "#2aa198",
+      "--red": "#dc322f",
+      "--amber": "#b58900",
+      "--text": "#586e75",
+      "--muted": "#93a1a1",
+      "--glow": "rgba(42, 161, 152, 0.08)",
+      "--grid": "rgba(101, 123, 131, 0.1)",
+    },
+  },
+  violet: {
+    label: "VIOLET GRID",
+    vars: {
+      "--bg": "#11071f",
+      "--panel": "#1a0d2e",
+      "--panel-hi": "#251542",
+      "--line": "#41286b",
+      "--line-hi": "#6b47ab",
+      "--green": "#b07dff",
+      "--green-soft": "#d9c2ff",
+      "--cyan": "#5ce8d5",
+      "--red": "#ff5c8a",
+      "--amber": "#f0c75e",
+      "--text": "#d8cdea",
+      "--muted": "#7d6a9e",
+      "--glow": "rgba(176, 125, 255, 0.11)",
+      "--grid": "rgba(107, 71, 171, 0.08)",
+    },
+  },
+  arctic: {
+    label: "ARCTIC",
+    vars: {
+      "--bg": "#e8f0f6",
+      "--panel": "#f4f8fb",
+      "--panel-hi": "#ffffff",
+      "--line": "#c3d3e0",
+      "--line-hi": "#88aac4",
+      "--green": "#1a8754",
+      "--green-soft": "#0d5c38",
+      "--cyan": "#1177a8",
+      "--red": "#c92a42",
+      "--amber": "#9c7a12",
+      "--text": "#20344a",
+      "--muted": "#5f7e96",
+      "--glow": "rgba(23, 119, 168, 0.08)",
+      "--grid": "rgba(70, 100, 125, 0.08)",
+    },
+  },
+  stealth: {
+    label: "STEALTH",
+    vars: {
+      "--bg": "#050505",
+      "--panel": "#0a0a0a",
+      "--panel-hi": "#101010",
+      "--line": "#1f1f1f",
+      "--line-hi": "#383838",
+      "--green": "#8f9aa3",
+      "--green-soft": "#c3ccd4",
+      "--cyan": "#7d97a8",
+      "--red": "#b0575f",
+      "--amber": "#a89563",
+      "--text": "#9aa5ae",
+      "--muted": "#4a525a",
+      "--glow": "rgba(150, 160, 170, 0.05)",
+      "--grid": "rgba(80, 88, 96, 0.05)",
+    },
+  },
+  clinical: {
+    label: "CLINICAL",
+    vars: {
+      "--bg": "#f2f5f7",
+      "--panel": "#ffffff",
+      "--panel-hi": "#e9eef2",
+      "--line": "#c9d4dc",
+      "--line-hi": "#7c9bad",
+      "--green": "#157a4e",
+      "--green-soft": "#0c5234",
+      "--cyan": "#0e7490",
+      "--red": "#be123c",
+      "--amber": "#a16207",
+      "--text": "#1e2a33",
+      "--muted": "#5c7383",
+      "--glow": "rgba(14, 116, 144, 0.07)",
+      "--grid": "rgba(90, 110, 125, 0.08)",
+    },
+  },
+};
+
+// Structural themes handled by CSS in panel.html rather than a var map.
+const STRUCTURAL_THEMES = ["daylight", "contrast"];
+const CUSTOM_THEMES_KEY = "nexus-custom-themes";
+let customThemes = {};
+
+const DISPLAY_THEMES = Object.keys(THEMES).concat(STRUCTURAL_THEMES, ["auto"]);
 const DISPLAY_TEXT_SIZES = ["normal", "large", "xlarge"];
 const DISPLAY_CONTROL_IDS = [
   "displayLargeTouch",
@@ -4360,6 +4573,7 @@ let displayPrefs = { ...DISPLAY_DEFAULTS };
 
 function loadDisplayPrefs() {
   const key = `nexus-display:${printer}`;
+  loadCustomThemes();
   if (key === displayPrefsKey) {
     if (displayPrefs.theme === "auto") applyTheme();
     return;
@@ -4384,15 +4598,25 @@ function readDisplayControls() {
     largeTouch: byId("displayLargeTouch")?.checked === true,
     reduceMotion: byId("displayReduceMotion")?.checked === true,
     colorSafe: byId("displayColorSafe")?.checked === true,
-    theme: DISPLAY_THEMES.includes(theme) ? theme : "nexus",
+    theme:
+      theme === "auto" || (theme && resolveTheme(theme) === theme)
+        ? theme
+        : "nexus",
     textSize: DISPLAY_TEXT_SIZES.includes(textSize) ? textSize : "normal",
     language: byId("displayLanguage")?.value || "auto",
   };
 }
 
 function resolveTheme(choice) {
-  if (choice !== "auto")
-    return DISPLAY_THEMES.includes(choice) ? choice : "nexus";
+  if (
+    choice &&
+    choice !== "auto" &&
+    (THEMES[choice] ||
+      STRUCTURAL_THEMES.includes(choice) ||
+      customThemes[choice])
+  )
+    return choice;
+  if (choice !== "auto") return "nexus";
   const darkMode = window.hass?.themes?.darkMode;
   if (typeof darkMode === "boolean") return darkMode ? "nexus" : "daylight";
   try {
@@ -4404,12 +4628,149 @@ function resolveTheme(choice) {
   }
 }
 
+function clearThemeVars() {
+  const style = document.documentElement?.style;
+  if (!style) return;
+  for (const name of THEME_VARS) style.removeProperty(name);
+}
+
 function applyTheme() {
   const root = document.documentElement;
   if (!root?.dataset) return;
   const theme = resolveTheme(displayPrefs.theme);
-  if (theme === "nexus") delete root.dataset.theme;
-  else root.dataset.theme = theme;
+  clearThemeVars();
+  if (theme === "nexus") {
+    delete root.dataset.theme;
+    return;
+  }
+  root.dataset.theme = theme;
+  const vars = (THEMES[theme] || customThemes[theme] || {}).vars;
+  if (vars && root.style)
+    for (const [name, value] of Object.entries(vars))
+      root.style.setProperty(name, value);
+}
+
+function validateTheme(data) {
+  const errors = [];
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return { ok: false, errors: ["theme file must be a JSON object"] };
+  }
+  if (
+    typeof data.name !== "string" ||
+    !data.name.trim() ||
+    data.name.length > 50
+  )
+    errors.push('"name" must be a string of 1-50 characters');
+  const vars = data.vars;
+  if (!vars || typeof vars !== "object" || Array.isArray(vars)) {
+    errors.push('"vars" must be an object of CSS custom properties');
+    return { ok: false, errors };
+  }
+  const colorPattern =
+    /^(#[0-9a-f]{3,4}|#[0-9a-f]{6}|#[0-9a-f]{8}|rgba?\([\d\s.,%]+\)|hsla?\([\d\s.,%deg]+\))$/i;
+  const fontPattern = /^[\w\s'",.-]{1,120}$/;
+  for (const name of THEME_REQUIRED_VARS)
+    if (typeof vars[name] !== "string")
+      errors.push(`missing required variable "${name}"`);
+  for (const [name, value] of Object.entries(vars)) {
+    if (!THEME_VARS.includes(name)) {
+      errors.push(`unknown variable "${name}"`);
+      continue;
+    }
+    if (typeof value !== "string") {
+      errors.push(`"${name}" must be a string`);
+      continue;
+    }
+    if (
+      THEME_COLOR_VARS.includes(name)
+        ? !colorPattern.test(value.trim())
+        : !fontPattern.test(value)
+    )
+      errors.push(`"${name}" has an invalid value`);
+  }
+  return { ok: errors.length === 0, errors };
+}
+
+function themeKeyFor(name) {
+  return `custom:${name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")}`;
+}
+
+function loadCustomThemes() {
+  try {
+    const raw = JSON.parse(
+      window.localStorage?.getItem(CUSTOM_THEMES_KEY) || "{}"
+    );
+    customThemes =
+      raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+  } catch {
+    customThemes = {};
+  }
+}
+
+function saveCustomThemes() {
+  try {
+    window.localStorage?.setItem(
+      CUSTOM_THEMES_KEY,
+      JSON.stringify(customThemes)
+    );
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+function handleThemeUpload(file) {
+  const status = byId("themeUploadStatus");
+  const say = (msg) => {
+    if (status) status.textContent = msg;
+  };
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(String(reader.result || ""));
+      const result = validateTheme(data);
+      if (!result.ok) {
+        say(`Theme rejected: ${result.errors.join("; ")}`);
+        return;
+      }
+      const key = themeKeyFor(data.name);
+      customThemes[key] = {
+        label: data.name.trim().toUpperCase(),
+        vars: data.vars,
+      };
+      saveCustomThemes();
+      populateThemeSelect();
+      displayPrefs.theme = key;
+      saveDisplayPrefs();
+      applyDisplayPrefs();
+      say(`Theme "${data.name.trim()}" installed`);
+    } catch {
+      say("Theme rejected: not valid JSON");
+    }
+  };
+  reader.onerror = () => say("Theme rejected: could not read file");
+  reader.readAsText(file);
+}
+
+function populateThemeSelect() {
+  const select = byId("displayTheme");
+  if (!select) return;
+  select.replaceChildren();
+  const add = (value, label) => {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    select.append(option);
+  };
+  for (const [key, theme] of Object.entries(THEMES)) add(key, theme.label);
+  add("daylight", "DAYLIGHT");
+  add("contrast", "HIGH CONTRAST");
+  for (const [key, theme] of Object.entries(customThemes))
+    add(key, `${theme.label} (CUSTOM)`);
+  add("auto", "FOLLOW HOME ASSISTANT");
 }
 
 function saveDisplayPrefs() {
@@ -4444,7 +4805,10 @@ function applyDisplayPrefs() {
   const colorSafe = byId("displayColorSafe");
   if (colorSafe) colorSafe.checked = displayPrefs.colorSafe;
   const theme = byId("displayTheme");
-  if (theme) theme.value = displayPrefs.theme;
+  if (theme) {
+    if (!theme.options || !theme.options.length) populateThemeSelect();
+    theme.value = displayPrefs.theme;
+  }
   const textSize = byId("displayTextSize");
   if (textSize) textSize.value = displayPrefs.textSize;
   const language = byId("displayLanguage");

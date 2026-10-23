@@ -9,6 +9,12 @@ class FakeElement {
     this.tagName = tagName.toUpperCase();
     this.children = [];
     this.style = {};
+    this.style.setProperty = (name, value) => {
+      this.style[name] = value;
+    };
+    this.style.removeProperty = (name) => {
+      delete this.style[name];
+    };
     this.dataset = {};
     this.attributes = {};
     this.className = "";
@@ -2647,4 +2653,170 @@ test("panel markup ships theme, language, skip link, and mobile layout hooks", (
   assert.match(html, /html\[data-color-safe="1"\]/);
   assert.match(html, /@media \(max-width: 600px\)/);
   assert.ok(html.indexOf("panel_i18n.js") < html.indexOf("panel_client.js"));
+});
+
+const VALID_THEME = {
+  name: "Test Theme",
+  vars: {
+    "--bg": "#101010",
+    "--panel": "#181818",
+    "--panel-hi": "#202020",
+    "--line": "#303030",
+    "--line-hi": "#505050",
+    "--green": "#4ade80",
+    "--green-soft": "#a7f3c9",
+    "--cyan": "#4fc3ff",
+    "--red": "#ff5d73",
+    "--amber": "#f5b94e",
+    "--text": "#e0e0e0",
+    "--muted": "#808080",
+  },
+};
+
+test("built-in themes apply their CSS variable maps and clear cleanly", () => {
+  const { context, document } = createPanelClient();
+  const root = (document.documentElement = new FakeElement("html"));
+  vm.runInContext(
+    'printer = "printer-a"; loadCustomThemes(); populateThemeSelect(); displayPrefs.theme = "midnight"; applyTheme();',
+    context
+  );
+  assert.equal(root.dataset.theme, "midnight");
+  assert.equal(root.style["--bg"], "#050b16");
+  assert.equal(root.style["--cyan"], "#4fc3ff");
+
+  vm.runInContext('displayPrefs.theme = "nexus"; applyTheme();', context);
+  assert.equal(root.dataset.theme, undefined);
+  assert.equal(root.style["--bg"], undefined);
+
+  vm.runInContext('displayPrefs.theme = "arctic"; applyTheme();', context);
+  assert.equal(root.style["--text"], "#20344a");
+});
+
+test("theme select is populated with builtins, structural themes, and auto", () => {
+  const { context, document } = createPanelClient();
+  document.documentElement = new FakeElement("html");
+  vm.runInContext('printer = "p"; populateThemeSelect();', context);
+  const select = document.getElementById("displayTheme");
+  const values = select.options.map((option) => option.value);
+  for (const theme of [
+    "nexus",
+    "midnight",
+    "ember",
+    "carbon",
+    "solarized",
+    "solarized_light",
+    "violet",
+    "arctic",
+    "stealth",
+    "clinical",
+    "daylight",
+    "contrast",
+    "auto",
+  ])
+    assert.ok(values.includes(theme), `missing theme ${theme}`);
+});
+
+test("validateTheme accepts a valid file and reports every defect", () => {
+  const { context } = createPanelClient();
+  const validate = (data) =>
+    vm.runInContext(`validateTheme(${JSON.stringify(data)})`, context);
+
+  assert.equal(validate(VALID_THEME).ok, true);
+
+  const missing = { ...VALID_THEME, vars: { ...VALID_THEME.vars } };
+  delete missing.vars["--red"];
+  assert.match(
+    validate(missing).errors.join(";"),
+    /missing required variable "--red"/
+  );
+
+  const badColor = {
+    ...VALID_THEME,
+    vars: { ...VALID_THEME.vars, "--cyan": "notacolor" },
+  };
+  assert.match(validate(badColor).errors.join(";"), /"--cyan" has an invalid/);
+
+  const unknown = {
+    ...VALID_THEME,
+    vars: { ...VALID_THEME.vars, "--bogus": "#fff" },
+  };
+  assert.match(
+    validate(unknown).errors.join(";"),
+    /unknown variable "--bogus"/
+  );
+
+  const longName = { ...VALID_THEME, name: "x".repeat(60) };
+  assert.match(validate(longName).errors.join(";"), /"name"/);
+  assert.equal(validate("not-an-object").ok, false);
+  assert.equal(validate({ name: "x" }).ok, false);
+
+  // Optional glow/grid/fonts are allowed when valid.
+  const optional = {
+    ...VALID_THEME,
+    vars: {
+      ...VALID_THEME.vars,
+      "--glow": "rgba(1, 2, 3, 0.5)",
+      "--sans": "Inter, sans-serif",
+    },
+  };
+  assert.equal(validate(optional).ok, true);
+});
+
+test("uploaded custom theme is stored, listed, and applied", () => {
+  const { context, document, window } = createPanelClient();
+  const root = (document.documentElement = new FakeElement("html"));
+  // Stub FileReader to deliver the JSON synchronously.
+  context.FileReader = class {
+    readAsText() {
+      this.result = JSON.stringify(VALID_THEME);
+      this.onload();
+    }
+  };
+  vm.runInContext(
+    'printer = "printer-a"; handleThemeUpload({ name: "t.json" });',
+    context
+  );
+  const stored = JSON.parse(window.localStorage.getItem("nexus-custom-themes"));
+  assert.ok(stored["custom:test-theme"]);
+  assert.equal(root.dataset.theme, "custom:test-theme");
+  assert.equal(root.style["--bg"], "#101010");
+
+  const select = document.getElementById("displayTheme");
+  const values = select.options.map((option) => option.value);
+  assert.ok(values.includes("custom:test-theme"));
+  assert.match(
+    document.getElementById("themeUploadStatus").textContent,
+    /installed/
+  );
+});
+
+test("invalid theme upload is rejected with a readable message", () => {
+  const { context, document } = createPanelClient();
+  document.documentElement = new FakeElement("html");
+  context.FileReader = class {
+    readAsText() {
+      this.result = "{bad json";
+      this.onload();
+    }
+  };
+  vm.runInContext(
+    'printer = "p"; handleThemeUpload({ name: "t.json" });',
+    context
+  );
+  assert.match(
+    document.getElementById("themeUploadStatus").textContent,
+    /not valid JSON/
+  );
+
+  context.FileReader = class {
+    readAsText() {
+      this.result = JSON.stringify({ name: "X", vars: {} });
+      this.onload();
+    }
+  };
+  vm.runInContext('handleThemeUpload({ name: "t.json" });', context);
+  assert.match(
+    document.getElementById("themeUploadStatus").textContent,
+    /missing required variable/
+  );
 });
