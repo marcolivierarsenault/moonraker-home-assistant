@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 import pytest
 from custom_components.moonraker.const import PRINTSTATES
 
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
@@ -919,6 +919,49 @@ async def test_send_gcode_list_payload_normalizes_script(hass):
     mock_call.assert_awaited_once_with(
         METHODS.PRINTER_GCODE_SCRIPT.value, script="G28\nM105"
     )
+    assert await async_unload_entry(hass, config_entry)
+
+
+@pytest.mark.parametrize(
+    ("result", "message"),
+    [
+        (
+            {"error": {"code": 400, "message": "Must home axis first: 0.000 0.000"}},
+            "Must home axis first: 0.000 0.000",
+        ),
+        ({"error": "Unknown command"}, "Unknown command"),
+        ({"error": {"code": 400}}, "unknown error"),
+    ],
+)
+async def test_send_gcode_reports_klipper_error(hass, result, message):
+    """A G-code script Klipper rejects fails the action with Klipper's message."""
+
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, entry_id="gcode_error"
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    device_id = dr.async_entries_for_config_entry(
+        dr.async_get(hass), config_entry.entry_id
+    )[0].id
+
+    # moonraker-api returns the error as the call's result instead of raising
+    with (
+        patch(
+            "moonraker_api.MoonrakerClient.call_method",
+            new_callable=AsyncMock,
+            return_value=result,
+        ),
+        pytest.raises(HomeAssistantError, match=f"G-code 'G1 X10' failed: {message}"),
+    ):
+        await hass.services.async_call(
+            DOMAIN,
+            "send_gcode",
+            {"device_id": device_id, "gcode": "G1 X10"},
+            blocking=True,
+        )
     assert await async_unload_entry(hass, config_entry)
 
 

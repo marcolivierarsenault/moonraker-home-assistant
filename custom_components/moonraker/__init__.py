@@ -10,7 +10,7 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -196,6 +196,15 @@ def get_user_name(hass: HomeAssistant, entry: ConfigEntry):
     return device_entries[0].name_by_user
 
 
+def _gcode_error_message(result: Any) -> str | None:
+    """Return the error message in a printer.gcode.script result, if any."""
+    if not isinstance(result, dict) or "error" not in result:
+        return None
+    error = result["error"]
+    message = error.get("message") if isinstance(error, dict) else error
+    return str(message) if message else "unknown error"
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Set up this integration using UI."""
 
@@ -342,10 +351,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                     "Sending G-code via entry %s for device %s", entry_id, device_id
                 )
 
-                await hass.data[DOMAIN][entry_id].async_send_data(
+                result = await hass.data[DOMAIN][entry_id].async_send_data(
                     METHODS.PRINTER_GCODE_SCRIPT,
                     {"script": script},
                 )
+                # moonraker-api returns Klipper's error as the result
+                # ({"error": {...}}) instead of raising it
+                if message := _gcode_error_message(result):
+                    raise HomeAssistantError(f"G-code '{script}' failed: {message}")
 
     # Register the new service
     hass.services.async_register(DOMAIN, "send_gcode", send_gcode_service)
@@ -575,7 +588,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             return _QuietUnreachableUpdateFailed(error)
         return UpdateFailed(error)
 
-    async def _async_send_data(self, query_path: METHODS, query_obj) -> None:
+    async def _async_send_data(self, query_path: METHODS, query_obj) -> Any:
         if not self.moonraker.client.is_connected:
             if not await _async_is_tcp_reachable(
                 self.config_entry.data.get(CONF_URL),
@@ -595,9 +608,10 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             await self.moonraker.start()
         try:
             if query_obj is None:
-                await self.moonraker.client.call_method(query_path.value)
-            else:
-                await self.moonraker.client.call_method(query_path.value, **query_obj)
+                return await self.moonraker.client.call_method(query_path.value)
+            return await self.moonraker.client.call_method(
+                query_path.value, **query_obj
+            )
         except Exception as exception:
             raise UpdateFailed() from exception
 
