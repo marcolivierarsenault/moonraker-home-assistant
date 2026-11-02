@@ -435,6 +435,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                     subscriptions=[(obj, "temperature")],
                     icon="mdi:thermometer",
                     unit=UnitOfTemperature.CELSIUS,
+                    device_class=SensorDeviceClass.TEMPERATURE,
                     state_class=SensorStateClass.MEASUREMENT,
                     suggested_display_precision=2,
                 )
@@ -690,6 +691,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 subscriptions=[(obj, "temperature")],
                 icon="mdi:thermometer",
                 unit=UnitOfTemperature.CELSIUS,
+                device_class=SensorDeviceClass.TEMPERATURE,
                 state_class=SensorStateClass.MEASUREMENT,
                 suggested_display_precision=2,
             )
@@ -712,6 +714,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 subscriptions=[(obj, "temperature")],
                 icon=icon,
                 unit=UnitOfTemperature.CELSIUS,
+                device_class=SensorDeviceClass.TEMPERATURE,
                 state_class=SensorStateClass.MEASUREMENT,
                 suggested_display_precision=2,
             )
