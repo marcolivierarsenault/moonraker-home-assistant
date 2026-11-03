@@ -234,3 +234,18 @@ async def test_output_pin_unavailable_while_value_missing(hass, get_data):
     await coordinator.async_refresh()
     await hass.async_block_till_done()
     assert hass.states.get(entity_id).state == "on"
+
+
+async def test_power_device_missing_status(hass, get_power_devices):
+    """A power device without a status is unavailable."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+
+    get_power_devices["devices"][0].pop("status")
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    assert hass.states.get("switch.mainsail_printer").state == STATE_UNAVAILABLE

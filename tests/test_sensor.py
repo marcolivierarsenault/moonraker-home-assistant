@@ -1525,3 +1525,47 @@ async def test_optional_sensors_ignores_empty_object_name(
     # If the guard works, setup completes without raising.
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
+
+
+async def test_toolhead_position_short_list(hass, get_data):
+    """Position sensors are unavailable while the position list is too short."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+
+    get_data["status"]["toolhead"]["position"] = []
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_toolhead_position_z")
+    assert state.state == "unavailable"
+
+
+async def test_optional_sensors_follow_up_query_error(hass, get_default_api_response):
+    """Optional sensors whose follow-up query fails are skipped during setup."""
+    failing = {
+        "bme280 bme280_temp",
+        "heater_fan heater_fan",
+        "fan",
+        "hall_filament_width_sensor",
+    }
+
+    def call_method(method, **kwargs):
+        objects = kwargs.get("objects") or {}
+        if len(objects) == 1 and set(objects) <= failing:
+            return {"error": {"code": 503, "message": "Klippy Host not connected"}}
+        return get_default_api_response
+
+    with patch("moonraker_api.MoonrakerClient.call_method", side_effect=call_method):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert config_entry.state.value == "loaded"
+    assert hass.states.get("sensor.mainsail_bme280_temp_pressure") is None
+    assert hass.states.get("sensor.mainsail_heater_fan_rpm") is None
+    assert hass.states.get("sensor.mainsail_fan_rpm") is None
+    assert hass.states.get("sensor.mainsail_bed_temperature") is not None

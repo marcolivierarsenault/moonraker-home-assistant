@@ -135,7 +135,8 @@ class MoonrakerPowerDeviceSwitchSensor(MoonrakerSwitchSensor):
         """Return True if last update succeeded and the device's power state is known."""
         devices = self.coordinator.data.get("power_devices", {}).get("devices", [])
         return super().available and any(
-            device["device"] == self.sensor_name for device in devices
+            device["device"] == self.sensor_name and "status" in device
+            for device in devices
         )
 
     @property
