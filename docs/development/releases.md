@@ -33,8 +33,9 @@ version (for example `1.14.0b1` to `2.0.0b0`), use **version**.
 ## 2. Publish release (tags and creates the GitHub Release)
 
 This workflow runs on every push to upstream `main` that touches
-`manifest.json`. When the version has no tag yet, it tags the merge commit and
-creates the GitHub Release with generated notes. A beta version is marked as a
+`manifest.json`. When the version has no GitHub Release yet, it tags the merge
+commit (reusing the tag if an earlier run already pushed it) and creates the
+GitHub Release with generated notes. A beta version is marked as a
 pre-release. Release notes for a stable release start from the previous stable
 tag, so they include the changes shipped in betas.
 

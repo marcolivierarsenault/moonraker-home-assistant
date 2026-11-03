@@ -34,6 +34,8 @@ jobs:
 
       - name: Read version
         id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           version="$(python3 scripts/release_version.py current)"
           const_version="$(sed -n 's/^VERSION = "\(.*\)"$/\1/p' custom_components/moonraker/const.py)"
@@ -41,8 +43,8 @@ jobs:
             echo "::error::manifest.json (${version}) and const.py (${const_version}) disagree."
             exit 1
           fi
-          if git ls-remote --exit-code --tags origin "refs/tags/${version}" > /dev/null; then
-            echo "Tag ${version} already exists, nothing to publish." >> "$GITHUB_STEP_SUMMARY"
+          if gh release view "$version" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Release ${version} already exists, nothing to publish." >> "$GITHUB_STEP_SUMMARY"
             echo "publish=false" >> "$GITHUB_OUTPUT"
           else
             echo "publish=true" >> "$GITHUB_OUTPUT"
@@ -67,12 +69,17 @@ jobs:
           else
             # Notes for a stable release cover everything since the last stable one, betas included.
             last_stable="$(git ls-remote --tags --refs origin | sed 's#.*refs/tags/##' \
-              | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)"
+              | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | grep -vxF "$VERSION" | sort -V | tail -n 1 || true)"
             if [ -n "$last_stable" ]; then
               flags+=(--notes-start-tag "$last_stable")
             fi
           fi
-          git tag "$VERSION" "$GITHUB_SHA"
-          git push origin "refs/tags/${VERSION}"
+          # A tag left by a failed earlier run is reused.
+          if git ls-remote --exit-code --tags origin "refs/tags/${VERSION}" > /dev/null; then
+            echo "Tag ${VERSION} already exists, creating only the release." >> "$GITHUB_STEP_SUMMARY"
+          else
+            git tag "$VERSION" "$GITHUB_SHA"
+            git push origin "refs/tags/${VERSION}"
+          fi
           gh release create "$VERSION" --repo "$GITHUB_REPOSITORY" --title "$VERSION" "${flags[@]}"
           echo "Published ${VERSION} (prerelease: ${PRERELEASE})" >> "$GITHUB_STEP_SUMMARY"
