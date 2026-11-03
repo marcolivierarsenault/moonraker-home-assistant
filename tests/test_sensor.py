@@ -1246,6 +1246,66 @@ async def test_spoolman_spool_id_sensor_null_value(hass, get_default_api_respons
     assert state.state == "unknown"
 
 
+async def test_spoolman_spool_id_sensor_not_created_when_spool_id_missing(
+    hass, get_default_api_response, caplog
+):
+    """Do not create Spool ID sensor when Moonraker reports no spoolman status."""
+
+    def _call_method_side_effect(method, *args, **kwargs):
+        if method == "server.spoolman.status":
+            return {}
+        return {**get_default_api_response}
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        side_effect=_call_method_side_effect,
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    entity_registry = get_entity_registry(hass)
+    entries = er.async_entries_for_config_entry(entity_registry, config_entry.entry_id)
+
+    spool_entry = next(
+        (e for e in entries if e.unique_id == f"{config_entry.entry_id}_spool_id"),
+        None,
+    )
+    assert spool_entry is None
+    assert "Error while setting up moonraker platform" not in caplog.text
+
+
+async def test_spoolman_spool_id_sensor_spool_id_lost(hass, get_default_api_response):
+    """Show 'unknown' when a later spoolman status has no spool_id."""
+    spoolman_status = {
+        "spoolman_connected": True,
+        "pending_reports": [],
+        "spool_id": 1,
+    }
+
+    def _call_method_side_effect(method, *args, **kwargs):
+        if method == "server.spoolman.status":
+            return spoolman_status
+        return {**get_default_api_response}
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        side_effect=_call_method_side_effect,
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+        assert hass.states.get("sensor.mainsail_spool_id").state == "1"
+
+        spoolman_status = {"error": "not configured"}
+        await hass.data[DOMAIN][config_entry.entry_id].async_refresh()
+        await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.mainsail_spool_id").state == "unknown"
+
+
 U1_FILAMENT_VENDOR = ["Vendor1", "Vendor2", "Vendor3", "Vendor4"]
 U1_FILAMENT_TYPE = ["PLA", "PETG", "ABS", "TPU"]
 U1_FILAMENT_SUB_TYPE = ["SubType1", "SubType2", "SubType3", "SubType4"]
