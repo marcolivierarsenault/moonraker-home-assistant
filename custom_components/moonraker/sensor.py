@@ -380,7 +380,7 @@ async def _machine_system_info_updater(coordinator):
     return {
         "system_info": (
             await coordinator.async_fetch_data(METHODS.MACHINE_SYSTEM_INFO)
-        )["system_info"]
+        ).get("system_info", {})
     }
 
 
@@ -418,7 +418,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
 
     sensors = []
     object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
-    objects = set(object_list["objects"])
+    objects = set(object_list.get("objects", []))
 
     # Build a set of names that already have a generic temperature_sensor <name>
     # This will be used to deduplicate sensors reported both as a generic temperature_sensor
@@ -429,7 +429,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
         if len(parts) == 2 and parts[0] == "temperature_sensor":
             generic_temp_names.add(parts[1])
 
-    for obj in object_list["objects"]:
+    for obj in object_list.get("objects", []):
         split_obj = obj.split()
 
         if not split_obj:
@@ -462,8 +462,9 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 result = await coordinator.async_fetch_data(
                     METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
                 )
+                env_status = result.get("status", {}).get(obj, {})
 
-                if "pressure" in result["status"][obj]:
+                if "pressure" in env_status:
                     desc = MoonrakerSensorDescription(
                         key=f"{split_obj[0]}_{split_obj[1]}_pressure",
                         status_key=obj,
@@ -479,7 +480,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                     )
                     sensors.append(desc)
 
-                if "humidity" in result["status"][obj]:
+                if "humidity" in env_status:
                     desc = MoonrakerSensorDescription(
                         key=f"{split_obj[0]}_{split_obj[1]}_humidity",
                         status_key=obj,
@@ -495,7 +496,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                     )
                     sensors.append(desc)
 
-                if "gas" in result["status"][obj]:
+                if "gas" in env_status:
                     desc = MoonrakerSensorDescription(
                         key=f"{split_obj[0]}_{split_obj[1]}_gas",
                         status_key=obj,
@@ -594,7 +595,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
             )
 
-            if fan_data["status"][obj]["rpm"]:
+            if fan_data.get("status", {}).get(obj, {}).get("rpm"):
                 desc = MoonrakerSensorDescription(
                     key=f"{split_obj[0]}_{split_obj[1]}_rpm",
                     status_key=obj,
@@ -615,7 +616,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
             )
 
-            if fan_data["status"]["fan"]["rpm"]:
+            if fan_data.get("status", {}).get("fan", {}).get("rpm"):
                 desc = MoonrakerSensorDescription(
                     key="fan_rpm",
                     name="Fan RPM",
@@ -635,7 +636,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
             result = await coordinator.async_fetch_data(
                 METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
             )
-            status = result["status"].get(obj, {})
+            status = result.get("status", {}).get(obj, {})
 
             base_key = obj.replace(" ", "_")
             base_name = (
@@ -983,7 +984,7 @@ async def async_setup_machine_update_sensors(coordinator, entry, async_add_entit
     coordinator.add_data_updater(_machine_update_updater)
     sensors = []
 
-    for version_info in machine_status["version_info"]:
+    for version_info in machine_status.get("version_info", {}):
         if version_info == "system":
             sensors.append(
                 MoonrakerSensorDescription(
@@ -1041,22 +1042,36 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
         self._attr_name = description.name
         self._attr_has_entity_name = True
         self.entity_description: MoonrakerSensorDescription = description
-        self._attr_native_value = description.value_fn(self)
+        self._attr_available = True
+        try:
+            self._attr_native_value = description.value_fn(self)
+        except (KeyError, IndexError, TypeError):
+            self._attr_native_value = None
+            self._attr_available = False
         self._attr_icon = description.icon
         self._attr_native_unit_of_measurement = description.unit
+
+    @property
+    def available(self) -> bool:
+        """Return True if last update succeeded and this sensor's data is present."""
+        return super().available and self._attr_available
 
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        self._attr_native_value = self.entity_description.value_fn(self)
+        try:
+            self._attr_native_value = self.entity_description.value_fn(self)
+        except (KeyError, IndexError, TypeError):
+            self._attr_available = False
+            self.async_write_ha_state()
+            return
+        self._attr_available = True
         self.async_write_ha_state()
 
     def empty_result_when_not_printing(self, value=""):
         """Return empty string when not printing."""
-        if (
-            self.coordinator.data["status"]["print_stats"]["state"]
-            != PRINTSTATES.PRINTING.value
-        ):
+        state = self.coordinator.data["status"]["print_stats"]["state"]
+        if state != PRINTSTATES.PRINTING.value:
             return "" if isinstance(value, str) else 0.0
         return value
 
@@ -1274,7 +1289,7 @@ def calculate_eta(data):
 def calculate_current_layer(data):
     """Calculate current layer."""
 
-    print_stats = data["status"].get("print_stats", {})
+    print_stats = data["status"]["print_stats"]
     print_duration = print_stats.get("print_duration")
     filename = print_stats.get("filename") or ""
     if not filename:

@@ -642,6 +642,7 @@ async def test_number_with_no_status_key_defaults_to_zero(hass):
         def __init__(self):
             self.api_device_name = "Mainsail"
             self.data = {"status": {}}
+            self.last_update_success = True
             self._listeners = []
 
         async def async_send_data(self, *_args, **_kwargs):
@@ -668,3 +669,27 @@ async def test_number_with_no_status_key_defaults_to_zero(hass):
     # Even if coordinator data gains values, the missing status key keeps the value at zero
     coordinator.data["status"]["gcode_move"] = {"speed_factor": 1.5}
     assert number._extract_native_value() == 0.0
+    assert number.available is True
+
+
+async def test_number_unavailable_while_value_missing(hass, get_data):
+    """Number entities are unavailable while their value is missing."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+
+    saved_bed = get_data["status"]["heater_bed"].pop("target")
+    saved_pin = get_data["status"].pop("output_pin pwm")
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert hass.states.get("number.mainsail_bed_target").state == "unavailable"
+    assert hass.states.get("number.mainsail_output_pin_pwm").state == "unavailable"
+
+    get_data["status"]["heater_bed"]["target"] = saved_bed
+    get_data["status"]["output_pin pwm"] = saved_pin
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert hass.states.get("number.mainsail_bed_target").state != "unavailable"
+    assert hass.states.get("number.mainsail_output_pin_pwm").state != "unavailable"
