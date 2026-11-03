@@ -284,3 +284,23 @@ async def test_hall_filament_width_sensor_active_off(
     state = hass.states.get("binary_sensor.mainsail_filament_width_sensor_active")
     assert state is not None
     assert state.state == "off"
+
+
+async def test_runout_filament_sensor_recovers_after_missing_data(hass, get_data):
+    """Sensor goes unavailable while its data is missing and recovers after."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    entity_id = "binary_sensor.mainsail_filament_sensor_1"
+
+    saved = get_data["status"].pop("filament_switch_sensor filament_sensor_1")
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert hass.states.get(entity_id).state == "unavailable"
+
+    get_data["status"]["filament_switch_sensor filament_sensor_1"] = saved
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert hass.states.get(entity_id).state == "on"
