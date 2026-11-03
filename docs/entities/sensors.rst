@@ -106,6 +106,9 @@ Sensors that are added on integration startup.
   * - Spool ID
     - Active Spoolman spool id used for tracking/reporting. Only available when Spoolman is configured. Can be empty when tracking is disabled.
     - From Moonraker API (server.spoolman.status, spool_id)
+  * - E0 Filament Info to E3 Filament Info
+    - Filament loaded in each of the four extruders. The state is the filament color as ``#RRGGBBAA``; vendor, type, sub_type, official, sku, edit and soft are attributes when the printer reports them. Only available on Snapmaker U1.
+    - From Klipper (print_task_config)
 
 
 History Sensors

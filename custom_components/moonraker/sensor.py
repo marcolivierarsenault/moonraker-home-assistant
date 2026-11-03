@@ -21,8 +21,17 @@ from homeassistant.const import (
     UnitOfTime,
 )
 from homeassistant.core import callback
+from homeassistant.helpers.update_coordinator import UpdateFailed
 
-from .const import DOMAIN, METHODS, OBJ, PRINTERSTATES, PRINTSTATES
+from .const import (
+    DOMAIN,
+    METHODS,
+    OBJ,
+    PRINTERSTATES,
+    PRINTSTATES,
+    U1_PRINT_TASK_CONFIG,
+    U1_FILAMENT_ATTRIBUTES,
+)
 from .entity import BaseMoonrakerEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -51,6 +60,13 @@ class MoonrakerSensorDescription(SensorEntityDescription):
     unit: str | None = None
     device_class: str | None = None
     subscriptions: list | None = None
+
+
+@dataclass(frozen=True)
+class U1ExtruderFilamentSensorDescription(MoonrakerSensorDescription):
+    """Class describing U1 filament color sensor, with an additional extra_state_fn."""
+
+    extra_state_fn: Callable = lambda sensor: None
 
 
 SENSORS: tuple[MoonrakerSensorDescription, ...] = (
@@ -357,6 +373,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     await async_setup_machine_update_sensors(coordinator, entry, async_add_entities)
     await async_setup_queue_sensors(coordinator, entry, async_add_entities)
     await async_setup_spoolman_sensors(coordinator, entry, async_add_entities)
+    await async_setup_u1_sensors(coordinator, entry, async_add_entities)
 
 
 async def _machine_system_info_updater(coordinator):
@@ -872,6 +889,84 @@ async def async_setup_spoolman_sensors(coordinator, entry, async_add_entities):
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
 
 
+def _u1_filament_field(sensor, field, extruder_index):
+    """Return one extruder's value of a print_task_config field, or None."""
+    values = (
+        sensor.coordinator.data.get("status", {})
+        .get(U1_PRINT_TASK_CONFIG, {})
+        .get(field)
+    )
+    if not isinstance(values, list) or extruder_index >= len(values):
+        return None
+    return values[extruder_index]
+
+
+async def async_setup_u1_sensors(coordinator, entry, async_add_entities):
+    """U1 Extruder Filament Info sensors."""
+    try:
+        u1_print_task_query = await coordinator.async_fetch_data(
+            METHODS.PRINTER_OBJECTS_QUERY,
+            {OBJ: {U1_PRINT_TASK_CONFIG: U1_FILAMENT_ATTRIBUTES}},
+        )
+    except UpdateFailed:
+        _LOGGER.debug(
+            "`%s` query failed, don't setup U1 Filament Sensors", U1_PRINT_TASK_CONFIG
+        )
+        return
+
+    filament_colors = (
+        (u1_print_task_query.get("status") or {})
+        .get(U1_PRINT_TASK_CONFIG, {})
+        .get("filament_color_rgba")
+    )
+
+    # Klipper answers with an empty object when print_task_config is unknown,
+    # so only a U1 reports four filament colors.
+    if not isinstance(filament_colors, list) or len(filament_colors) != 4:
+        _LOGGER.debug(
+            "`%s` is not available, don't setup U1 Filament Sensors",
+            U1_PRINT_TASK_CONFIG,
+        )
+        return
+
+    sensors = [create_u1_filament_sensor_description(i) for i in range(4)]
+
+    coordinator.load_sensor_data(sensors)
+    await coordinator.async_refresh()
+    async_add_entities(
+        [U1ExtruderFilamentSensor(coordinator, entry, desc) for desc in sensors]
+    )
+
+
+def create_u1_filament_sensor_description(extruder_index):
+    """Create a U1 filament sensor description for the given extruder index."""
+
+    def _color(sensor):
+        color = _u1_filament_field(sensor, "filament_color_rgba", extruder_index)
+        return f"#{color}" if color else None
+
+    def _attributes(sensor):
+        attributes = {}
+        for field in U1_FILAMENT_ATTRIBUTES:
+            if field == "filament_color_rgba":
+                continue
+            value = _u1_filament_field(sensor, field, extruder_index)
+            if value is not None:
+                attributes[field.replace("filament_", "")] = value
+        return attributes
+
+    return U1ExtruderFilamentSensorDescription(
+        key=f"e{extruder_index}_filament_info",
+        name=f"E{extruder_index} Filament Info",
+        value_fn=_color,
+        extra_state_fn=_attributes,
+        subscriptions=[
+            (U1_PRINT_TASK_CONFIG, field) for field in U1_FILAMENT_ATTRIBUTES
+        ],
+        icon="mdi:format-color-highlight",
+    )
+
+
 async def _machine_update_updater(coordinator):
     return {
         "machine_update": await coordinator.async_fetch_data(
@@ -964,6 +1059,21 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
         ):
             return "" if isinstance(value, str) else 0.0
         return value
+
+
+class U1ExtruderFilamentSensor(MoonrakerSensor):
+    """U1 Extruder Filament Sensor with extra attributes for filament details."""
+
+    def __init__(self, coordinator, entry, description):
+        """Init."""
+        super().__init__(coordinator, entry, description)
+        self._attr_extra_state_attributes = self.entity_description.extra_state_fn(self)
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        self._attr_extra_state_attributes = self.entity_description.extra_state_fn(self)
+        super()._handle_coordinator_update()
 
 
 def calculate_print_speed(data):
