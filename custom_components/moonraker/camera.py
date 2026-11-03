@@ -159,9 +159,7 @@ class PreviewCamera(Camera):
         """Return current camera image."""
         _LOGGER.debug("Trying to get thumbnail ")
         state = (
-            self.coordinator.data.get("status", {})
-            .get("print_stats", {})
-            .get("state")
+            self.coordinator.data.get("status", {}).get("print_stats", {}).get("state")
         )
         if state != PRINTSTATES.PRINTING.value:
             _LOGGER.debug("Not printing, no thumbnail")

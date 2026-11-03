@@ -174,12 +174,15 @@ class MoonrakerDigitalOutputPin(MoonrakerSwitchSensor):
         self.pin = description.sensor_name.replace("output_pin ", "")
 
     @property
+    def available(self) -> bool:
+        """Return True if last update succeeded and the pin's value is known."""
+        status = self.coordinator.data.get("status", {}).get(self.sensor_name)
+        return super().available and isinstance(status, dict) and "value" in status
+
+    @property
     def is_on(self) -> bool:
         """Return true if the switch is on."""
-        try:
-            return self.coordinator.data["status"][self.sensor_name]["value"] == 1
-        except (KeyError, TypeError):
-            return False
+        return self.coordinator.data["status"][self.sensor_name]["value"] == 1
 
     async def async_turn_on(self, **kwargs) -> None:
         """Turn on the switch."""

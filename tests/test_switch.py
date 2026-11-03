@@ -214,3 +214,23 @@ async def test_output_pin_config_missing_skips_entity(hass, get_data):
     await hass.async_block_till_done()
 
     assert hass.states.get("switch.mainsail_output_pin_digital") is None
+
+
+async def test_output_pin_unavailable_while_value_missing(hass, get_data):
+    """A digital output pin is unavailable while its value is missing."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    entity_id = "switch.mainsail_output_pin_digital"
+
+    saved = get_data["status"].pop("output_pin digital")
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert hass.states.get(entity_id).state == STATE_UNAVAILABLE
+
+    get_data["status"]["output_pin digital"] = saved
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert hass.states.get(entity_id).state == "on"

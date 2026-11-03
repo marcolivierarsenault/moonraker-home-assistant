@@ -53,7 +53,10 @@ async def async_setup_light(coordinator, entry, async_add_entities):
 
         led_type = obj.split()[0]
         color_mode = ColorMode.UNKNOWN
-        conf = cfg.get(obj.lower(), {})
+        conf = cfg.get(obj.lower())
+        if conf is None:
+            # Unknown config: skip rather than guess the color mode.
+            continue
 
         if led_type == "led":
             num_led_pins = 0

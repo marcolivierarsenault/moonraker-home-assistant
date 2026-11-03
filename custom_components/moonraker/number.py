@@ -52,7 +52,9 @@ async def async_setup_temperature_target(coordinator, entry, async_add_entities)
     config_response = await coordinator.async_fetch_data(
         METHODS.PRINTER_OBJECTS_QUERY, config_query, quiet=True
     )
-    config_settings = config_response.get("status", {}).get("configfile", {}).get("settings", {})
+    config_settings = (
+        config_response.get("status", {}).get("configfile", {}).get("settings", {})
+    )
 
     object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
     for obj in object_list.get("objects", []):

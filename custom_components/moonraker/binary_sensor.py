@@ -145,24 +145,19 @@ class MoonrakerBinarySensor(BaseMoonrakerEntity, BinarySensorEntity):
         self._attr_name = description.name
         self._attr_has_entity_name = True
         self._attr_icon = description.icon
-        self._attr_available = True
-        try:
-            self._attr_native_value = description.is_on_fn(self)
-        except (KeyError, TypeError):
-            self._attr_available = False
 
     @property
     def available(self) -> bool:
         """Return True if last update succeeded and this sensor's data is present."""
-        return super().available and self._attr_available
+        if not super().available:
+            return False
+        try:
+            self.is_on_fn(self)
+        except (KeyError, TypeError):
+            return False
+        return True
 
     @property
-    def is_on(self) -> bool | None:
+    def is_on(self) -> bool:
         """Return state."""
-        try:
-            state = self.is_on_fn(self)
-        except (KeyError, TypeError):
-            self._attr_available = False
-            return None
-        self._attr_available = True
-        return state
+        return self.is_on_fn(self)

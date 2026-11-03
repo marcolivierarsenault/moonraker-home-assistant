@@ -274,3 +274,16 @@ async def test_light_update_exception(hass, light, get_default_api_response):
 
         state = hass.states.get(f"light.{light}")
         assert state is not None
+
+
+async def test_light_config_missing_skips_entity(hass, get_data):
+    """A light with unknown config is skipped rather than guessed."""
+    get_data["status"]["configfile"]["settings"].pop("neopixel camera")
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("light.mainsail_neopixel_camera") is None
+    assert hass.states.get("light.mainsail_led_chamber") is not None
