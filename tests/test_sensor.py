@@ -1246,57 +1246,44 @@ async def test_spoolman_spool_id_sensor_null_value(hass, get_default_api_respons
     assert state.state == "unknown"
 
 
-async def test_u1_filament_sensor_created(hass, get_default_api_response):
-    """Create u1 filament sensor for the u1 print_task_config result."""
-    filament_vendor = [
-        "Vendor1",
-        "Vendor2",
-        "Vendor3",
-        "Vendor4",
-    ]
-    filament_type = [
-        "Vendor1",
-        "Vendor2",
-        "Vendor3",
-        "Vendor4",
-    ]
-    filament_sub_type = [
-        "SubType1",
-        "SubType2",
-        "SubType3",
-        "SubType4",
-    ]
-    filament_color_rgba = [
-        "E2DEDBFF",
-        "E72F1DFF",
-        "F4C032FF",
-        "080A0DFF",
-    ]
-    filament_official = [True, False, True, False]
-    filament_sku = [900000, 900002, 900003, 900001]
-    filament_edit = [True, False, True, False]
-    filament_soft = [False, True, False, True]
-    u1_print_task_config_result = {
-        "status": {
-            "print_task_config": {
-                "filament_vendor": filament_vendor,
-                "filament_type": filament_type,
-                "filament_sub_type": filament_sub_type,
-                "filament_color_rgba": filament_color_rgba,
-                "filament_official": filament_official,
-                "filament_sku": filament_sku,
-                "filament_edit": filament_edit,
-                "filament_soft": filament_soft,
-            }
-        }
+U1_FILAMENT_VENDOR = ["Vendor1", "Vendor2", "Vendor3", "Vendor4"]
+U1_FILAMENT_TYPE = ["PLA", "PETG", "ABS", "TPU"]
+U1_FILAMENT_SUB_TYPE = ["SubType1", "SubType2", "SubType3", "SubType4"]
+U1_FILAMENT_COLOR_RGBA = ["E2DEDBFF", "E72F1DFF", "F4C032FF", "080A0DFF"]
+U1_FILAMENT_OFFICIAL = [True, False, True, False]
+U1_FILAMENT_SKU = [900000, 900002, 900003, 900001]
+U1_FILAMENT_EDIT = [True, False, True, False]
+U1_FILAMENT_SOFT = [False, True, False, True]
+
+
+def _u1_print_task_config():
+    return {
+        "filament_vendor": list(U1_FILAMENT_VENDOR),
+        "filament_type": list(U1_FILAMENT_TYPE),
+        "filament_sub_type": list(U1_FILAMENT_SUB_TYPE),
+        "filament_color_rgba": list(U1_FILAMENT_COLOR_RGBA),
+        "filament_official": list(U1_FILAMENT_OFFICIAL),
+        "filament_sku": list(U1_FILAMENT_SKU),
+        "filament_edit": list(U1_FILAMENT_EDIT),
+        "filament_soft": list(U1_FILAMENT_SOFT),
     }
 
+
+async def _setup_with_print_task_config(hass, get_default_api_response, config):
+    """Set up the integration with Klipper reporting the given print_task_config."""
+
     def _call_method_side_effect(method, *args, **kwargs):
+        if method == "server.spoolman.status":
+            return {"error": "not configured"}
+        response = {**get_default_api_response}
         if method == "printer.objects.query" and "print_task_config" in kwargs.get(
             "objects", {}
         ):
-            return u1_print_task_config_result
-        return {**get_default_api_response}
+            response["status"] = {
+                **get_default_api_response["status"],
+                "print_task_config": config,
+            }
+        return response
 
     with patch(
         "moonraker_api.MoonrakerClient.call_method",
@@ -1306,29 +1293,89 @@ async def test_u1_filament_sensor_created(hass, get_default_api_response):
         config_entry.add_to_hass(hass)
         await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
+    return config_entry
+
+
+async def test_u1_filament_sensor_created(hass, get_default_api_response):
+    """Create u1 filament sensor for the u1 print_task_config result."""
+    await _setup_with_print_task_config(
+        hass, get_default_api_response, _u1_print_task_config()
+    )
+
+    for index in range(4):
+        state = hass.states.get(f"sensor.mainsail_e{index}_filament_info")
+        assert state is not None
+        assert state.state == f"#{U1_FILAMENT_COLOR_RGBA[index]}"
+        assert state.attributes.get("vendor") == U1_FILAMENT_VENDOR[index]
+        assert state.attributes.get("type") == U1_FILAMENT_TYPE[index]
+        assert state.attributes.get("sub_type") == U1_FILAMENT_SUB_TYPE[index]
+        assert state.attributes.get("official") == U1_FILAMENT_OFFICIAL[index]
+        assert state.attributes.get("sku") == U1_FILAMENT_SKU[index]
+        assert state.attributes.get("edit") == U1_FILAMENT_EDIT[index]
+        assert state.attributes.get("soft") == U1_FILAMENT_SOFT[index]
+        assert "color_rgba" not in state.attributes
+
+
+async def test_u1_filament_sensor_not_created_without_print_task_config(
+    hass, get_default_api_response
+):
+    """Do not create u1 filament sensors when Klipper has no print_task_config."""
+    config_entry = await _setup_with_print_task_config(
+        hass, get_default_api_response, {}
+    )
 
     entity_registry = get_entity_registry(hass)
     entries = er.async_entries_for_config_entry(entity_registry, config_entry.entry_id)
+    assert not [e for e in entries if e.unique_id.endswith("_filament_info")]
+    assert hass.states.get("sensor.mainsail_bed_temperature") is not None
 
-    for index in range(0, 3):
-        extruder = next(
-            (
-                e
-                for e in entries
-                if e.unique_id == f"{config_entry.entry_id}_e{index}_filament_info"
-            ),
-            None,
-        )
-        assert extruder is not None
-        state = hass.states.get(extruder.entity_id)
-        assert state is not None
-        assert state.state == f"#{filament_color_rgba[index]}"
-        assert state.attributes.get("type") == filament_type[index]
-        assert state.attributes.get("sku") == filament_sku[index]
-        assert state.attributes.get("vendor") == filament_vendor[index]
-        assert state.attributes.get("edit") == filament_edit[index]
-        assert state.attributes.get("official") == filament_official[index]
-        assert state.attributes.get("soft") == filament_soft[index]
+
+async def test_u1_filament_sensor_partial_print_task_config(
+    hass, get_default_api_response
+):
+    """Missing or short attribute lists only drop those attributes."""
+    config = {
+        "filament_color_rgba": list(U1_FILAMENT_COLOR_RGBA),
+        "filament_vendor": ["Vendor1", "Vendor2"],
+    }
+    await _setup_with_print_task_config(hass, get_default_api_response, config)
+
+    assert hass.states.get("sensor.mainsail_bed_temperature") is not None
+    state = hass.states.get("sensor.mainsail_e1_filament_info")
+    assert state.state == f"#{U1_FILAMENT_COLOR_RGBA[1]}"
+    assert state.attributes.get("vendor") == "Vendor2"
+    assert "type" not in state.attributes
+    state = hass.states.get("sensor.mainsail_e3_filament_info")
+    assert state.state == f"#{U1_FILAMENT_COLOR_RGBA[3]}"
+    assert "vendor" not in state.attributes
+
+
+async def test_u1_filament_sensor_update(hass, get_default_api_response):
+    """Attributes follow the latest print_task_config, dropping removed fields."""
+    config = _u1_print_task_config()
+    config_entry = await _setup_with_print_task_config(
+        hass, get_default_api_response, config
+    )
+
+    config["filament_color_rgba"][0] = "000000FF"
+    del config["filament_vendor"]
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        side_effect=lambda method, *args, **kwargs: {
+            **get_default_api_response,
+            "status": {
+                **get_default_api_response["status"],
+                "print_task_config": config,
+            },
+        },
+    ):
+        await hass.data[DOMAIN][config_entry.entry_id].async_refresh()
+        await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_e0_filament_info")
+    assert state.state == "#000000FF"
+    assert "vendor" not in state.attributes
+    assert state.attributes.get("type") == U1_FILAMENT_TYPE[0]
 
 
 async def test_hall_filament_width_sensor_diameter_and_raw_created(

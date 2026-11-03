@@ -888,39 +888,39 @@ async def async_setup_spoolman_sensors(coordinator, entry, async_add_entities):
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
 
 
-async def _u1_updater(coordinator):
-    return {
-        U1_PRINT_TASK_CONFIG: (
-            await coordinator._async_fetch_data(
-                METHODS.PRINTER_OBJECTS_QUERY,
-                {OBJ: {U1_PRINT_TASK_CONFIG: U1_FILAMENT_ATTRIBUTES}},
-            )
-        )["status"][U1_PRINT_TASK_CONFIG]
-    }
+def _u1_filament_field(sensor, field, extruder_index):
+    """Return one extruder's value of a print_task_config field, or None."""
+    values = (
+        sensor.coordinator.data.get("status", {})
+        .get(U1_PRINT_TASK_CONFIG, {})
+        .get(field)
+    )
+    if not isinstance(values, list) or extruder_index >= len(values):
+        return None
+    return values[extruder_index]
 
 
 async def async_setup_u1_sensors(coordinator, entry, async_add_entities):
     """U1 Extruder Filament Info sensors."""
-    u1_print_task_query = await coordinator._async_fetch_data(
+    u1_print_task_query = await coordinator.async_fetch_data(
         METHODS.PRINTER_OBJECTS_QUERY,
         {OBJ: {U1_PRINT_TASK_CONFIG: U1_FILAMENT_ATTRIBUTES}},
     )
 
     filament_colors = (
-        u1_print_task_query.get("status", {})
+        (u1_print_task_query.get("status") or {})
         .get(U1_PRINT_TASK_CONFIG, {})
         .get("filament_color_rgba")
-        or []
     )
 
-    # If the object isn't supported the API will still respond with {"status": {U1_PRINT_TASK_CONFIG: {}}}
-    # to make sure the sensor can be created ensure that at least `filament_color_rgba` is available and has four entires
-    if len(filament_colors) != 4:
-        _LOGGER.debug("`%s` is not available, don't setup U1 Filament Sensors", U1_PRINT_TASK_CONFIG)
+    # Klipper answers with an empty object when print_task_config is unknown,
+    # so only a U1 reports four filament colors.
+    if not isinstance(filament_colors, list) or len(filament_colors) != 4:
+        _LOGGER.debug(
+            "`%s` is not available, don't setup U1 Filament Sensors",
+            U1_PRINT_TASK_CONFIG,
+        )
         return
-
-
-    coordinator.add_data_updater(_u1_updater)
 
     sensors = [create_u1_filament_sensor_description(i) for i in range(4)]
 
@@ -933,18 +933,29 @@ async def async_setup_u1_sensors(coordinator, entry, async_add_entities):
 
 def create_u1_filament_sensor_description(extruder_index):
     """Create a U1 filament sensor description for the given extruder index."""
+
+    def _color(sensor):
+        color = _u1_filament_field(sensor, "filament_color_rgba", extruder_index)
+        return f"#{color}" if color else None
+
+    def _attributes(sensor):
+        attributes = {}
+        for field in U1_FILAMENT_ATTRIBUTES:
+            if field == "filament_color_rgba":
+                continue
+            value = _u1_filament_field(sensor, field, extruder_index)
+            if value is not None:
+                attributes[field.replace("filament_", "")] = value
+        return attributes
+
     return U1ExtruderFilamentSensorDescription(
         key=f"e{extruder_index}_filament_info",
         name=f"E{extruder_index} Filament Info",
-        value_fn=lambda sensor: f"#{sensor.coordinator.data[U1_PRINT_TASK_CONFIG]['filament_color_rgba'][extruder_index]}",
-        extra_state_fn=lambda sensor: {
-            field.replace("filament_", ""): sensor.coordinator.data[
-                U1_PRINT_TASK_CONFIG
-            ][field][extruder_index]
-            for field in U1_FILAMENT_ATTRIBUTES
-            if sensor.coordinator.data[U1_PRINT_TASK_CONFIG][field] # ensure to add only fields that are available
-        },
-        subscriptions=[],
+        value_fn=_color,
+        extra_state_fn=_attributes,
+        subscriptions=[
+            (U1_PRINT_TASK_CONFIG, field) for field in U1_FILAMENT_ATTRIBUTES
+        ],
         icon="mdi:format-color-highlight",
     )
 
@@ -1054,9 +1065,7 @@ class U1ExtruderFilamentSensor(MoonrakerSensor):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        self._attr_extra_state_attributes.update(
-            self.entity_description.extra_state_fn(self)
-        )
+        self._attr_extra_state_attributes = self.entity_description.extra_state_fn(self)
         super()._handle_coordinator_update()
 
 
