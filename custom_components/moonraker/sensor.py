@@ -21,6 +21,7 @@ from homeassistant.const import (
     UnitOfTime,
 )
 from homeassistant.core import callback
+from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from .const import (
     DOMAIN,
@@ -902,10 +903,16 @@ def _u1_filament_field(sensor, field, extruder_index):
 
 async def async_setup_u1_sensors(coordinator, entry, async_add_entities):
     """U1 Extruder Filament Info sensors."""
-    u1_print_task_query = await coordinator.async_fetch_data(
-        METHODS.PRINTER_OBJECTS_QUERY,
-        {OBJ: {U1_PRINT_TASK_CONFIG: U1_FILAMENT_ATTRIBUTES}},
-    )
+    try:
+        u1_print_task_query = await coordinator.async_fetch_data(
+            METHODS.PRINTER_OBJECTS_QUERY,
+            {OBJ: {U1_PRINT_TASK_CONFIG: U1_FILAMENT_ATTRIBUTES}},
+        )
+    except UpdateFailed:
+        _LOGGER.debug(
+            "`%s` query failed, don't setup U1 Filament Sensors", U1_PRINT_TASK_CONFIG
+        )
+        return
 
     filament_colors = (
         (u1_print_task_query.get("status") or {})

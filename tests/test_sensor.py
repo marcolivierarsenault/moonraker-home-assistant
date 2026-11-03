@@ -1330,6 +1330,32 @@ async def test_u1_filament_sensor_not_created_without_print_task_config(
     assert hass.states.get("sensor.mainsail_bed_temperature") is not None
 
 
+async def test_u1_filament_sensor_query_failure(hass, get_default_api_response, caplog):
+    """A failing print_task_config probe does not abort sensor setup."""
+
+    def _call_method_side_effect(method, *args, **kwargs):
+        if method == "server.spoolman.status":
+            return {"error": "not configured"}
+        if method == "printer.objects.query" and "print_task_config" in kwargs.get(
+            "objects", {}
+        ):
+            raise TimeoutError
+        return {**get_default_api_response}
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        side_effect=_call_method_side_effect,
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.mainsail_e0_filament_info") is None
+    assert hass.states.get("sensor.mainsail_bed_temperature") is not None
+    assert "Error while setting up moonraker platform" not in caplog.text
+
+
 async def test_u1_filament_sensor_partial_print_task_config(
     hass, get_default_api_response
 ):
