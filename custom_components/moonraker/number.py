@@ -364,6 +364,12 @@ class MoonrakerPWMOutputPin(BaseMoonrakerEntity, NumberEntity):
         self._attr_native_value = value
         self.async_write_ha_state()
 
+    @property
+    def available(self) -> bool:
+        """Return True if last update succeeded and the pin's value is known."""
+        status = self.coordinator.data.get("status", {}).get(self.sensor_name)
+        return super().available and isinstance(status, dict) and "value" in status
+
     def _extract_native_value(self) -> float:
         """Return the current PWM value as percentage."""
         status = self.coordinator.data.get("status", {})
@@ -417,6 +423,17 @@ class MoonrakerNumber(BaseMoonrakerEntity, NumberEntity):
         )
         self._attr_native_value = value
         self.async_write_ha_state()
+
+    @property
+    def available(self) -> bool:
+        """Return True if last update succeeded and the current value is known."""
+        if not super().available:
+            return False
+        status_key = self.entity_description.status_key
+        if status_key is None:
+            return True
+        status = self.coordinator.data.get("status", {}).get(self.sensor_name)
+        return isinstance(status, dict) and status_key in status
 
     def _extract_native_value(self) -> float:
         """Return the current number value, falling back to zero when missing."""

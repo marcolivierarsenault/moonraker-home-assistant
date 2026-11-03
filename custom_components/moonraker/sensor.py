@@ -1070,10 +1070,7 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
 
     def empty_result_when_not_printing(self, value=""):
         """Return empty string when not printing."""
-        try:
-            state = self.coordinator.data["status"]["print_stats"]["state"]
-        except (KeyError, TypeError):
-            return "" if isinstance(value, str) else 0.0
+        state = self.coordinator.data["status"]["print_stats"]["state"]
         if state != PRINTSTATES.PRINTING.value:
             return "" if isinstance(value, str) else 0.0
         return value
@@ -1097,7 +1094,7 @@ class U1ExtruderFilamentSensor(MoonrakerSensor):
 def calculate_print_speed(data):
     """Calculate the current print speed in mm/s."""
 
-    state = data.get("status", {}).get("print_stats", {}).get("state")
+    state = data["status"]["print_stats"]["state"]
     if state != PRINTSTATES.PRINTING.value:
         return 0.0
 
@@ -1292,7 +1289,7 @@ def calculate_eta(data):
 def calculate_current_layer(data):
     """Calculate current layer."""
 
-    print_stats = data["status"].get("print_stats", {})
+    print_stats = data["status"]["print_stats"]
     print_duration = print_stats.get("print_duration")
     filename = print_stats.get("filename") or ""
     if not filename:

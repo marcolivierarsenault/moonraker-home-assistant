@@ -1285,3 +1285,5 @@ async def test_setup_while_klippy_not_ready(hass):
 
     assert config_entry.state.value == "loaded"
     assert hass.states.get("sensor.1_2_3_4_printer_state").state == "unavailable"
+    for sensor in ("print_speed", "progress", "current_layer", "object_height"):
+        assert hass.states.get(f"sensor.1_2_3_4_{sensor}").state == "unavailable"

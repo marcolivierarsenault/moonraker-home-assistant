@@ -181,6 +181,15 @@ class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
         )
         self.async_write_ha_state()
 
+    @property
+    def available(self) -> bool:
+        """Return True if last update succeeded and the color data is known."""
+        status = self.coordinator.data.get("status", {}).get(self.sensor_name)
+        if not super().available or not isinstance(status, dict):
+            return False
+        color_data = status.get("color_data")
+        return isinstance(color_data, list) and len(color_data) > 0
+
     def _set_attributes_from_coordinator(self) -> None:
         try:
             color_data = self.coordinator.data["status"][self.sensor_name][
