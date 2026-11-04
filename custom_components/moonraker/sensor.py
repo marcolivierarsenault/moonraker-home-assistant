@@ -598,7 +598,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
             )
 
-            if fan_data.get("status", {}).get(obj, {}).get("rpm"):
+            if fan_data.get("status", {}).get(obj, {}).get("rpm") is not None:
                 desc = MoonrakerSensorDescription(
                     key=f"{split_obj[0]}_{split_obj[1]}_rpm",
                     status_key=obj,
@@ -619,7 +619,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
             )
 
-            if fan_data.get("status", {}).get("fan", {}).get("rpm"):
+            if fan_data.get("status", {}).get("fan", {}).get("rpm") is not None:
                 desc = MoonrakerSensorDescription(
                     key="fan_rpm",
                     name="Fan RPM",

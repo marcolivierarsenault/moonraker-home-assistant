@@ -676,6 +676,22 @@ async def test_no_fan_sensor(hass, get_data, get_printer_objects_list):
     assert state is None
 
 
+async def test_stopped_fan_keeps_rpm_sensor(hass, get_data):
+    """A stopped fan reports 0 rpm, which is a reading and not missing data."""
+    get_data["status"]["fan"]["rpm"] = 0
+    get_data["status"]["controller_fan controller_fan"]["rpm"] = 0
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    for sensor in ("mainsail_fan_rpm", "mainsail_controller_fan_rpm"):
+        state = hass.states.get(f"sensor.{sensor}")
+        assert state is not None, f"Missing sensor.{sensor}"
+        assert state.state == "0", sensor
+
+
 async def test_no_fan_rpm(hass, get_data, get_printer_objects_list):
     """Test."""
     get_data["status"]["fan"]["rpm"] = None
