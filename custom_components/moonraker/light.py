@@ -40,7 +40,8 @@ async def async_setup_light(coordinator, entry, async_add_entities):
     )
 
     lights = []
-    for obj in object_list["objects"]:
+    cfg = settings.get("status", {}).get("configfile", {}).get("settings", {})
+    for obj in object_list.get("objects", []):
         if (
             not obj.startswith("led ")
             and not obj.startswith("neopixel ")
@@ -52,7 +53,10 @@ async def async_setup_light(coordinator, entry, async_add_entities):
 
         led_type = obj.split()[0]
         color_mode = ColorMode.UNKNOWN
-        conf = settings["status"]["configfile"]["settings"][obj.lower()]
+        conf = cfg.get(obj.lower())
+        if conf is None:
+            # Unknown config: skip rather than guess the color mode.
+            continue
 
         if led_type == "led":
             num_led_pins = 0
@@ -176,6 +180,15 @@ class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
             },
         )
         self.async_write_ha_state()
+
+    @property
+    def available(self) -> bool:
+        """Return True if last update succeeded and the color data is known."""
+        status = self.coordinator.data.get("status", {}).get(self.sensor_name)
+        if not super().available or not isinstance(status, dict):
+            return False
+        color_data = status.get("color_data")
+        return isinstance(color_data, list) and len(color_data) > 0
 
     def _set_attributes_from_coordinator(self) -> None:
         try:

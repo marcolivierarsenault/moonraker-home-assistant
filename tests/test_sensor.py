@@ -1289,6 +1289,224 @@ async def test_spoolman_spool_id_sensor_null_value(hass, get_default_api_respons
     assert state.state == "unknown"
 
 
+async def test_spoolman_spool_id_sensor_not_created_when_spool_id_missing(
+    hass, get_default_api_response, caplog
+):
+    """Do not create Spool ID sensor when Moonraker reports no spoolman status."""
+
+    def _call_method_side_effect(method, *args, **kwargs):
+        if method == "server.spoolman.status":
+            return {}
+        return {**get_default_api_response}
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        side_effect=_call_method_side_effect,
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    entity_registry = get_entity_registry(hass)
+    entries = er.async_entries_for_config_entry(entity_registry, config_entry.entry_id)
+
+    spool_entry = next(
+        (e for e in entries if e.unique_id == f"{config_entry.entry_id}_spool_id"),
+        None,
+    )
+    assert spool_entry is None
+    assert "Error while setting up moonraker platform" not in caplog.text
+
+
+async def test_spoolman_spool_id_sensor_spool_id_lost(hass, get_default_api_response):
+    """Show 'unknown' when a later spoolman status has no spool_id."""
+    spoolman_status = {
+        "spoolman_connected": True,
+        "pending_reports": [],
+        "spool_id": 1,
+    }
+
+    def _call_method_side_effect(method, *args, **kwargs):
+        if method == "server.spoolman.status":
+            return spoolman_status
+        return {**get_default_api_response}
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        side_effect=_call_method_side_effect,
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+        assert hass.states.get("sensor.mainsail_spool_id").state == "1"
+
+        spoolman_status = {"error": "not configured"}
+        await hass.data[DOMAIN][config_entry.entry_id].async_refresh()
+        await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.mainsail_spool_id").state == "unknown"
+
+
+U1_FILAMENT_VENDOR = ["Vendor1", "Vendor2", "Vendor3", "Vendor4"]
+U1_FILAMENT_TYPE = ["PLA", "PETG", "ABS", "TPU"]
+U1_FILAMENT_SUB_TYPE = ["SubType1", "SubType2", "SubType3", "SubType4"]
+U1_FILAMENT_COLOR_RGBA = ["E2DEDBFF", "E72F1DFF", "F4C032FF", "080A0DFF"]
+U1_FILAMENT_OFFICIAL = [True, False, True, False]
+U1_FILAMENT_SKU = [900000, 900002, 900003, 900001]
+U1_FILAMENT_EDIT = [True, False, True, False]
+U1_FILAMENT_SOFT = [False, True, False, True]
+
+
+def _u1_print_task_config():
+    return {
+        "filament_vendor": list(U1_FILAMENT_VENDOR),
+        "filament_type": list(U1_FILAMENT_TYPE),
+        "filament_sub_type": list(U1_FILAMENT_SUB_TYPE),
+        "filament_color_rgba": list(U1_FILAMENT_COLOR_RGBA),
+        "filament_official": list(U1_FILAMENT_OFFICIAL),
+        "filament_sku": list(U1_FILAMENT_SKU),
+        "filament_edit": list(U1_FILAMENT_EDIT),
+        "filament_soft": list(U1_FILAMENT_SOFT),
+    }
+
+
+async def _setup_with_print_task_config(hass, get_default_api_response, config):
+    """Set up the integration with Klipper reporting the given print_task_config."""
+
+    def _call_method_side_effect(method, *args, **kwargs):
+        if method == "server.spoolman.status":
+            return {"error": "not configured"}
+        response = {**get_default_api_response}
+        if method == "printer.objects.query" and "print_task_config" in kwargs.get(
+            "objects", {}
+        ):
+            response["status"] = {
+                **get_default_api_response["status"],
+                "print_task_config": config,
+            }
+        return response
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        side_effect=_call_method_side_effect,
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+    return config_entry
+
+
+async def test_u1_filament_sensor_created(hass, get_default_api_response):
+    """Create u1 filament sensor for the u1 print_task_config result."""
+    await _setup_with_print_task_config(
+        hass, get_default_api_response, _u1_print_task_config()
+    )
+
+    for index in range(4):
+        state = hass.states.get(f"sensor.mainsail_e{index}_filament_info")
+        assert state is not None
+        assert state.state == f"#{U1_FILAMENT_COLOR_RGBA[index]}"
+        assert state.attributes.get("vendor") == U1_FILAMENT_VENDOR[index]
+        assert state.attributes.get("type") == U1_FILAMENT_TYPE[index]
+        assert state.attributes.get("sub_type") == U1_FILAMENT_SUB_TYPE[index]
+        assert state.attributes.get("official") == U1_FILAMENT_OFFICIAL[index]
+        assert state.attributes.get("sku") == U1_FILAMENT_SKU[index]
+        assert state.attributes.get("edit") == U1_FILAMENT_EDIT[index]
+        assert state.attributes.get("soft") == U1_FILAMENT_SOFT[index]
+        assert "color_rgba" not in state.attributes
+
+
+async def test_u1_filament_sensor_not_created_without_print_task_config(
+    hass, get_default_api_response
+):
+    """Do not create u1 filament sensors when Klipper has no print_task_config."""
+    config_entry = await _setup_with_print_task_config(
+        hass, get_default_api_response, {}
+    )
+
+    entity_registry = get_entity_registry(hass)
+    entries = er.async_entries_for_config_entry(entity_registry, config_entry.entry_id)
+    assert not [e for e in entries if e.unique_id.endswith("_filament_info")]
+    assert hass.states.get("sensor.mainsail_bed_temperature") is not None
+
+
+async def test_u1_filament_sensor_query_failure(hass, get_default_api_response, caplog):
+    """A failing print_task_config probe does not abort sensor setup."""
+
+    def _call_method_side_effect(method, *args, **kwargs):
+        if method == "server.spoolman.status":
+            return {"error": "not configured"}
+        if method == "printer.objects.query" and "print_task_config" in kwargs.get(
+            "objects", {}
+        ):
+            raise TimeoutError
+        return {**get_default_api_response}
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        side_effect=_call_method_side_effect,
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.mainsail_e0_filament_info") is None
+    assert hass.states.get("sensor.mainsail_bed_temperature") is not None
+    assert "Error while setting up moonraker platform" not in caplog.text
+
+
+async def test_u1_filament_sensor_partial_print_task_config(
+    hass, get_default_api_response
+):
+    """Missing or short attribute lists only drop those attributes."""
+    config = {
+        "filament_color_rgba": list(U1_FILAMENT_COLOR_RGBA),
+        "filament_vendor": ["Vendor1", "Vendor2"],
+    }
+    await _setup_with_print_task_config(hass, get_default_api_response, config)
+
+    assert hass.states.get("sensor.mainsail_bed_temperature") is not None
+    state = hass.states.get("sensor.mainsail_e1_filament_info")
+    assert state.state == f"#{U1_FILAMENT_COLOR_RGBA[1]}"
+    assert state.attributes.get("vendor") == "Vendor2"
+    assert "type" not in state.attributes
+    state = hass.states.get("sensor.mainsail_e3_filament_info")
+    assert state.state == f"#{U1_FILAMENT_COLOR_RGBA[3]}"
+    assert "vendor" not in state.attributes
+
+
+async def test_u1_filament_sensor_update(hass, get_default_api_response):
+    """Attributes follow the latest print_task_config, dropping removed fields."""
+    config = _u1_print_task_config()
+    config_entry = await _setup_with_print_task_config(
+        hass, get_default_api_response, config
+    )
+
+    config["filament_color_rgba"][0] = "000000FF"
+    del config["filament_vendor"]
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        side_effect=lambda method, *args, **kwargs: {
+            **get_default_api_response,
+            "status": {
+                **get_default_api_response["status"],
+                "print_task_config": config,
+            },
+        },
+    ):
+        await hass.data[DOMAIN][config_entry.entry_id].async_refresh()
+        await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_e0_filament_info")
+    assert state.state == "#000000FF"
+    assert "vendor" not in state.attributes
+    assert state.attributes.get("type") == U1_FILAMENT_TYPE[0]
+
+
 async def test_hall_filament_width_sensor_diameter_and_raw_created(
     hass, get_data, get_printer_objects_list
 ):
@@ -1350,3 +1568,47 @@ async def test_optional_sensors_ignores_empty_object_name(
     # If the guard works, setup completes without raising.
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
+
+
+async def test_toolhead_position_short_list(hass, get_data):
+    """Position sensors are unavailable while the position list is too short."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+
+    get_data["status"]["toolhead"]["position"] = []
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.mainsail_toolhead_position_z")
+    assert state.state == "unavailable"
+
+
+async def test_optional_sensors_follow_up_query_error(hass, get_default_api_response):
+    """Optional sensors whose follow-up query fails are skipped during setup."""
+    failing = {
+        "bme280 bme280_temp",
+        "heater_fan heater_fan",
+        "fan",
+        "hall_filament_width_sensor",
+    }
+
+    def call_method(method, **kwargs):
+        objects = kwargs.get("objects") or {}
+        if len(objects) == 1 and set(objects) <= failing:
+            return {"error": {"code": 503, "message": "Klippy Host not connected"}}
+        return get_default_api_response
+
+    with patch("moonraker_api.MoonrakerClient.call_method", side_effect=call_method):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert config_entry.state.value == "loaded"
+    assert hass.states.get("sensor.mainsail_bme280_temp_pressure") is None
+    assert hass.states.get("sensor.mainsail_heater_fan_rpm") is None
+    assert hass.states.get("sensor.mainsail_fan_rpm") is None
+    assert hass.states.get("sensor.mainsail_bed_temperature") is not None
