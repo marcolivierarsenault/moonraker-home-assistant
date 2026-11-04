@@ -1,0 +1,199 @@
+"""Switch platform for Moonraker integration."""
+
+from dataclasses import dataclass
+
+from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
+
+from .const import DOMAIN, METHODS
+from .entity import BaseMoonrakerEntity
+from custom_components.advance_moonraker_control.__init__ import MoonrakerDataUpdateCoordinator
+
+
+@dataclass(frozen=True)
+class MoonrakerSwitchSensorDescription(SwitchEntityDescription):
+    """Class describing Mookraker binary_sensor entities."""
+
+    sensor_name: str | None = None
+    icon: str | None = None
+    subscriptions: list | None = None
+
+
+async def async_setup_entry(hass, entry, async_add_devices):
+    """Set up the switch platform."""
+    coordinator = hass.data[DOMAIN][entry.entry_id]
+
+    await async_setup_power_device(coordinator, entry, async_add_devices)
+    await async_setup_output_pin(coordinator, entry, async_add_devices)
+
+
+async def _power_device_updater(coordinator):
+    return {
+        "power_devices": await coordinator.async_fetch_data(
+            METHODS.MACHINE_DEVICE_POWER_DEVICES
+        )
+    }
+
+
+async def async_setup_output_pin(coordinator, entry, async_add_entities):
+    """Set optional switch platform for non-PWM output pins."""
+
+    object_list = await coordinator.async_get_printer_objects()
+
+    settings = await coordinator.async_get_config_settings()
+
+    config_settings = (
+        settings.get("status", {}).get("configfile", {}).get("settings", {})
+    )
+
+    switches = []
+
+    for obj in object_list.get("objects", []):
+        if not obj.startswith("output_pin "):
+            continue
+
+        output_pin_config = config_settings.get(obj.lower())
+
+        if not output_pin_config:
+            continue
+
+        if output_pin_config.get("pwm", False):
+            continue
+
+        desc = MoonrakerSwitchSensorDescription(
+            key=obj,
+            sensor_name=obj,
+            name=obj.replace("_", " ").title(),
+            icon="mdi:switch",
+            subscriptions=[(obj, "value")],
+        )
+        switches.append(desc)
+
+    coordinator.load_sensor_data(switches)
+    await coordinator.async_refresh_query_data()
+    async_add_entities(
+        [MoonrakerDigitalOutputPin(coordinator, entry, desc) for desc in switches]
+    )
+
+
+async def async_setup_power_device(coordinator, entry, async_add_entities):
+    """Set optional binary sensor platform."""
+
+    power_devices = await coordinator.async_fetch_data(
+        METHODS.MACHINE_DEVICE_POWER_DEVICES
+    )
+    if power_devices.get("error"):
+        return
+
+    coordinator.set_initial_data("power_devices", power_devices)
+    coordinator.add_data_updater(_power_device_updater, every=2)
+
+    sensors = []
+    for device in power_devices.get("devices", []):
+        desc = MoonrakerSwitchSensorDescription(
+            key=device["device"],
+            sensor_name=device["device"],
+            name=device["device"].replace("_", " ").title(),
+            icon="mdi:power",
+            subscriptions=[],
+        )
+        sensors.append(desc)
+
+    coordinator.load_sensor_data(sensors)
+    async_add_entities(
+        [MoonrakerPowerDeviceSwitchSensor(coordinator, entry, desc) for desc in sensors]
+    )
+
+
+class MoonrakerSwitchSensor(BaseMoonrakerEntity, SwitchEntity):
+    """Moonraker switch class."""
+
+    def __init__(
+        self,
+        coordinator,
+        entry,
+        description,
+    ) -> None:
+        """Initialize the switch class."""
+        super().__init__(coordinator, entry)
+        self.entity_description = description
+        self.sensor_name = description.sensor_name
+        self._attr_unique_id = f"{entry.entry_id}_{description.key}"
+        self._attr_name = description.name
+        self._attr_has_entity_name = True
+        self._attr_icon = description.icon
+        self.coordinator: MoonrakerDataUpdateCoordinator = coordinator
+
+
+class MoonrakerPowerDeviceSwitchSensor(MoonrakerSwitchSensor):
+    """Moonraker power device switch class."""
+
+    @property
+    def available(self) -> bool:
+        """Return True if last update succeeded and the device's power state is known."""
+        devices = self.coordinator.data.get("power_devices", {}).get("devices", [])
+        return super().available and any(
+            device["device"] == self.sensor_name and "status" in device
+            for device in devices
+        )
+
+    @property
+    def is_on(self) -> bool:
+        """Return true if the switch is on."""
+        current_state = False
+        devices = self.coordinator.data.get("power_devices", {}).get("devices", [])
+        for device in devices:
+            if device["device"] == self.sensor_name:
+                current_state = device["status"] == "on"
+        return current_state
+
+    async def async_turn_on(self, **kwargs) -> None:
+        """Turn on the switch."""
+        await self.coordinator.async_send_data(
+            METHODS.MACHINE_DEVICE_POWER_POST_DEVICE,
+            {"device": self.sensor_name, "action": "on"},
+        )
+        await self.coordinator.async_refresh()
+
+    async def async_turn_off(self, **kwargs) -> None:
+        """Turn off the switch."""
+        await self.coordinator.async_send_data(
+            METHODS.MACHINE_DEVICE_POWER_POST_DEVICE,
+            {"device": self.sensor_name, "action": "off"},
+        )
+        await self.coordinator.async_refresh()
+
+
+class MoonrakerDigitalOutputPin(MoonrakerSwitchSensor):
+    """Moonraker power device switch class."""
+
+    def __init__(self, coordinator, entry, description) -> None:
+        """Init."""
+        super().__init__(coordinator, entry, description)
+        self.pin = description.sensor_name.replace("output_pin ", "")
+
+    @property
+    def available(self) -> bool:
+        """Return True if last update succeeded and the pin's value is known."""
+        status = self.coordinator.data.get("status", {}).get(self.sensor_name)
+        return super().available and isinstance(status, dict) and "value" in status
+
+    @property
+    def is_on(self) -> bool:
+        """Return true if the switch is on."""
+        return self.coordinator.data["status"][self.sensor_name]["value"] == 1
+
+    async def async_turn_on(self, **kwargs) -> None:
+        """Turn on the switch."""
+        await self.coordinator.async_send_data(
+            METHODS.PRINTER_GCODE_SCRIPT,
+            {"script": f"SET_PIN PIN={self.pin} VALUE=1"},
+        )
+        await self.coordinator.async_refresh()
+
+    async def async_turn_off(self, **kwargs) -> None:
+        """Turn off the switch."""
+        await self.coordinator.async_send_data(
+            METHODS.PRINTER_GCODE_SCRIPT,
+            {"script": f"SET_PIN PIN={self.pin} VALUE=0"},
+        )
+        await self.coordinator.async_refresh()

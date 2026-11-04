@@ -106,4 +106,4 @@ body:
         New reports receive AI-assisted triage. A maintainer must explicitly
         authorize code changes by applying the `ai:fix` label.
 
-        Logging instructions: https://moonraker-home-assistant.readthedocs.io/en/stable/support/logs.html
+        Logging instructions: https://github.com/thaliamontreux/HACS_Moonraker_Advanced/blob/main/docs/support/logs.rst

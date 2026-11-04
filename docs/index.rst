@@ -1,5 +1,5 @@
-Welcome to Moonraker Home Assistant's documentation!
-====================================================
+Advance_Moonraker_Control documentation
+==================================================
 
 .. note::
 
@@ -43,6 +43,7 @@ This software seems to have issues working on **FLSUN Speeder Pad** and **Sonic 
    entities/camera
    entities/controls
    entities/calculated_pct
+   remote_access
 
 .. toctree::
    :caption: Support

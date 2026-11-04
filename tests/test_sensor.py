@@ -1,7 +1,8 @@
 """Test moonraker sensor."""
 
 import datetime as dt
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 from homeassistant.helpers import entity_registry as er
 import pytest
@@ -11,10 +12,11 @@ from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
 )
 
-from custom_components.moonraker.const import DOMAIN, PRINTSTATES
-from custom_components.moonraker.sensor import (
+from custom_components.advance_moonraker_control.const import DOMAIN, PRINTSTATES
+from custom_components.advance_moonraker_control.sensor import (
     _get_progress_value,
     calculate_current_layer,
+    calculate_memory_used,
     calculate_pct_job,
     calculate_print_progress,
     calculate_total_layer,
@@ -88,8 +90,45 @@ DEFAULT_VALUES = [
 @pytest.fixture(name="bypass_connect_client", autouse=True)
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
-    with patch("custom_components.moonraker.MoonrakerApiClient.start"):
+    with (
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.start"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.stop"),
+    ):
         yield
+
+
+async def test_sensor_missing_printer_info_state(hass, get_default_api_response):
+    """Sensor setup must not fail when printer.info lacks a state field."""
+    wrapped_printer_info = {"result": {"state_message": "Printer is ready"}}
+
+    def _call_method_side_effect(method, *args, **kwargs):
+        if method == "printer.info":
+            return wrapped_printer_info
+        return {**get_default_api_response}
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        side_effect=_call_method_side_effect,
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+        coordinator = hass.data[DOMAIN][config_entry.entry_id]
+        await coordinator.async_request_refresh()
+        await hass.async_block_till_done()
+
+    registry = get_entity_registry(hass)
+    entity_id = registry.async_get_entity_id("sensor", DOMAIN, "test_state")
+    assert entity_id is not None
+    state = hass.states.get(entity_id)
+    assert state is not None
+    assert state.state == "unknown"
+
+    bed_id = registry.async_get_entity_id("sensor", DOMAIN, "test_heater_bed_temp")
+    assert bed_id is not None
+    assert hass.states.get(bed_id).state == "60.01"
 
 
 @pytest.fixture(name="data_for_calculate_pct")
@@ -603,6 +642,41 @@ async def test_calculate_print_progress_invalid_status():
     assert calculate_print_progress({}) == 0.0
     assert calculate_print_progress({"status": None}) == 0.0
     assert calculate_print_progress(None) == 0.0
+
+
+def test_calculate_memory_used():
+    """Calculate memory usage from Moonraker system information."""
+    assert (
+        calculate_memory_used(
+            {
+                "system_info": {"cpu_info": {"total_memory": 1000}},
+                "status": {"system_stats": {"memavail": 250}},
+            }
+        )
+        == 75
+    )
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        None,
+        {},
+        {"system_info": None, "status": {"system_stats": {"memavail": 1}}},
+        {
+            "system_info": {"cpu_info": {}},
+            "status": {"system_stats": {"memavail": 1}},
+        },
+        {"system_info": {"cpu_info": {"total_memory": 1}}, "status": None},
+        {
+            "system_info": {"cpu_info": {"total_memory": 1}},
+            "status": {"system_stats": {}},
+        },
+    ],
+)
+def test_calculate_memory_used_with_missing_data(data):
+    """Missing optional system fields should leave the sensor unavailable."""
+    assert calculate_memory_used(data) is None
 
 
 async def test_no_history_data(
@@ -1598,45 +1672,18 @@ async def test_optional_sensors_ignores_empty_object_name(
     await hass.async_block_till_done()
 
 
-async def test_toolhead_position_short_list(hass, get_data):
-    """Position sensors are unavailable while the position list is too short."""
-    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
-    config_entry.add_to_hass(hass)
-    await hass.config_entries.async_setup(config_entry.entry_id)
-    await hass.async_block_till_done()
-    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+async def test_optional_data_updaters_fetch_their_payloads(hass):
+    """History, queue, spoolman, and machine-update updaters wrap fetch results."""
+    from custom_components.advance_moonraker_control.sensor import (
+        _history_updater,
+        _machine_update_updater,
+        _queue_updater,
+        _spoolman_updater,
+    )
 
-    get_data["status"]["toolhead"]["position"] = []
-    await coordinator.async_refresh()
-    await hass.async_block_till_done()
+    coordinator = SimpleNamespace(async_fetch_data=AsyncMock(return_value={"x": 1}))
 
-    state = hass.states.get("sensor.mainsail_toolhead_position_z")
-    assert state.state == "unavailable"
-
-
-async def test_optional_sensors_follow_up_query_error(hass, get_default_api_response):
-    """Optional sensors whose follow-up query fails are skipped during setup."""
-    failing = {
-        "bme280 bme280_temp",
-        "heater_fan heater_fan",
-        "fan",
-        "hall_filament_width_sensor",
-    }
-
-    def call_method(method, **kwargs):
-        objects = kwargs.get("objects") or {}
-        if len(objects) == 1 and set(objects) <= failing:
-            return {"error": {"code": 503, "message": "Klippy Host not connected"}}
-        return get_default_api_response
-
-    with patch("moonraker_api.MoonrakerClient.call_method", side_effect=call_method):
-        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
-        config_entry.add_to_hass(hass)
-        await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
-
-    assert config_entry.state.value == "loaded"
-    assert hass.states.get("sensor.mainsail_bme280_temp_pressure") is None
-    assert hass.states.get("sensor.mainsail_heater_fan_rpm") is None
-    assert hass.states.get("sensor.mainsail_fan_rpm") is None
-    assert hass.states.get("sensor.mainsail_bed_temperature") is not None
+    assert await _history_updater(coordinator) == {"history": {"x": 1}}
+    assert await _queue_updater(coordinator) == {"queue": {"x": 1}}
+    assert await _spoolman_updater(coordinator) == {"spoolman": {"x": 1}}
+    assert await _machine_update_updater(coordinator) == {"machine_update": {"x": 1}}

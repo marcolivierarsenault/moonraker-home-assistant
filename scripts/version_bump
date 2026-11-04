@@ -4,18 +4,40 @@ set -e
 
 cd "$(dirname "$0")/.."
 
-if [ "$#" -ne 1 ]; then
-    echo "Usage: scripts/version_bump {major|minor|patch}" >&2
+if [ "$#" -gt 1 ]; then
+    echo "Usage: scripts/version_bump [YYYY.MM.DD]" >&2
     exit 1
 fi
 
-case "$1" in
-    major|minor|patch) ;;
-    *)
-        echo "Invalid bump type: $1" >&2
-        echo "Usage: scripts/version_bump {major|minor|patch}" >&2
-        exit 1
-        ;;
-esac
+version="${1:-$(date +%Y.%m.%d)}"
 
-bump2version "$1"
+PY_BIN=""
+for candidate in .venv/Scripts/python .venv/bin/python; do
+    if [ -x "$candidate" ]; then
+        PY_BIN="$candidate"
+        break
+    fi
+done
+if [ -z "$PY_BIN" ]; then
+    PY_BIN="$(command -v python || command -v python3 || true)"
+fi
+if [ -z "$PY_BIN" ]; then
+    echo "No Python interpreter found to validate the release date." >&2
+    exit 1
+fi
+
+"$PY_BIN" - "$version" <<'EOF'
+import datetime
+import re
+import sys
+
+version = sys.argv[1]
+if not re.fullmatch(r"\d{4}\.\d{2}\.\d{2}", version):
+    sys.exit(f"Version must use YYYY.MM.DD format, got: {version}")
+try:
+    datetime.date.fromisoformat(version.replace(".", "-"))
+except ValueError:
+    sys.exit(f"Not a real calendar date: {version}")
+EOF
+
+bump2version --new-version "$version" patch

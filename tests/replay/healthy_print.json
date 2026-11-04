@@ -1,0 +1,792 @@
+{
+  "name": "healthy_print",
+  "frames": [
+    {
+      "at": 0,
+      "status": {
+        "print_stats": {
+          "state": "standby"
+        },
+        "bed_mesh": {
+          "mesh_matrix": [
+            [
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "at": 10,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 10.0,
+          "filament_used": 20.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 20,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 20.0,
+          "filament_used": 40.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 30,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 30.0,
+          "filament_used": 60.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 40,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 40.0,
+          "filament_used": 80.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 50,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 50.0,
+          "filament_used": 100.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 60,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 60.0,
+          "filament_used": 120.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 70,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 70.0,
+          "filament_used": 140.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 80,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 80.0,
+          "filament_used": 160.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 90,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 90.0,
+          "filament_used": 180.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 100,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 100.0,
+          "filament_used": 200.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 110,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 110.0,
+          "filament_used": 220.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 120,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 120.0,
+          "filament_used": 240.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 130,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 130.0,
+          "filament_used": 260.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 140,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 140.0,
+          "filament_used": 280.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 150,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 150.0,
+          "filament_used": 300.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 160,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 160.0,
+          "filament_used": 320.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 170,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 170.0,
+          "filament_used": 340.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 180,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 180.0,
+          "filament_used": 360.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 190,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 190.0,
+          "filament_used": 380.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 200,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 200.0,
+          "filament_used": 400.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 210,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 210.0,
+          "filament_used": 420.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 220,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 220.0,
+          "filament_used": 440.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 230,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 230.0,
+          "filament_used": 460.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 240,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 240.0,
+          "filament_used": 480.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 250,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 250.0,
+          "filament_used": 500.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 260,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 260.0,
+          "filament_used": 520.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 270,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 270.0,
+          "filament_used": 540.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 280,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 280.0,
+          "filament_used": 560.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 290,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 290.0,
+          "filament_used": 580.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 300,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "ok.gcode",
+          "print_duration": 300.0,
+          "filament_used": 600.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 0.5,
+          "target": 200.0
+        },
+        "heater_bed": {
+          "temperature": 60.0,
+          "power": 0.4,
+          "target": 60.0
+        },
+        "motion_report": {
+          "live_velocity": 40.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 320,
+      "status": {
+        "print_stats": {
+          "state": "complete"
+        }
+      }
+    }
+  ],
+  "expect": {
+    "history_len": 1,
+    "absent_findings": [
+      "saturated",
+      "stall",
+      "flow saturated",
+      "re-level"
+    ]
+  }
+}

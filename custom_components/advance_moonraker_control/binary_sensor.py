@@ -1,0 +1,195 @@
+"""Binary sensors platform for Moonraker integration."""
+
+from collections.abc import Callable
+from dataclasses import dataclass
+
+from homeassistant.components.binary_sensor import (
+    BinarySensorDeviceClass,
+    BinarySensorEntity,
+    BinarySensorEntityDescription,
+)
+
+from .const import DOMAIN
+from .entity import BaseMoonrakerEntity
+
+
+@dataclass(frozen=True)
+class MoonrakerBinarySensorDescription(BinarySensorEntityDescription):
+    """Class describing Mookraker binary_sensor entities."""
+
+    is_on_fn: Callable | None = None
+    sensor_name: str | None = None
+    subscriptions: list | None = None
+    icon: str | None = None
+
+
+async def async_setup_entry(hass, entry, async_add_devices):
+    """Set up the binary_sensor platform."""
+    coordinator = hass.data[DOMAIN][entry.entry_id]
+
+    await async_setup_optional_binary_sensors(coordinator, entry, async_add_devices)
+    await async_setup_update_binary_sensors(coordinator, entry, async_add_devices)
+    await async_setup_analyzer_binary_sensors(coordinator, entry, async_add_devices)
+
+
+async def async_setup_analyzer_binary_sensors(coordinator, entry, async_add_entities):
+    """Set problem binary sensors fed by the server-side analyzer."""
+    descriptions = (
+        MoonrakerBinarySensorDescription(
+            key="mesh_relevel_due",
+            sensor_name="mesh_relevel_due",
+            is_on_fn=lambda sensor: (
+                sensor.coordinator.analyzer.metrics.get("mesh_status") == "due"
+            ),
+            name="Mesh Relevel Due",
+            subscriptions=[],
+            icon="mdi:bed-clock",
+            device_class=BinarySensorDeviceClass.PROBLEM,
+        ),
+        MoonrakerBinarySensorDescription(
+            key="heater_anomaly",
+            sensor_name="heater_anomaly",
+            is_on_fn=lambda sensor: any(
+                finding["severity"] == "bad"
+                and ("saturated" in finding["label"] or "stall" in finding["label"])
+                for finding in sensor.coordinator.analyzer.findings
+            ),
+            name="Heater Anomaly",
+            subscriptions=[],
+            icon="mdi:thermometer-alert",
+            device_class=BinarySensorDeviceClass.PROBLEM,
+        ),
+    )
+    async_add_entities(
+        [MoonrakerBinarySensor(coordinator, entry, desc) for desc in descriptions]
+    )
+
+
+async def async_setup_optional_binary_sensors(coordinator, entry, async_add_entities):
+    """Set optional binary sensor platform."""
+
+    sensors = []
+    object_list = await coordinator.async_get_printer_objects()
+    for obj in object_list.get("objects", []):
+        split_obj = obj.split()
+
+        if split_obj[0] in ["filament_switch_sensor", "filament_motion_sensor"]:
+            desc = MoonrakerBinarySensorDescription(
+                key=f"{split_obj[0]}_{split_obj[1]}",
+                sensor_name=obj,
+                is_on_fn=lambda sensor: sensor.coordinator.data.get("status", {}).get(
+                    sensor.sensor_name, {}
+                )["filament_detected"],
+                name=split_obj[1].replace("_", " ").title(),
+                subscriptions=[(obj, "filament_detected")],
+                icon="mdi:printer-3d-nozzle-alert",
+                device_class=BinarySensorDeviceClass.OCCUPANCY,
+            )
+            sensors.append(desc)
+        elif split_obj[0] == "hall_filament_width_sensor":
+            # Klipper hall filament width sensor: enabled, filament_detected, is_active
+            # hall_filament_width_sensor may be unnamed (e.g. "hall_filament_width_sensor")
+            base_key = obj.replace(" ", "_")
+            base_name = (
+                split_obj[1].replace("_", " ").title()
+                if len(split_obj) > 1
+                else "Filament Width Sensor"
+            )
+            sensors.append(
+                MoonrakerBinarySensorDescription(
+                    key=f"{base_key}_active",
+                    sensor_name=obj,
+                    is_on_fn=lambda sensor: sensor.coordinator.data.get(
+                        "status", {}
+                    ).get(sensor.sensor_name, {})["is_active"],
+                    name=f"{base_name} Active",
+                    subscriptions=[(obj, "is_active")],
+                    icon="mdi:motion-sensor",
+                )
+            )
+
+    coordinator.load_sensor_data(sensors)
+    await coordinator.async_refresh_query_data()
+    async_add_entities(
+        [MoonrakerBinarySensor(coordinator, entry, desc) for desc in sensors]
+    )
+
+
+async def async_setup_update_binary_sensors(coordinator, entry, async_add_entities):
+    """Set Machine Update binary sensor."""
+
+    desc = MoonrakerBinarySensorDescription(
+        key="update_available",
+        sensor_name="update_available",
+        is_on_fn=update_available_fn,
+        name="Update Available",
+        subscriptions=[],
+        icon="mdi:update",
+        device_class=BinarySensorDeviceClass.UPDATE,
+        entity_registry_enabled_default=False,
+    )
+
+    async_add_entities([MoonrakerBinarySensor(coordinator, entry, desc)])
+
+
+def update_available_fn(sensor):
+    """Return if update is available."""
+    machine_update = sensor.coordinator.data.get("machine_update")
+    if not machine_update:
+        return False
+
+    version_info = machine_update.get("version_info") or {}
+    for component, info in version_info.items():
+        if component == "system":
+            if info.get("package_count", 0) > 0:
+                return True
+            continue
+
+        if not isinstance(info, dict):
+            continue
+
+        version = info.get("version")
+        remote_version = info.get("remote_version")
+        if version is None or remote_version is None:
+            continue
+
+        if remote_version != version:
+            return True
+
+    return False
+
+
+class MoonrakerBinarySensor(BaseMoonrakerEntity, BinarySensorEntity):
+    """Moonraker binary_sensor class."""
+
+    def __init__(
+        self,
+        coordinator,
+        entry,
+        description,
+    ) -> None:
+        """Initialize the binary_sensor class."""
+        super().__init__(coordinator, entry)
+        self.entity_description = description
+        self.is_on_fn = description.is_on_fn
+        self.sensor_name = description.sensor_name
+        self._attr_unique_id = f"{entry.entry_id}_{description.key}"
+        self._attr_name = description.name
+        self._attr_has_entity_name = True
+        self._attr_icon = description.icon
+
+    @property
+    def available(self) -> bool:
+        """Return True if last update succeeded and this sensor's data is present."""
+        if not super().available:
+            return False
+        try:
+            self.is_on_fn(self)
+        except (KeyError, TypeError):
+            return False
+        return True
+
+    @property
+    def is_on(self) -> bool:
+        """Return state."""
+        return self.is_on_fn(self)

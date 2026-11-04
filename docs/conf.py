@@ -13,7 +13,7 @@ if not hasattr(autodoc, "logger"):
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "Moonraker Home Assistant"
+project = "Advance_Moonraker_Control"
 copyright = "2023, Marc-Olivier Arsenault, Eric Tremblay"
 author = "Marc-Olivier Arsenault, Eric Tremblay"
 

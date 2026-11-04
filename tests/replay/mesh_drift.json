@@ -1,0 +1,61 @@
+{
+  "name": "mesh_drift",
+  "frames": [
+    {
+      "at": 0,
+      "status": {
+        "bed_mesh": {
+          "mesh_matrix": [
+            [
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "at": 10,
+      "status": {
+        "bed_mesh": {
+          "mesh_matrix": [
+            [
+              0.01,
+              -0.01
+            ],
+            [
+              0.0,
+              0.01
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "at": 20,
+      "status": {
+        "bed_mesh": {
+          "mesh_matrix": [
+            [
+              0.2,
+              0.18
+            ],
+            [
+              0.19,
+              0.21
+            ]
+          ]
+        }
+      }
+    }
+  ],
+  "expect": {
+    "repairs": [
+      "mesh_relevel"
+    ]
+  }
+}

@@ -12,8 +12,7 @@ from homeassistant.const import (
 )
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.moonraker.const import DOMAIN, METHODS
-from custom_components.moonraker.switch import async_setup_output_pin
+from custom_components.advance_moonraker_control.const import DOMAIN, METHODS
 
 from .const import MOCK_CONFIG
 
@@ -21,7 +20,10 @@ from .const import MOCK_CONFIG
 @pytest.fixture(name="bypass_connect_client", autouse=True)
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
-    with patch("custom_components.moonraker.MoonrakerApiClient.start"):
+    with (
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.start"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.stop"),
+    ):
         yield
 
 

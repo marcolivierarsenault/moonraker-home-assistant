@@ -35,7 +35,7 @@ does not exist, create it. Make sure you set moonraker to ``debug``
    logger:
      default: info
      logs:
-       custom_components.moonraker: debug
+       custom_components.advance_moonraker_control: debug
 
 #. Restart Home Assistant.
 #. Let it run for 5-10 min

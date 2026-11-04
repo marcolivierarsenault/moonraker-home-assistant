@@ -1,10 +1,72 @@
 """Global fixtures for integration_blueprint integration."""
 
+import contextlib
+import sys
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from pytest_homeassistant_custom_component.common import mock_component
+
+if sys.platform == "win32":
+    import socket as _socket_module
+
+    try:
+        import pytest_socket
+
+        _REAL_SOCKET = pytest_socket._true_socket
+    except ImportError:
+        pytest_socket = None
+        _REAL_SOCKET = _socket_module.socket
+
+    def _loopback_socketpair(
+        family=_socket_module.AF_INET, type=_socket_module.SOCK_STREAM, proto=0
+    ):
+        """Bypass pytest-socket's ``socket.socket`` guard for the loop self-pipe.
+
+        Windows asyncio event loops need a loopback socketpair for their
+        self-pipe. pytest-socket replaces ``socket.socket`` itself but leaves
+        ``socket.socketpair`` untouched, so building the pair from the real
+        socket class keeps loop construction working while the guard still
+        blocks real outbound socket creation inside tests.
+        """
+        lsock = _REAL_SOCKET(family, type, proto)
+        try:
+            lsock.bind(("127.0.0.1", 0))
+            lsock.listen()
+            addr, port = lsock.getsockname()[:2]
+            csock = _REAL_SOCKET(family, type, proto)
+            try:
+                csock.setblocking(False)
+                with contextlib.suppress(BlockingIOError, InterruptedError):
+                    csock.connect((addr, port))
+                csock.setblocking(True)
+                fd, _ = lsock._accept()
+                ssock = _REAL_SOCKET(family, type, proto, fileno=fd)
+            except BaseException:
+                csock.close()
+                raise
+        finally:
+            lsock.close()
+        if (
+            ssock.getsockname() != csock.getpeername()
+            or csock.getsockname() != ssock.getpeername()
+        ):
+            ssock.close()
+            csock.close()
+            raise ConnectionError("Unexpected peer connection")
+        return ssock, csock
+
+    if pytest_socket is not None:
+        _socket_module.socketpair = _loopback_socketpair
 
 PYTEST_PLUGINS = "pytest_homeassistant_custom_component"
+
+
+@pytest.fixture(autouse=True)
+def mock_panel_dependencies(hass):
+    """Mock panel dependencies instead of booting Home Assistant's UI."""
+    mock_component(hass, "panel_custom")
+    mock_component(hass, "websocket_api")
 
 
 # This fixture enables loading custom integrations in all tests.
@@ -50,7 +112,7 @@ def bypass_tcp_reachable_fixture():
     offline path.
     """
     with patch(
-        "custom_components.moonraker._async_is_tcp_reachable",
+        "custom_components.advance_moonraker_control._async_is_tcp_reachable",
         new_callable=AsyncMock,
         return_value=True,
     ):

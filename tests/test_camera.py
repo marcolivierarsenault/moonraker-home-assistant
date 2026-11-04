@@ -12,10 +12,10 @@ from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
 )
 
-from custom_components.moonraker.const import DOMAIN, PRINTSTATES
+from custom_components.advance_moonraker_control.const import DOMAIN, PRINTSTATES
 
 from .const import MOCK_CONFIG, MOCK_OPTIONS
-from custom_components.moonraker.const import (
+from custom_components.advance_moonraker_control.const import (
     CONF_OPTION_CAMERA_STREAM,
     CONF_OPTION_CAMERA_SNAPSHOT,
     CONF_OPTION_CAMERA_PORT,
@@ -26,7 +26,10 @@ from custom_components.moonraker.const import (
 @pytest.fixture(name="bypass_connect_client", autouse=True)
 def bypass_connect_client_fixture():
     """Skip calls to get data from API."""
-    with patch("custom_components.moonraker.MoonrakerApiClient.start"):
+    with (
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.start"),
+        patch("custom_components.advance_moonraker_control.MoonrakerApiClient.stop"),
+    ):
         yield
 
 

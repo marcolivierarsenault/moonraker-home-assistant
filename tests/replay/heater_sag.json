@@ -1,0 +1,452 @@
+{
+  "name": "heater_sag",
+  "frames": [
+    {
+      "at": 0,
+      "status": {
+        "print_stats": {
+          "state": "printing",
+          "filename": "sag.gcode",
+          "filament_used": 1.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 10,
+      "status": {
+        "print_stats": {
+          "filament_used": 40.0
+        },
+        "extruder": {
+          "temperature": 200.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 20,
+      "status": {
+        "print_stats": {
+          "filament_used": 60.0
+        },
+        "extruder": {
+          "temperature": 198.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 30,
+      "status": {
+        "print_stats": {
+          "filament_used": 80.0
+        },
+        "extruder": {
+          "temperature": 196.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 40,
+      "status": {
+        "print_stats": {
+          "filament_used": 100.0
+        },
+        "extruder": {
+          "temperature": 194.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 50,
+      "status": {
+        "print_stats": {
+          "filament_used": 120.0
+        },
+        "extruder": {
+          "temperature": 192.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 60,
+      "status": {
+        "print_stats": {
+          "filament_used": 140.0
+        },
+        "extruder": {
+          "temperature": 190.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 70,
+      "status": {
+        "print_stats": {
+          "filament_used": 160.0
+        },
+        "extruder": {
+          "temperature": 188.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 80,
+      "status": {
+        "print_stats": {
+          "filament_used": 180.0
+        },
+        "extruder": {
+          "temperature": 186.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 90,
+      "status": {
+        "print_stats": {
+          "filament_used": 200.0
+        },
+        "extruder": {
+          "temperature": 184.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 100,
+      "status": {
+        "print_stats": {
+          "filament_used": 220.0
+        },
+        "extruder": {
+          "temperature": 182.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 110,
+      "status": {
+        "print_stats": {
+          "filament_used": 240.0
+        },
+        "extruder": {
+          "temperature": 180.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 120,
+      "status": {
+        "print_stats": {
+          "filament_used": 260.0
+        },
+        "extruder": {
+          "temperature": 178.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 130,
+      "status": {
+        "print_stats": {
+          "filament_used": 280.0
+        },
+        "extruder": {
+          "temperature": 176.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 140,
+      "status": {
+        "print_stats": {
+          "filament_used": 300.0
+        },
+        "extruder": {
+          "temperature": 174.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 150,
+      "status": {
+        "print_stats": {
+          "filament_used": 320.0
+        },
+        "extruder": {
+          "temperature": 172.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 160,
+      "status": {
+        "print_stats": {
+          "filament_used": 340.0
+        },
+        "extruder": {
+          "temperature": 170.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 170,
+      "status": {
+        "print_stats": {
+          "filament_used": 360.0
+        },
+        "extruder": {
+          "temperature": 168.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 180,
+      "status": {
+        "print_stats": {
+          "filament_used": 380.0
+        },
+        "extruder": {
+          "temperature": 166.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 190,
+      "status": {
+        "print_stats": {
+          "filament_used": 400.0
+        },
+        "extruder": {
+          "temperature": 164.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 200,
+      "status": {
+        "print_stats": {
+          "filament_used": 420.0
+        },
+        "extruder": {
+          "temperature": 162.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 210,
+      "status": {
+        "print_stats": {
+          "filament_used": 440.0
+        },
+        "extruder": {
+          "temperature": 160.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 220,
+      "status": {
+        "print_stats": {
+          "filament_used": 460.0
+        },
+        "extruder": {
+          "temperature": 158.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 230,
+      "status": {
+        "print_stats": {
+          "filament_used": 480.0
+        },
+        "extruder": {
+          "temperature": 156.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 240,
+      "status": {
+        "print_stats": {
+          "filament_used": 500.0
+        },
+        "extruder": {
+          "temperature": 154.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    },
+    {
+      "at": 250,
+      "status": {
+        "print_stats": {
+          "filament_used": 520.0
+        },
+        "extruder": {
+          "temperature": 152.0,
+          "power": 1.0,
+          "target": 200.0
+        },
+        "motion_report": {
+          "live_velocity": 30.0,
+          "live_extruder_velocity": 4.0
+        }
+      }
+    }
+  ],
+  "expect": {
+    "findings": [
+      "saturated"
+    ],
+    "repairs": [
+      "heater_anomaly"
+    ]
+  }
+}

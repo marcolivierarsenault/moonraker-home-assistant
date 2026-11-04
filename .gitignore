@@ -12,7 +12,7 @@ scenes.yaml
 scripts.yaml
 secrets.yaml
 .storage
-blueprints
+/blueprints
 docs/_build
 coverage.xml
 .ruff_cache
@@ -21,3 +21,5 @@ configuration.yaml
 .lycheecache
 link-check-report.md
 node_modules
+moonraker-home-assistant.code-workspace
+.devin/
