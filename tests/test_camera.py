@@ -460,3 +460,69 @@ async def test_thumbnail_print_stats_missing(hass, get_data):
 
     with pytest.raises(Exception):
         await camera.async_get_image(hass, "camera.mainsail_thumbnail")
+
+
+async def test_iframe_camera_uses_snapshot(
+    hass, get_camera_info, aioclient_mock, caplog
+):
+    """Test a non-MJPEG webcam is served from its snapshot URL."""
+    get_camera_info["webcams"].append(
+        {
+            "name": "gui",
+            "service": "iframe",
+            "stream_url": "/screen/",
+            "snapshot_url": "/screen/snapshot",
+        }
+    )
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    entity_registry = er.async_get(hass)
+    assert entity_registry.async_get("camera.mainsail_webcam") is not None
+    assert entity_registry.async_get("camera.mainsail_gui") is not None
+    assert (
+        "Connecting to iframe camera via snapshots: http://1.2.3.4:80/screen/snapshot"
+        in caplog.text
+    )
+
+    aioclient_mock.get("http://1.2.3.4/screen/snapshot", content=b"image")
+    image = await camera.async_get_image(hass, "camera.mainsail_gui")
+    assert image.content == b"image"
+
+
+async def test_camera_without_stream_url_uses_snapshot(
+    hass, get_camera_info, aioclient_mock
+):
+    """Test a webcam with only a snapshot URL."""
+    get_camera_info["webcams"][0] = {
+        "name": "webcam",
+        "service": "mjpegstreamer-adaptive",
+        "snapshot_url": "http://5.6.7.8/webcam/snapshot.jpg",
+    }
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    aioclient_mock.get("http://5.6.7.8/webcam/snapshot.jpg", content=b"image")
+    image = await camera.async_get_image(hass, "camera.mainsail_webcam")
+    assert image.content == b"image"
+
+
+async def test_webrtc_camera_without_snapshot(hass, get_camera_info):
+    """Test a non-MJPEG webcam without a snapshot URL returns no image."""
+    get_camera_info["webcams"][0] = {
+        "name": "webcam",
+        "service": "webrtc-camerastreamer",
+        "stream_url": "/webcam/webrtc",
+        "snapshot_url": "",
+    }
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    with pytest.raises(Exception):
+        await camera.async_get_image(hass, "camera.mainsail_webcam")

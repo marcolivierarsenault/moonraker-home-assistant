@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from homeassistant.components.camera import Camera
@@ -25,6 +26,10 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 DEFAULT_PORT = 80
+SNAPSHOT_TIMEOUT = 10
+
+# Moonraker webcam services whose stream_url serves an MJPEG stream
+MJPEG_SERVICES = {"mjpegstreamer", "mjpegstreamer-adaptive", "uv4l-mjpeg"}
 
 hardcoded_camera = {
     "name": "webcam",
@@ -67,10 +72,17 @@ async def async_setup_entry(
             camera_cnt += 1
         else:
             cameras = await coordinator.async_fetch_data(METHODS.SERVER_WEBCAMS_LIST)
+            session = async_get_clientsession(hass, verify_ssl=False)
             for camera_id, camera in enumerate(cameras["webcams"]):
-                async_add_entities(
-                    [MoonrakerCamera(config_entry, coordinator, camera, camera_id)]
-                )
+                if _is_mjpeg_camera(camera):
+                    entity = MoonrakerCamera(
+                        config_entry, coordinator, camera, camera_id
+                    )
+                else:
+                    entity = MoonrakerSnapshotCamera(
+                        config_entry, coordinator, camera, camera_id, session
+                    )
+                async_add_entities([entity])
                 camera_cnt += 1
     except Exception:
         _LOGGER.info("Could not add any cameras from the API list")
@@ -90,6 +102,24 @@ async def async_setup_entry(
             )
         ]
     )
+
+
+def _is_mjpeg_camera(camera) -> bool:
+    """Return True if the webcam provides an MJPEG stream."""
+    if not camera.get("stream_url"):
+        return False
+    service = camera.get("service")
+    return service is None or service in MJPEG_SERVICES
+
+
+def _camera_url(config_entry, path) -> str:
+    """Return the full URL of a webcam path."""
+    if path.startswith("http"):
+        return path
+    port = config_entry.options.get(CONF_OPTION_CAMERA_PORT)
+    if port is None or port == "":
+        port = DEFAULT_PORT
+    return f"http://{config_entry.data.get(CONF_URL)}:{port}{path}"
 
 
 class MoonrakerCamera(MjpegCamera):
@@ -123,6 +153,41 @@ class MoonrakerCamera(MjpegCamera):
             still_image_url=f"{self.url}{camera['snapshot_url']}",
             unique_id=f"{config_entry.entry_id}_{camera['name']}_{camera_id}",
         )
+
+
+class MoonrakerSnapshotCamera(Camera):
+    """Moonraker webcam without an MJPEG stream, served from its snapshot URL."""
+
+    def __init__(self, config_entry, coordinator, camera, camera_id, session) -> None:
+        """Initialize the snapshot camera."""
+
+        super().__init__()
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, config_entry.entry_id)}
+        )
+        self._attr_name = f"{coordinator.api_device_name} {camera['name']}"
+        self._attr_unique_id = f"{config_entry.entry_id}_{camera['name']}_{camera_id}"
+        self._session = session
+        snapshot_url = camera.get("snapshot_url")
+        self._snapshot_url = (
+            _camera_url(config_entry, snapshot_url) if snapshot_url else None
+        )
+        _LOGGER.info(
+            f"Connecting to {camera.get('service')} camera via snapshots: "
+            f"{self._snapshot_url}"
+        )
+
+    async def async_camera_image(
+        self, width: int | None = None, height: int | None = None
+    ) -> bytes | None:
+        """Return the current snapshot."""
+        del width, height
+        if self._snapshot_url is None:
+            return None
+        async with asyncio.timeout(SNAPSHOT_TIMEOUT):
+            response = await self._session.get(self._snapshot_url)
+            response.raise_for_status()
+            return await response.read()
 
 
 class PreviewCamera(Camera):

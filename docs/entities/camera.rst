@@ -4,6 +4,10 @@ Camera
 * Livestream of any camera configured in crownest. |cam_image|
 
   * Current issue: Not supporting FLSUN or Creality SonicPad
+  * Webcams whose service is not an MJPEG stream (for example ``iframe`` or
+    ``webrtc-*``) are shown by refreshing their snapshot URL instead of using the
+    stream URL. This also covers the remote screen ("gui" webcam) of the Snapmaker
+    U1 extended firmware.
 
 * Thumbnail of the current print. (Your slicer needs to generate the thumbnail image) |thum_image|
 
