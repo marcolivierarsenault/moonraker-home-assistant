@@ -13,6 +13,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
+    CONF_API_KEY,
     CONF_URL,
     CONF_OPTION_CAMERA_STREAM,
     CONF_OPTION_CAMERA_SNAPSHOT,
@@ -138,6 +139,8 @@ class PreviewCamera(Camera):
             identifiers={(DOMAIN, config_entry.entry_id)}
         )
         self.url = config_entry.data.get(CONF_URL)
+        api_key = config_entry.data.get(CONF_API_KEY)
+        self._headers = {"X-Api-Key": api_key} if api_key else None
         self.coordinator = coordinator
         self._attr_name = f"{coordinator.api_device_name} Thumbnail"
         self._attr_unique_id = f"{config_entry.entry_id}_thumbnail"
@@ -186,7 +189,8 @@ class PreviewCamera(Camera):
             f"Fetching new thumbnail: http://{self.url}:{self.port}/server/files/gcodes/{new_path}"
         )
         response = await self._session.get(
-            f"http://{self.url}:{self.port}/server/files/gcodes/{new_path}"
+            f"http://{self.url}:{self.port}/server/files/gcodes/{new_path}",
+            headers=self._headers,
         )
 
         self._current_path = new_path

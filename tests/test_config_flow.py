@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import pytest
 from homeassistant import config_entries
+from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -429,3 +430,86 @@ async def test_option_config_camera_services(hass):
     await hass.async_block_till_done()
 
     assert result["type"] == FlowResultType.CREATE_ENTRY
+
+
+LOGIN_URL = "http://1.2.3.4:7125/access/login"
+API_KEY_URL = "http://1.2.3.4:7125/access/api_key"
+LOGOUT_URL = "http://1.2.3.4:7125/access/logout"
+
+
+@pytest.mark.usefixtures("bypass_connect_client")
+async def test_login_fetches_api_key(hass, aioclient_mock):
+    """Test username and password are exchanged for the API key."""
+    aioclient_mock.post(LOGIN_URL, json={"result": {"token": "jwt"}})
+    aioclient_mock.get(API_KEY_URL, json={"result": "A7ylD3EuPWWxGlsshlCIJjzRBNbQzlre"})
+    aioclient_mock.post(LOGOUT_URL, json={"result": {}})
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_URL: "1.2.3.4",
+            CONF_USERNAME: "admin",
+            CONF_PASSWORD: "secret",
+        },
+    )
+
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["data"] == {
+        CONF_URL: "1.2.3.4",
+        CONF_PORT: "7125",
+        CONF_TLS: False,
+        CONF_API_KEY: "A7ylD3EuPWWxGlsshlCIJjzRBNbQzlre",
+        CONF_PRINTER_NAME: "",
+    }
+    login_call, key_call, logout_call = aioclient_mock.mock_calls
+    assert login_call[2]["username"] == "admin"
+    assert login_call[2]["password"] == "secret"
+    assert key_call[3] == {"Authorization": "Bearer jwt"}
+    assert logout_call[1].path == "/access/logout"
+
+
+@pytest.mark.usefixtures("bypass_connect_client")
+async def test_login_failure(hass, aioclient_mock):
+    """Test a failed login shows an error."""
+    aioclient_mock.post(LOGIN_URL, status=401)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_URL: "1.2.3.4",
+            CONF_USERNAME: "admin",
+            CONF_PASSWORD: "wrong",
+        },
+    )
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {CONF_USERNAME: "auth_error"}
+
+
+@pytest.mark.usefixtures("bypass_connect_client")
+async def test_api_key_skips_login(hass, aioclient_mock):
+    """Test an entered API key is used without logging in."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_URL: "1.2.3.4",
+            CONF_API_KEY: "A7ylD3EuPWWxGlsshlCIJjzRBNbQzlre",
+            CONF_USERNAME: "admin",
+            CONF_PASSWORD: "secret",
+        },
+    )
+
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_API_KEY] == "A7ylD3EuPWWxGlsshlCIJjzRBNbQzlre"
+    assert CONF_USERNAME not in result["data"]
+    assert CONF_PASSWORD not in result["data"]
+    assert aioclient_mock.call_count == 0

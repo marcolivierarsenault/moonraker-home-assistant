@@ -1,7 +1,9 @@
 """moonraker Client."""
 
 from asyncio import get_running_loop
+from contextlib import suppress
 
+from aiohttp import ClientError, ClientSession
 from moonraker_api import MoonrakerClient, MoonrakerListener
 
 
@@ -39,3 +41,33 @@ class MoonrakerApiClient(MoonrakerListener):
         """Stop the websocket connection."""
         self.running = False
         await self.client.disconnect()
+
+
+async def async_fetch_api_key(
+    session: ClientSession,
+    host: str,
+    port: int | str,
+    tls: bool,
+    username: str,
+    password: str,
+) -> str:
+    """Log in to Moonraker and return its API key."""
+    base_url = f"{'https' if tls else 'http'}://{host}:{port}"
+    async with session.post(
+        f"{base_url}/access/login",
+        json={"username": username, "password": password, "source": "moonraker"},
+    ) as response:
+        response.raise_for_status()
+        token = (await response.json())["result"]["token"]
+
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        async with session.get(
+            f"{base_url}/access/api_key", headers=headers
+        ) as response:
+            response.raise_for_status()
+            return (await response.json())["result"]
+    finally:
+        with suppress(ClientError):
+            async with session.post(f"{base_url}/access/logout", headers=headers):
+                pass

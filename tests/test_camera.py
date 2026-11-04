@@ -16,6 +16,7 @@ from custom_components.moonraker.const import DOMAIN, PRINTSTATES
 
 from .const import MOCK_CONFIG, MOCK_OPTIONS
 from custom_components.moonraker.const import (
+    CONF_API_KEY,
     CONF_OPTION_CAMERA_STREAM,
     CONF_OPTION_CAMERA_SNAPSHOT,
     CONF_OPTION_CAMERA_PORT,
@@ -460,3 +461,30 @@ async def test_thumbnail_print_stats_missing(hass, get_data):
 
     with pytest.raises(Exception):
         await camera.async_get_image(hass, "camera.mainsail_thumbnail")
+
+
+async def test_thumbnail_sends_api_key(
+    hass, aioclient_mock, get_data, _moonraker_default_mock
+):
+    """Test thumbnail request sends the API key."""
+    get_data["status"]["print_stats"]["filename"] = "CE3E3V2_picture_frame_holder.gcode"
+
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={**MOCK_CONFIG, CONF_API_KEY: "A7ylD3EuPWWxGlsshlCIJjzRBNbQzlre"},
+        entry_id="test",
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    test_path = (
+        "http://1.2.3.4/server/files/gcodes/.thumbs/CE3E3V2_picture_frame_holder.png"
+    )
+    aioclient_mock.get(test_path, content=Image.new("RGB", (30, 30)))
+
+    await camera.async_get_image(hass, "camera.mainsail_thumbnail")
+
+    assert aioclient_mock.mock_calls[-1][3] == {
+        "X-Api-Key": "A7ylD3EuPWWxGlsshlCIJjzRBNbQzlre"
+    }

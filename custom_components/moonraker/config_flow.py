@@ -7,11 +7,17 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.selector import (
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
+)
 from homeassistant.util import network, slugify
 
-from .api import MoonrakerApiClient
+from .api import MoonrakerApiClient, async_fetch_api_key
 from .const import (
     CONF_API_KEY,
     CONF_PORT,
@@ -59,6 +65,16 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 self._errors[CONF_API_KEY] = "api_key_error"
                 return await self._show_config_form(user_input)
 
+            username = user_input.pop(CONF_USERNAME, "")
+            password = user_input.pop(CONF_PASSWORD, "")
+            if username and not user_input[CONF_API_KEY]:
+                api_key = await self._fetch_api_key(user_input, username, password)
+                if api_key is None:
+                    self._errors[CONF_USERNAME] = "auth_error"
+                    user_input[CONF_USERNAME] = username
+                    return await self._show_config_form(user_input)
+                user_input[CONF_API_KEY] = api_key
+
             if not await self._test_printer_name(user_input[CONF_PRINTER_NAME]):
                 self._errors[CONF_PRINTER_NAME] = "printer_name_error"
                 return await self._show_config_form(user_input)
@@ -81,6 +97,7 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         user_input[CONF_PORT] = "7125"
         user_input[CONF_TLS] = False
         user_input[CONF_API_KEY] = ""
+        user_input[CONF_USERNAME] = ""
         user_input[CONF_PRINTER_NAME] = ""
 
         return await self._show_config_form(user_input)
@@ -97,6 +114,12 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Optional(CONF_PORT, default=user_input[CONF_PORT]): str,
                     vol.Optional(CONF_TLS, default=user_input[CONF_TLS]): bool,
                     vol.Optional(CONF_API_KEY, default=user_input[CONF_API_KEY]): str,
+                    vol.Optional(
+                        CONF_USERNAME, default=user_input.get(CONF_USERNAME, "")
+                    ): str,
+                    vol.Optional(CONF_PASSWORD, default=""): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                    ),
                     vol.Optional(
                         CONF_PRINTER_NAME, default=user_input[CONF_PRINTER_NAME]
                     ): str,
@@ -119,6 +142,22 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             if not api_key.isalnum() or len(api_key) != 32:
                 return False
         return True
+
+    async def _fetch_api_key(self, user_input, username, password):
+        port = user_input[CONF_PORT] or DEFAULT_PORT
+        try:
+            async with asyncio.timeout(TIMEOUT):
+                return await async_fetch_api_key(
+                    async_get_clientsession(self.hass, verify_ssl=False),
+                    user_input[CONF_URL],
+                    port,
+                    user_input[CONF_TLS],
+                    username,
+                    password,
+                )
+        except Exception:
+            _LOGGER.debug("Moonraker login failed", exc_info=True)
+            return None
 
     async def _test_printer_name(self, printer_name):
         slugified_name = slugify(printer_name)
