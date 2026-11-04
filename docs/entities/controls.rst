@@ -159,4 +159,4 @@ If the printer rejects a command, for example because Klipper reports ``Must hom
 
 When several printers are selected, every printer still receives the command, and the error names each printer that failed.
 
-Buttons, numbers, switches and lights report a rejected command in the same way, and keep showing their previous value.
+Buttons, numbers, switches and lights report a rejected command in the same way. Numbers, switches and lights keep showing their previous value.
