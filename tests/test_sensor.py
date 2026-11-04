@@ -341,6 +341,40 @@ async def test_sensors_not_printing(
     assert hass.states.get(f"sensor.{sensor_not_printing}").state == value
 
 
+@pytest.mark.parametrize(
+    "print_state",
+    [
+        PRINTSTATES.PAUSED.value,
+        PRINTSTATES.COMPLETE.value,
+        PRINTSTATES.CANCELLED.value,
+        PRINTSTATES.ERROR.value,
+    ],
+)
+@pytest.mark.parametrize(
+    "sensor, value",
+    [
+        ("mainsail_filename", "CE3E3V2_picture_frame_holder.gcode"),
+        ("mainsail_print_duration", "133.575469144767"),
+        ("mainsail_filament_used", "5.0"),
+    ],
+)
+async def test_job_sensors_kept_until_standby(
+    hass,
+    print_state,
+    sensor,
+    value,
+    get_data,
+):
+    """Job sensors keep the last job's values until the printer is in standby."""
+    get_data["status"]["print_stats"]["state"] = print_state
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get(f"sensor.{sensor}").state == value
+
+
 async def test_print_speed_missing_speed(hass, get_data):
     """Print speed sensor reports unknown when data missing while printing."""
 

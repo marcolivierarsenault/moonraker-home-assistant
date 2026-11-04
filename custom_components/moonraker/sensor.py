@@ -126,7 +126,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
     MoonrakerSensorDescription(
         key="filename",
         name="Filename",
-        value_fn=lambda sensor: sensor.empty_result_when_not_printing(
+        value_fn=lambda sensor: sensor.empty_result_when_standby(
             sensor.coordinator.data["status"]["print_stats"]["filename"]
         ),
         subscriptions=[("print_stats", "filename")],
@@ -223,7 +223,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
     MoonrakerSensorDescription(
         key="print_duration",
         name="Print Duration",
-        value_fn=lambda sensor: sensor.empty_result_when_not_printing(
+        value_fn=lambda sensor: sensor.empty_result_when_standby(
             sensor.coordinator.data["status"]["print_stats"]["print_duration"] / 60,
         ),
         subscriptions=[("print_stats", "print_duration")],
@@ -235,7 +235,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
     MoonrakerSensorDescription(
         key="filament_used",
         name="Filament Used",
-        value_fn=lambda sensor: sensor.empty_result_when_not_printing(
+        value_fn=lambda sensor: sensor.empty_result_when_standby(
             sensor.coordinator.data["status"]["print_stats"]["filament_used"] / 1000,
         ),
         subscriptions=[("print_stats", "filament_used")],
@@ -1077,6 +1077,13 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
         """Return empty string when not printing."""
         state = self.coordinator.data["status"]["print_stats"]["state"]
         if state != PRINTSTATES.PRINTING.value:
+            return "" if isinstance(value, str) else 0.0
+        return value
+
+    def empty_result_when_standby(self, value=""):
+        """Return empty string when no job is loaded."""
+        state = self.coordinator.data["status"]["print_stats"]["state"]
+        if state == PRINTSTATES.STANDBY.value:
             return "" if isinstance(value, str) else 0.0
         return value
 
