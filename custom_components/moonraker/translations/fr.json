@@ -10,6 +10,16 @@
           "api_key": "Clé API (facultatif)",
           "printer_name": "Nom de l'imprimante (par défaut, le nom d'hôte)"
         }
+      },
+      "reconfigure": {
+        "description": "Modifier les informations de connexion Moonraker. Les entités et leur historique sont conservés.",
+        "data": {
+          "url": "Hôte",
+          "port": "Port",
+          "tls": "Utilise TLS",
+          "api_key": "Clé API (facultatif)",
+          "printer_name": "Nom de l'imprimante (par défaut, le nom d'hôte)"
+        }
       }
     },
     "error": {
@@ -18,6 +28,9 @@
       "api_key_error": "Clé API non valide, doit comporter 32 caractères alphanumériques.",
       "printer_name_error": "Nom d'imprimante non valide.",
       "printer_connection_error": "Échec de la connexion."
+    },
+    "abort": {
+      "reconfigure_successful": "Les paramètres de connexion de l'imprimante ont été mis à jour."
     }
   },
   "options": {
