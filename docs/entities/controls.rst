@@ -154,3 +154,9 @@ List of actions available to send command to the printer.
     - G-code command to send to the printer. *(You can send one command at a time)*
     - | **Target**: (DEVICE) Moonraker device to send the command to.
       | **G-Code**: Select the GCode command you want to send
+
+If the printer rejects a command, for example because Klipper reports ``Must home axis first``, the action fails and shows Klipper's message. An automation or script stops at that step unless the step sets ``continue_on_error: true``.
+
+When several printers are selected, every printer still receives the command, and the error names each printer that failed.
+
+Buttons, numbers, switches and lights report a rejected command in the same way. Numbers, switches and lights keep showing their previous value.

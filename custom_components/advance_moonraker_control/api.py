@@ -27,6 +27,7 @@ class MoonrakerApiClient(MoonrakerListener):
             listener=self,
             host=url,
             port=port,
+            loop=get_running_loop(),
             session=session,
             api_key=api_key,
             ssl=tls,

@@ -11,7 +11,11 @@ maintainer explicitly requests it for a specific pull request or commit.
 ## Safety boundary
 
 - Work from the exact PR head SHA in an isolated Git worktree.
-- Confirm the printer is idle before connecting.
+- Before connecting, query both `print_stats.state` (through
+  `/printer/objects/query?print_stats`) and the firmware state from
+  `/printer/info`. Record both values; they describe different states and can
+  disagree. Stop if a mutating operation would be needed to make the printer
+  safe for passive validation.
 - Validation is passive: load the integration, connect, subscribe, poll, and
   observe logs.
 - Do not activate button, switch, light, or number entities.
@@ -20,6 +24,8 @@ maintainer explicitly requests it for a specific pull request or commit.
 - Do not edit the printer's Moonraker or Klipper configuration.
 - Never publish raw logs. Remove tokens, API keys, URLs, IP addresses, serial
   numbers, and unrelated household information first.
+- Keep this tracked procedure generic. Store printer addresses, credentials,
+  and machine-specific runtime notes only in private local configuration.
 - Stop if the requested validation would cross these boundaries.
 
 ## Prepare the exact pull request head
@@ -115,7 +121,7 @@ Local validation
 - Commit SHA:
 - Date and duration:
 - Python / Home Assistant version:
-- Printer state before and after:
+- `print_stats.state` and firmware state before and after:
 - Deterministic checks:
 - Integration loaded:
 - Moonraker connected:

@@ -35,18 +35,28 @@ async def _power_device_updater(coordinator):
 
 
 async def async_setup_output_pin(coordinator, entry, async_add_entities):
-    """Set optional binary sensor platform."""
+    """Set optional switch platform for non-PWM output pins."""
 
     object_list = await coordinator.async_get_printer_objects()
 
     settings = await coordinator.async_get_config_settings()
 
+    config_settings = (
+        settings.get("status", {}).get("configfile", {}).get("settings", {})
+    )
+
     switches = []
-    for obj in object_list["objects"]:
-        if "output_pin" not in obj:
+
+    for obj in object_list.get("objects", []):
+        if not obj.startswith("output_pin "):
             continue
 
-        if settings["status"]["configfile"]["settings"][obj.lower()]["pwm"]:
+        output_pin_config = config_settings.get(obj.lower())
+
+        if not output_pin_config:
+            continue
+
+        if output_pin_config.get("pwm", False):
             continue
 
         desc = MoonrakerSwitchSensorDescription(
@@ -78,7 +88,7 @@ async def async_setup_power_device(coordinator, entry, async_add_entities):
     coordinator.add_data_updater(_power_device_updater, every=2)
 
     sensors = []
-    for device in power_devices["devices"]:
+    for device in power_devices.get("devices", []):
         desc = MoonrakerSwitchSensorDescription(
             key=device["device"],
             sensor_name=device["device"],
@@ -118,10 +128,20 @@ class MoonrakerPowerDeviceSwitchSensor(MoonrakerSwitchSensor):
     """Moonraker power device switch class."""
 
     @property
+    def available(self) -> bool:
+        """Return True if last update succeeded and the device's power state is known."""
+        devices = self.coordinator.data.get("power_devices", {}).get("devices", [])
+        return super().available and any(
+            device["device"] == self.sensor_name and "status" in device
+            for device in devices
+        )
+
+    @property
     def is_on(self) -> bool:
         """Return true if the switch is on."""
         current_state = False
-        for device in self.coordinator.data["power_devices"]["devices"]:
+        devices = self.coordinator.data.get("power_devices", {}).get("devices", [])
+        for device in devices:
             if device["device"] == self.sensor_name:
                 current_state = device["status"] == "on"
         return current_state
@@ -150,6 +170,12 @@ class MoonrakerDigitalOutputPin(MoonrakerSwitchSensor):
         """Init."""
         super().__init__(coordinator, entry, description)
         self.pin = description.sensor_name.replace("output_pin ", "")
+
+    @property
+    def available(self) -> bool:
+        """Return True if last update succeeded and the pin's value is known."""
+        status = self.coordinator.data.get("status", {}).get(self.sensor_name)
+        return super().available and isinstance(status, dict) and "value" in status
 
     @property
     def is_on(self) -> bool:

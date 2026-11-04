@@ -447,3 +447,19 @@ async def test_option_config_thumbnail_port(hass, aioclient_mock, get_data):
 
     await camera.async_get_image(hass, "camera.mainsail_thumbnail")
     await camera.async_get_image(hass, "camera.mainsail_thumbnail")
+
+
+async def test_thumbnail_print_stats_missing(hass, get_data):
+    """No thumbnail is served while print_stats is missing."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+
+    get_data["status"].pop("print_stats")
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    with pytest.raises(Exception):
+        await camera.async_get_image(hass, "camera.mainsail_thumbnail")

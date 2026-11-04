@@ -5,14 +5,14 @@ repos:
       - id: pyupgrade
         args: [--py39-plus]
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.6
+    rev: v0.17.1
     hooks:
       - id: ruff
         args:
           - --fix
       - id: ruff-format
-        files: ^((homeassistant|pylint|script|tests)/.+)?[^/]+\.py$
+        files: ^((custom_components|scripts|tests)/.+)?[^/]+\.py$
   - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v2.7.1
+    rev: v3.1.0
     hooks:
       - id: prettier
