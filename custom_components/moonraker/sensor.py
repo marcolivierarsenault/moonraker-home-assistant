@@ -452,6 +452,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                     subscriptions=[(obj, "temperature")],
                     icon="mdi:thermometer",
                     unit=UnitOfTemperature.CELSIUS,
+                    device_class=SensorDeviceClass.TEMPERATURE,
                     state_class=SensorStateClass.MEASUREMENT,
                     suggested_display_precision=2,
                 )
@@ -475,6 +476,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                         subscriptions=[(obj, "pressure")],
                         icon="mdi:gauge",
                         unit=UnitOfPressure.HPA,
+                        device_class=SensorDeviceClass.ATMOSPHERIC_PRESSURE,
                         state_class=SensorStateClass.MEASUREMENT,
                         suggested_display_precision=1,
                     )
@@ -491,6 +493,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                         subscriptions=[(obj, "humidity")],
                         icon="mdi:water-percent",
                         unit=PERCENTAGE,
+                        device_class=SensorDeviceClass.HUMIDITY,
                         state_class=SensorStateClass.MEASUREMENT,
                         suggested_display_precision=0,
                     )
@@ -708,6 +711,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 subscriptions=[(obj, "temperature")],
                 icon="mdi:thermometer",
                 unit=UnitOfTemperature.CELSIUS,
+                device_class=SensorDeviceClass.TEMPERATURE,
                 state_class=SensorStateClass.MEASUREMENT,
                 suggested_display_precision=2,
             )
@@ -730,6 +734,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 subscriptions=[(obj, "temperature")],
                 icon=icon,
                 unit=UnitOfTemperature.CELSIUS,
+                device_class=SensorDeviceClass.TEMPERATURE,
                 state_class=SensorStateClass.MEASUREMENT,
                 suggested_display_precision=2,
             )
