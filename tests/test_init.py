@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 import pytest
 from custom_components.moonraker.const import PRINTSTATES
 
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
@@ -20,6 +20,7 @@ from custom_components.moonraker import (
     MoonrakerDataUpdateCoordinator,
     _async_is_tcp_reachable,
     _build_thumbnail_path,
+    _moonraker_error_message,
     _normalize_gcode_path,
     _normalize_moonraker_port,
     _strip_gcode_root,
@@ -919,6 +920,186 @@ async def test_send_gcode_list_payload_normalizes_script(hass):
     mock_call.assert_awaited_once_with(
         METHODS.PRINTER_GCODE_SCRIPT.value, script="G28\nM105"
     )
+    assert await async_unload_entry(hass, config_entry)
+
+
+@pytest.mark.parametrize(
+    ("result", "message"),
+    [
+        ({"error": {"code": 400, "message": "Must home"}}, "Must home"),
+        ({"error": {"code": 400}}, "unknown error"),
+        # A power device named "error" answers with its status
+        ({"error": "on"}, None),
+        ({"printer": "on"}, None),
+        ("ok", None),
+        (None, None),
+    ],
+)
+def test_moonraker_error_message(result, message):
+    """Only Moonraker's error object counts as an error."""
+    assert _moonraker_error_message(result) == message
+
+
+async def test_send_gcode_reports_klipper_error(hass):
+    """A rejected script fails the action with Klipper's message, not the script."""
+
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, entry_id="gcode_error"
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    device_id = dr.async_entries_for_config_entry(
+        dr.async_get(hass), config_entry.entry_id
+    )[0].id
+
+    # moonraker-api returns the error as the call's result instead of raising
+    with (
+        patch(
+            "moonraker_api.MoonrakerClient.call_method",
+            new_callable=AsyncMock,
+            return_value={"error": {"code": 400, "message": "Must home axis first"}},
+        ),
+        pytest.raises(HomeAssistantError) as err,
+    ):
+        await hass.services.async_call(
+            DOMAIN,
+            "send_gcode",
+            {"device_id": device_id, "gcode": ["G28 X", "G1 X10"]},
+            blocking=True,
+        )
+    assert str(err.value) == "G-code failed on mainsail: Must home axis first"
+    assert await async_unload_entry(hass, config_entry)
+
+
+@pytest.mark.parametrize(
+    ("first_result", "first_message"),
+    [
+        ({"error": {"code": 400, "message": "Must home"}}, "Must home"),
+        (Exception("connection lost"), "could not send the command"),
+    ],
+)
+async def test_send_gcode_failure_does_not_stop_other_printers(
+    hass, first_result, first_message
+):
+    """Every printer receives the script, and the error names those that failed."""
+
+    entries = [
+        MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id=f"printer_{i}")
+        for i in (1, 2)
+    ]
+    dev_reg = dr.async_get(hass)
+    device_ids = []
+    for entry in entries:
+        entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        device = dr.async_entries_for_config_entry(dev_reg, entry.entry_id)[0]
+        dev_reg.async_update_device(device.id, name_by_user=entry.entry_id)
+        device_ids.append(device.id)
+
+    with (
+        patch(
+            "moonraker_api.MoonrakerClient.call_method",
+            new_callable=AsyncMock,
+            side_effect=[first_result, {"result": "ok"}],
+        ) as mock_call,
+        pytest.raises(HomeAssistantError) as err,
+    ):
+        await hass.services.async_call(
+            DOMAIN,
+            "send_gcode",
+            {"device_id": device_ids, "gcode": "G28"},
+            blocking=True,
+        )
+
+    assert mock_call.await_count == 2
+    assert str(err.value) == f"G-code failed on printer_1: {first_message}"
+    for entry in entries:
+        assert await async_unload_entry(hass, entry)
+
+
+async def test_send_gcode_error_names_all_failed_printers(hass):
+    """Each failed printer is listed, using the entry title without a device."""
+
+    entries = [
+        MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id=f"printer_{i}")
+        for i in (1, 2)
+    ]
+    for entry in entries:
+        entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    with (
+        patch(
+            "moonraker_api.MoonrakerClient.call_method",
+            new_callable=AsyncMock,
+            side_effect=[
+                {"error": {"code": 400, "message": "First"}},
+                {"error": {"code": 400, "message": "Second"}},
+            ],
+        ),
+        pytest.raises(HomeAssistantError) as err,
+    ):
+        await hass.services.async_call(
+            DOMAIN,
+            "send_gcode",
+            {"device_id": [entry.entry_id for entry in entries], "gcode": "G28"},
+            blocking=True,
+        )
+
+    assert str(err.value) == "G-code failed on mainsail: First; mainsail: Second"
+    for entry in entries:
+        assert await async_unload_entry(hass, entry)
+
+
+@pytest.mark.parametrize(
+    ("domain", "service", "entity_id", "data"),
+    [
+        ("button", "press", "button.mainsail_emergency_stop", {}),
+        ("number", "set_value", "number.mainsail_bed_target", {"value": 50}),
+        ("number", "set_value", "number.mainsail_output_pin_pwm", {"value": 10}),
+        ("switch", "turn_on", "switch.mainsail_output_pin_digital", {}),
+        ("switch", "turn_on", "switch.mainsail_printer", {}),
+        ("light", "turn_on", "light.mainsail_led_chamber", {"brightness": 77}),
+        ("light", "turn_off", "light.mainsail_led_chamber", {}),
+    ],
+)
+async def test_entity_reports_rejected_command(hass, domain, service, entity_id, data):
+    """Entities fail with Moonraker's message and keep their previous state."""
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="rejected")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    before = hass.states.get(entity_id)
+    assert before is not None
+
+    with (
+        patch(
+            "moonraker_api.MoonrakerClient.call_method",
+            new_callable=AsyncMock,
+            return_value={"error": {"code": 400, "message": "Rejected by Klipper"}},
+        ),
+        pytest.raises(HomeAssistantError, match="^Rejected by Klipper$"),
+    ):
+        await hass.services.async_call(
+            domain, service, {"entity_id": entity_id, **data}, blocking=True
+        )
+    await hass.async_block_till_done()
+
+    # HA records a button's last press even when the press fails
+    if domain != "button":
+        # Write the state again, as attributes held by the entity must not have
+        # changed either: the next write would show a value the printer rejected.
+        hass.data[domain].get_entity(entity_id).async_write_ha_state()
+        after = hass.states.get(entity_id)
+        assert after.state == before.state
+        assert after.attributes == before.attributes
+
     assert await async_unload_entry(hass, config_entry)
 
 

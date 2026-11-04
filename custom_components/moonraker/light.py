@@ -159,16 +159,10 @@ class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
 
     async def async_turn_off(self, **kwargs) -> None:
         """Turn off the light."""
-        self._attr_is_on = False
         await self._set_rgbw(0, 0, 0, 0)
 
     async def _set_rgbw(self, r: int, g: int, b: int, w: int) -> None:
-        """Update HA attributes."""
-        self._attr_rgb_color = (r, g, b)
-        self._attr_rgbw_color = (r, g, b, w)
-        self._attr_brightness = max(r, g, b, w)
-        self._attr_is_on = self._attr_brightness > 0
-        """Set native Value."""
+        """Send the color to the printer, then update HA attributes."""
         f_r = round(r / 255.0, 2)
         f_g = round(g / 255.0, 2)
         f_b = round(b / 255.0, 2)
@@ -179,6 +173,10 @@ class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
                 "script": f'SET_LED LED="{self.led_name}" RED={f_r} GREEN={f_g} BLUE={f_b} WHITE={f_w} SYNC=0 TRANSMIT=1'
             },
         )
+        self._attr_rgb_color = (r, g, b)
+        self._attr_rgbw_color = (r, g, b, w)
+        self._attr_brightness = max(r, g, b, w)
+        self._attr_is_on = self._attr_brightness > 0
         self.async_write_ha_state()
 
     @property
