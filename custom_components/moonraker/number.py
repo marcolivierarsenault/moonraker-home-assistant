@@ -52,10 +52,12 @@ async def async_setup_temperature_target(coordinator, entry, async_add_entities)
     config_response = await coordinator.async_fetch_data(
         METHODS.PRINTER_OBJECTS_QUERY, config_query, quiet=True
     )
-    config_settings = config_response["status"]["configfile"].get("settings", {})
+    config_settings = (
+        config_response.get("status", {}).get("configfile", {}).get("settings", {})
+    )
 
     object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
-    for obj in object_list["objects"]:
+    for obj in object_list.get("objects", []):
         if obj.startswith("heater_bed"):
             desc = MoonrakerNumberSensorDescription(
                 key=f"{obj}_target",
@@ -190,7 +192,7 @@ async def async_setup_output_pin(coordinator, entry, async_add_entities):
 
     numbers = []
 
-    for obj in object_list["objects"]:
+    for obj in object_list.get("objects", []):
         if not obj.startswith("output_pin "):
             continue
 
@@ -226,7 +228,7 @@ async def async_setup_speed_factor(coordinator, entry, async_add_entities):
     """Set up speed factor number entity."""
 
     object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
-    if "gcode_move" not in object_list["objects"]:
+    if "gcode_move" not in object_list.get("objects", []):
         return
 
     desc = MoonrakerNumberSensorDescription(
@@ -362,6 +364,12 @@ class MoonrakerPWMOutputPin(BaseMoonrakerEntity, NumberEntity):
         self._attr_native_value = value
         self.async_write_ha_state()
 
+    @property
+    def available(self) -> bool:
+        """Return True if last update succeeded and the pin's value is known."""
+        status = self.coordinator.data.get("status", {}).get(self.sensor_name)
+        return super().available and isinstance(status, dict) and "value" in status
+
     def _extract_native_value(self) -> float:
         """Return the current PWM value as percentage."""
         status = self.coordinator.data.get("status", {})
@@ -415,6 +423,17 @@ class MoonrakerNumber(BaseMoonrakerEntity, NumberEntity):
         )
         self._attr_native_value = value
         self.async_write_ha_state()
+
+    @property
+    def available(self) -> bool:
+        """Return True if last update succeeded and the current value is known."""
+        if not super().available:
+            return False
+        status_key = self.entity_description.status_key
+        if status_key is None:
+            return True
+        status = self.coordinator.data.get("status", {}).get(self.sensor_name)
+        return isinstance(status, dict) and status_key in status
 
     def _extract_native_value(self) -> float:
         """Return the current number value, falling back to zero when missing."""

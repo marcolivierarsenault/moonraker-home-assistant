@@ -1308,3 +1308,25 @@ async def test_polling_interval_no_change_on_same_state(hass, get_data):
         await coordinator._async_update_data()
         assert not mock_refresh.called
         assert coordinator.update_interval == timedelta(seconds=30)
+
+
+async def test_setup_while_klippy_not_ready(hass):
+    """Setup succeeds when Moonraker answers every query with an error."""
+    with (
+        patch("custom_components.moonraker.MoonrakerApiClient.start"),
+        patch(
+            "moonraker_api.MoonrakerClient.call_method",
+            return_value={
+                "error": {"code": 503, "message": "Klippy Host not connected"}
+            },
+        ),
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert config_entry.state.value == "loaded"
+    assert hass.states.get("sensor.1_2_3_4_printer_state").state == "unavailable"
+    for sensor in ("print_speed", "progress", "current_layer", "object_height"):
+        assert hass.states.get(f"sensor.1_2_3_4_{sensor}").state == "unavailable"
