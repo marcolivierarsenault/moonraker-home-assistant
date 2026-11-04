@@ -154,8 +154,11 @@ List of actions available to send command to the printer.
     - G-code command to send to the printer. *(You can send one command at a time)*
     - | **Target**: (DEVICE) Moonraker device to send the command to.
       | **G-Code**: Select the GCode command you want to send
+      | **Wait**: Wait for the command to finish (default on)
 
 If the printer rejects a command, for example because Klipper reports ``Must home axis first``, the action fails and shows Klipper's message. An automation or script stops at that step unless the step sets ``continue_on_error: true``.
+
+The action waits for the command to finish, for up to 120 seconds. If that time runs out, the action fails, but the printer may still be running the command. For long commands, such as filament changes or some homing and levelling macros, turn **Wait** off (``wait: false``). The action then only waits about 5 seconds per printer, so it still fails if the command is rejected straight away. The command carries on after that, and any later error appears in the Home Assistant log instead of failing the action.
 
 When several printers are selected, every printer still receives the command, and the error names each printer that failed.
 

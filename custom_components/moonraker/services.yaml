@@ -16,3 +16,9 @@ send_gcode:
       example: "G28"
       selector:
         text:
+    wait:
+      name: "Wait"
+      description: "Wait for the G-code to finish. Turn off for long commands: the action then only waits a few seconds, to catch an immediate rejection, and later errors go to the Home Assistant log."
+      default: true
+      selector:
+        boolean:

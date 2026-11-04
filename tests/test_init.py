@@ -1,5 +1,6 @@
 """Test moonraker setup process."""
 
+import asyncio
 import logging
 from datetime import timedelta
 from types import SimpleNamespace
@@ -1103,6 +1104,160 @@ async def test_entity_reports_rejected_command(hass, domain, service, entity_id,
     assert await async_unload_entry(hass, config_entry)
 
 
+async def _setup_gcode_printer(hass):
+    """Set up a printer and return its config entry and device id."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="no_wait")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    device = dr.async_entries_for_config_entry(
+        dr.async_get(hass), config_entry.entry_id
+    )[0]
+    return config_entry, device.id
+
+
+async def _call_send_gcode(hass, device_id, **data):
+    await hass.services.async_call(
+        DOMAIN,
+        "send_gcode",
+        {"device_id": device_id, "gcode": "LONG_MACRO", **data},
+        blocking=True,
+    )
+
+
+async def test_send_gcode_reports_timeout(hass):
+    """A timed out script fails, saying the printer may still be running it."""
+    config_entry, device_id = await _setup_gcode_printer(hass)
+
+    with (
+        patch(
+            "moonraker_api.MoonrakerClient.call_method",
+            new_callable=AsyncMock,
+            side_effect=TimeoutError,
+        ),
+        pytest.raises(HomeAssistantError, match="may still be running the command"),
+    ):
+        await _call_send_gcode(hass, device_id)
+
+    assert await async_unload_entry(hass, config_entry)
+
+
+@pytest.mark.parametrize(
+    ("outcome", "log_level", "logged"),
+    [
+        ({"result": "ok"}, None, None),
+        (
+            {"error": {"code": 400, "message": "Macro failed"}},
+            "ERROR",
+            "G-code failed on mainsail: Macro failed",
+        ),
+        (Exception("connection lost"), "ERROR", "the connection was lost"),
+        (TimeoutError(), "DEBUG", "may still be running the command"),
+    ],
+)
+async def test_send_gcode_no_wait_returns_while_running(
+    hass, caplog, outcome, log_level, logged
+):
+    """With wait off, the action returns and later outcomes go to the log."""
+    caplog.set_level(logging.DEBUG, logger="custom_components.moonraker")
+    config_entry, device_id = await _setup_gcode_printer(hass)
+    finish = asyncio.Event()
+
+    async def _long_command(*_args, **_kwargs):
+        await finish.wait()
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+    with (
+        patch("custom_components.moonraker.GCODE_REJECT_WINDOW", 0.01),
+        patch(
+            "moonraker_api.MoonrakerClient.call_method",
+            new_callable=AsyncMock,
+            side_effect=_long_command,
+        ) as mock_call,
+    ):
+        await _call_send_gcode(hass, device_id, wait=False)
+        assert not finish.is_set()
+        mock_call.assert_awaited_once_with(
+            METHODS.PRINTER_GCODE_SCRIPT.value, script="LONG_MACRO"
+        )
+        finish.set()
+        await hass.async_block_till_done(wait_background_tasks=True)
+
+    records = [
+        r
+        for r in caplog.records
+        if r.getMessage().startswith(("G-code failed", "Stopped waiting"))
+    ]
+    if log_level is None:
+        assert not records
+    else:
+        assert any(
+            r.levelname == log_level and logged in r.getMessage() for r in records
+        )
+        assert log_level == "ERROR" or not any(r.levelname == "ERROR" for r in records)
+
+    assert await async_unload_entry(hass, config_entry)
+
+
+@pytest.mark.parametrize(
+    ("result", "error"),
+    [
+        (None, None),
+        (
+            {"error": {"code": 400, "message": "Must home"}},
+            "G-code failed on mainsail: Must home",
+        ),
+    ],
+)
+async def test_send_gcode_no_wait_reports_immediate_result(hass, result, error):
+    """With wait off, an immediate rejection still fails the action."""
+    config_entry, device_id = await _setup_gcode_printer(hass)
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        new_callable=AsyncMock,
+        return_value=result,
+    ):
+        if error is None:
+            await _call_send_gcode(hass, device_id, wait=False)
+        else:
+            with pytest.raises(HomeAssistantError) as err:
+                await _call_send_gcode(hass, device_id, wait=False)
+            assert str(err.value) == error
+
+    assert await async_unload_entry(hass, config_entry)
+
+
+async def test_send_gcode_no_wait_cancelled_on_unload(hass, caplog):
+    """Unloading the entry cancels a script left running, without logging an error."""
+    config_entry, device_id = await _setup_gcode_printer(hass)
+    cancelled = asyncio.Event()
+
+    async def _never_finishes(*_args, **_kwargs):
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+
+    with (
+        patch("custom_components.moonraker.GCODE_REJECT_WINDOW", 0.01),
+        patch(
+            "moonraker_api.MoonrakerClient.call_method",
+            new_callable=AsyncMock,
+            side_effect=_never_finishes,
+        ),
+    ):
+        await _call_send_gcode(hass, device_id, wait=False)
+        assert await hass.config_entries.async_unload(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert cancelled.is_set()
+    assert "G-code failed" not in caplog.text
+
+
 async def test_send_gcode_empty_payload_skips_send(hass):
     """Ensure empty payloads do not call Moonraker."""
 
@@ -1190,6 +1345,8 @@ async def test_send_gcode_identifier_fallback(hass):
     identifier_device = SimpleNamespace(
         config_entry_id=None,
         identifiers={(DOMAIN, config_entry.entry_id)},
+        name="mainsail",
+        name_by_user=None,
     )
 
     def async_get_override(device_id):
@@ -1236,6 +1393,8 @@ async def test_send_gcode_legacy_config_entries(hass):
     legacy_device = SimpleNamespace(
         config_entries={config_entry.entry_id},
         identifiers=set(),
+        name="mainsail",
+        name_by_user=None,
     )
 
     def async_get_override(device_id):
