@@ -196,13 +196,17 @@ def get_user_name(hass: HomeAssistant, entry: ConfigEntry):
     return device_entries[0].name_by_user
 
 
-def _gcode_error_message(result: Any) -> str | None:
-    """Return the error message in a printer.gcode.script result, if any."""
-    if not isinstance(result, dict) or "error" not in result:
+def _moonraker_error_message(result: Any) -> str | None:
+    """Return the error message in a Moonraker call result, if any.
+
+    moonraker-api returns errors as the call's result ({"error": {...}}) instead
+    of raising them. Only that object form is an error: a power device named
+    "error" legitimately answers {"error": "on"}.
+    """
+    error = result.get("error") if isinstance(result, dict) else None
+    if not isinstance(error, dict):
         return None
-    error = result["error"]
-    message = error.get("message") if isinstance(error, dict) else error
-    return str(message) if message else "unknown error"
+    return str(error.get("message") or "unknown error")
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
@@ -302,6 +306,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             device_ids = list(raw_device_ids)
 
         processed_entries: set[str] = set()
+        failures: list[str] = []
 
         domain_entries = hass.data.get(DOMAIN, {})
 
@@ -351,14 +356,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                     "Sending G-code via entry %s for device %s", entry_id, device_id
                 )
 
-                result = await hass.data[DOMAIN][entry_id].async_send_data(
-                    METHODS.PRINTER_GCODE_SCRIPT,
-                    {"script": script},
-                )
-                # moonraker-api returns Klipper's error as the result
-                # ({"error": {...}}) instead of raising it
-                if message := _gcode_error_message(result):
-                    raise HomeAssistantError(f"G-code '{script}' failed: {message}")
+                coordinator = hass.data[DOMAIN][entry_id]
+                try:
+                    await coordinator.async_send_data(
+                        METHODS.PRINTER_GCODE_SCRIPT,
+                        {"script": script},
+                    )
+                except HomeAssistantError as err:
+                    # Keep going so one failing printer doesn't stop the others
+                    name = device and (device.name_by_user or device.name)
+                    failures.append(
+                        f"{name or coordinator.config_entry.title}: "
+                        f"{str(err) or 'could not send the command'}"
+                    )
+
+        if failures:
+            raise HomeAssistantError(f"G-code failed on {'; '.join(failures)}")
 
     # Register the new service
     hass.services.async_register(DOMAIN, "send_gcode", send_gcode_service)
@@ -590,7 +603,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             return _QuietUnreachableUpdateFailed(error)
         return UpdateFailed(error)
 
-    async def _async_send_data(self, query_path: METHODS, query_obj) -> Any:
+    async def _async_send_data(self, query_path: METHODS, query_obj) -> None:
         if not self.moonraker.client.is_connected:
             if not await _async_is_tcp_reachable(
                 self.config_entry.data.get(CONF_URL),
@@ -610,12 +623,15 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             await self.moonraker.start()
         try:
             if query_obj is None:
-                return await self.moonraker.client.call_method(query_path.value)
-            return await self.moonraker.client.call_method(
-                query_path.value, **query_obj
-            )
+                result = await self.moonraker.client.call_method(query_path.value)
+            else:
+                result = await self.moonraker.client.call_method(
+                    query_path.value, **query_obj
+                )
         except Exception as exception:
             raise UpdateFailed() from exception
+        if message := _moonraker_error_message(result):
+            raise HomeAssistantError(message)
 
     async def async_fetch_data(
         self,
