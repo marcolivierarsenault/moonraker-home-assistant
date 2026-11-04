@@ -148,6 +148,77 @@ async def test_sensors(hass):
     assert hass.states.get("sensor.mainsail_mixed_case_target") is None
 
 
+TEMPERATURE_SENSORS = [
+    # temperature_sensor, temperature_probe, temperature_fan, tmc2240 and
+    # environmental sensors (bme280, htu21d, aht10, aht20_f, sht3x, lm75)
+    "mainsail_mcu_temp",
+    "mainsail_eddy_temp",
+    "mainsail_fan_temp",
+    "mainsail_tmc2240_stepper_x_temp",
+    "mainsail_bme280_temp",
+    "mainsail_htu21d_temp",
+    "mainsail_aht10_temp",
+    "mainsail_heater_box1_temp",
+    "mainsail_sht3x_temp",
+    "mainsail_lm75_temp",
+    # extruders and the bed
+    "mainsail_bed_temperature",
+    "mainsail_extruder_temperature",
+    "mainsail_extruder1_temperature",
+    # heater_generic
+    "mainsail_my_super_heater_temperature",
+    "mainsail_mixed_case_temperature",
+]
+
+
+async def test_temperature_sensors_have_device_class(hass):
+    """Temperature sensors report the temperature device class."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    for sensor in TEMPERATURE_SENSORS:
+        state = hass.states.get(f"sensor.{sensor}")
+        assert state is not None, f"Missing sensor.{sensor}"
+        assert state.attributes["device_class"] == "temperature", sensor
+        assert state.attributes["unit_of_measurement"] == "°C", sensor
+        assert state.attributes["state_class"] == "measurement", sensor
+
+    # Power and humidity readings next to them are not temperatures
+    for sensor in ("mainsail_bed_power", "mainsail_heater_box1_humidity"):
+        state = hass.states.get(f"sensor.{sensor}")
+        assert state.attributes.get("device_class") != "temperature", sensor
+
+
+@pytest.mark.parametrize(
+    ("sensor", "device_class", "unit"),
+    [
+        ("mainsail_bme280_temp_pressure", "atmospheric_pressure", "hPa"),
+        ("mainsail_bme280_temp_humidity", "humidity", "%"),
+        ("mainsail_htu21d_temp_humidity", "humidity", "%"),
+        ("mainsail_aht10_temp_humidity", "humidity", "%"),
+        ("mainsail_sht3x_temp_humidity", "humidity", "%"),
+        ("mainsail_heater_box1_humidity", "humidity", "%"),
+        ("mainsail_heater_box2_humidity", "humidity", "%"),
+    ],
+)
+async def test_environmental_sensors_have_device_class(
+    hass, sensor, device_class, unit
+):
+    """Pressure and humidity sensors report their device class."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    state = hass.states.get(f"sensor.{sensor}")
+    assert state is not None, f"Missing sensor.{sensor}"
+    assert state.attributes["device_class"] == device_class
+    assert state.attributes["unit_of_measurement"] == unit
+    assert state.attributes["state_class"] == "measurement"
+
+
 async def test_idle_timeout_state_normalized(hass, get_data):
     """Idle timeout state should be title-cased regardless of source casing."""
     get_data["status"]["idle_timeout"]["state"] = "standby"
