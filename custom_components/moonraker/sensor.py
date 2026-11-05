@@ -402,10 +402,9 @@ async def _fan_sensor_descriptions(coordinator, obj, key, name, speed_suffix="")
             key=f"{key}_{speed_suffix.lower()}" if speed_suffix else key,
             status_key=obj,
             name=f"{name} {speed_suffix}" if speed_suffix else name,
-            value_fn=lambda sensor: sensor.coordinator.data["status"][
-                sensor.status_key
-            ]["speed"]
-            * 100,
+            value_fn=lambda sensor: (
+                sensor.coordinator.data["status"][sensor.status_key]["speed"] * 100
+            ),
             subscriptions=[(obj, "speed")],
             icon="mdi:fan",
             unit=PERCENTAGE,
