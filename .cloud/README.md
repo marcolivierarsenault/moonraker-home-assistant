@@ -10,7 +10,7 @@ Use this runbook when working in Codex Cloud for `moonraker-home-assistant`.
 - Run tests with required 100% coverage gate: `scripts/test_strict`
 - Run docs build after docs updates: `scripts/docs_build`
 - Run all pre-push checks: `scripts/prepush`
-- Version bump request: `scripts/version_bump major|minor|patch` (or `bump2version major|minor|patch`)
+- Version bump request: `scripts/version_bump major|minor|patch [--pre]`
 
 ## Pre-Push Checklist
 
@@ -20,6 +20,7 @@ Use this runbook when working in Codex Cloud for `moonraker-home-assistant`.
 
 ## Version Bump Rule
 
-- For version bump asks, run `bump2version major|minor|patch`.
-- `bump2version` already creates the commit in this repository configuration.
+- For version bump asks, run `scripts/version_bump major|minor|patch` (add `--pre` for a beta).
+- `scripts/version_bump` already creates the commit.
+- Releases are normally prepared with the Prepare release GitHub workflow (`docs/development/releases.md`).
 - After the bump completes, push the branch/commit.
