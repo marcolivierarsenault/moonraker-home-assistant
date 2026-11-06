@@ -14,6 +14,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
     CONF_API_KEY,
+    CONF_TLS,
     CONF_URL,
     CONF_OPTION_CAMERA_STREAM,
     CONF_OPTION_CAMERA_SNAPSHOT,
@@ -139,6 +140,7 @@ class PreviewCamera(Camera):
             identifiers={(DOMAIN, config_entry.entry_id)}
         )
         self.url = config_entry.data.get(CONF_URL)
+        self._scheme = "https" if config_entry.data.get(CONF_TLS) else "http"
         api_key = config_entry.data.get(CONF_API_KEY)
         self._headers = {"X-Api-Key": api_key} if api_key else None
         self.coordinator = coordinator
@@ -186,10 +188,10 @@ class PreviewCamera(Camera):
         new_path = new_path.replace(" ", "%20")
 
         _LOGGER.debug(
-            f"Fetching new thumbnail: http://{self.url}:{self.port}/server/files/gcodes/{new_path}"
+            f"Fetching new thumbnail: {self._scheme}://{self.url}:{self.port}/server/files/gcodes/{new_path}"
         )
         response = await self._session.get(
-            f"http://{self.url}:{self.port}/server/files/gcodes/{new_path}",
+            f"{self._scheme}://{self.url}:{self.port}/server/files/gcodes/{new_path}",
             headers=self._headers,
         )
 

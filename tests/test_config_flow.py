@@ -6,6 +6,7 @@ import pytest
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.moonraker.const import (
@@ -513,3 +514,38 @@ async def test_api_key_skips_login(hass, aioclient_mock):
     assert CONF_USERNAME not in result["data"]
     assert CONF_PASSWORD not in result["data"]
     assert aioclient_mock.call_count == 0
+
+
+@pytest.mark.usefixtures("bypass_connect_client")
+async def test_login_with_tls_verifies_certificate(hass, aioclient_mock):
+    """Test the login uses HTTPS with certificate verification when TLS is set."""
+    aioclient_mock.post(
+        "https://1.2.3.4:7125/access/login", json={"result": {"token": "jwt"}}
+    )
+    aioclient_mock.get(
+        "https://1.2.3.4:7125/access/api_key",
+        json={"result": "A7ylD3EuPWWxGlsshlCIJjzRBNbQzlre"},
+    )
+    aioclient_mock.post("https://1.2.3.4:7125/access/logout", json={"result": {}})
+
+    with patch(
+        "custom_components.moonraker.config_flow.async_get_clientsession",
+        wraps=async_get_clientsession,
+    ) as get_session:
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            user_input={
+                CONF_URL: "1.2.3.4",
+                CONF_TLS: True,
+                CONF_USERNAME: "admin",
+                CONF_PASSWORD: "secret",
+            },
+        )
+
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_API_KEY] == "A7ylD3EuPWWxGlsshlCIJjzRBNbQzlre"
+    assert all(call[1].scheme == "https" for call in aioclient_mock.mock_calls)
+    assert get_session.call_args_list[0].kwargs == {}

@@ -52,6 +52,12 @@ Moonraker username and password instead. The integration then logs in once,
 fetches the API key and stores only the key. The username and password are not
 saved.
 
+When "Uses TLS" is enabled, the login checks Moonraker's certificate, so the
+password is never sent to a server that cannot prove its identity. With a
+self-signed certificate the login fails: enter the API key directly instead.
+
+With "Uses TLS" enabled, the print thumbnail is also fetched over HTTPS.
+
 If the API key is regenerated in Moonraker, remove the integration and add it
 again.
 

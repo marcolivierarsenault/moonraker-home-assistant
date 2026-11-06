@@ -148,7 +148,7 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         try:
             async with asyncio.timeout(TIMEOUT):
                 return await async_fetch_api_key(
-                    async_get_clientsession(self.hass, verify_ssl=False),
+                    async_get_clientsession(self.hass),
                     user_input[CONF_URL],
                     port,
                     user_input[CONF_TLS],
