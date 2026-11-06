@@ -121,7 +121,8 @@ def _camera_url(config_entry, path) -> str:
     port = config_entry.options.get(CONF_OPTION_CAMERA_PORT)
     if port is None or port == "":
         port = DEFAULT_PORT
-    return f"http://{config_entry.data.get(CONF_URL)}:{port}{path}"
+    scheme = "https" if config_entry.data.get(CONF_TLS) else "http"
+    return f"{scheme}://{config_entry.data.get(CONF_URL)}:{port}{path}"
 
 
 class MoonrakerCamera(MjpegCamera):
@@ -174,6 +175,13 @@ class MoonrakerSnapshotCamera(Camera):
         self._snapshot_url = (
             _camera_url(config_entry, snapshot_url) if snapshot_url else None
         )
+        # Only send the API key to the printer itself, not to absolute URLs
+        api_key = config_entry.data.get(CONF_API_KEY)
+        self._headers = (
+            {"X-Api-Key": api_key}
+            if api_key and snapshot_url and not snapshot_url.startswith("http")
+            else None
+        )
         _LOGGER.info(
             f"Connecting to {camera.get('service')} camera via snapshots: "
             f"{self._snapshot_url}"
@@ -187,7 +195,9 @@ class MoonrakerSnapshotCamera(Camera):
         if self._snapshot_url is None:
             return None
         async with asyncio.timeout(SNAPSHOT_TIMEOUT):
-            response = await self._session.get(self._snapshot_url)
+            response = await self._session.get(
+                self._snapshot_url, headers=self._headers
+            )
             response.raise_for_status()
             return await response.read()
 

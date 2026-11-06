@@ -7,7 +7,8 @@ Camera
   * Webcams whose service is not an MJPEG stream (for example ``iframe`` or
     ``webrtc-*``) are shown by refreshing their snapshot URL instead of using the
     stream URL. This also covers the remote screen ("gui" webcam) of the Snapmaker
-    U1 extended firmware.
+    U1 extended firmware. Snapshots on the printer use HTTPS when TLS is enabled
+    and send the configured API key.
 
 * Thumbnail of the current print. (Your slicer needs to generate the thumbnail image) |thum_image|
 

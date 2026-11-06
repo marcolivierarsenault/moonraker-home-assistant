@@ -584,3 +584,55 @@ async def test_webrtc_camera_without_snapshot(hass, get_camera_info):
 
     with pytest.raises(Exception):
         await camera.async_get_image(hass, "camera.mainsail_webcam")
+
+
+async def test_snapshot_camera_sends_api_key_with_tls(
+    hass, get_camera_info, aioclient_mock
+):
+    """Test a snapshot camera on the printer uses TLS and sends the API key."""
+    get_camera_info["webcams"][0] = {
+        "name": "gui",
+        "service": "iframe",
+        "stream_url": "/screen/",
+        "snapshot_url": "/screen/snapshot",
+    }
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={**MOCK_CONFIG, CONF_TLS: True, CONF_API_KEY: "secret"},
+        entry_id="test",
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    aioclient_mock.get("https://1.2.3.4:80/screen/snapshot", content=b"image")
+    image = await camera.async_get_image(hass, "camera.mainsail_gui")
+
+    assert image.content == b"image"
+    assert aioclient_mock.mock_calls[-1][1].scheme == "https"
+    assert aioclient_mock.mock_calls[-1][3] == {"X-Api-Key": "secret"}
+
+
+async def test_snapshot_camera_absolute_url_no_api_key(
+    hass, get_camera_info, aioclient_mock
+):
+    """Test the API key is not sent to an absolute snapshot URL."""
+    get_camera_info["webcams"][0] = {
+        "name": "webcam",
+        "service": "webrtc-camerastreamer",
+        "stream_url": "/webcam/webrtc",
+        "snapshot_url": "http://5.6.7.8/snapshot.jpg",
+    }
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={**MOCK_CONFIG, CONF_API_KEY: "secret"},
+        entry_id="test",
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    aioclient_mock.get("http://5.6.7.8/snapshot.jpg", content=b"image")
+    await camera.async_get_image(hass, "camera.mainsail_webcam")
+
+    assert aioclient_mock.mock_calls[-1][3] is None
