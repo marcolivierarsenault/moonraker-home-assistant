@@ -121,6 +121,16 @@ A series of Numbers are available by default as slider. They are:
   * - Output pin pwm
     - Set a pwm output pin to a value.
     - From Moonraker API (*printer.gcode.script*)
+  * - Fan Speed
+    - Set the part cooling fan (``fan``) speed in percent.
+    - From Moonraker API (*printer.gcode.script*, ``M106``)
+  * - <Name> Speed
+    - Set the speed of each ``fan_generic`` in percent.
+    - From Moonraker API (*printer.gcode.script*, ``SET_FAN_SPEED``)
+
+The fan sliders show the speed reported by Klipper, which is also available as a
+read-only fan speed sensor (see :doc:`sensors`). The sensor duplicates the slider's
+value and keeps long-term statistics for history graphs.
 
 Default LEDs
 ---------------------------------

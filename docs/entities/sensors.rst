@@ -171,6 +171,11 @@ Optional Sensors
 -  For every optional fan object available in [``heater_fan``,
    ``controller_fan``, ``fan_generic``, ``fan``, ``chamber_fan``, ``temperature_fan``] we will create a sensor showing rpm if the data is available.
    For ``temperature_fan`` these sensors are named ``<Name> Speed`` and ``<Name> RPM``.
+-  The part cooling fan (``fan``) and every ``fan_generic`` also have a speed slider
+   (see :doc:`controls`). Their speed sensor shows the same value as the slider; it is
+   kept as a read-only entity with long-term statistics for history graphs.
+   ``heater_fan``, ``controller_fan``, ``chamber_fan`` and ``temperature_fan`` have no
+   speed slider, so their speed sensor is the only speed entity.
 -  For every optional temperature object available in
    [``temperature_sensor``, ``temperature_fan``, ``bme280``, ``htu21d``, ``aht10``, ``aht20_f``, ``sht3x``, ``lm75``]
    we will create a sensor showing sensor temperature.

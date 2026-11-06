@@ -640,25 +640,9 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 split_obj[1].replace("_", " ").title(),
             )
         elif obj == "fan":
-            query_obj = {OBJ: {"fan": ["rpm"]}}
-            fan_data = await coordinator.async_fetch_data(
-                METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
+            sensors += await _fan_sensor_descriptions(
+                coordinator, obj, obj, "Fan", speed_suffix="Speed"
             )
-
-            if fan_data.get("status", {}).get("fan", {}).get("rpm") is not None:
-                desc = MoonrakerSensorDescription(
-                    key="fan_rpm",
-                    name="Fan RPM",
-                    value_fn=lambda sensor: sensor.coordinator.data["status"]["fan"][
-                        "rpm"
-                    ],
-                    subscriptions=[("fan", "rpm")],
-                    icon="mdi:fan",
-                    unit=REVOLUTIONS_PER_MINUTE,
-                    state_class=SensorStateClass.MEASUREMENT,
-                    suggested_display_precision=0,
-                )
-                sensors.append(desc)
         elif split_obj[0] == "hall_filament_width_sensor":
             # Hall filament width sensor: expose Diameter (mm) and Raw readings
             query_obj = {OBJ: {obj: None}}
