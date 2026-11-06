@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-PYTEST_PLUGINS = "pytest_homeassistant_custom_component"
+PYTEST_PLUGINS = "pytest_homeassistant"
 
 
 # This fixture enables loading custom integrations in all tests.

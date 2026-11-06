@@ -10,7 +10,7 @@ from homeassistant.const import (
     SERVICE_TURN_OFF,
     SERVICE_TURN_ON,
 )
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.moonraker.const import DOMAIN, METHODS
 from custom_components.moonraker.switch import async_setup_output_pin

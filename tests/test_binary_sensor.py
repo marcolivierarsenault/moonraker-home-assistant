@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from homeassistant.helpers import entity_registry as er
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.moonraker.binary_sensor import (
     MoonrakerBinarySensor,

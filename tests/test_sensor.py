@@ -6,7 +6,7 @@ from unittest.mock import patch
 from homeassistant.helpers import entity_registry as er
 import pytest
 from homeassistant.helpers.entity_registry import async_get as get_entity_registry
-from pytest_homeassistant_custom_component.common import (
+from pytest_homeassistant.common import (
     MockConfigEntry,
     async_fire_time_changed,
 )

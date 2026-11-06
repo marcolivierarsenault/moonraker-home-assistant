@@ -17,7 +17,7 @@ from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
 )
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.moonraker import (
     MoonrakerDataUpdateCoordinator,
@@ -1695,7 +1695,7 @@ async def test_send_gcode_unknown_device_is_ignored(hass):
 async def test_polling_interval_changes_on_print_state(hass, get_data):
     """Test polling interval changes based on print state transitions."""
     from custom_components.moonraker.const import DOMAIN
-    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from pytest_homeassistant.common import MockConfigEntry
     from .const import MOCK_CONFIG
 
     # Set initial state to standby
@@ -1739,7 +1739,7 @@ async def test_polling_interval_changes_on_print_state(hass, get_data):
 async def test_polling_interval_no_change_on_same_state(hass, get_data):
     """Test polling interval does not change or reschedule if state is unchanged."""
     from custom_components.moonraker.const import DOMAIN
-    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from pytest_homeassistant.common import MockConfigEntry
     from .const import MOCK_CONFIG
 
     get_data["status"]["print_stats"]["state"] = PRINTSTATES.STANDBY.value
