@@ -3,14 +3,18 @@
 import asyncio
 import logging
 from contextlib import suppress
+from functools import partial
 import os.path
 import uuid
 from datetime import timedelta
 from typing import Any
 
+import voluptuous as vol
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -38,6 +42,14 @@ from .const import (
 from .sensor import SENSORS
 
 SCAN_INTERVAL = timedelta(seconds=30)
+
+# How long send_gcode with wait: false waits for the printer to reject a script
+GCODE_REJECT_WINDOW = 5
+
+# Only checks wait: Home Assistant adds the action's target fields to the data
+SEND_GCODE_SCHEMA = vol.Schema(
+    {vol.Optional("wait", default=True): cv.boolean}, extra=vol.ALLOW_EXTRA
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -209,6 +221,70 @@ def _moonraker_error_message(result: Any) -> str | None:
     return str(error.get("message") or "unknown error")
 
 
+class _CommandTimedOut(UpdateFailed):
+    """Moonraker didn't answer in time, which doesn't mean the command failed."""
+
+
+def _log_background_gcode_result(name: str, task: asyncio.Task) -> None:
+    """Log how a G-code script that was left running in the background ended."""
+    if task.cancelled():
+        return
+    err = task.exception()
+    if isinstance(err, _CommandTimedOut):
+        _LOGGER.debug("Stopped waiting for G-code on %s: %s", name, err)
+    elif err is not None:
+        _LOGGER.error(
+            "G-code failed on %s: %s", name, str(err) or "the connection was lost"
+        )
+
+
+async def _async_send_gcode(
+    hass: HomeAssistant, coordinator, script: str, name: str, wait: bool
+) -> None:
+    """Send a script, without waiting for it to finish if wait is off.
+
+    With wait off, return if the printer hasn't rejected the script after a
+    while, and leave it running in the background.
+    """
+    send = coordinator.async_send_data(METHODS.PRINTER_GCODE_SCRIPT, {"script": script})
+    if wait:
+        await send
+        return
+    task = coordinator.config_entry.async_create_background_task(
+        hass, send, f"moonraker send_gcode {name}"
+    )
+    done: set[asyncio.Task] = set()
+    try:
+        done, _ = await asyncio.wait({task}, timeout=GCODE_REJECT_WINDOW)
+    finally:
+        # Also when the action is cancelled, as the script carries on regardless
+        if not done:
+            task.add_done_callback(partial(_log_background_gcode_result, name))
+    if done:
+        task.result()
+
+
+async def _async_send_gcode_to_printers(
+    hass: HomeAssistant, targets: list[tuple[Any, str]], script: str, wait: bool
+) -> list[str]:
+    """Send a script to each (coordinator, name) and return the failures."""
+
+    async def _send(coordinator, name: str) -> str | None:
+        try:
+            await _async_send_gcode(hass, coordinator, script, name, wait)
+        except HomeAssistantError as err:
+            # Keep going so one failing printer doesn't stop the others
+            return f"{name}: {str(err) or 'could not send the command'}"
+        return None
+
+    if wait:
+        results = [await _send(*target) for target in targets]
+    else:
+        # Don't make one printer's reject window delay the next printer
+        results = await asyncio.gather(*(_send(*target) for target in targets))
+    return [failure for failure in results if failure]
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Set up this integration using UI."""
 
@@ -289,6 +365,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         """Handle the service call to send g-code."""
         gcode = service_call.data["gcode"]
         raw_device_ids = service_call.data["device_id"]
+        wait = service_call.data["wait"]
         dev_reg = dr.async_get(hass)
 
         if isinstance(gcode, list):
@@ -306,7 +383,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             device_ids = list(raw_device_ids)
 
         processed_entries: set[str] = set()
-        failures: list[str] = []
+        targets: list[tuple[Any, str]] = []
 
         domain_entries = hass.data.get(DOMAIN, {})
 
@@ -357,24 +434,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 )
 
                 coordinator = hass.data[DOMAIN][entry_id]
-                try:
-                    await coordinator.async_send_data(
-                        METHODS.PRINTER_GCODE_SCRIPT,
-                        {"script": script},
-                    )
-                except HomeAssistantError as err:
-                    # Keep going so one failing printer doesn't stop the others
-                    name = device and (device.name_by_user or device.name)
-                    failures.append(
-                        f"{name or coordinator.config_entry.title}: "
-                        f"{str(err) or 'could not send the command'}"
-                    )
+                name = (
+                    device and (device.name_by_user or device.name)
+                ) or coordinator.config_entry.title
+                targets.append((coordinator, name))
 
+        failures = await _async_send_gcode_to_printers(hass, targets, script, wait)
         if failures:
             raise HomeAssistantError(f"G-code failed on {'; '.join(failures)}")
 
     # Register the new service
-    hass.services.async_register(DOMAIN, "send_gcode", send_gcode_service)
+    hass.services.async_register(
+        DOMAIN, "send_gcode", send_gcode_service, schema=SEND_GCODE_SCHEMA
+    )
 
     return True
 
@@ -628,6 +700,11 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
                 result = await self.moonraker.client.call_method(
                     query_path.value, **query_obj
                 )
+        except TimeoutError as exception:
+            raise _CommandTimedOut(
+                "timed out waiting for the printer, which may still be running "
+                "the command"
+            ) from exception
         except Exception as exception:
             raise UpdateFailed() from exception
         if message := _moonraker_error_message(result):
