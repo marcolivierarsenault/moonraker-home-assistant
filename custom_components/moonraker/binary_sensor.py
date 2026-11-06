@@ -43,9 +43,9 @@ async def async_setup_optional_binary_sensors(coordinator, entry, async_add_enti
             desc = MoonrakerBinarySensorDescription(
                 key=f"{split_obj[0]}_{split_obj[1]}",
                 sensor_name=obj,
-                is_on_fn=lambda sensor: sensor.coordinator.data.get("status", {}).get(
-                    sensor.sensor_name, {}
-                )["filament_detected"],
+                is_on_fn=lambda sensor: sensor.coordinator.data["status"][
+                    sensor.sensor_name
+                ]["filament_detected"],
                 name=split_obj[1].replace("_", " ").title(),
                 subscriptions=[(obj, "filament_detected")],
                 icon="mdi:printer-3d-nozzle-alert",
@@ -65,9 +65,9 @@ async def async_setup_optional_binary_sensors(coordinator, entry, async_add_enti
                 MoonrakerBinarySensorDescription(
                     key=f"{base_key}_active",
                     sensor_name=obj,
-                    is_on_fn=lambda sensor: sensor.coordinator.data.get(
-                        "status", {}
-                    ).get(sensor.sensor_name, {})["is_active"],
+                    is_on_fn=lambda sensor: sensor.coordinator.data["status"][
+                        sensor.sensor_name
+                    ]["is_active"],
                     name=f"{base_name} Active",
                     subscriptions=[(obj, "is_active")],
                     icon="mdi:motion-sensor",
