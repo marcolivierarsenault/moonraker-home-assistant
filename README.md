@@ -20,6 +20,8 @@ This allows you home assistant to connect to your 3D printer and display:
 
 To access the list of all entities and their documentations, look at our [documentation](https://moonraker-home-assistant.readthedocs.io/en/latest/). The list of entities keeps growing on each versions :rocket: . Keep an eye on the releases.
 
+Beta versions (for example `1.14.0b0`) are published as GitHub pre-releases. To try them, enable beta versions for the Moonraker integration in HACS. Maintainers: the release process is described in [docs/development/releases.md](docs/development/releases.md).
+
 ## Hardware Limits
 
 This software seems to have issues working on **FLSUN Speeder Pad** and **Sonic Pad**, so those are unsuported.
