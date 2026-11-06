@@ -9,6 +9,8 @@ from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 import pytest
 from custom_components.moonraker.const import PRINTSTATES
 
+import voluptuous as vol
+
 from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import (
@@ -1256,6 +1258,154 @@ async def test_send_gcode_no_wait_cancelled_on_unload(hass, caplog):
 
     assert cancelled.is_set()
     assert "G-code failed" not in caplog.text
+
+
+async def test_send_gcode_no_wait_action_cancelled_still_logs(hass, caplog):
+    """Cancelling the action leaves the script running, and its error is logged."""
+    config_entry, device_id = await _setup_gcode_printer(hass)
+    started = asyncio.Event()
+    finish = asyncio.Event()
+
+    async def _long_command(*_args, **_kwargs):
+        started.set()
+        await finish.wait()
+        return {"error": {"code": 400, "message": "Macro failed"}}
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        new_callable=AsyncMock,
+        side_effect=_long_command,
+    ):
+        action = asyncio.create_task(_call_send_gcode(hass, device_id, wait=False))
+        await started.wait()
+        action.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await action
+        assert "G-code failed" not in caplog.text
+
+        finish.set()
+        await hass.async_block_till_done(wait_background_tasks=True)
+
+    assert "G-code failed on mainsail: Macro failed" in caplog.text
+    assert await async_unload_entry(hass, config_entry)
+
+
+@pytest.mark.parametrize(
+    ("wait", "max_running"),
+    [(True, 1), (False, 2)],
+)
+async def test_send_gcode_several_printers_order(hass, wait, max_running):
+    """With wait off printers get the script together, with it on one at a time."""
+    entries = [
+        MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id=f"printer_{i}")
+        for i in (1, 2)
+    ]
+    for entry in entries:
+        entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    running = 0
+    most_running = 0
+
+    async def _command(*_args, **_kwargs):
+        nonlocal running, most_running
+        running += 1
+        most_running = max(most_running, running)
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        running -= 1
+        return {"result": "ok"}
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        new_callable=AsyncMock,
+        side_effect=_command,
+    ) as mock_call:
+        await hass.services.async_call(
+            DOMAIN,
+            "send_gcode",
+            {
+                "device_id": [entry.entry_id for entry in entries],
+                "gcode": "G28",
+                "wait": wait,
+            },
+            blocking=True,
+        )
+
+    assert mock_call.await_count == 2
+    assert most_running == max_running
+    for entry in entries:
+        assert await async_unload_entry(hass, entry)
+
+
+async def test_send_gcode_no_wait_names_failed_printers(hass):
+    """With wait off, every printer that rejects the script is named, in order."""
+    entries = [
+        MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id=f"printer_{i}")
+        for i in (1, 2)
+    ]
+    for entry in entries:
+        entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    with (
+        patch(
+            "moonraker_api.MoonrakerClient.call_method",
+            new_callable=AsyncMock,
+            side_effect=[
+                {"error": {"code": 400, "message": "First"}},
+                {"error": {"code": 400, "message": "Second"}},
+            ],
+        ),
+        pytest.raises(HomeAssistantError) as err,
+    ):
+        await hass.services.async_call(
+            DOMAIN,
+            "send_gcode",
+            {
+                "device_id": [entry.entry_id for entry in entries],
+                "gcode": "G28",
+                "wait": False,
+            },
+            blocking=True,
+        )
+
+    assert str(err.value) == "G-code failed on mainsail: First; mainsail: Second"
+    for entry in entries:
+        assert await async_unload_entry(hass, entry)
+
+
+async def test_send_gcode_wait_as_text(hass):
+    """Text such as "false" counts as off, and an invalid value sends nothing."""
+    config_entry, device_id = await _setup_gcode_printer(hass)
+    finish = asyncio.Event()
+
+    async def _long_command(*_args, **_kwargs):
+        await finish.wait()
+        return {"result": "ok"}
+
+    with (
+        patch("custom_components.moonraker.GCODE_REJECT_WINDOW", 0.01),
+        patch(
+            "moonraker_api.MoonrakerClient.call_method",
+            new_callable=AsyncMock,
+            side_effect=_long_command,
+        ) as mock_call,
+    ):
+        with pytest.raises(vol.Invalid):
+            await _call_send_gcode(hass, device_id, wait="sometimes")
+        mock_call.assert_not_awaited()
+
+        await _call_send_gcode(hass, device_id, wait="false")
+        assert not finish.is_set()
+        mock_call.assert_awaited_once()
+
+        finish.set()
+        await hass.async_block_till_done(wait_background_tasks=True)
+
+    assert await async_unload_entry(hass, config_entry)
 
 
 async def test_send_gcode_empty_payload_skips_send(hass):

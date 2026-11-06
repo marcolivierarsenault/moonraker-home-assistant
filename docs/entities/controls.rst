@@ -158,7 +158,7 @@ List of actions available to send command to the printer.
 
 If the printer rejects a command, for example because Klipper reports ``Must home axis first``, the action fails and shows Klipper's message. An automation or script stops at that step unless the step sets ``continue_on_error: true``.
 
-The action waits for the command to finish, for up to 120 seconds. If that time runs out, the action fails, but the printer may still be running the command. For long commands, such as filament changes or some homing and levelling macros, turn **Wait** off (``wait: false``). The action then only waits about 5 seconds per printer, so it still fails if the command is rejected straight away. The command carries on after that, and any later error appears in the Home Assistant log instead of failing the action.
+The action waits for the command to finish, for up to 120 seconds. If that time runs out, the action fails, but the printer may still be running the command. For long commands, such as filament changes or some homing and levelling macros, turn **Wait** off (``wait: false``). The action then only waits about 5 seconds, however many printers are selected, so it still fails if the command is rejected straight away. The command carries on after that. An error in about the next two minutes appears in the Home Assistant log instead of failing the action, and a later error isn't reported to Home Assistant, so check the printer's console.
 
 When several printers are selected, every printer still receives the command, and the error names each printer that failed.
 

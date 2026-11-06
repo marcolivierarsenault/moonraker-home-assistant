@@ -9,9 +9,12 @@ import uuid
 from datetime import timedelta
 from typing import Any
 
+import voluptuous as vol
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -42,6 +45,11 @@ SCAN_INTERVAL = timedelta(seconds=30)
 
 # How long send_gcode with wait: false waits for the printer to reject a script
 GCODE_REJECT_WINDOW = 5
+
+# Only checks wait: Home Assistant adds the action's target fields to the data
+SEND_GCODE_SCHEMA = vol.Schema(
+    {vol.Optional("wait", default=True): cv.boolean}, extra=vol.ALLOW_EXTRA
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -245,11 +253,36 @@ async def _async_send_gcode(
     task = coordinator.config_entry.async_create_background_task(
         hass, send, f"moonraker send_gcode {name}"
     )
-    done, _ = await asyncio.wait({task}, timeout=GCODE_REJECT_WINDOW)
+    done: set[asyncio.Task] = set()
+    try:
+        done, _ = await asyncio.wait({task}, timeout=GCODE_REJECT_WINDOW)
+    finally:
+        # Also when the action is cancelled, as the script carries on regardless
+        if not done:
+            task.add_done_callback(partial(_log_background_gcode_result, name))
     if done:
         task.result()
+
+
+async def _async_send_gcode_to_printers(
+    hass: HomeAssistant, targets: list[tuple[Any, str]], script: str, wait: bool
+) -> list[str]:
+    """Send a script to each (coordinator, name) and return the failures."""
+
+    async def _send(coordinator, name: str) -> str | None:
+        try:
+            await _async_send_gcode(hass, coordinator, script, name, wait)
+        except HomeAssistantError as err:
+            # Keep going so one failing printer doesn't stop the others
+            return f"{name}: {str(err) or 'could not send the command'}"
+        return None
+
+    if wait:
+        results = [await _send(*target) for target in targets]
     else:
-        task.add_done_callback(partial(_log_background_gcode_result, name))
+        # Don't make one printer's reject window delay the next printer
+        results = await asyncio.gather(*(_send(*target) for target in targets))
+    return [failure for failure in results if failure]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
@@ -332,7 +365,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         """Handle the service call to send g-code."""
         gcode = service_call.data["gcode"]
         raw_device_ids = service_call.data["device_id"]
-        wait = service_call.data.get("wait", True)
+        wait = service_call.data["wait"]
         dev_reg = dr.async_get(hass)
 
         if isinstance(gcode, list):
@@ -350,7 +383,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             device_ids = list(raw_device_ids)
 
         processed_entries: set[str] = set()
-        failures: list[str] = []
+        targets: list[tuple[Any, str]] = []
 
         domain_entries = hass.data.get(DOMAIN, {})
 
@@ -404,19 +437,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 name = (
                     device and (device.name_by_user or device.name)
                 ) or coordinator.config_entry.title
-                try:
-                    await _async_send_gcode(hass, coordinator, script, name, wait)
-                except HomeAssistantError as err:
-                    # Keep going so one failing printer doesn't stop the others
-                    failures.append(
-                        f"{name}: {str(err) or 'could not send the command'}"
-                    )
+                targets.append((coordinator, name))
 
+        failures = await _async_send_gcode_to_printers(hass, targets, script, wait)
         if failures:
             raise HomeAssistantError(f"G-code failed on {'; '.join(failures)}")
 
     # Register the new service
-    hass.services.async_register(DOMAIN, "send_gcode", send_gcode_service)
+    hass.services.async_register(
+        DOMAIN, "send_gcode", send_gcode_service, schema=SEND_GCODE_SCHEMA
+    )
 
     return True
 

@@ -18,7 +18,7 @@ send_gcode:
         text:
     wait:
       name: "Wait"
-      description: "Wait for the G-code to finish. Turn off for long commands: the action then only waits a few seconds, to catch an immediate rejection, and later errors go to the Home Assistant log."
+      description: "Wait for the G-code to finish. Turn off for long commands: the action then only waits a few seconds, to catch an immediate rejection. Errors in about the next two minutes go to the Home Assistant log, and later ones aren't reported."
       default: true
       selector:
         boolean:
