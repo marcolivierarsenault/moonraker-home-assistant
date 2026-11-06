@@ -8,6 +8,20 @@
           "port": "Puerto",
           "tls": "Usa TLS",
           "api_key": "Clave de la API (opcional)",
+          "username": "Usuario (opcional, para obtener la clave de la API)",
+          "password": "Contraseña (opcional)",
+          "printer_name": "Nombre de la impresora (por defecto, el nombre del servidor)"
+        }
+      },
+      "reconfigure": {
+        "description": "Cambie la información de conexión de Moonraker. Las entidades y su historial se conservan.",
+        "data": {
+          "url": "Servidor",
+          "port": "Puerto",
+          "tls": "Usa TLS",
+          "api_key": "Clave de la API (opcional)",
+          "username": "Usuario (opcional, para obtener la clave de la API)",
+          "password": "Contraseña (opcional)",
           "printer_name": "Nombre de la impresora (por defecto, el nombre del servidor)"
         }
       }
@@ -16,8 +30,12 @@
       "host_error": "Servidor no válido. No incluya \"http://\", \"https://\", ni una barra oblicua al final.",
       "port_error": "Puerto no válido, debe ser un número entre 1 y 65535.",
       "api_key_error": "Clave de la API no válida, debe tener 32 caracteres alfanuméricos.",
+      "auth_error": "Error al iniciar sesión. Comprueba el usuario y la contraseña.",
       "printer_name_error": "Nombre de la impresora no válido.",
       "printer_connection_error": "Fallo al conectar."
+    },
+    "abort": {
+      "reconfigure_successful": "Se actualizó la configuración de conexión de la impresora."
     }
   },
   "options": {
