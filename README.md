@@ -40,7 +40,7 @@ Requires Home Assistant 2025.1 or newer.
 - In the sidebar, click 'Configuration', then 'Devices & Services'. Click the + icon to add "Moonraker" to your Home Assistant installation.
   - Enter the host or IP of your Moonraker installation.
   - Change your printer's port if you don't use the default of 7125.
-  - Optionally enter your API key if you have required one in Moonraker.
+  - Optionally enter your API key if you have required one in Moonraker. If you only know your login, enter your Moonraker username and password instead and the integration fetches the API key for you.
   - Optionally specify your printer's name if you don't want to use the hostname of your moonraker installation.
 - To change these settings later, for example after the printer's IP changes, select `Reconfigure` in the menu of the printer entry. Entities and their history are kept.
 

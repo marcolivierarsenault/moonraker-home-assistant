@@ -8,6 +8,8 @@
           "port": "Port",
           "tls": "Utilise TLS",
           "api_key": "Clé API (facultatif)",
+          "username": "Nom d'utilisateur (facultatif, pour obtenir la clé API)",
+          "password": "Mot de passe (facultatif)",
           "printer_name": "Nom de l'imprimante (par défaut, le nom d'hôte)"
         }
       },
@@ -18,6 +20,8 @@
           "port": "Port",
           "tls": "Utilise TLS",
           "api_key": "Clé API (facultatif)",
+          "username": "Nom d'utilisateur (facultatif, pour obtenir la clé API)",
+          "password": "Mot de passe (facultatif)",
           "printer_name": "Nom de l'imprimante (par défaut, le nom d'hôte)"
         }
       }
@@ -26,6 +30,7 @@
       "host_error": "Hôte non valide. N'incluez pas « http:// », « https:// », ni de barre oblique finale.",
       "port_error": "Port non valide, doit être un nombre entre 1 et 65535.",
       "api_key_error": "Clé API non valide, doit comporter 32 caractères alphanumériques.",
+      "auth_error": "Échec de la connexion. Vérifiez le nom d'utilisateur et le mot de passe.",
       "printer_name_error": "Nom d'imprimante non valide.",
       "printer_connection_error": "Échec de la connexion."
     },

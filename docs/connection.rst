@@ -27,12 +27,40 @@ Connection properties can be defined as follows:
   * - API Key
     -
     - Moonraker API key
+  * - Username
+    -
+    - Moonraker user, only used to fetch the API key
+  * - Password
+    -
+    - Password of the Moonraker user
   * - Printer's Name
     - Host address
     - Device name in Home Assistant
 
 Note: Encrypted connections must be configured in Moonraker API or by using a
 reverse proxy to connect to Moonraker API.
+
+
+Authentication
+-------------------------------------
+
+If Moonraker requires authorization (for example when logins are required in
+Fluidd or Mainsail), the integration needs the Moonraker API key.
+
+You can either enter the API key directly, or leave it empty and enter a
+Moonraker username and password instead. The integration then logs in once,
+fetches the API key and stores only the key. The username and password are not
+saved.
+
+When "Uses TLS" is enabled, the login checks Moonraker's certificate, so the
+password is never sent to a server that cannot prove its identity. With a
+self-signed certificate the login fails: enter the API key directly instead.
+
+With "Uses TLS" enabled, the print thumbnail is also fetched over HTTPS.
+
+If the API key is regenerated in Moonraker, select ``Reconfigure`` on the
+printer entry and enter the new key, or clear the API key field and enter the
+username and password again.
 
 
 Polling Rate Configuration
