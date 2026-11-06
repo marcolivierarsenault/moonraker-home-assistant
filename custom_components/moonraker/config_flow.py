@@ -1,6 +1,7 @@
 """Adds config flow for Moonraker."""
 
 import asyncio
+import contextlib
 import logging
 
 from typing import Any
@@ -53,39 +54,7 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self._errors = {}
 
         if user_input is not None:
-            if not await self._test_host(user_input[CONF_URL]):
-                self._errors[CONF_URL] = "host_error"
-                return await self._show_config_form(user_input)
-
-            if not await self._test_port(user_input[CONF_PORT]):
-                self._errors[CONF_PORT] = "port_error"
-                return await self._show_config_form(user_input)
-
-            if not await self._test_api_key(user_input[CONF_API_KEY]):
-                self._errors[CONF_API_KEY] = "api_key_error"
-                return await self._show_config_form(user_input)
-
-            username = user_input.pop(CONF_USERNAME, "")
-            password = user_input.pop(CONF_PASSWORD, "")
-            if username and not user_input[CONF_API_KEY]:
-                api_key = await self._fetch_api_key(user_input, username, password)
-                if api_key is None:
-                    self._errors[CONF_USERNAME] = "auth_error"
-                    user_input[CONF_USERNAME] = username
-                    return await self._show_config_form(user_input)
-                user_input[CONF_API_KEY] = api_key
-
-            if not await self._test_printer_name(user_input[CONF_PRINTER_NAME]):
-                self._errors[CONF_PRINTER_NAME] = "printer_name_error"
-                return await self._show_config_form(user_input)
-
-            if not await self._test_connection(
-                user_input[CONF_URL],
-                user_input[CONF_PORT],
-                user_input[CONF_API_KEY],
-                user_input[CONF_TLS],
-            ):
-                self._errors[CONF_URL] = "printer_connection_error"
+            if not await self._async_validate_input(user_input):
                 return await self._show_config_form(user_input)
 
             # changer DOMAIN pour name
@@ -101,6 +70,73 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         user_input[CONF_PRINTER_NAME] = ""
 
         return await self._show_config_form(user_input)
+
+    async def async_step_reconfigure(self, user_input=None):
+        """Change the connection settings of an existing entry."""
+        self._errors = {}
+        entry = self._get_reconfigure_entry()
+
+        if user_input is not None:
+            if await self._async_validate_input(user_input):
+                self.hass.config_entries.async_update_entry(
+                    entry, data={**entry.data, **user_input}
+                )
+                # A loaded entry reloads through its update listener.
+                if not entry.update_listeners:
+                    self.hass.config_entries.async_schedule_reload(entry.entry_id)
+                return self.async_abort(reason="reconfigure_successful")
+            suggested_values = user_input
+        else:
+            suggested_values = {
+                CONF_URL: entry.data.get(CONF_URL, ""),
+                CONF_PORT: str(entry.data.get(CONF_PORT) or ""),
+                CONF_TLS: entry.data.get(CONF_TLS, False),
+                CONF_API_KEY: entry.data.get(CONF_API_KEY, ""),
+                CONF_PRINTER_NAME: entry.data.get(CONF_PRINTER_NAME, ""),
+            }
+
+        # Suggested values instead of defaults, so cleared fields stay empty.
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(
+                vol.Schema(
+                    {
+                        vol.Required(CONF_URL): str,
+                        vol.Optional(CONF_PORT, default=""): str,
+                        vol.Optional(CONF_TLS, default=False): bool,
+                        vol.Optional(CONF_API_KEY, default=""): str,
+                        vol.Optional(CONF_USERNAME, default=""): str,
+                        vol.Optional(CONF_PASSWORD, default=""): TextSelector(
+                            TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                        ),
+                        vol.Optional(CONF_PRINTER_NAME, default=""): str,
+                    }
+                ),
+                suggested_values,
+            ),
+            errors=self._errors,
+        )
+
+    async def _async_validate_input(self, user_input) -> bool:
+        """Validate the connection settings, storing errors in self._errors."""
+        if not await self._test_host(user_input[CONF_URL]):
+            self._errors[CONF_URL] = "host_error"
+        elif not await self._test_port(user_input[CONF_PORT]):
+            self._errors[CONF_PORT] = "port_error"
+        elif not await self._test_api_key(user_input[CONF_API_KEY]):
+            self._errors[CONF_API_KEY] = "api_key_error"
+        elif not await self._async_login(user_input):
+            self._errors[CONF_USERNAME] = "auth_error"
+        elif not await self._test_printer_name(user_input[CONF_PRINTER_NAME]):
+            self._errors[CONF_PRINTER_NAME] = "printer_name_error"
+        elif not await self._test_connection(
+            user_input[CONF_URL],
+            user_input[CONF_PORT],
+            user_input[CONF_API_KEY],
+            user_input[CONF_TLS],
+        ):
+            self._errors[CONF_URL] = "printer_connection_error"
+        return not self._errors
 
     async def _show_config_form(self, user_input):  # pylint: disable=unused-argument
         """Show the configuration form to edit location data."""
@@ -141,6 +177,19 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if api_key != "":
             if not api_key.isalnum() or len(api_key) != 32:
                 return False
+        return True
+
+    async def _async_login(self, user_input) -> bool:
+        """Swap entered credentials for the API key, keeping them out of the entry."""
+        username = user_input.pop(CONF_USERNAME, "")
+        password = user_input.pop(CONF_PASSWORD, "")
+        if not username or user_input[CONF_API_KEY]:
+            return True
+        api_key = await self._fetch_api_key(user_input, username, password)
+        if api_key is None:
+            user_input[CONF_USERNAME] = username
+            return False
+        user_input[CONF_API_KEY] = api_key
         return True
 
     async def _fetch_api_key(self, user_input, username, password):
@@ -184,6 +233,9 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 return True
         except Exception:
             return False
+        finally:
+            with contextlib.suppress(Exception):
+                await api.stop()
 
     @staticmethod
     @callback

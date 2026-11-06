@@ -12,6 +12,18 @@
           "password": "Mot de passe (facultatif)",
           "printer_name": "Nom de l'imprimante (par défaut, le nom d'hôte)"
         }
+      },
+      "reconfigure": {
+        "description": "Modifier les informations de connexion Moonraker. Les entités et leur historique sont conservés.",
+        "data": {
+          "url": "Hôte",
+          "port": "Port",
+          "tls": "Utilise TLS",
+          "api_key": "Clé API (facultatif)",
+          "username": "Nom d'utilisateur (facultatif, pour obtenir la clé API)",
+          "password": "Mot de passe (facultatif)",
+          "printer_name": "Nom de l'imprimante (par défaut, le nom d'hôte)"
+        }
       }
     },
     "error": {
@@ -21,6 +33,9 @@
       "auth_error": "Échec de la connexion. Vérifiez le nom d'utilisateur et le mot de passe.",
       "printer_name_error": "Nom d'imprimante non valide.",
       "printer_connection_error": "Échec de la connexion."
+    },
+    "abort": {
+      "reconfigure_successful": "Les paramètres de connexion de l'imprimante ont été mis à jour."
     }
   },
   "options": {

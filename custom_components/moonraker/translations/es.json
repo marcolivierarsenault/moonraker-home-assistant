@@ -12,6 +12,18 @@
           "password": "Contraseña (opcional)",
           "printer_name": "Nombre de la impresora (por defecto, el nombre del servidor)"
         }
+      },
+      "reconfigure": {
+        "description": "Cambie la información de conexión de Moonraker. Las entidades y su historial se conservan.",
+        "data": {
+          "url": "Servidor",
+          "port": "Puerto",
+          "tls": "Usa TLS",
+          "api_key": "Clave de la API (opcional)",
+          "username": "Usuario (opcional, para obtener la clave de la API)",
+          "password": "Contraseña (opcional)",
+          "printer_name": "Nombre de la impresora (por defecto, el nombre del servidor)"
+        }
       }
     },
     "error": {
@@ -21,6 +33,9 @@
       "auth_error": "Error al iniciar sesión. Comprueba el usuario y la contraseña.",
       "printer_name_error": "Nombre de la impresora no válido.",
       "printer_connection_error": "Fallo al conectar."
+    },
+    "abort": {
+      "reconfigure_successful": "Se actualizó la configuración de conexión de la impresora."
     }
   },
   "options": {

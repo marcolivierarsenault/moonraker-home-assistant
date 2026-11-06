@@ -47,6 +47,10 @@ DEFAULT_VALUES = [
     ("mainsail_extruder_power", "66.6710806392505"),
     ("mainsail_fan_rpm", "3000.12321"),
     ("mainsail_fan_temp", "32.43"),
+    ("mainsail_fan_temp_speed", "50.0"),
+    ("mainsail_fan_temp_rpm", "1500.0"),
+    ("mainsail_fan_case_speed", "100.0"),
+    ("mainsail_missing_config_speed", "25.0"),
     ("mainsail_tmc2240_stepper_x_temp", "32.43"),
     ("mainsail_bme280_temp", "32.43"),
     ("mainsail_htu21d_temp", "32.43"),
@@ -339,6 +343,40 @@ async def test_sensors_not_printing(
     await hass.async_block_till_done()
 
     assert hass.states.get(f"sensor.{sensor_not_printing}").state == value
+
+
+@pytest.mark.parametrize(
+    "print_state",
+    [
+        PRINTSTATES.PAUSED.value,
+        PRINTSTATES.COMPLETE.value,
+        PRINTSTATES.CANCELLED.value,
+        PRINTSTATES.ERROR.value,
+    ],
+)
+@pytest.mark.parametrize(
+    "sensor, value",
+    [
+        ("mainsail_filename", "CE3E3V2_picture_frame_holder.gcode"),
+        ("mainsail_print_duration", "133.575469144767"),
+        ("mainsail_filament_used", "5.0"),
+    ],
+)
+async def test_job_sensors_kept_until_standby(
+    hass,
+    print_state,
+    sensor,
+    value,
+    get_data,
+):
+    """Job sensors keep the last job's values until the printer is in standby."""
+    get_data["status"]["print_stats"]["state"] = print_state
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get(f"sensor.{sensor}").state == value
 
 
 async def test_print_speed_missing_speed(hass, get_data):
@@ -689,6 +727,26 @@ async def test_no_fan_rpm(hass, get_data, get_printer_objects_list):
 
     # Already None in the data
     assert hass.states.get("sensor.mainsail_heater_fan_rpm") is None
+    assert hass.states.get("sensor.mainsail_fan_case_rpm") is None
+
+    # Field missing from the data
+    assert hass.states.get("sensor.mainsail_missing_config_rpm") is None
+
+
+async def test_stopped_fan_rpm(hass, get_data, get_printer_objects_list):
+    """Test a stopped fan with a tachometer still gets an RPM sensor."""
+    get_data["status"]["temperature_fan fan_temp"]["rpm"] = 0.0
+    get_data["status"]["heater_fan heater_fan"]["rpm"] = 0.0
+    get_data["status"]["fan"]["rpm"] = 0.0
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.mainsail_fan_temp_rpm").state == "0.0"
+    assert hass.states.get("sensor.mainsail_heater_fan_rpm").state == "0.0"
+    assert hass.states.get("sensor.mainsail_fan_rpm").state == "0.0"
 
 
 async def test_multi_mcu_sensor_data(hass, get_data, get_printer_objects_list):

@@ -58,8 +58,9 @@ self-signed certificate the login fails: enter the API key directly instead.
 
 With "Uses TLS" enabled, the print thumbnail is also fetched over HTTPS.
 
-If the API key is regenerated in Moonraker, remove the integration and add it
-again.
+If the API key is regenerated in Moonraker, select ``Reconfigure`` on the
+printer entry and enter the new key, or clear the API key field and enter the
+username and password again.
 
 
 Polling Rate Configuration
@@ -105,27 +106,13 @@ Reload the integration once Klipper is ready to add them.
 Change IP/Hostname of your printer
 -------------------------------------
 
-If you want to change the IP/Hostname of your printer, you can do it by either deleting the integration and adding it again or by changing the IP/Hostname in the integration configuration or by manually changing the value in your Home Assistant configuration file.
+To change the host, port, TLS setting, API key or printer name of an existing printer,
+open ``Settings`` > ``Devices & Services`` > ``Moonraker``, open the menu of the printer
+entry and select ``Reconfigure``.
 
-Go in `whateverConfigFolderYouHave/.storage/core.config_entries` and you should see a JSON entry with the printer IP/Hostname.
+The new settings are validated by connecting to the printer, then the integration is reloaded.
+The printer keeps its entities, entity IDs and history, so dashboards and automations keep working.
+This also works while the printer is unavailable because its old address no longer answers.
 
-.. code-block:: JSON
-
-  {"created_at":"2024-08-10T11:58:41.082494+00:00",
-  "data":{"api_key":"","port":"7125","printer_name":"","tls":false,"url":"192.168.x.xx"},
-  "disabled_by":null,
-  "discovery_keys":{},
-  "domain":"moonraker",
-  "entry_id":"01J4Y2FDDTP0TKYYJX3RWYG79F",
-  "minor_version":1,
-  "modified_at":"2024-08-10T11:58:41.093068+00:00",
-  "options":{},
-  "pref_disable_new_entities":false,
-  "pref_disable_polling":false,
-  "source":"user",
-  "title":"mainsail",
-  "unique_id":null,
-  "version":1
-  },
-
-Change the IP/Hostname in the `url` field and restart Home Assistant.
+Clearing the printer name makes the integration fall back to the hostname reported by Moonraker.
+A name set on the device in Home Assistant always takes precedence over both.

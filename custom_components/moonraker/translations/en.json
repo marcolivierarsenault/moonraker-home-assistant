@@ -12,6 +12,18 @@
           "password": "Password (Optional)",
           "printer_name": "Printer's Name (Defaults to the hostname)"
         }
+      },
+      "reconfigure": {
+        "description": "Change the Moonraker connection information. Entities and their history are kept.",
+        "data": {
+          "url": "Host",
+          "port": "Port",
+          "tls": "Uses TLS",
+          "api_key": "API Key (Optional)",
+          "username": "Username (Optional, used to fetch the API key)",
+          "password": "Password (Optional)",
+          "printer_name": "Printer's Name (Defaults to the hostname)"
+        }
       }
     },
     "error": {
@@ -21,6 +33,9 @@
       "auth_error": "Login failed. Check the username and password.",
       "printer_name_error": "Invalid printer name.",
       "printer_connection_error": "Failed to connect."
+    },
+    "abort": {
+      "reconfigure_successful": "The printer connection settings were updated."
     }
   },
   "options": {
