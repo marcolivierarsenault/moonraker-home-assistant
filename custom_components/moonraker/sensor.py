@@ -126,7 +126,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
     MoonrakerSensorDescription(
         key="filename",
         name="Filename",
-        value_fn=lambda sensor: sensor.empty_result_when_not_printing(
+        value_fn=lambda sensor: sensor.empty_result_when_standby(
             sensor.coordinator.data["status"]["print_stats"]["filename"]
         ),
         subscriptions=[("print_stats", "filename")],
@@ -223,7 +223,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
     MoonrakerSensorDescription(
         key="print_duration",
         name="Print Duration",
-        value_fn=lambda sensor: sensor.empty_result_when_not_printing(
+        value_fn=lambda sensor: sensor.empty_result_when_standby(
             sensor.coordinator.data["status"]["print_stats"]["print_duration"] / 60,
         ),
         subscriptions=[("print_stats", "print_duration")],
@@ -235,7 +235,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
     MoonrakerSensorDescription(
         key="filament_used",
         name="Filament Used",
-        value_fn=lambda sensor: sensor.empty_result_when_not_printing(
+        value_fn=lambda sensor: sensor.empty_result_when_standby(
             sensor.coordinator.data["status"]["print_stats"]["filament_used"] / 1000,
         ),
         subscriptions=[("print_stats", "filament_used")],
@@ -391,6 +391,52 @@ async def async_setup_basic_sensor(coordinator, entry, async_add_entities):
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in SENSORS])
 
 
+async def _fan_sensor_descriptions(coordinator, obj, key, name, speed_suffix=""):
+    """Build fan speed and, if reported, RPM sensor descriptions.
+
+    speed_suffix is appended to the speed sensor's key and name only, so the
+    RPM sensor is always <key>_rpm / <name> RPM.
+    """
+    descs = [
+        MoonrakerSensorDescription(
+            key=f"{key}_{speed_suffix.lower()}" if speed_suffix else key,
+            status_key=obj,
+            name=f"{name} {speed_suffix}" if speed_suffix else name,
+            value_fn=lambda sensor: (
+                sensor.coordinator.data["status"][sensor.status_key]["speed"] * 100
+            ),
+            subscriptions=[(obj, "speed")],
+            icon="mdi:fan",
+            unit=PERCENTAGE,
+            state_class=SensorStateClass.MEASUREMENT,
+            suggested_display_precision=0,
+        )
+    ]
+
+    query_obj = {OBJ: {obj: ["rpm"]}}
+    fan_data = await coordinator.async_fetch_data(
+        METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
+    )
+
+    if fan_data.get("status", {}).get(obj, {}).get("rpm") is not None:
+        descs.append(
+            MoonrakerSensorDescription(
+                key=f"{key}_rpm",
+                status_key=obj,
+                name=f"{name} RPM",
+                value_fn=lambda sensor: sensor.coordinator.data["status"][
+                    sensor.status_key
+                ]["rpm"],
+                subscriptions=[(obj, "rpm")],
+                icon="mdi:fan",
+                unit=REVOLUTIONS_PER_MINUTE,
+                state_class=SensorStateClass.MEASUREMENT,
+                suggested_display_precision=0,
+            )
+        )
+    return descs
+
+
 async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
     """Set optional sensor platform."""
 
@@ -514,6 +560,15 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                         suggested_display_precision=0,
                     )
                     sensors.append(desc)
+
+            if split_obj[0] == "temperature_fan":
+                sensors += await _fan_sensor_descriptions(
+                    coordinator,
+                    obj,
+                    f"{split_obj[0]}_{split_obj[1]}",
+                    split_obj[1].replace("_", " ").title(),
+                    speed_suffix="Speed",
+                )
         elif split_obj[0] == "mcu":
             if len(split_obj) > 1:
                 key = f"{split_obj[0]}_{split_obj[1]}"
@@ -578,48 +633,19 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
             )
             sensors.append(desc)
         elif split_obj[0] in fan_keys:
-            desc = MoonrakerSensorDescription(
-                key=f"{split_obj[0]}_{split_obj[1]}",
-                status_key=obj,
-                name=split_obj[1].replace("_", " ").title(),
-                value_fn=lambda sensor: (
-                    sensor.coordinator.data["status"][sensor.status_key]["speed"] * 100
-                ),
-                subscriptions=[(obj, "speed")],
-                icon="mdi:fan",
-                unit=PERCENTAGE,
-                state_class=SensorStateClass.MEASUREMENT,
-                suggested_display_precision=0,
+            sensors += await _fan_sensor_descriptions(
+                coordinator,
+                obj,
+                f"{split_obj[0]}_{split_obj[1]}",
+                split_obj[1].replace("_", " ").title(),
             )
-            sensors.append(desc)
-
-            query_obj = {OBJ: {obj: ["rpm"]}}
-            fan_data = await coordinator.async_fetch_data(
-                METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
-            )
-
-            if fan_data.get("status", {}).get(obj, {}).get("rpm"):
-                desc = MoonrakerSensorDescription(
-                    key=f"{split_obj[0]}_{split_obj[1]}_rpm",
-                    status_key=obj,
-                    name=f"{split_obj[1].replace('_', ' ').title()} RPM",
-                    value_fn=lambda sensor: sensor.coordinator.data["status"][
-                        sensor.status_key
-                    ]["rpm"],
-                    subscriptions=[(obj, "rpm")],
-                    icon="mdi:fan",
-                    unit=REVOLUTIONS_PER_MINUTE,
-                    state_class=SensorStateClass.MEASUREMENT,
-                    suggested_display_precision=0,
-                )
-                sensors.append(desc)
         elif obj == "fan":
             query_obj = {OBJ: {"fan": ["rpm"]}}
             fan_data = await coordinator.async_fetch_data(
                 METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
             )
 
-            if fan_data.get("status", {}).get("fan", {}).get("rpm"):
+            if fan_data.get("status", {}).get("fan", {}).get("rpm") is not None:
                 desc = MoonrakerSensorDescription(
                     key="fan_rpm",
                     name="Fan RPM",
@@ -1077,6 +1103,13 @@ class MoonrakerSensor(BaseMoonrakerEntity, SensorEntity):
         """Return empty string when not printing."""
         state = self.coordinator.data["status"]["print_stats"]["state"]
         if state != PRINTSTATES.PRINTING.value:
+            return "" if isinstance(value, str) else 0.0
+        return value
+
+    def empty_result_when_standby(self, value=""):
+        """Return empty string when no job is loaded."""
+        state = self.coordinator.data["status"]["print_stats"]["state"]
+        if state == PRINTSTATES.STANDBY.value:
             return "" if isinstance(value, str) else 0.0
         return value
 

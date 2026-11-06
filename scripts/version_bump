@@ -4,18 +4,28 @@ set -e
 
 cd "$(dirname "$0")/.."
 
-if [ "$#" -ne 1 ]; then
-    echo "Usage: scripts/version_bump {major|minor|patch}" >&2
+usage() {
+    echo "Usage: scripts/version_bump {major|minor|patch} [--pre]" >&2
+    echo "       scripts/version_bump --set X.Y.Z[bN]" >&2
     exit 1
-fi
+}
 
 case "$1" in
-    major|minor|patch) ;;
-    *)
-        echo "Invalid bump type: $1" >&2
-        echo "Usage: scripts/version_bump {major|minor|patch}" >&2
-        exit 1
+    major|minor|patch)
+        case "${2:-}" in
+            "") new_version="$(python3 scripts/release_version.py next "$1")" ;;
+            --pre) new_version="$(python3 scripts/release_version.py next "$1" --pre)" ;;
+            *) usage ;;
+        esac
         ;;
+    --set)
+        [ "$#" -eq 2 ] || usage
+        new_version="$2"
+        ;;
+    *) usage ;;
 esac
 
-bump2version "$1"
+python3 scripts/release_version.py set "$new_version"
+git add custom_components/moonraker/manifest.json custom_components/moonraker/const.py
+git commit -m "$new_version"
+echo "Bumped version to $new_version"
