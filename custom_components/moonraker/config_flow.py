@@ -1,6 +1,7 @@
 """Adds config flow for Moonraker."""
 
 import asyncio
+import contextlib
 import logging
 
 from typing import Any
@@ -184,6 +185,9 @@ class MoonrakerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 return True
         except Exception:
             return False
+        finally:
+            with contextlib.suppress(Exception):
+                await api.stop()
 
     @staticmethod
     @callback

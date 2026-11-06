@@ -568,3 +568,42 @@ async def test_reconfigure_flow_clears_optional_fields(hass):
     assert result["type"] == FlowResultType.ABORT
     assert config_entry.data[CONF_API_KEY] == ""
     assert config_entry.data[CONF_PRINTER_NAME] == ""
+
+
+@pytest.mark.parametrize("start_error", [None, Exception])
+async def test_connection_probe_is_stopped(hass, start_error):
+    """Test the connection probe disconnects whether or not it succeeded."""
+    with (
+        patch(
+            "custom_components.moonraker.MoonrakerApiClient.start",
+            side_effect=start_error,
+        ),
+        patch("custom_components.moonraker.MoonrakerApiClient.stop") as mock_stop,
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        await hass.config_entries.flow.async_configure(
+            result["flow_id"], user_input=MOCK_CONFIG
+        )
+
+    mock_stop.assert_awaited_once()
+
+
+async def test_connection_probe_stop_error_is_ignored(hass):
+    """Test a failing disconnect does not change the probe result."""
+    with (
+        patch("custom_components.moonraker.MoonrakerApiClient.start"),
+        patch(
+            "custom_components.moonraker.MoonrakerApiClient.stop",
+            side_effect=Exception,
+        ),
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": config_entries.SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], user_input=MOCK_CONFIG
+        )
+
+    assert result["type"] == FlowResultType.CREATE_ENTRY
