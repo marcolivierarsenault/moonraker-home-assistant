@@ -42,6 +42,7 @@ Requires Home Assistant 2025.1 or newer.
   - Change your printer's port if you don't use the default of 7125.
   - Optionally enter your API key if you have required one in Moonraker.
   - Optionally specify your printer's name if you don't want to use the hostname of your moonraker installation.
+- To change these settings later, for example after the printer's IP changes, select `Reconfigure` in the menu of the printer entry. Entities and their history are kept.
 
 # Support
 
