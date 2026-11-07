@@ -45,6 +45,7 @@ DEFAULT_VALUES = [
     ("mainsail_progress", "90.7810423766328"),
     ("mainsail_bed_power", "26.0537452725334"),
     ("mainsail_extruder_power", "66.6710806392505"),
+    ("mainsail_fan_speed", "51.23"),
     ("mainsail_fan_rpm", "3000.12321"),
     ("mainsail_fan_temp", "32.43"),
     ("mainsail_fan_temp_speed", "50.0"),
@@ -710,8 +711,8 @@ async def test_no_fan_sensor(hass, get_data, get_printer_objects_list):
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
 
-    state = hass.states.get("sensor.mainsail_fan_rpm")
-    assert state is None
+    assert hass.states.get("sensor.mainsail_fan_speed") is None
+    assert hass.states.get("sensor.mainsail_fan_rpm") is None
 
 
 async def test_no_fan_rpm(hass, get_data, get_printer_objects_list):
@@ -724,6 +725,7 @@ async def test_no_fan_rpm(hass, get_data, get_printer_objects_list):
     await hass.async_block_till_done()
 
     assert hass.states.get("sensor.mainsail_fan_rpm") is None
+    assert hass.states.get("sensor.mainsail_fan_speed").state == "51.23"
 
     # Already None in the data
     assert hass.states.get("sensor.mainsail_heater_fan_rpm") is None
