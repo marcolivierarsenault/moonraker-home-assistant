@@ -29,19 +29,20 @@ from .const import (
     CONF_OPTION_QUIET_UNREACHABLE,
     CONF_TLS,
     CONF_URL,
+    DEFAULT_POLLING_RATE,
     DEFAULT_PORT,
     DEVICE_TYPE,
     DOMAIN,
     HOSTNAME,
     METHODS,
+    MIN_POLLING_RATE,
     OBJ,
     PLATFORMS,
+    PRINTING_POLLING_RATE,
     TIMEOUT,
     PRINTSTATES,
 )
 from .sensor import SENSORS
-
-SCAN_INTERVAL = timedelta(seconds=30)
 
 # How long send_gcode with wait: false waits for the printer to reject a script
 GCODE_REJECT_WINDOW = 5
@@ -61,6 +62,19 @@ _GCODE_ROOT = "gcodes"
 def _quiet_unreachable_logs(entry: ConfigEntry) -> bool:
     """Return whether unreachable Moonraker connection logs should be debug-only."""
     return entry.options.get(CONF_OPTION_QUIET_UNREACHABLE, False)
+
+
+def _entry_polling_interval(entry: ConfigEntry) -> timedelta:
+    """Return the polling interval configured for an entry."""
+    try:
+        polling_rate = int(
+            entry.options.get(CONF_OPTION_POLLING_RATE, DEFAULT_POLLING_RATE)
+        )
+    except (TypeError, ValueError):
+        polling_rate = DEFAULT_POLLING_RATE
+    if polling_rate < MIN_POLLING_RATE:
+        polling_rate = DEFAULT_POLLING_RATE
+    return timedelta(seconds=polling_rate)
 
 
 def _log_unreachable(entry: ConfigEntry, message: str, *args: Any) -> None:
@@ -288,8 +302,6 @@ async def _async_send_gcode_to_printers(
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Set up this integration using UI."""
 
-    global SCAN_INTERVAL
-
     if hass.data.get(DOMAIN) is None:
         hass.data.setdefault(DOMAIN, {})
 
@@ -302,8 +314,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     printer_name = (
         entry.data.get(CONF_PRINTER_NAME) if custom_name is None else custom_name
     )
-
-    SCAN_INTERVAL = timedelta(seconds=entry.options.get(CONF_OPTION_POLLING_RATE, 30))
 
     api = MoonrakerApiClient(
         url,
@@ -352,6 +362,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     await coordinator.async_refresh()
 
     if not coordinator.last_update_success:
+        await api.stop()
         raise ConfigEntryNotReady
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
@@ -499,6 +510,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         self.hass = hass
         self.config_entry = config_entry
         self.api_device_name = api_device_name
+        self.polling_interval = _entry_polling_interval(config_entry)
         self.query_obj = {OBJ: {}}
         self.load_sensor_data(SENSORS)
         self.add_query_objects("virtual_sdcard", "file_path")
@@ -507,7 +519,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=SCAN_INTERVAL,
+            update_interval=self.polling_interval,
             config_entry=config_entry,
         )
 
@@ -542,9 +554,11 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         current_state = data.get("status", {}).get("print_stats", {}).get("state")
         if current_state != prev_state:
             if current_state == PRINTSTATES.PRINTING.value:
-                self.update_interval = timedelta(seconds=2)
+                self.update_interval = min(
+                    self.polling_interval, timedelta(seconds=PRINTING_POLLING_RATE)
+                )
             else:
-                self.update_interval = timedelta(seconds=30)
+                self.update_interval = self.polling_interval
             self._schedule_refresh()
         self._last_print_state = current_state
         # --- end dynamic polling logic ---
@@ -641,8 +655,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
                     _entry_port(self.config_entry),
                 )
                 raise self._unreachable_error()
-            _LOGGER.warning("connection to moonraker down, restarting")
-            await self.moonraker.start()
+            await self._async_restart_client()
         try:
             if query_object is None:
                 result = await self.moonraker.client.call_method(query_path.value)
@@ -664,6 +677,16 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             ):
                 raise self._unreachable_error() from exception
             raise UpdateFailed() from exception
+
+    async def _async_restart_client(self) -> None:
+        """Reconnect the websocket, reporting a failure as a failed update."""
+        _LOGGER.warning("connection to moonraker down, restarting")
+        try:
+            await self.moonraker.start()
+        except Exception as exception:
+            raise UpdateFailed(
+                f"could not reconnect to moonraker: {exception!r}"
+            ) from exception
 
     def _unreachable_error(self) -> UpdateFailed:
         """Build the refresh failure for an unreachable Moonraker endpoint."""
@@ -691,8 +714,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
                     f"{self.config_entry.data.get(CONF_URL)}:"
                     f"{_entry_port(self.config_entry)} is unreachable"
                 )
-            _LOGGER.warning("connection to moonraker down, restarting")
-            await self.moonraker.start()
+            await self._async_restart_client()
         try:
             if query_obj is None:
                 result = await self.moonraker.client.call_method(query_path.value)
@@ -766,6 +788,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
     )
     if unloaded:
+        await coordinator.moonraker.stop()
         hass.data[DOMAIN].pop(entry.entry_id)
 
     return unloaded

@@ -32,6 +32,7 @@ from custom_components.moonraker import (
     async_unload_entry,
 )
 from custom_components.moonraker.const import (
+    CONF_OPTION_POLLING_RATE,
     CONF_OPTION_QUIET_UNREACHABLE,
     CONF_PORT,
     DEFAULT_PORT,
@@ -1777,3 +1778,135 @@ async def test_setup_while_klippy_not_ready(hass):
     assert hass.states.get("sensor.1_2_3_4_printer_state").state == "unavailable"
     for sensor in ("print_speed", "progress", "current_layer", "object_height"):
         assert hass.states.get(f"sensor.1_2_3_4_{sensor}").state == "unavailable"
+
+
+async def _setup_polling_entry(hass, entry_id, options=None):
+    """Set up an entry with the given options and return its coordinator."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN, data=MOCK_CONFIG, options=options or {}, entry_id=entry_id
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    return hass.data[DOMAIN][config_entry.entry_id]
+
+
+async def test_polling_rate_option_survives_first_refresh(hass, get_data):
+    """The configured rate is used when idle, also after the first refresh."""
+    get_data["status"]["print_stats"]["state"] = PRINTSTATES.STANDBY.value
+    coordinator = await _setup_polling_entry(
+        hass, "test_rate", {CONF_OPTION_POLLING_RATE: 10}
+    )
+
+    assert coordinator.update_interval == timedelta(seconds=10)
+
+    with patch.object(coordinator, "_schedule_refresh"):
+        get_data["status"]["print_stats"]["state"] = PRINTSTATES.PRINTING.value
+        await coordinator._async_update_data()
+        assert coordinator.update_interval == timedelta(seconds=2)
+
+        get_data["status"]["print_stats"]["state"] = PRINTSTATES.COMPLETE.value
+        await coordinator._async_update_data()
+        assert coordinator.update_interval == timedelta(seconds=10)
+
+
+async def test_polling_rate_faster_than_print_rate_is_kept(hass, get_data):
+    """A configured rate faster than 2 s is not slowed down while printing."""
+    get_data["status"]["print_stats"]["state"] = PRINTSTATES.STANDBY.value
+    coordinator = await _setup_polling_entry(
+        hass, "test_fast", {CONF_OPTION_POLLING_RATE: 1}
+    )
+
+    with patch.object(coordinator, "_schedule_refresh"):
+        get_data["status"]["print_stats"]["state"] = PRINTSTATES.PRINTING.value
+        await coordinator._async_update_data()
+
+    assert coordinator.update_interval == timedelta(seconds=1)
+
+
+async def test_polling_rate_is_per_entry(hass, get_data):
+    """Each printer keeps its own configured rate."""
+    get_data["status"]["print_stats"]["state"] = PRINTSTATES.STANDBY.value
+    first = await _setup_polling_entry(
+        hass, "test_first", {CONF_OPTION_POLLING_RATE: 15}
+    )
+    second = await _setup_polling_entry(
+        hass, "test_second", {CONF_OPTION_POLLING_RATE: 45}
+    )
+
+    assert first.update_interval == timedelta(seconds=15)
+    assert second.update_interval == timedelta(seconds=45)
+
+
+@pytest.mark.parametrize("rate", [0, -5, "fast", None])
+async def test_invalid_polling_rate_uses_default(hass, get_data, rate):
+    """An unusable saved rate falls back to 30 seconds."""
+    get_data["status"]["print_stats"]["state"] = PRINTSTATES.STANDBY.value
+    coordinator = await _setup_polling_entry(
+        hass, "test_invalid", {CONF_OPTION_POLLING_RATE: rate}
+    )
+
+    assert coordinator.update_interval == timedelta(seconds=30)
+
+
+async def test_failed_first_refresh_stops_client(hass):
+    """A setup that fails its first refresh closes the websocket."""
+    with (
+        patch(
+            "moonraker_api.MoonrakerClient.call_method",
+            side_effect=load_data,
+        ),
+        patch(
+            "custom_components.moonraker.MoonrakerApiClient.stop",
+            new_callable=AsyncMock,
+        ) as mock_stop,
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+
+        with pytest.raises(ConfigEntryNotReady):
+            await async_setup_entry(hass, config_entry)
+
+    mock_stop.assert_awaited_once()
+
+
+async def test_unload_stops_client(hass):
+    """Unloading an entry closes its websocket."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+
+    with patch(
+        "custom_components.moonraker.MoonrakerApiClient.stop",
+        new_callable=AsyncMock,
+    ) as mock_stop:
+        assert await async_unload_entry(hass, config_entry)
+
+    mock_stop.assert_awaited_once()
+
+
+@pytest.mark.parametrize("send", [False, True])
+async def test_reconnect_failure_raises_update_failed(hass, send):
+    """A failed reconnect is reported as a failed update, not a crash."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+
+    with (
+        patch(
+            "moonraker_api.MoonrakerClient.is_connected",
+            new_callable=PropertyMock,
+            return_value=False,
+        ),
+        patch(
+            "custom_components.moonraker.MoonrakerApiClient.start",
+            side_effect=ConnectionError("refused"),
+        ),
+        pytest.raises(UpdateFailed, match="could not reconnect"),
+    ):
+        if send:
+            await coordinator.async_send_data(METHODS.PRINTER_EMERGENCY_STOP)
+        else:
+            await coordinator.async_fetch_data(METHODS.PRINTER_INFO)
+
+    assert await async_unload_entry(hass, config_entry)
