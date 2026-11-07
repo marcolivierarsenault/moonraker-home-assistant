@@ -376,7 +376,7 @@ class MoonrakerPWMOutputPin(BaseMoonrakerEntity, NumberEntity):
         obj = status.get(self.sensor_name, {})
         raw_value = obj.get("value") if isinstance(obj, dict) else None
         coerced = _coerce_float(raw_value)
-        return coerced * 100 if coerced is not None else 0.0
+        return round(coerced * 100, 1) if coerced is not None else 0.0
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -444,7 +444,13 @@ class MoonrakerNumber(BaseMoonrakerEntity, NumberEntity):
         obj = status.get(self.sensor_name, {})
         raw_value = obj.get(status_key) if isinstance(obj, dict) else None
         coerced = _coerce_float(raw_value)
-        return coerced * self.value_multiplier if coerced is not None else 0.0
+        if coerced is None:
+            return 0.0
+        value = coerced * self.value_multiplier
+        # Scaled fractions such as fan speed 59/255 have long tails.
+        if self._attr_native_unit_of_measurement == PERCENTAGE:
+            return round(value, 1)
+        return value
 
     @callback
     def _handle_coordinator_update(self) -> None:

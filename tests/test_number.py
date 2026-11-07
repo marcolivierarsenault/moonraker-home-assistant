@@ -283,7 +283,7 @@ async def test_fan_speed(hass, get_data):
     await hass.async_block_till_done()
 
     state = hass.states.get("number.mainsail_fan_speed")
-    assert state.state == "51.23"
+    assert state.state == "51.2"
     assert state.attributes["unit_of_measurement"] == "%"
     assert state.attributes["icon"] == "mdi:fan"
     assert state.attributes["mode"] == "slider"
@@ -300,6 +300,24 @@ async def test_fan_speed_update(hass, get_data):
 
     state = hass.states.get("number.mainsail_fan_speed")
     assert state.state == "75.0"
+
+
+@pytest.mark.parametrize(
+    ("entity", "obj", "field"),
+    [
+        ("number.mainsail_fan_speed", "fan", "speed"),
+        ("number.mainsail_output_pin_pwm", "output_pin pwm", "value"),
+    ],
+)
+async def test_percent_number_rounded(hass, get_data, entity, obj, field):
+    """Percent number states keep one decimal."""
+    get_data["status"][obj][field] = 59 / 255
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get(entity).state == "23.1"
 
 
 async def test_fan_speed_set_value(hass, get_default_api_response):
@@ -365,7 +383,7 @@ async def test_fan_generic_speed_entity_created(
 
     state = hass.states.get(entity_id)
     assert state is not None
-    assert state.state == "51.23"
+    assert state.state == "51.2"
     assert state.attributes["unit_of_measurement"] == "%"
     assert state.attributes["icon"] == "mdi:fan"
 
