@@ -358,7 +358,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
         icon="mdi:memory",
         state_class=SensorStateClass.MEASUREMENT,
         unit=PERCENTAGE,
-        suggested_display_precision=2,
+        suggested_display_precision=1,
     ),
 )
 

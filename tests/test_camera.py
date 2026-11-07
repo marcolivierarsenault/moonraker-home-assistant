@@ -7,7 +7,7 @@ import pytest
 from homeassistant.components import camera
 from homeassistant.helpers import entity_registry as er
 from PIL import Image
-from pytest_homeassistant_custom_component.common import (
+from pytest_homeassistant.common import (
     MockConfigEntry,
     async_fire_time_changed,
 )
