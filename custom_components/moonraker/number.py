@@ -361,7 +361,7 @@ class MoonrakerPWMOutputPin(BaseMoonrakerEntity, NumberEntity):
             METHODS.PRINTER_GCODE_SCRIPT,
             {"script": f"SET_PIN PIN={self.pin} VALUE={round(value / 100, 2)}"},
         )
-        self._attr_native_value = value
+        self._attr_native_value = round(value, 1)
         self.async_write_ha_state()
 
     @property
@@ -421,7 +421,7 @@ class MoonrakerNumber(BaseMoonrakerEntity, NumberEntity):
             METHODS.PRINTER_GCODE_SCRIPT,
             {"script": f"{self.update_string}{value}"},
         )
-        self._attr_native_value = value
+        self._attr_native_value = self._state_value(value)
         self.async_write_ha_state()
 
     @property
@@ -446,8 +446,10 @@ class MoonrakerNumber(BaseMoonrakerEntity, NumberEntity):
         coerced = _coerce_float(raw_value)
         if coerced is None:
             return 0.0
-        value = coerced * self.value_multiplier
-        # Scaled fractions such as fan speed 59/255 have long tails.
+        return self._state_value(coerced * self.value_multiplier)
+
+    def _state_value(self, value: float) -> float:
+        """Keep one decimal for percentages, e.g. fan speed 59/255."""
         if self._attr_native_unit_of_measurement == PERCENTAGE:
             return round(value, 1)
         return value
@@ -470,7 +472,7 @@ class MoonrakerFanSpeed(MoonrakerNumber):
             METHODS.PRINTER_GCODE_SCRIPT,
             {"script": f"{self.update_string}{int(adjusted_value)}"},
         )
-        self._attr_native_value = value
+        self._attr_native_value = self._state_value(value)
         self.async_write_ha_state()
 
 
@@ -484,5 +486,5 @@ class MoonrakerKlipperFanSpeed(MoonrakerNumber):
             METHODS.PRINTER_GCODE_SCRIPT,
             {"script": f"{self.update_string}{adjusted_value}"},
         )
-        self._attr_native_value = value
+        self._attr_native_value = self._state_value(value)
         self.async_write_ha_state()

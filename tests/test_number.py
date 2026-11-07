@@ -320,6 +320,30 @@ async def test_percent_number_rounded(hass, get_data, entity, obj, field):
     assert hass.states.get(entity).state == "23.1"
 
 
+@pytest.mark.parametrize(
+    "entity", ["number.mainsail_fan_speed", "number.mainsail_output_pin_pwm"]
+)
+async def test_percent_number_set_value_rounded(hass, entity, get_default_api_response):
+    """Percent values set through the service keep one decimal."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={**get_default_api_response},
+    ):
+        await hass.services.async_call(
+            NUMBER_DOMAIN,
+            SERVICE_SET_VALUE,
+            {ATTR_ENTITY_ID: entity, "value": 33.333},
+            blocking=True,
+        )
+
+    assert hass.states.get(entity).state == "33.3"
+
+
 async def test_fan_speed_set_value(hass, get_default_api_response):
     """Test fan speed number entity set value."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
