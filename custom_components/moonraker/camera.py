@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import posixpath
 
 from homeassistant.components.camera import Camera
 from homeassistant.components.mjpeg.camera import MjpegCamera
@@ -12,6 +13,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from .const import (
     CONF_API_KEY,
@@ -29,6 +31,7 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 DEFAULT_PORT = 80
 SNAPSHOT_TIMEOUT = 10
+THUMBNAIL_EXTENSIONS = (".png", ".jpg", ".jpeg")
 
 # Moonraker webcam services whose stream_url serves an MJPEG stream
 MJPEG_SERVICES = {"mjpegstreamer", "mjpegstreamer-adaptive", "uv4l-mjpeg"}
@@ -260,17 +263,76 @@ class PreviewCamera(Camera):
             _LOGGER.debug("Empty path, no thumbnail")
             return None
 
-        new_path = new_path.replace(" ", "%20")
-
-        _LOGGER.debug(
-            f"Fetching new thumbnail: {self._scheme}://{self.url}:{self.port}/server/files/gcodes/{new_path}"
-        )
-        response = await self._session.get(
-            f"{self._scheme}://{self.url}:{self.port}/server/files/gcodes/{new_path}",
-            headers=self._headers,
-        )
+        pic = await self._async_fetch_thumbnail(new_path)
+        if pic is None:
+            pic = await self._async_fetch_thumbnail_from_folder(new_path)
+        if pic is None:
+            # Do not cache a failed fetch, so the next request tries again
+            self._current_pic = None
+            self._current_path = ""
+            return None
 
         self._current_path = new_path
-        self._current_pic = await response.read()
+        self._current_pic = pic
 
         return self._current_pic
+
+    async def _async_fetch_thumbnail(self, path: str) -> bytes | None:
+        """Fetch a thumbnail file, returning None if the printer has no such file."""
+        url = (
+            f"{self._scheme}://{self.url}:{self.port}/server/files/gcodes/"
+            f"{path.replace(' ', '%20')}"
+        )
+        _LOGGER.debug(f"Fetching new thumbnail: {url}")
+        response = await self._session.get(url, headers=self._headers)
+        if response.status != 200:
+            _LOGGER.debug(f"Thumbnail request returned HTTP {response.status}: {url}")
+            return None
+        return await response.read()
+
+    async def _async_fetch_thumbnail_from_folder(self, path: str) -> bytes | None:
+        """Use the image in a per-file thumbnail folder when metadata names a missing file.
+
+        Some firmware (for example QIDI's for ``.gcode.3mf`` files) stores the
+        thumbnail as ``.thumbs/<file>/plate_<n>.png`` but always reports
+        ``plate_1.png`` in the file metadata.
+        """
+        thumb_dir = posixpath.dirname(path)
+        if posixpath.basename(posixpath.dirname(thumb_dir)) != ".thumbs":
+            # A shared .thumbs folder holds the images of every file
+            return None
+
+        try:
+            listing = await self.coordinator.async_fetch_data(
+                METHODS.SERVER_FILES_GET_DIRECTORY,
+                {"path": f"gcodes/{thumb_dir}", "extended": False},
+                quiet=True,
+            )
+        except UpdateFailed:
+            _LOGGER.debug(f"Could not list thumbnail folder {thumb_dir}")
+            return None
+
+        files = listing.get("files") if isinstance(listing, dict) else None
+        images = [
+            item
+            for item in files or []
+            if isinstance(item, dict)
+            and str(item.get("filename", "")).lower().endswith(THUMBNAIL_EXTENSIONS)
+        ]
+        if not images:
+            return None
+
+        best = max(images, key=_thumbnail_size)
+        best_path = posixpath.join(thumb_dir, best["filename"])
+        if best_path == path:
+            return None
+        _LOGGER.debug(f"Thumbnail {path} is missing, using {best_path}")
+        return await self._async_fetch_thumbnail(best_path)
+
+
+def _thumbnail_size(item: dict) -> float:
+    """Return a listed file's size, treating unknown sizes as the smallest."""
+    try:
+        return float(item.get("size"))
+    except (TypeError, ValueError):
+        return -1.0
