@@ -462,6 +462,46 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     return True
 
 
+def _copy_query(query: dict[str, list[str] | None]) -> dict[str, list[str] | None]:
+    """Copy a printer object query so later changes don't affect the copy."""
+    return {obj: None if keys is None else list(keys) for obj, keys in query.items()}
+
+
+def _query_difference(
+    query: dict[str, list[str] | None], fetched: dict[str, list[str] | None]
+) -> dict[str, list[str] | None]:
+    """Return the part of ``query`` that ``fetched`` doesn't cover yet."""
+    missing: dict[str, list[str] | None] = {}
+    for obj, keys in query.items():
+        if obj not in fetched:
+            missing[obj] = None if keys is None else list(keys)
+            continue
+        fetched_keys = fetched[obj]
+        if fetched_keys is None:
+            continue
+        if keys is None:
+            missing[obj] = None
+            continue
+        new_keys = [key for key in keys if key not in fetched_keys]
+        if new_keys:
+            missing[obj] = new_keys
+    return missing
+
+
+def _merge_query(
+    fetched: dict[str, list[str] | None], query: dict[str, list[str] | None]
+) -> None:
+    """Record that ``query`` has now been fetched."""
+    for obj, keys in query.items():
+        if keys is None:
+            fetched[obj] = None
+            continue
+        fetched_keys = fetched.setdefault(obj, [])
+        if fetched_keys is None:
+            continue
+        fetched_keys.extend(key for key in keys if key not in fetched_keys)
+
+
 async def _printer_objects_updater(coordinator):
     return await coordinator._async_fetch_data(
         METHODS.PRINTER_OBJECTS_QUERY, coordinator.query_obj
@@ -512,6 +552,16 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         self.api_device_name = api_device_name
         self.polling_interval = _entry_polling_interval(config_entry)
         self.query_obj = {OBJ: {}}
+        # What the last update fetched, so platform setup can fetch only
+        # what it adds (see async_refresh_new_data).
+        self._fetched_updaters: set = set()
+        self._fetched_query: dict[str, list[str] | None] = {}
+        self._new_data_lock = asyncio.Lock()
+        # Printer objects and config settings, fetched once per setup and
+        # shared by the platforms.
+        self._printer_objects_list: dict[str, Any] | None = None
+        self._config_settings: dict[str, Any] | None = None
+        self._setup_cache_lock = asyncio.Lock()
         self.load_sensor_data(SENSORS)
         self.add_query_objects("virtual_sdcard", "file_path")
 
@@ -543,11 +593,15 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self):
         """Update data via library."""
         data = {}
+        updaters = list(self.updaters)
+        query = _copy_query(self.query_obj[OBJ])
 
-        for updater in self.updaters:
+        for updater in updaters:
             data.update(await updater(self))
 
         data.setdefault("status", {})
+        self._fetched_updaters = set(updaters)
+        self._fetched_query = query
 
         # --- Dynamic polling logic ---
         prev_state = getattr(self, "_last_print_state", None)
@@ -746,6 +800,79 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
     ):
         """Send data to moonraker."""
         return await self._async_send_data(query_path, query_obj)
+
+    async def async_get_printer_objects_list(self) -> dict[str, Any]:
+        """Return the printer object list, fetched once per setup."""
+        async with self._setup_cache_lock:
+            if self._printer_objects_list is not None:
+                return self._printer_objects_list
+            result = await self.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
+            if isinstance(result, dict) and not result.get("error"):
+                self._printer_objects_list = result
+            return result
+
+    async def async_get_config_settings(self) -> dict[str, Any]:
+        """Return the configfile settings query result, fetched once per setup."""
+        async with self._setup_cache_lock:
+            if self._config_settings is not None:
+                return self._config_settings
+            result = await self.async_fetch_data(
+                METHODS.PRINTER_OBJECTS_QUERY,
+                {OBJ: {"configfile": ["settings"]}},
+                quiet=True,
+            )
+            if isinstance(result, dict) and not result.get("error"):
+                self._config_settings = result
+            return result
+
+    async def async_refresh_new_data(self) -> None:
+        """Fetch only the data added since the last update and merge it in.
+
+        Platform setup adds query objects and data updaters, and its entities
+        need that data. Fetching just the new part, instead of running a full
+        update for each platform, keeps setup to a single full update.
+        """
+        if self.data is None:
+            await self.async_refresh()
+            return
+
+        async with self._new_data_lock:
+            updaters = [
+                updater
+                for updater in self.updaters
+                if updater not in self._fetched_updaters
+            ]
+            query = _query_difference(self.query_obj[OBJ], self._fetched_query)
+            if not updaters and not query:
+                return
+
+            new_data = {}
+            try:
+                for updater in updaters:
+                    new_data.update(await updater(self))
+                if query:
+                    result = await self._async_fetch_data(
+                        METHODS.PRINTER_OBJECTS_QUERY, {OBJ: query}
+                    )
+                else:
+                    result = {}
+            except UpdateFailed as err:
+                _LOGGER.debug("Could not fetch data for new entities: %s", err)
+                return
+
+            data = dict(self.data)
+            status = dict(data.get("status", {}))
+            data.update(new_data)
+            for obj, values in (result.get("status") or {}).items():
+                if isinstance(values, dict) and isinstance(status.get(obj), dict):
+                    status[obj] = {**status[obj], **values}
+                else:
+                    status[obj] = values
+            data["status"] = status
+            self.data = data
+            self._fetched_updaters.update(updaters)
+            _merge_query(self._fetched_query, query)
+        self.async_update_listeners()
 
     def add_data_updater(self, updater):
         """Update the data."""

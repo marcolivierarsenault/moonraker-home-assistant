@@ -463,7 +463,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
     fan_keys = ["heater_fan", "controller_fan", "fan_generic", "chamber_fan"]
 
     sensors = []
-    object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
+    object_list = await coordinator.async_get_printer_objects_list()
     objects = set(object_list.get("objects", []))
 
     # Build a set of names that already have a generic temperature_sensor <name>
@@ -770,7 +770,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
             sensors.append(desc)
 
     coordinator.load_sensor_data(sensors)
-    await coordinator.async_refresh()
+    await coordinator.async_refresh_new_data()
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
 
 
@@ -835,7 +835,7 @@ async def async_setup_history_sensors(coordinator, entry, async_add_entities):
     ]
 
     coordinator.load_sensor_data(sensors)
-    await coordinator.async_refresh()
+    await coordinator.async_refresh_new_data()
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
 
 
@@ -875,7 +875,7 @@ async def async_setup_queue_sensors(coordinator, entry, async_add_entities):
     ]
 
     coordinator.load_sensor_data(sensors)
-    await coordinator.async_refresh()
+    await coordinator.async_refresh_new_data()
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
 
 
@@ -901,7 +901,7 @@ async def async_setup_spoolman_sensors(coordinator, entry, async_add_entities):
     ]
 
     coordinator.load_sensor_data(sensors)
-    await coordinator.async_refresh()
+    await coordinator.async_refresh_new_data()
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
 
 
@@ -948,7 +948,7 @@ async def async_setup_u1_sensors(coordinator, entry, async_add_entities):
     sensors = [create_u1_filament_sensor_description(i) for i in range(4)]
 
     coordinator.load_sensor_data(sensors)
-    await coordinator.async_refresh()
+    await coordinator.async_refresh_new_data()
     async_add_entities(
         [U1ExtruderFilamentSensor(coordinator, entry, desc) for desc in sensors]
     )
@@ -1039,7 +1039,7 @@ async def async_setup_machine_update_sensors(coordinator, entry, async_add_entit
             )
     if len(sensors) > 0:
         coordinator.load_sensor_data(sensors)
-        await coordinator.async_refresh()
+        await coordinator.async_refresh_new_data()
         async_add_entities(
             [MoonrakerSensor(coordinator, entry, desc) for desc in sensors]
         )

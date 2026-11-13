@@ -172,7 +172,7 @@ async def async_setup_basic_buttons(coordinator, entry, async_add_entities):
 async def async_setup_macros(coordinator, entry, async_add_entities):
     """Set optional button platform."""
     cmds = await coordinator.async_fetch_data(METHODS.PRINTER_GCODE_HELP)
-    object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
+    object_list = await coordinator.async_get_printer_objects_list()
     object_names = (
         set(object_list.get("objects", [])) if isinstance(object_list, dict) else set()
     )
@@ -208,7 +208,7 @@ async def async_setup_macros(coordinator, entry, async_add_entities):
 
     async_add_entities([MoonrakerButton(coordinator, entry, desc) for desc in macros])
     if added_macro_objects:
-        await coordinator.async_request_refresh()
+        await coordinator.async_refresh_new_data()
 
 
 async def async_setup_services(coordinator, entry, async_add_entities):

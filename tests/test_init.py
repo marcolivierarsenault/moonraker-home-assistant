@@ -23,9 +23,11 @@ from custom_components.moonraker import (
     MoonrakerDataUpdateCoordinator,
     _async_is_tcp_reachable,
     _build_thumbnail_path,
+    _merge_query,
     _moonraker_error_message,
     _normalize_gcode_path,
     _normalize_moonraker_port,
+    _query_difference,
     _strip_gcode_root,
     async_reload_entry,
     async_setup_entry,
@@ -1909,4 +1911,176 @@ async def test_reconnect_failure_raises_update_failed(hass, send):
         else:
             await coordinator.async_fetch_data(METHODS.PRINTER_INFO)
 
+    assert await async_unload_entry(hass, config_entry)
+
+
+async def test_setup_runs_a_single_full_update(hass, get_default_api_response):
+    """Platform setup fetches only new data instead of full updates."""
+    calls = []
+
+    async def call_method(method, **kwargs):
+        calls.append((method, kwargs))
+        return get_default_api_response
+
+    with patch("moonraker_api.MoonrakerClient.call_method", side_effect=call_method):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        assert await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    methods = [method for method, _ in calls]
+    # Once while connecting, once by the first (and only) full update.
+    assert methods.count("printer.info") == 2
+    assert methods.count("printer.objects.list") == 1
+    config_queries = [
+        kwargs
+        for method, kwargs in calls
+        if method == "printer.objects.query"
+        and kwargs.get("objects") == {"configfile": ["settings"]}
+    ]
+    assert len(config_queries) == 1
+    assert await async_unload_entry(hass, config_entry)
+
+
+@pytest.mark.parametrize(
+    ("query", "fetched", "missing"),
+    [
+        ({"a": None}, {}, {"a": None}),
+        ({"a": ["x"]}, {}, {"a": ["x"]}),
+        ({"a": ["x"]}, {"a": None}, {}),
+        ({"a": None}, {"a": ["x"]}, {"a": None}),
+        ({"a": ["x", "y"]}, {"a": ["x"]}, {"a": ["y"]}),
+        ({"a": ["x"]}, {"a": ["x"]}, {}),
+    ],
+)
+def test_query_difference(query, fetched, missing):
+    """Only objects and fields not fetched yet are returned."""
+    assert _query_difference(query, fetched) == missing
+
+
+@pytest.mark.parametrize(
+    ("fetched", "query", "merged"),
+    [
+        ({}, {"a": None}, {"a": None}),
+        ({"a": ["x"]}, {"a": None}, {"a": None}),
+        ({"a": None}, {"a": ["x"]}, {"a": None}),
+        ({"a": ["x"]}, {"a": ["x", "y"]}, {"a": ["x", "y"]}),
+        ({}, {"a": ["x"]}, {"a": ["x"]}),
+    ],
+)
+def test_merge_query(fetched, query, merged):
+    """Fetched queries are recorded without duplicates."""
+    _merge_query(fetched, query)
+    assert fetched == merged
+
+
+async def _setup_coordinator(hass):
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    return config_entry, hass.data[DOMAIN][config_entry.entry_id]
+
+
+async def test_refresh_new_data_merges_new_fields(hass):
+    """New fields are merged into existing status objects."""
+    config_entry, coordinator = await _setup_coordinator(hass)
+    coordinator.data["status"]["extruder"] = {"temperature": 200.0}
+    coordinator.add_query_objects("extruder", "pressure_advance")
+    coordinator.add_query_objects("new_object", None)
+
+    with patch.object(
+        coordinator,
+        "_async_fetch_data",
+        AsyncMock(
+            return_value={
+                "status": {
+                    "extruder": {"pressure_advance": 0.04},
+                    "new_object": {"value": 1},
+                }
+            }
+        ),
+    ) as fetch:
+        await coordinator.async_refresh_new_data()
+        await coordinator.async_refresh_new_data()
+
+    fetch.assert_awaited_once_with(
+        METHODS.PRINTER_OBJECTS_QUERY,
+        {"objects": {"extruder": ["pressure_advance"], "new_object": None}},
+    )
+    assert coordinator.data["status"]["extruder"] == {
+        "temperature": 200.0,
+        "pressure_advance": 0.04,
+    }
+    assert coordinator.data["status"]["new_object"] == {"value": 1}
+    assert await async_unload_entry(hass, config_entry)
+
+
+async def test_refresh_new_data_runs_new_updaters_once(hass):
+    """An updater added during setup runs once, before its entities are added."""
+    config_entry, coordinator = await _setup_coordinator(hass)
+    updater = AsyncMock(return_value={"extra": {"value": 1}})
+    coordinator.add_data_updater(updater)
+
+    await coordinator.async_refresh_new_data()
+    await coordinator.async_refresh_new_data()
+
+    updater.assert_awaited_once_with(coordinator)
+    assert coordinator.data["extra"] == {"value": 1}
+    assert await async_unload_entry(hass, config_entry)
+
+
+async def test_refresh_new_data_failure_retries_later(hass):
+    """A failed fetch keeps the data and is retried on the next call."""
+    config_entry, coordinator = await _setup_coordinator(hass)
+    data = coordinator.data
+    coordinator.add_query_objects("new_object", None)
+
+    with patch.object(
+        coordinator, "_async_fetch_data", AsyncMock(side_effect=UpdateFailed("down"))
+    ) as fetch:
+        await coordinator.async_refresh_new_data()
+        await coordinator.async_refresh_new_data()
+
+    assert fetch.await_count == 2
+    assert coordinator.data is data
+    assert await async_unload_entry(hass, config_entry)
+
+
+async def test_refresh_new_data_without_data_runs_full_refresh(hass):
+    """Without data yet, a full refresh is run instead."""
+    config_entry, coordinator = await _setup_coordinator(hass)
+    coordinator.data = None
+
+    with patch.object(coordinator, "async_refresh", AsyncMock()) as refresh:
+        await coordinator.async_refresh_new_data()
+
+    refresh.assert_awaited_once()
+    assert await async_unload_entry(hass, config_entry)
+
+
+@pytest.mark.parametrize(
+    ("getter", "method"),
+    [
+        ("async_get_printer_objects_list", METHODS.PRINTER_OBJECTS_LIST),
+        ("async_get_config_settings", METHODS.PRINTER_OBJECTS_QUERY),
+    ],
+)
+async def test_setup_cache_skips_error_results(hass, getter, method):
+    """An error result is returned but not cached."""
+    config_entry, coordinator = await _setup_coordinator(hass)
+    coordinator._printer_objects_list = None
+    coordinator._config_settings = None
+
+    with patch.object(
+        coordinator,
+        "async_fetch_data",
+        AsyncMock(side_effect=[{"error": "not ready"}, {"objects": []}]),
+    ) as fetch:
+        assert await getattr(coordinator, getter)() == {"error": "not ready"}
+        assert await getattr(coordinator, getter)() == {"objects": []}
+        assert await getattr(coordinator, getter)() == {"objects": []}
+
+    assert fetch.await_count == 2
+    assert fetch.await_args_list[0].args[0] == method
     assert await async_unload_entry(hass, config_entry)

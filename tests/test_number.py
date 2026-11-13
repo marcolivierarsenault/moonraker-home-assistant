@@ -633,7 +633,13 @@ async def test_heater_generic_number_config_fallbacks(hass, caplog):
         def load_sensor_data(self, sensors):
             self.loaded.extend(sensors)
 
-        async def async_refresh(self):
+        async def async_get_config_settings(self):
+            return await self.async_fetch_data(METHODS.PRINTER_OBJECTS_QUERY)
+
+        async def async_get_printer_objects_list(self):
+            return await self.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
+
+        async def async_refresh_new_data(self):
             return
 
         def async_add_listener(self, update_callback):
