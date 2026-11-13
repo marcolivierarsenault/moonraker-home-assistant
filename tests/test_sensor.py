@@ -1675,17 +1675,13 @@ async def test_toolhead_position_short_list(hass, get_data):
 
 
 async def test_optional_sensors_follow_up_query_error(hass, get_default_api_response):
-    """Optional sensors whose follow-up query fails are skipped during setup."""
-    failing = {
-        "bme280 bme280_temp",
-        "heater_fan heater_fan",
-        "fan",
-        "hall_filament_width_sensor",
-    }
+    """Optional sensors are skipped when the setup probe query fails."""
+    probed = {"bme280 bme280_temp", "heater_fan heater_fan", "fan"}
 
     def call_method(method, **kwargs):
         objects = kwargs.get("objects") or {}
-        if len(objects) == 1 and set(objects) <= failing:
+        # The setup probe asks for every field of the probed objects at once.
+        if probed <= set(objects) and all(v is None for v in objects.values()):
             return {"error": {"code": 503, "message": "Klippy Host not connected"}}
         return get_default_api_response
 

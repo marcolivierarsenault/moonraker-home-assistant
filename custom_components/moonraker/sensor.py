@@ -391,9 +391,10 @@ async def async_setup_basic_sensor(coordinator, entry, async_add_entities):
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in SENSORS])
 
 
-async def _fan_sensor_descriptions(coordinator, obj, key, name, speed_suffix=""):
+def _fan_sensor_descriptions(obj, key, name, fan_status, speed_suffix=""):
     """Build fan speed and, if reported, RPM sensor descriptions.
 
+    fan_status is the fan's current status from the setup probe.
     speed_suffix is appended to the speed sensor's key and name only, so the
     RPM sensor is always <key>_rpm / <name> RPM.
     """
@@ -413,12 +414,7 @@ async def _fan_sensor_descriptions(coordinator, obj, key, name, speed_suffix="")
         )
     ]
 
-    query_obj = {OBJ: {obj: ["rpm"]}}
-    fan_data = await coordinator.async_fetch_data(
-        METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
-    )
-
-    if fan_data.get("status", {}).get(obj, {}).get("rpm") is not None:
+    if fan_status.get("rpm") is not None:
         descs.append(
             MoonrakerSensorDescription(
                 key=f"{key}_rpm",
@@ -466,6 +462,28 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
     object_list = await coordinator.async_get_printer_objects_list()
     objects = set(object_list.get("objects", []))
 
+    # Some sensors depend on what an object reports (fan RPM, pressure,
+    # humidity, filament width). Query all of those objects at once rather
+    # than one request per object.
+    probe_kinds = {
+        "fan",
+        "temperature_fan",
+        "hall_filament_width_sensor",
+        *environmental_keys,
+        *fan_keys,
+    }
+    probe_query = {
+        obj: None
+        for obj in objects
+        if (obj.split(maxsplit=1) or [""])[0] in probe_kinds
+    }
+    probe_status = {}
+    if probe_query:
+        probe = await coordinator.async_fetch_data(
+            METHODS.PRINTER_OBJECTS_QUERY, {OBJ: probe_query}, quiet=True
+        )
+        probe_status = probe.get("status") or {}
+
     # Build a set of names that already have a generic temperature_sensor <name>
     # This will be used to deduplicate sensors reported both as a generic temperature_sensor
     # and as a temperature sensor exposed via a klipper module (eg. BME280)
@@ -505,11 +523,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 sensors.append(desc)
 
             if split_obj[0] in environmental_keys:
-                query_obj = {OBJ: {obj: None}}
-                result = await coordinator.async_fetch_data(
-                    METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
-                )
-                env_status = result.get("status", {}).get(obj, {})
+                env_status = probe_status.get(obj) or {}
 
                 if "pressure" in env_status:
                     desc = MoonrakerSensorDescription(
@@ -562,11 +576,11 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                     sensors.append(desc)
 
             if split_obj[0] == "temperature_fan":
-                sensors += await _fan_sensor_descriptions(
-                    coordinator,
+                sensors += _fan_sensor_descriptions(
                     obj,
                     f"{split_obj[0]}_{split_obj[1]}",
                     split_obj[1].replace("_", " ").title(),
+                    probe_status.get(obj) or {},
                     speed_suffix="Speed",
                 )
         elif split_obj[0] == "mcu":
@@ -633,23 +647,19 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
             )
             sensors.append(desc)
         elif split_obj[0] in fan_keys:
-            sensors += await _fan_sensor_descriptions(
-                coordinator,
+            sensors += _fan_sensor_descriptions(
                 obj,
                 f"{split_obj[0]}_{split_obj[1]}",
                 split_obj[1].replace("_", " ").title(),
+                probe_status.get(obj) or {},
             )
         elif obj == "fan":
-            sensors += await _fan_sensor_descriptions(
-                coordinator, obj, obj, "Fan", speed_suffix="Speed"
+            sensors += _fan_sensor_descriptions(
+                obj, obj, "Fan", probe_status.get(obj) or {}, speed_suffix="Speed"
             )
         elif split_obj[0] == "hall_filament_width_sensor":
             # Hall filament width sensor: expose Diameter (mm) and Raw readings
-            query_obj = {OBJ: {obj: None}}
-            result = await coordinator.async_fetch_data(
-                METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
-            )
-            status = result.get("status", {}).get(obj, {})
+            status = probe_status.get(obj) or {}
 
             base_key = obj.replace(" ", "_")
             base_name = (
