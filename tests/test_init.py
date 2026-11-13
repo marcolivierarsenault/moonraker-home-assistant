@@ -1910,3 +1910,70 @@ async def test_reconnect_failure_raises_update_failed(hass, send):
             await coordinator.async_fetch_data(METHODS.PRINTER_INFO)
 
     assert await async_unload_entry(hass, config_entry)
+
+
+@pytest.mark.parametrize("send", [False, True])
+async def test_stopped_client_is_not_restarted(hass, send):
+    """A refresh still running after unload stopped the client doesn't reconnect."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    coordinator.moonraker.stopped = True
+
+    with (
+        patch(
+            "moonraker_api.MoonrakerClient.is_connected",
+            new_callable=PropertyMock,
+            return_value=False,
+        ),
+        patch(
+            "custom_components.moonraker.MoonrakerApiClient.start",
+            new_callable=AsyncMock,
+        ) as start,
+        pytest.raises(UpdateFailed, match="client is stopped"),
+    ):
+        if send:
+            await coordinator.async_send_data(METHODS.PRINTER_EMERGENCY_STOP)
+        else:
+            await coordinator.async_fetch_data(METHODS.PRINTER_INFO)
+
+    start.assert_not_awaited()
+    coordinator.moonraker.stopped = False
+    assert await async_unload_entry(hass, config_entry)
+
+
+@pytest.mark.parametrize("quiet", [False, True])
+async def test_reconnect_failure_when_host_went_offline(hass, quiet):
+    """A reconnect that fails because the printer went offline counts as unreachable."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=MOCK_CONFIG,
+        options={CONF_OPTION_QUIET_UNREACHABLE: quiet},
+        entry_id="test",
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+
+    with (
+        patch(
+            "moonraker_api.MoonrakerClient.is_connected",
+            new_callable=PropertyMock,
+            return_value=False,
+        ),
+        patch(
+            "custom_components.moonraker._async_is_tcp_reachable",
+            new_callable=AsyncMock,
+            side_effect=[True, False],
+        ),
+        patch(
+            "custom_components.moonraker.MoonrakerApiClient.start",
+            side_effect=ConnectionError("refused"),
+        ),
+        pytest.raises(UpdateFailed, match="is unreachable") as err,
+    ):
+        await coordinator.async_fetch_data(METHODS.PRINTER_INFO)
+
+    assert (type(err.value) is UpdateFailed) is (not quiet)
+    assert await async_unload_entry(hass, config_entry)

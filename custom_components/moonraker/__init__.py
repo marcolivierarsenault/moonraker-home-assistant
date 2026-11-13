@@ -680,10 +680,19 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _async_restart_client(self) -> None:
         """Reconnect the websocket, reporting a failure as a failed update."""
+        if self.moonraker.stopped:
+            # The entry stopped the client while unloading. A refresh that was
+            # already running must not open a websocket that nothing closes.
+            raise UpdateFailed("moonraker client is stopped")
         _LOGGER.warning("connection to moonraker down, restarting")
         try:
             await self.moonraker.start()
         except Exception as exception:
+            if not await _async_is_tcp_reachable(
+                self.config_entry.data.get(CONF_URL),
+                _entry_port(self.config_entry),
+            ):
+                raise self._unreachable_error() from exception
             raise UpdateFailed(
                 f"could not reconnect to moonraker: {exception!r}"
             ) from exception
