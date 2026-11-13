@@ -858,7 +858,7 @@ async def async_setup_queue_sensors(coordinator, entry, async_add_entities):
             key="queue_state",
             name="Queue State",
             value_fn=lambda sensor: sensor.coordinator.data["queue"]["queue_state"],
-            subscriptions=[("queue_state")],
+            subscriptions=[],
         ),
         MoonrakerSensorDescription(
             key="queue_count",
@@ -866,7 +866,7 @@ async def async_setup_queue_sensors(coordinator, entry, async_add_entities):
             value_fn=lambda sensor: len(
                 sensor.coordinator.data["queue"]["queued_jobs"]
             ),
-            subscriptions=[("queued_jobs")],
+            subscriptions=[],
             icon="mdi:numeric",
             unit="Jobs",
             state_class=SensorStateClass.MEASUREMENT,
@@ -896,7 +896,7 @@ async def async_setup_spoolman_sensors(coordinator, entry, async_add_entities):
             key="spool_id",
             name="Spool ID",
             value_fn=lambda sensor: sensor.coordinator.data["spoolman"].get("spool_id"),
-            subscriptions=[("spool_id")],
+            subscriptions=[],
         ),
     ]
 
