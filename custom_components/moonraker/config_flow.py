@@ -25,6 +25,7 @@ from .const import (
     CONF_PRINTER_NAME,
     CONF_TLS,
     CONF_URL,
+    DEFAULT_POLLING_RATE,
     DEFAULT_PORT,
     CONF_OPTION_POLLING_RATE,
     CONF_OPTION_QUIET_UNREACHABLE,
@@ -33,6 +34,7 @@ from .const import (
     CONF_OPTION_CAMERA_PORT,
     CONF_OPTION_THUMBNAIL_PORT,
     DOMAIN,
+    MIN_POLLING_RATE,
     TIMEOUT,
 )
 
@@ -261,9 +263,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     vol.Optional(
                         CONF_OPTION_POLLING_RATE,
                         default=self.config_entry.options.get(
-                            CONF_OPTION_POLLING_RATE, 30
+                            CONF_OPTION_POLLING_RATE, DEFAULT_POLLING_RATE
                         ),
-                    ): int,
+                    ): vol.All(vol.Coerce(int), vol.Range(min=MIN_POLLING_RATE)),
                     vol.Optional(
                         CONF_OPTION_QUIET_UNREACHABLE,
                         default=self.config_entry.options.get(
