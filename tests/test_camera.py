@@ -474,10 +474,11 @@ async def test_thumbnail_fallback_listing_fails(
     "files",
     [
         None,
+        5,
         [{"filename": "notes.txt", "size": 10}],
         [{"filename": "plate_1.png", "size": 10}],
     ],
-    ids=["no-files", "no-images", "only-the-missing-image"],
+    ids=["no-files", "files-not-a-list", "no-images", "only-the-missing-image"],
 )
 async def test_thumbnail_fallback_finds_nothing(
     hass, get_default_api_response, aioclient_mock, files
@@ -621,6 +622,11 @@ async def test_thumbnail_fallback_skips_stale_listing_entry(
 
     image = await camera.async_get_image(hass, "camera.mainsail_thumbnail")
     assert image.content == b"plate 6"
+    # plate_1.png is asked for once (the named file), not again from the listing
+    assert [str(call[1]) for call in aioclient_mock.mock_calls] == [
+        f"{THUMBS_URL}/chess_plate_6.gcode/plate_1.png",
+        f"{THUMBS_URL}/chess_plate_6.gcode/plate_6.png",
+    ]
 
 
 async def test_thumbnail_fallback_tries_next_image(
@@ -630,8 +636,9 @@ async def test_thumbnail_fallback_tries_next_image(
     _use_plate_thumbnail(
         get_default_api_response,
         [
-            {"filename": "plate_6.png", "size": 94791},
+            # Listed smallest first: the largest must still be tried first
             {"filename": "plate_6_small.png", "size": 1000},
+            {"filename": "plate_6.png", "size": 94791},
         ],
     )
     await _setup_printer(hass)
@@ -643,7 +650,11 @@ async def test_thumbnail_fallback_tries_next_image(
 
     image = await camera.async_get_image(hass, "camera.mainsail_thumbnail")
     assert image.content == b"small"
-    assert aioclient_mock.call_count == 3
+    assert [str(call[1]) for call in aioclient_mock.mock_calls] == [
+        f"{THUMBS_URL}/chess_plate_6.gcode/plate_1.png",
+        f"{THUMBS_URL}/chess_plate_6.gcode/plate_6.png",
+        f"{THUMBS_URL}/chess_plate_6.gcode/plate_6_small.png",
+    ]
 
 
 async def test_thumbnail_fallback_skips_connection_errors(

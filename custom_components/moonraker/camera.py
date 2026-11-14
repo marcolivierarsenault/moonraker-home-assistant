@@ -30,14 +30,13 @@ from .const import (
     DOMAIN,
     METHODS,
     PRINTSTATES,
+    MAX_FALLBACK_THUMBNAILS,
     THUMBNAIL_EXTENSIONS,
 )
 
 _LOGGER = logging.getLogger(__name__)
 DEFAULT_PORT = 80
 SNAPSHOT_TIMEOUT = 10
-# Folder images tried when the named thumbnail is missing, largest first
-MAX_FALLBACK_THUMBNAILS = 3
 
 # Moonraker webcam services whose stream_url serves an MJPEG stream
 MJPEG_SERVICES = {"mjpegstreamer", "mjpegstreamer-adaptive", "uv4l-mjpeg"}
@@ -323,9 +322,11 @@ class PreviewCamera(Camera):
             return None
 
         files = listing.get("files") if isinstance(listing, dict) else None
+        if not isinstance(files, list):
+            files = []
         images = [
             item
-            for item in files or []
+            for item in files
             if isinstance(item, dict)
             and str(item.get("filename", "")).lower().endswith(THUMBNAIL_EXTENSIONS)
         ]

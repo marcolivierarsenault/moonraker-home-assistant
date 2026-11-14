@@ -130,3 +130,5 @@ class PRINTERSTATES(ExtendedEnum):
 
 # Image files the thumbnail camera can fall back to in a thumbnail folder
 THUMBNAIL_EXTENSIONS = (".png", ".jpg", ".jpeg")
+# Folder images tried when the named thumbnail is missing, largest first
+MAX_FALLBACK_THUMBNAILS = 3
