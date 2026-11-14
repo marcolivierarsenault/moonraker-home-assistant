@@ -2114,10 +2114,19 @@ async def test_full_update_with_failed_query_is_not_recorded(hass):
     """When the full update's object query fails, setup fetches the objects."""
     config_entry, coordinator = await _setup_coordinator(hass)
     assert coordinator._fetched_query
+    fetch = coordinator._async_fetch_data
+    queries = []
 
-    with patch.object(coordinator, "updaters", []):
+    async def failing_query(query_path, query_object, quiet=False):
+        if query_path is METHODS.PRINTER_OBJECTS_QUERY:
+            queries.append(query_object)
+            return {"error": {"code": 503, "message": "Klippy Host not connected"}}
+        return await fetch(query_path, query_object, quiet=quiet)
+
+    with patch.object(coordinator, "_async_fetch_data", side_effect=failing_query):
         await coordinator._async_update_data()
 
+    assert coordinator.query_obj in queries
     assert coordinator._fetched_query == {}
     assert await async_unload_entry(hass, config_entry)
 
