@@ -370,6 +370,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         coordinator.platforms.append(platform)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    coordinator.clear_setup_cache()
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
     async def send_gcode_service(service_call):
@@ -850,6 +851,14 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             if settings:
                 self._config_settings = result
             return result
+
+    def clear_setup_cache(self) -> None:
+        """Drop the printer objects and config settings once setup is done.
+
+        Only platform setup reads them, and the config settings can be large.
+        """
+        self._printer_objects_list = None
+        self._config_settings = None
 
     async def async_refresh_new_data(self) -> None:
         """Fetch only the data added since the last update and merge it in.

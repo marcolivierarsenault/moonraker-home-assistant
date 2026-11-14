@@ -2059,6 +2059,32 @@ async def test_refresh_new_data_without_data_runs_full_refresh(hass):
     assert await async_unload_entry(hass, config_entry)
 
 
+async def test_setup_cache_cleared_after_setup(hass):
+    """The setup caches are filled during platform setup and freed after it."""
+    cached = []
+    clear_setup_cache = MoonrakerDataUpdateCoordinator.clear_setup_cache
+
+    def record_and_clear(coordinator):
+        cached.append((coordinator._printer_objects_list, coordinator._config_settings))
+        clear_setup_cache(coordinator)
+
+    with patch.object(
+        MoonrakerDataUpdateCoordinator,
+        "clear_setup_cache",
+        autospec=True,
+        side_effect=record_and_clear,
+    ):
+        config_entry, coordinator = await _setup_coordinator(hass)
+
+    assert len(cached) == 1
+    objects_list, settings = cached[0]
+    assert objects_list["objects"]
+    assert settings["status"]["configfile"]["settings"]
+    assert coordinator._printer_objects_list is None
+    assert coordinator._config_settings is None
+    assert await async_unload_entry(hass, config_entry)
+
+
 _OBJECTS = {"objects": ["fan"]}
 _SETTINGS = {"status": {"configfile": {"settings": {"fan": {}}}}}
 
