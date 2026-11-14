@@ -13,7 +13,7 @@ from homeassistant.components.number import (
 from homeassistant.core import callback
 from homeassistant.const import UnitOfTemperature, PERCENTAGE
 
-from .const import DOMAIN, METHODS, OBJ
+from .const import DOMAIN, METHODS
 from .entity import BaseMoonrakerEntity
 from custom_components.moonraker.__init__ import MoonrakerDataUpdateCoordinator
 
@@ -48,15 +48,12 @@ async def async_setup_temperature_target(coordinator, entry, async_add_entities)
 
     sensors = []
 
-    config_query = {OBJ: {"configfile": ["settings"]}}
-    config_response = await coordinator.async_fetch_data(
-        METHODS.PRINTER_OBJECTS_QUERY, config_query, quiet=True
-    )
+    config_response = await coordinator.async_get_config_settings()
     config_settings = (
         config_response.get("status", {}).get("configfile", {}).get("settings", {})
     )
 
-    object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
+    object_list = await coordinator.async_get_printer_objects_list()
     for obj in object_list.get("objects", []):
         if obj.startswith("heater_bed"):
             desc = MoonrakerNumberSensorDescription(
@@ -172,19 +169,16 @@ async def async_setup_temperature_target(coordinator, entry, async_add_entities)
             coordinator.add_query_objects(obj, "target")
 
     coordinator.load_sensor_data(sensors)
-    await coordinator.async_refresh()
+    await coordinator.async_refresh_new_data()
     async_add_entities([MoonrakerNumber(coordinator, entry, desc) for desc in sensors])
 
 
 async def async_setup_output_pin(coordinator, entry, async_add_entities):
     """Set optional number platform for PWM output pins."""
 
-    object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
+    object_list = await coordinator.async_get_printer_objects_list()
 
-    query_obj = {OBJ: {"configfile": ["settings"]}}
-    settings = await coordinator.async_fetch_data(
-        METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
-    )
+    settings = await coordinator.async_get_config_settings()
 
     config_settings = (
         settings.get("status", {}).get("configfile", {}).get("settings", {})
@@ -218,7 +212,7 @@ async def async_setup_output_pin(coordinator, entry, async_add_entities):
         numbers.append(desc)
 
     coordinator.load_sensor_data(numbers)
-    await coordinator.async_refresh()
+    await coordinator.async_refresh_new_data()
     async_add_entities(
         [MoonrakerPWMOutputPin(coordinator, entry, desc) for desc in numbers]
     )
@@ -227,7 +221,7 @@ async def async_setup_output_pin(coordinator, entry, async_add_entities):
 async def async_setup_speed_factor(coordinator, entry, async_add_entities):
     """Set up speed factor number entity."""
 
-    object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
+    object_list = await coordinator.async_get_printer_objects_list()
     if "gcode_move" not in object_list.get("objects", []):
         return
 
@@ -244,7 +238,7 @@ async def async_setup_speed_factor(coordinator, entry, async_add_entities):
     )
 
     coordinator.load_sensor_data([desc])
-    await coordinator.async_refresh()
+    await coordinator.async_refresh_new_data()
     async_add_entities(
         [MoonrakerNumber(coordinator, entry, desc, value_multiplier=100.0)]
     )
@@ -253,7 +247,7 @@ async def async_setup_speed_factor(coordinator, entry, async_add_entities):
 async def async_setup_fan_speed(coordinator, entry, async_add_entities):
     """Set up fan speed number entity."""
 
-    object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
+    object_list = await coordinator.async_get_printer_objects_list()
     objects = object_list.get("objects", [])
 
     descs: list[MoonrakerNumberSensorDescription] = []
@@ -311,7 +305,7 @@ async def async_setup_fan_speed(coordinator, entry, async_add_entities):
         return
 
     coordinator.load_sensor_data(descs)
-    await coordinator.async_refresh()
+    await coordinator.async_refresh_new_data()
     async_add_entities(entities)
 
 
