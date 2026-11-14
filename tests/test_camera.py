@@ -4,6 +4,7 @@ import datetime as dt
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from aiohttp import ClientError
 from homeassistant.components import camera
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
@@ -14,6 +15,7 @@ from pytest_homeassistant.common import (
     async_fire_time_changed,
 )
 
+from custom_components.moonraker.camera import MAX_FALLBACK_THUMBNAILS
 from custom_components.moonraker.const import DOMAIN, METHODS, PRINTSTATES
 
 from .const import MOCK_CONFIG, MOCK_OPTIONS
@@ -642,6 +644,50 @@ async def test_thumbnail_fallback_tries_next_image(
     image = await camera.async_get_image(hass, "camera.mainsail_thumbnail")
     assert image.content == b"small"
     assert aioclient_mock.call_count == 3
+
+
+async def test_thumbnail_fallback_skips_connection_errors(
+    hass, get_default_api_response, aioclient_mock
+):
+    """A connection error on one folder image moves on to the next."""
+    _use_plate_thumbnail(
+        get_default_api_response,
+        [
+            {"filename": "plate_6.png", "size": 94791},
+            {"filename": "plate_6_small.png", "size": 1000},
+        ],
+    )
+    await _setup_printer(hass)
+    aioclient_mock.get(f"{THUMBS_URL}/chess_plate_6.gcode/plate_1.png", status=404)
+    aioclient_mock.get(
+        f"{THUMBS_URL}/chess_plate_6.gcode/plate_6.png", exc=ClientError("reset")
+    )
+    aioclient_mock.get(
+        f"{THUMBS_URL}/chess_plate_6.gcode/plate_6_small.png", content=b"small"
+    )
+
+    image = await camera.async_get_image(hass, "camera.mainsail_thumbnail")
+    assert image.content == b"small"
+
+
+async def test_thumbnail_fallback_is_capped(
+    hass, get_default_api_response, aioclient_mock
+):
+    """At most MAX_FALLBACK_THUMBNAILS folder images are requested."""
+    _use_plate_thumbnail(
+        get_default_api_response,
+        [{"filename": f"plate_{n}.png", "size": 1000 - n} for n in range(2, 8)],
+    )
+    await _setup_printer(hass)
+    aioclient_mock.get(f"{THUMBS_URL}/chess_plate_6.gcode/plate_1.png", status=404)
+    for n in range(2, 8):
+        aioclient_mock.get(
+            f"{THUMBS_URL}/chess_plate_6.gcode/plate_{n}.png", status=404
+        )
+
+    with pytest.raises(HomeAssistantError, match="Unable to get image"):
+        await camera.async_get_image(hass, "camera.mainsail_thumbnail")
+    assert aioclient_mock.call_count == 1 + MAX_FALLBACK_THUMBNAILS
 
 
 @pytest.mark.parametrize("status", [403, 500])

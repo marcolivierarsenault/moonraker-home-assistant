@@ -8,6 +8,8 @@ import logging
 import posixpath
 from urllib.parse import quote
 
+from aiohttp import ClientError
+
 from homeassistant.components.camera import Camera
 from homeassistant.components.mjpeg.camera import MjpegCamera
 from homeassistant.config_entries import ConfigEntry
@@ -34,6 +36,8 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 DEFAULT_PORT = 80
 SNAPSHOT_TIMEOUT = 10
+# Folder images tried when the named thumbnail is missing, largest first
+MAX_FALLBACK_THUMBNAILS = 3
 
 # Moonraker webcam services whose stream_url serves an MJPEG stream
 MJPEG_SERVICES = {"mjpegstreamer", "mjpegstreamer-adaptive", "uv4l-mjpeg"}
@@ -327,11 +331,16 @@ class PreviewCamera(Camera):
             for item in images
             if posixpath.join(thumb_dir, item["filename"]) != path
         ]
-        # Try the largest image first, then the others if one can't be fetched.
-        for item in sorted(images, key=_thumbnail_size, reverse=True):
+        # Try the largest images first, then the next if one can't be fetched.
+        candidates = sorted(images, key=_thumbnail_size, reverse=True)
+        for item in candidates[:MAX_FALLBACK_THUMBNAILS]:
             candidate = posixpath.join(thumb_dir, item["filename"])
             _LOGGER.debug(f"Thumbnail {path} is missing, trying {candidate}")
-            pic = await self._async_fetch_thumbnail(candidate)
+            try:
+                pic = await self._async_fetch_thumbnail(candidate)
+            except (ClientError, TimeoutError) as err:
+                _LOGGER.debug(f"Could not fetch {candidate}: {err!r}")
+                continue
             if not isinstance(pic, int):
                 return pic
         return None
