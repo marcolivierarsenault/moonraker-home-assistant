@@ -20,6 +20,9 @@ class MoonrakerApiClient(MoonrakerListener):
     ):
         """Init."""
         self.running = False
+        # Set by stop(), so a refresh still running during unload doesn't
+        # reconnect. Unlike `running`, it isn't set before the first start().
+        self.stopped = False
         if api_key == "":
             api_key = None
         self.client = MoonrakerClient(
@@ -35,11 +38,13 @@ class MoonrakerApiClient(MoonrakerListener):
     async def start(self) -> None:
         """Start the websocket connection."""
         self.running = True
+        self.stopped = False
         await self.client.connect()
 
     async def stop(self) -> None:
         """Stop the websocket connection."""
         self.running = False
+        self.stopped = True
         await self.client.disconnect()
 
 

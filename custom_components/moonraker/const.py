@@ -29,6 +29,12 @@ CONF_PRINTER_NAME = "printer_name"
 CONF_OPTION_CAMERA_STREAM = "camera_stream_url"
 CONF_OPTION_CAMERA_SNAPSHOT = "camera_snapshot_url"
 CONF_OPTION_POLLING_RATE = "polling_rate"
+
+# Polling intervals in seconds
+DEFAULT_POLLING_RATE = 30
+MIN_POLLING_RATE = 1
+PRINTING_POLLING_RATE = 2
+
 CONF_OPTION_QUIET_UNREACHABLE = "quiet_unreachable_devices"
 CONF_OPTION_CAMERA_PORT = "camera_port"
 CONF_OPTION_THUMBNAIL_PORT = "thumbnail_port"
