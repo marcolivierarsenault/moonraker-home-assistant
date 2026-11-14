@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 from homeassistant.components.light.const import DOMAIN as LIGHT_DOMAIN
 from homeassistant.const import ATTR_ENTITY_ID, SERVICE_TURN_ON, SERVICE_TURN_OFF
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.moonraker.const import DOMAIN, METHODS
 
@@ -274,3 +274,35 @@ async def test_light_update_exception(hass, light, get_default_api_response):
 
         state = hass.states.get(f"light.{light}")
         assert state is not None
+
+
+async def test_light_config_missing_skips_entity(hass, get_data):
+    """A light with unknown config is skipped rather than guessed."""
+    get_data["status"]["configfile"]["settings"].pop("neopixel camera")
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("light.mainsail_neopixel_camera") is None
+    assert hass.states.get("light.mainsail_led_chamber") is not None
+
+
+async def test_light_unavailable_while_color_data_missing(hass, get_data):
+    """A light is unavailable while its color data is missing."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+
+    saved = get_data["status"].pop("led chamber")
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert hass.states.get("light.mainsail_led_chamber").state == "unavailable"
+
+    get_data["status"]["led chamber"] = saved
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert hass.states.get("light.mainsail_led_chamber").state != "unavailable"

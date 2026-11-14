@@ -7,7 +7,7 @@ from homeassistant.const import Platform
 # Base component constants
 DOMAIN = "moonraker"
 DOMAIN_DATA = f"{DOMAIN}_data"
-VERSION = "1.13.4"
+VERSION = "1.14.0"
 MANIFACTURER = "@marcolivierarsenault"
 
 # Platforms
@@ -29,6 +29,12 @@ CONF_PRINTER_NAME = "printer_name"
 CONF_OPTION_CAMERA_STREAM = "camera_stream_url"
 CONF_OPTION_CAMERA_SNAPSHOT = "camera_snapshot_url"
 CONF_OPTION_POLLING_RATE = "polling_rate"
+
+# Polling intervals in seconds
+DEFAULT_POLLING_RATE = 30
+MIN_POLLING_RATE = 1
+PRINTING_POLLING_RATE = 2
+
 CONF_OPTION_QUIET_UNREACHABLE = "quiet_unreachable_devices"
 CONF_OPTION_CAMERA_PORT = "camera_port"
 CONF_OPTION_THUMBNAIL_PORT = "thumbnail_port"
@@ -41,6 +47,18 @@ OBJ = "objects"
 # API timeout
 TIMEOUT = 10
 
+# U1 Custom Filament Attributes
+U1_PRINT_TASK_CONFIG = "print_task_config"
+U1_FILAMENT_ATTRIBUTES = [
+    "filament_color_rgba",
+    "filament_vendor",
+    "filament_type",
+    "filament_sub_type",
+    "filament_official",
+    "filament_sku",
+    "filament_edit",
+    "filament_soft",
+]
 # CONNECTION DATA
 DEFAULT_PORT = 7125
 

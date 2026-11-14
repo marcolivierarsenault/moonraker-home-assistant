@@ -50,7 +50,7 @@ Sensors that are added on integration startup.
     - Bed current power consumption (in %). 100% = Max, 0% = close
     - From Moonraker API (heater_bed, power)
   * - Filename
-    - Filename of the current print
+    - Filename of the current or last print, kept until the printer returns to standby
     - From Moonraker API (print_stats, filename)
   * - print Projected Total Duration
     - Total predicted duration of the print
@@ -62,10 +62,10 @@ Sensors that are added on integration startup.
     - Estimated time at which the print will be finished
     - Based on our :ref:`percentage`
   * - print duration
-    - Print duration from start to now
+    - Print duration from start to now, kept after the print ends until the printer returns to standby
     - From Moonraker API (print_stats, print_duration)
   * - Filament Used
-    - Filament used since the start of current print
+    - Filament used since the start of current print, kept after the print ends until the printer returns to standby
     - From Moonraker API (print_stats, filament_used)
   * - progress
     - Percentage of the current GCode file printed
@@ -106,6 +106,9 @@ Sensors that are added on integration startup.
   * - Spool ID
     - Active Spoolman spool id used for tracking/reporting. Only available when Spoolman is configured. Can be empty when tracking is disabled.
     - From Moonraker API (server.spoolman.status, spool_id)
+  * - E0 Filament Info to E3 Filament Info
+    - Filament loaded in each of the four extruders. The state is the filament color as ``#RRGGBBAA``; vendor, type, sub_type, official, sku, edit and soft are attributes when the printer reports them. Only available on Snapmaker U1.
+    - From Klipper (print_task_config)
 
 
 History Sensors
@@ -164,9 +167,15 @@ Optional Sensors
 -----------------------------
 
 -  For every optional fan object available in [``heater_fan``,
-   ``controller_fan``, ``fan_generic``, ``chamber_fan``] we will create a sensor showing fan speed.
+   ``controller_fan``, ``fan_generic``, ``chamber_fan``, ``temperature_fan``] we will create a sensor showing fan speed.
 -  For every optional fan object available in [``heater_fan``,
-   ``controller_fan``, ``fan_generic``, ``fan``, ``chamber_fan``] we will create a sensor showing rpm if the data is available.
+   ``controller_fan``, ``fan_generic``, ``fan``, ``chamber_fan``, ``temperature_fan``] we will create a sensor showing rpm if the data is available.
+   For ``temperature_fan`` these sensors are named ``<Name> Speed`` and ``<Name> RPM``.
+-  The part cooling fan (``fan``) and every ``fan_generic`` also have a speed slider
+   (see :doc:`controls`). Their speed sensor shows the same value as the slider; it is
+   kept as a read-only entity with long-term statistics for history graphs.
+   ``heater_fan``, ``controller_fan``, ``chamber_fan`` and ``temperature_fan`` have no
+   speed slider, so their speed sensor is the only speed entity.
 -  For every optional temperature object available in
    [``temperature_sensor``, ``temperature_fan``, ``bme280``, ``htu21d``, ``aht10``, ``aht20_f``, ``sht3x``, ``lm75``]
    we will create a sensor showing sensor temperature.

@@ -40,7 +40,8 @@ async def async_setup_light(coordinator, entry, async_add_entities):
     )
 
     lights = []
-    for obj in object_list["objects"]:
+    cfg = settings.get("status", {}).get("configfile", {}).get("settings", {})
+    for obj in object_list.get("objects", []):
         if (
             not obj.startswith("led ")
             and not obj.startswith("neopixel ")
@@ -52,7 +53,10 @@ async def async_setup_light(coordinator, entry, async_add_entities):
 
         led_type = obj.split()[0]
         color_mode = ColorMode.UNKNOWN
-        conf = settings["status"]["configfile"]["settings"][obj.lower()]
+        conf = cfg.get(obj.lower())
+        if conf is None:
+            # Unknown config: skip rather than guess the color mode.
+            continue
 
         if led_type == "led":
             num_led_pins = 0
@@ -94,6 +98,7 @@ async def async_setup_light(coordinator, entry, async_add_entities):
 
 
 _LOGGER = logging.getLogger(__name__)
+
 
 class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
     """Moonraker LED class."""
@@ -154,16 +159,10 @@ class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
 
     async def async_turn_off(self, **kwargs) -> None:
         """Turn off the light."""
-        self._attr_is_on = False
         await self._set_rgbw(0, 0, 0, 0)
 
     async def _set_rgbw(self, r: int, g: int, b: int, w: int) -> None:
-        """Update HA attributes."""
-        self._attr_rgb_color = (r, g, b)
-        self._attr_rgbw_color = (r, g, b, w)
-        self._attr_brightness = max(r, g, b, w)
-        self._attr_is_on = self._attr_brightness > 0
-        """Set native Value."""
+        """Send the color to the printer, then update HA attributes."""
         f_r = round(r / 255.0, 2)
         f_g = round(g / 255.0, 2)
         f_b = round(b / 255.0, 2)
@@ -174,11 +173,26 @@ class MoonrakerLED(BaseMoonrakerEntity, LightEntity):
                 "script": f'SET_LED LED="{self.led_name}" RED={f_r} GREEN={f_g} BLUE={f_b} WHITE={f_w} SYNC=0 TRANSMIT=1'
             },
         )
+        self._attr_rgb_color = (r, g, b)
+        self._attr_rgbw_color = (r, g, b, w)
+        self._attr_brightness = max(r, g, b, w)
+        self._attr_is_on = self._attr_brightness > 0
         self.async_write_ha_state()
+
+    @property
+    def available(self) -> bool:
+        """Return True if last update succeeded and the color data is known."""
+        status = self.coordinator.data.get("status", {}).get(self.sensor_name)
+        if not super().available or not isinstance(status, dict):
+            return False
+        color_data = status.get("color_data")
+        return isinstance(color_data, list) and len(color_data) > 0
 
     def _set_attributes_from_coordinator(self) -> None:
         try:
-            color_data = self.coordinator.data["status"][self.sensor_name]["color_data"][0]
+            color_data = self.coordinator.data["status"][self.sensor_name][
+                "color_data"
+            ][0]
             r = int(color_data[0] * 255)
             g = int(color_data[1] * 255)
             b = int(color_data[2] * 255)

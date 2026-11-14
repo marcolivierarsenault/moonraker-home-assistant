@@ -13,7 +13,7 @@ Core integration code sits in `custom_components/moonraker/`: Home Assistant boo
 - `scripts/docs_build` — rebuild docs with warnings treated as errors.
 - `pre-commit run --all-files` — run formatting and quality hooks before pushing.
 - `scripts/prepush` — run pre-push checks (`pre-commit`, strict tests, and docs build when `docs/**` changed).
-- `scripts/version_bump major|minor|patch` — perform release version bumps through `bump2version`.
+- `scripts/version_bump major|minor|patch [--pre]` — bump the version locally and commit it. Releases normally go through the Prepare release workflow; see `docs/development/releases.md`.
 
 ## Coding Style & Naming Conventions
 
@@ -25,7 +25,7 @@ Place tests beside their feature under `tests/` and name files `test_<feature>.p
 
 ## Commit & Pull Request Guidelines
 
-Write short, imperative commit titles (`Add camera snapshot support`). Before pushing, run `scripts/prepush` (or at minimum `pre-commit run --all-files` and `scripts/test_strict`, plus `scripts/docs_build` for docs changes). PRs should explain user impact, list validation commands run, and link issues (`Fixes #123`) where relevant. Include updated screenshots or docs links for UI changes, and squash noisy work-in-progress commits before review. For version bumps, use `bump2version major|minor|patch` (or `scripts/version_bump ...`), which handles the commit automatically.
+Write short, imperative commit titles (`Add camera snapshot support`). Before pushing, run `scripts/prepush` (or at minimum `pre-commit run --all-files` and `scripts/test_strict`, plus `scripts/docs_build` for docs changes). PRs should explain user impact, list validation commands run, and link issues (`Fixes #123`) where relevant. Include updated screenshots or docs links for UI changes, and squash noisy work-in-progress commits before review. For version bumps, use `scripts/version_bump ...`, which handles the commit automatically.
 
 ## Codex Workflow
 
@@ -38,6 +38,7 @@ For issue-started work that has no existing PR, open AI-authored changes as a dr
 ### Moonraker compatibility
 
 - Flag assumptions that optional or implementation-specific Moonraker response fields always exist. Safe path: preserve compatibility with standard Moonraker while handling known variants explicitly and cover each response shape with tests.
+- Treat numeric zero as a valid value, not as missing data. Distinguish `None` or absent fields from zero and add regression tests for both cases.
 
 ### Runtime lifecycle
 
@@ -46,6 +47,11 @@ For issue-started work that has no existing PR, open AI-authored changes as a dr
 ### Printer command safety
 
 - Flag any read, discovery, setup, coordinator, or camera path that can send a mutating printer command. Safe path: keep passive paths read-only and restrict mutations to explicit user-triggered entities or services with regression coverage.
+
+### HTTP authorization and untrusted data
+
+- Require Home Assistant authentication for custom HTTP views and enforce action-appropriate authorization before exposing printer controls. Cover unauthenticated and unauthorized requests with tests.
+- Treat Moonraker values such as filenames and device names as untrusted input in frontend code. Build DOM nodes safely and assign text with `textContent`; do not interpolate these values into `innerHTML`.
 
 ## Security & Configuration Tips
 

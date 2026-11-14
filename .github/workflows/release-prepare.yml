@@ -1,0 +1,127 @@
+name: Prepare release
+
+# Opens a pull request against upstream main that bumps the version.
+# Can run in the upstream repository or in a fork; see
+# docs/development/releases.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Part to bump (ignored when the current version is a beta)"
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+      prerelease:
+        description: "Pre-release (beta, e.g. 1.14.0b0)"
+        type: boolean
+        default: false
+      version:
+        description: "Exact version instead of bump/prerelease (optional, e.g. 2.0.0b0)"
+        type: string
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-prepare
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    name: Open version bump PR
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+    steps:
+      - name: Find upstream repository
+        id: repo
+        env:
+          HAS_RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN != '' }}
+        run: |
+          upstream="$(gh api "repos/${GITHUB_REPOSITORY}" --jq '.parent.full_name // .full_name')"
+          echo "upstream=${upstream}" >> "$GITHUB_OUTPUT"
+          if [ "$upstream" != "$GITHUB_REPOSITORY" ] && [ "$HAS_RELEASE_TOKEN" != "true" ]; then
+            echo "::error::Running in a fork requires a RELEASE_TOKEN secret that can open pull requests on ${upstream}."
+            exit 1
+          fi
+
+      - name: Check out upstream main
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ steps.repo.outputs.upstream }}
+          ref: main
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Compute version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+          PRERELEASE: ${{ inputs.prerelease }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          current="$(python3 scripts/release_version.py current)"
+          if [ -n "$VERSION" ]; then
+            new="$VERSION"
+          elif [ "$PRERELEASE" = "true" ]; then
+            new="$(python3 scripts/release_version.py next "$BUMP" --pre)"
+          else
+            new="$(python3 scripts/release_version.py next "$BUMP")"
+          fi
+          python3 scripts/release_version.py set "$new"
+          if git ls-remote --exit-code --tags origin "refs/tags/${new}" > /dev/null; then
+            echo "::error::Tag ${new} already exists upstream."
+            exit 1
+          fi
+          if python3 scripts/release_version.py is-prerelease "$new"; then
+            kind="pre-release"
+          else
+            kind="release"
+          fi
+          echo "current=${current}" >> "$GITHUB_OUTPUT"
+          echo "new=${new}" >> "$GITHUB_OUTPUT"
+          echo "kind=${kind}" >> "$GITHUB_OUTPUT"
+          echo "Bumping ${current} -> ${new} (${kind})" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit and push branch
+        env:
+          NEW: ${{ steps.version.outputs.new }}
+          PUSH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+        run: |
+          branch="release/${NEW}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git commit -am "$NEW"
+          git push "https://x-access-token:${PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/${branch}"
+
+      - name: Open pull request
+        env:
+          UPSTREAM: ${{ steps.repo.outputs.upstream }}
+          CURRENT: ${{ steps.version.outputs.current }}
+          NEW: ${{ steps.version.outputs.new }}
+          KIND: ${{ steps.version.outputs.kind }}
+        run: |
+          owner="${GITHUB_REPOSITORY%%/*}"
+          if [ "$UPSTREAM" = "$GITHUB_REPOSITORY" ]; then
+            head="release/${NEW}"
+          else
+            head="${owner}:release/${NEW}"
+          fi
+          body="$(printf '%s\n\n%s\n\n%s\n' \
+            "Bumps the integration version from \`${CURRENT}\` to \`${NEW}\` (${KIND})." \
+            "When this PR is merged, the Publish release workflow tags \`${NEW}\` on main and creates the GitHub Release$( [ "$KIND" = "pre-release" ] && echo ', marked as a pre-release')." \
+            "Opened by the Prepare release workflow, requested by ${GITHUB_ACTOR}.")"
+          url="$(gh pr create --repo "$UPSTREAM" --base main --head "$head" \
+            --title "Release ${NEW}" --body "$body")"
+          echo "Pull request: ${url}" >> "$GITHUB_STEP_SUMMARY"

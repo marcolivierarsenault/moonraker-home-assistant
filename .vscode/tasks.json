@@ -4,7 +4,7 @@
     {
       "id": "bumpLevel",
       "type": "pickString",
-      "description": "Select bump2version level",
+      "description": "Select version bump level",
       "options": ["patch", "minor", "major"],
       "default": "patch"
     }

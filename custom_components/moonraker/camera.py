@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from homeassistant.components.camera import Camera
@@ -13,6 +14,8 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
+    CONF_API_KEY,
+    CONF_TLS,
     CONF_URL,
     CONF_OPTION_CAMERA_STREAM,
     CONF_OPTION_CAMERA_SNAPSHOT,
@@ -25,6 +28,10 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 DEFAULT_PORT = 80
+SNAPSHOT_TIMEOUT = 10
+
+# Moonraker webcam services whose stream_url serves an MJPEG stream
+MJPEG_SERVICES = {"mjpegstreamer", "mjpegstreamer-adaptive", "uv4l-mjpeg"}
 
 hardcoded_camera = {
     "name": "webcam",
@@ -67,10 +74,17 @@ async def async_setup_entry(
             camera_cnt += 1
         else:
             cameras = await coordinator.async_fetch_data(METHODS.SERVER_WEBCAMS_LIST)
+            session = async_get_clientsession(hass, verify_ssl=False)
             for camera_id, camera in enumerate(cameras["webcams"]):
-                async_add_entities(
-                    [MoonrakerCamera(config_entry, coordinator, camera, camera_id)]
-                )
+                if _is_mjpeg_camera(camera):
+                    entity = MoonrakerCamera(
+                        config_entry, coordinator, camera, camera_id
+                    )
+                else:
+                    entity = MoonrakerSnapshotCamera(
+                        config_entry, coordinator, camera, camera_id, session
+                    )
+                async_add_entities([entity])
                 camera_cnt += 1
     except Exception:
         _LOGGER.info("Could not add any cameras from the API list")
@@ -90,6 +104,25 @@ async def async_setup_entry(
             )
         ]
     )
+
+
+def _is_mjpeg_camera(camera) -> bool:
+    """Return True if the webcam provides an MJPEG stream."""
+    if not camera.get("stream_url"):
+        return False
+    service = camera.get("service")
+    return service is None or service in MJPEG_SERVICES
+
+
+def _camera_url(config_entry, path) -> str:
+    """Return the full URL of a webcam path."""
+    if path.startswith("http"):
+        return path
+    port = config_entry.options.get(CONF_OPTION_CAMERA_PORT)
+    if port is None or port == "":
+        port = DEFAULT_PORT
+    scheme = "https" if config_entry.data.get(CONF_TLS) else "http"
+    return f"{scheme}://{config_entry.data.get(CONF_URL)}:{port}{path}"
 
 
 class MoonrakerCamera(MjpegCamera):
@@ -125,6 +158,50 @@ class MoonrakerCamera(MjpegCamera):
         )
 
 
+class MoonrakerSnapshotCamera(Camera):
+    """Moonraker webcam without an MJPEG stream, served from its snapshot URL."""
+
+    def __init__(self, config_entry, coordinator, camera, camera_id, session) -> None:
+        """Initialize the snapshot camera."""
+
+        super().__init__()
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, config_entry.entry_id)}
+        )
+        self._attr_name = f"{coordinator.api_device_name} {camera['name']}"
+        self._attr_unique_id = f"{config_entry.entry_id}_{camera['name']}_{camera_id}"
+        self._session = session
+        snapshot_url = camera.get("snapshot_url")
+        self._snapshot_url = (
+            _camera_url(config_entry, snapshot_url) if snapshot_url else None
+        )
+        # Only send the API key to the printer itself, not to absolute URLs
+        api_key = config_entry.data.get(CONF_API_KEY)
+        self._headers = (
+            {"X-Api-Key": api_key}
+            if api_key and snapshot_url and not snapshot_url.startswith("http")
+            else None
+        )
+        _LOGGER.info(
+            f"Connecting to {camera.get('service')} camera via snapshots: "
+            f"{self._snapshot_url}"
+        )
+
+    async def async_camera_image(
+        self, width: int | None = None, height: int | None = None
+    ) -> bytes | None:
+        """Return the current snapshot."""
+        del width, height
+        if self._snapshot_url is None:
+            return None
+        async with asyncio.timeout(SNAPSHOT_TIMEOUT):
+            response = await self._session.get(
+                self._snapshot_url, headers=self._headers
+            )
+            response.raise_for_status()
+            return await response.read()
+
+
 class PreviewCamera(Camera):
     """Representation of the gcode thumnail."""
 
@@ -138,6 +215,9 @@ class PreviewCamera(Camera):
             identifiers={(DOMAIN, config_entry.entry_id)}
         )
         self.url = config_entry.data.get(CONF_URL)
+        self._scheme = "https" if config_entry.data.get(CONF_TLS) else "http"
+        api_key = config_entry.data.get(CONF_API_KEY)
+        self._headers = {"X-Api-Key": api_key} if api_key else None
         self.coordinator = coordinator
         self._attr_name = f"{coordinator.api_device_name} Thumbnail"
         self._attr_unique_id = f"{config_entry.entry_id}_thumbnail"
@@ -158,10 +238,10 @@ class PreviewCamera(Camera):
     ) -> bytes | None:
         """Return current camera image."""
         _LOGGER.debug("Trying to get thumbnail ")
-        if (
-            self.coordinator.data["status"]["print_stats"]["state"]
-            != PRINTSTATES.PRINTING.value
-        ):
+        state = (
+            self.coordinator.data.get("status", {}).get("print_stats", {}).get("state")
+        )
+        if state != PRINTSTATES.PRINTING.value:
             _LOGGER.debug("Not printing, no thumbnail")
             return None
 
@@ -183,10 +263,11 @@ class PreviewCamera(Camera):
         new_path = new_path.replace(" ", "%20")
 
         _LOGGER.debug(
-            f"Fetching new thumbnail: http://{self.url}:{self.port}/server/files/gcodes/{new_path}"
+            f"Fetching new thumbnail: {self._scheme}://{self.url}:{self.port}/server/files/gcodes/{new_path}"
         )
         response = await self._session.get(
-            f"http://{self.url}:{self.port}/server/files/gcodes/{new_path}"
+            f"{self._scheme}://{self.url}:{self.port}/server/files/gcodes/{new_path}",
+            headers=self._headers,
         )
 
         self._current_path = new_path

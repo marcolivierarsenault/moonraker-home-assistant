@@ -4,7 +4,6 @@
 
 ## Currently unmaintained, if you are insterested to help maintain this, email me marcolivier.arsenault@gmail.com
 
-
 # Moonraker Home Assistant
 
 Non official integration for Moonraker and Klipper in Home Assistant (via HACS).
@@ -21,11 +20,15 @@ This allows you home assistant to connect to your 3D printer and display:
 
 To access the list of all entities and their documentations, look at our [documentation](https://moonraker-home-assistant.readthedocs.io/en/latest/). The list of entities keeps growing on each versions :rocket: . Keep an eye on the releases.
 
+Beta versions (for example `1.14.0b0`) are published as GitHub pre-releases. To try them, enable beta versions for the Moonraker integration in HACS. Maintainers: the release process is described in [docs/development/releases.md](docs/development/releases.md).
+
 ## Hardware Limits
 
 This software seems to have issues working on **FLSUN Speeder Pad** and **Sonic Pad**, so those are unsuported.
 
 # Install
+
+Requires Home Assistant 2025.1 or newer.
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=marcolivierarsenault&repository=moonraker-home-assistant&category=integration)
 
@@ -37,8 +40,9 @@ This software seems to have issues working on **FLSUN Speeder Pad** and **Sonic 
 - In the sidebar, click 'Configuration', then 'Devices & Services'. Click the + icon to add "Moonraker" to your Home Assistant installation.
   - Enter the host or IP of your Moonraker installation.
   - Change your printer's port if you don't use the default of 7125.
-  - Optionally enter your API key if you have required one in Moonraker.
+  - Optionally enter your API key if you have required one in Moonraker. If you only know your login, enter your Moonraker username and password instead and the integration fetches the API key for you.
   - Optionally specify your printer's name if you don't want to use the hostname of your moonraker installation.
+- To change these settings later, for example after the printer's IP changes, select `Reconfigure` in the menu of the printer entry. Entities and their history are kept.
 
 # Support
 

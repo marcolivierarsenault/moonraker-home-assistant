@@ -3,15 +3,18 @@
 import asyncio
 import logging
 from contextlib import suppress
+from functools import partial
 import os.path
 import uuid
 from datetime import timedelta
 from typing import Any
 
-import async_timeout
+import voluptuous as vol
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -26,19 +29,28 @@ from .const import (
     CONF_OPTION_QUIET_UNREACHABLE,
     CONF_TLS,
     CONF_URL,
+    DEFAULT_POLLING_RATE,
     DEFAULT_PORT,
     DEVICE_TYPE,
     DOMAIN,
     HOSTNAME,
     METHODS,
+    MIN_POLLING_RATE,
     OBJ,
     PLATFORMS,
+    PRINTING_POLLING_RATE,
     TIMEOUT,
     PRINTSTATES,
 )
 from .sensor import SENSORS
 
-SCAN_INTERVAL = timedelta(seconds=30)
+# How long send_gcode with wait: false waits for the printer to reject a script
+GCODE_REJECT_WINDOW = 5
+
+# Only checks wait: Home Assistant adds the action's target fields to the data
+SEND_GCODE_SCHEMA = vol.Schema(
+    {vol.Optional("wait", default=True): cv.boolean}, extra=vol.ALLOW_EXTRA
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -52,12 +64,33 @@ def _quiet_unreachable_logs(entry: ConfigEntry) -> bool:
     return entry.options.get(CONF_OPTION_QUIET_UNREACHABLE, False)
 
 
+def _entry_polling_interval(entry: ConfigEntry) -> timedelta:
+    """Return the polling interval configured for an entry."""
+    try:
+        polling_rate = int(
+            entry.options.get(CONF_OPTION_POLLING_RATE, DEFAULT_POLLING_RATE)
+        )
+    except (TypeError, ValueError):
+        polling_rate = DEFAULT_POLLING_RATE
+    if polling_rate < MIN_POLLING_RATE:
+        polling_rate = DEFAULT_POLLING_RATE
+    return timedelta(seconds=polling_rate)
+
+
 def _log_unreachable(entry: ConfigEntry, message: str, *args: Any) -> None:
     """Log unreachable-device messages at the configured verbosity."""
     if _quiet_unreachable_logs(entry):
         _LOGGER.debug(message, *args)
     else:
         _LOGGER.warning(message, *args)
+
+
+class _QuietUnreachableUpdateFailed(UpdateFailed):
+    """Refresh failure caused by an unreachable printer in quiet mode.
+
+    Only refreshes aborted by this exception skip the coordinator failure
+    log; any other failure keeps its error level.
+    """
 
 
 def _normalize_moonraker_port(port: int | str | None) -> int:
@@ -76,7 +109,7 @@ async def _async_is_tcp_reachable(host: str, port: int | str | None) -> bool:
     """Return whether a TCP connection to the Moonraker endpoint can be opened."""
     writer: asyncio.StreamWriter | None = None
     try:
-        async with async_timeout.timeout(TIMEOUT):
+        async with asyncio.timeout(TIMEOUT):
             _reader, writer = await asyncio.open_connection(
                 host, _normalize_moonraker_port(port)
             )
@@ -189,10 +222,85 @@ def get_user_name(hass: HomeAssistant, entry: ConfigEntry):
     return device_entries[0].name_by_user
 
 
+def _moonraker_error_message(result: Any) -> str | None:
+    """Return the error message in a Moonraker call result, if any.
+
+    moonraker-api returns errors as the call's result ({"error": {...}}) instead
+    of raising them. Only that object form is an error: a power device named
+    "error" legitimately answers {"error": "on"}.
+    """
+    error = result.get("error") if isinstance(result, dict) else None
+    if not isinstance(error, dict):
+        return None
+    return str(error.get("message") or "unknown error")
+
+
+class _CommandTimedOut(UpdateFailed):
+    """Moonraker didn't answer in time, which doesn't mean the command failed."""
+
+
+def _log_background_gcode_result(name: str, task: asyncio.Task) -> None:
+    """Log how a G-code script that was left running in the background ended."""
+    if task.cancelled():
+        return
+    err = task.exception()
+    if isinstance(err, _CommandTimedOut):
+        _LOGGER.debug("Stopped waiting for G-code on %s: %s", name, err)
+    elif err is not None:
+        _LOGGER.error(
+            "G-code failed on %s: %s", name, str(err) or "the connection was lost"
+        )
+
+
+async def _async_send_gcode(
+    hass: HomeAssistant, coordinator, script: str, name: str, wait: bool
+) -> None:
+    """Send a script, without waiting for it to finish if wait is off.
+
+    With wait off, return if the printer hasn't rejected the script after a
+    while, and leave it running in the background.
+    """
+    send = coordinator.async_send_data(METHODS.PRINTER_GCODE_SCRIPT, {"script": script})
+    if wait:
+        await send
+        return
+    task = coordinator.config_entry.async_create_background_task(
+        hass, send, f"moonraker send_gcode {name}"
+    )
+    done: set[asyncio.Task] = set()
+    try:
+        done, _ = await asyncio.wait({task}, timeout=GCODE_REJECT_WINDOW)
+    finally:
+        # Also when the action is cancelled, as the script carries on regardless
+        if not done:
+            task.add_done_callback(partial(_log_background_gcode_result, name))
+    if done:
+        task.result()
+
+
+async def _async_send_gcode_to_printers(
+    hass: HomeAssistant, targets: list[tuple[Any, str]], script: str, wait: bool
+) -> list[str]:
+    """Send a script to each (coordinator, name) and return the failures."""
+
+    async def _send(coordinator, name: str) -> str | None:
+        try:
+            await _async_send_gcode(hass, coordinator, script, name, wait)
+        except HomeAssistantError as err:
+            # Keep going so one failing printer doesn't stop the others
+            return f"{name}: {str(err) or 'could not send the command'}"
+        return None
+
+    if wait:
+        results = [await _send(*target) for target in targets]
+    else:
+        # Don't make one printer's reject window delay the next printer
+        results = await asyncio.gather(*(_send(*target) for target in targets))
+    return [failure for failure in results if failure]
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Set up this integration using UI."""
-
-    global SCAN_INTERVAL
 
     if hass.data.get(DOMAIN) is None:
         hass.data.setdefault(DOMAIN, {})
@@ -206,8 +314,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     printer_name = (
         entry.data.get(CONF_PRINTER_NAME) if custom_name is None else custom_name
     )
-
-    SCAN_INTERVAL = timedelta(seconds=entry.options.get(CONF_OPTION_POLLING_RATE, 30))
 
     api = MoonrakerApiClient(
         url,
@@ -227,7 +333,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             )
             raise ConfigEntryNotReady(f"Error connecting to {url}:{port}")
 
-        async with async_timeout.timeout(TIMEOUT):
+        async with asyncio.timeout(TIMEOUT):
             await api.start()
             printer_info = await api.client.call_method("printer.info")
             _LOGGER.debug(printer_info)
@@ -256,6 +362,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     await coordinator.async_refresh()
 
     if not coordinator.last_update_success:
+        await api.stop()
         raise ConfigEntryNotReady
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
@@ -269,6 +376,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
         """Handle the service call to send g-code."""
         gcode = service_call.data["gcode"]
         raw_device_ids = service_call.data["device_id"]
+        wait = service_call.data["wait"]
         dev_reg = dr.async_get(hass)
 
         if isinstance(gcode, list):
@@ -286,6 +394,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
             device_ids = list(raw_device_ids)
 
         processed_entries: set[str] = set()
+        targets: list[tuple[Any, str]] = []
 
         domain_entries = hass.data.get(DOMAIN, {})
 
@@ -300,10 +409,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                     _LOGGER.warning("Unknown Moonraker device_id %s", device_id)
                     continue
             else:
-                if getattr(device, "config_entries", None):
-                    entry_ids.update(device.config_entries)
-                if device.primary_config_entry:
-                    entry_ids.add(device.primary_config_entry)
+                if hasattr(device, "config_entry_id"):
+                    if device.config_entry_id:
+                        entry_ids.add(device.config_entry_id)
+                else:
+                    # HA before 2026.8 has no DeviceEntry.config_entry_id.
+                    entry_ids.update(getattr(device, "config_entries", None) or ())
                 if not entry_ids:
                     for domain, identifier in device.identifiers:
                         if domain == DOMAIN:
@@ -333,13 +444,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                     "Sending G-code via entry %s for device %s", entry_id, device_id
                 )
 
-                await hass.data[DOMAIN][entry_id].async_send_data(
-                    METHODS.PRINTER_GCODE_SCRIPT,
-                    {"script": script},
-                )
+                coordinator = hass.data[DOMAIN][entry_id]
+                name = (
+                    device and (device.name_by_user or device.name)
+                ) or coordinator.config_entry.title
+                targets.append((coordinator, name))
+
+        failures = await _async_send_gcode_to_printers(hass, targets, script, wait)
+        if failures:
+            raise HomeAssistantError(f"G-code failed on {'; '.join(failures)}")
 
     # Register the new service
-    hass.services.async_register(DOMAIN, "send_gcode", send_gcode_service)
+    hass.services.async_register(
+        DOMAIN, "send_gcode", send_gcode_service, schema=SEND_GCODE_SCHEMA
+    )
 
     return True
 
@@ -392,6 +510,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         self.hass = hass
         self.config_entry = config_entry
         self.api_device_name = api_device_name
+        self.polling_interval = _entry_polling_interval(config_entry)
         self.query_obj = {OBJ: {}}
         self.load_sensor_data(SENSORS)
         self.add_query_objects("virtual_sdcard", "file_path")
@@ -400,9 +519,26 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=SCAN_INTERVAL,
+            update_interval=self.polling_interval,
             config_entry=config_entry,
         )
+
+    async def _async_refresh(self, log_failures: bool = True, *args, **kwargs):
+        """Refresh data, keeping unreachable failures quiet when configured."""
+        if not _quiet_unreachable_logs(self.config_entry):
+            return await super()._async_refresh(log_failures, *args, **kwargs)
+
+        was_successful = self.last_update_success
+        await super()._async_refresh(False, *args, **kwargs)
+        err = self.last_exception
+        if (
+            log_failures
+            and was_successful
+            and not self.last_update_success
+            and isinstance(err, (UpdateFailed, TimeoutError))
+            and not isinstance(err, _QuietUnreachableUpdateFailed)
+        ):
+            self.logger.error("Error fetching %s data: %s", self.name, err)
 
     async def _async_update_data(self):
         """Update data via library."""
@@ -411,14 +547,18 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         for updater in self.updaters:
             data.update(await updater(self))
 
+        data.setdefault("status", {})
+
         # --- Dynamic polling logic ---
         prev_state = getattr(self, "_last_print_state", None)
         current_state = data.get("status", {}).get("print_stats", {}).get("state")
         if current_state != prev_state:
             if current_state == PRINTSTATES.PRINTING.value:
-                self.update_interval = timedelta(seconds=2)
+                self.update_interval = min(
+                    self.polling_interval, timedelta(seconds=PRINTING_POLLING_RATE)
+                )
             else:
-                self.update_interval = timedelta(seconds=30)
+                self.update_interval = self.polling_interval
             self._schedule_refresh()
         self._last_print_state = current_state
         # --- end dynamic polling logic ---
@@ -514,9 +654,8 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
                     self.config_entry.data.get(CONF_URL),
                     _entry_port(self.config_entry),
                 )
-                raise UpdateFailed()
-            _LOGGER.warning("connection to moonraker down, restarting")
-            await self.moonraker.start()
+                raise self._unreachable_error()
+            await self._async_restart_client()
         try:
             if query_object is None:
                 result = await self.moonraker.client.call_method(query_path.value)
@@ -528,7 +667,45 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.debug(f"Query Result, uuid: {myuuid}: {result}")
             return result
         except Exception as exception:
+            # The websocket may still look connected right after the printer
+            # went offline, so recheck reachability before reporting.
+            if _quiet_unreachable_logs(
+                self.config_entry
+            ) and not await _async_is_tcp_reachable(
+                self.config_entry.data.get(CONF_URL),
+                _entry_port(self.config_entry),
+            ):
+                raise self._unreachable_error() from exception
             raise UpdateFailed() from exception
+
+    async def _async_restart_client(self) -> None:
+        """Reconnect the websocket, reporting a failure as a failed update."""
+        if self.moonraker.stopped:
+            # The entry stopped the client while unloading. A refresh that was
+            # already running must not open a websocket that nothing closes.
+            raise UpdateFailed("moonraker client is stopped")
+        _LOGGER.warning("connection to moonraker down, restarting")
+        try:
+            await self.moonraker.start()
+        except Exception as exception:
+            if not await _async_is_tcp_reachable(
+                self.config_entry.data.get(CONF_URL),
+                _entry_port(self.config_entry),
+            ):
+                raise self._unreachable_error() from exception
+            raise UpdateFailed(
+                f"could not reconnect to moonraker: {exception!r}"
+            ) from exception
+
+    def _unreachable_error(self) -> UpdateFailed:
+        """Build the refresh failure for an unreachable Moonraker endpoint."""
+        error = (
+            f"{self.config_entry.data.get(CONF_URL)}:"
+            f"{_entry_port(self.config_entry)} is unreachable"
+        )
+        if _quiet_unreachable_logs(self.config_entry):
+            return _QuietUnreachableUpdateFailed(error)
+        return UpdateFailed(error)
 
     async def _async_send_data(self, query_path: METHODS, query_obj) -> None:
         if not self.moonraker.client.is_connected:
@@ -542,16 +719,27 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
                     self.config_entry.data.get(CONF_URL),
                     _entry_port(self.config_entry),
                 )
-                raise UpdateFailed()
-            _LOGGER.warning("connection to moonraker down, restarting")
-            await self.moonraker.start()
+                raise UpdateFailed(
+                    f"{self.config_entry.data.get(CONF_URL)}:"
+                    f"{_entry_port(self.config_entry)} is unreachable"
+                )
+            await self._async_restart_client()
         try:
             if query_obj is None:
-                await self.moonraker.client.call_method(query_path.value)
+                result = await self.moonraker.client.call_method(query_path.value)
             else:
-                await self.moonraker.client.call_method(query_path.value, **query_obj)
+                result = await self.moonraker.client.call_method(
+                    query_path.value, **query_obj
+                )
+        except TimeoutError as exception:
+            raise _CommandTimedOut(
+                "timed out waiting for the printer, which may still be running "
+                "the command"
+            ) from exception
         except Exception as exception:
             raise UpdateFailed() from exception
+        if message := _moonraker_error_message(result):
+            raise HomeAssistantError(message)
 
     async def async_fetch_data(
         self,
@@ -609,6 +797,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
     )
     if unloaded:
+        await coordinator.moonraker.stop()
         hass.data[DOMAIN].pop(entry.entry_id)
 
     return unloaded

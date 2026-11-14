@@ -52,10 +52,12 @@ async def async_setup_temperature_target(coordinator, entry, async_add_entities)
     config_response = await coordinator.async_fetch_data(
         METHODS.PRINTER_OBJECTS_QUERY, config_query, quiet=True
     )
-    config_settings = config_response["status"]["configfile"].get("settings", {})
+    config_settings = (
+        config_response.get("status", {}).get("configfile", {}).get("settings", {})
+    )
 
     object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
-    for obj in object_list["objects"]:
+    for obj in object_list.get("objects", []):
         if obj.startswith("heater_bed"):
             desc = MoonrakerNumberSensorDescription(
                 key=f"{obj}_target",
@@ -90,7 +92,11 @@ async def async_setup_temperature_target(coordinator, entry, async_add_entities)
 
         elif obj.startswith("heater_generic"):
             _, _, heater_name = obj.partition(" ")
-            display_name = heater_name.replace("_", " ").title() if heater_name else "Heater Generic"
+            display_name = (
+                heater_name.replace("_", " ").title()
+                if heater_name
+                else "Heater Generic"
+            )
 
             settings = config_settings.get(obj)
             if settings is None:
@@ -101,6 +107,16 @@ async def async_setup_temperature_target(coordinator, entry, async_add_entities)
             max_temp = settings.get("max_temp")
             min_temp = settings.get("min_temp")
 
+            # Qidi may list virtual/generic heaters in printer objects
+            # without their matching configfile settings. A HA Number
+            # entity requires a numeric max_value, so skip these safely.
+            if max_temp is None:
+                _LOGGER.debug(
+                    "Skipping heater '%s': no max_temp in configfile settings",
+                    obj,
+                )
+                continue
+
             desc = MoonrakerNumberSensorDescription(
                 key=f"{obj.replace(' ', '_')}_target_number",
                 sensor_name=obj,
@@ -109,8 +125,11 @@ async def async_setup_temperature_target(coordinator, entry, async_add_entities)
                 subscriptions=[(obj, "target")],
                 icon="mdi:radiator",
                 unit=UnitOfTemperature.CELSIUS,
-                update_code=f"SET_HEATER_TEMPERATURE HEATER={heater_name or 'heater_generic'} TARGET=",
-                max_value=float(max_temp) if max_temp is not None else None,
+                update_code=(
+                    f"SET_HEATER_TEMPERATURE "
+                    f"HEATER={heater_name or 'heater_generic'} TARGET="
+                ),
+                max_value=float(max_temp),
                 min_value=float(min_temp) if min_temp is not None else 0.0,
                 device_class=NumberDeviceClass.TEMPERATURE,
             )
@@ -158,7 +177,7 @@ async def async_setup_temperature_target(coordinator, entry, async_add_entities)
 
 
 async def async_setup_output_pin(coordinator, entry, async_add_entities):
-    """Set optional binary sensor platform."""
+    """Set optional number platform for PWM output pins."""
 
     object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
 
@@ -167,12 +186,26 @@ async def async_setup_output_pin(coordinator, entry, async_add_entities):
         METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
     )
 
+    config_settings = (
+        settings.get("status", {}).get("configfile", {}).get("settings", {})
+    )
+
     numbers = []
-    for obj in object_list["objects"]:
-        if "output_pin" not in obj:
+
+    for obj in object_list.get("objects", []):
+        if not obj.startswith("output_pin "):
             continue
 
-        if not settings["status"]["configfile"]["settings"][obj.lower()]["pwm"]:
+        output_pin_config = config_settings.get(obj.lower())
+
+        if not output_pin_config:
+            _LOGGER.debug(
+                "Skipping output pin '%s': no matching configfile setting",
+                obj,
+            )
+            continue
+
+        if not output_pin_config.get("pwm", False):
             continue
 
         desc = MoonrakerNumberSensorDescription(
@@ -195,7 +228,7 @@ async def async_setup_speed_factor(coordinator, entry, async_add_entities):
     """Set up speed factor number entity."""
 
     object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
-    if "gcode_move" not in object_list["objects"]:
+    if "gcode_move" not in object_list.get("objects", []):
         return
 
     desc = MoonrakerNumberSensorDescription(
@@ -281,6 +314,7 @@ async def async_setup_fan_speed(coordinator, entry, async_add_entities):
     await coordinator.async_refresh()
     async_add_entities(entities)
 
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -309,6 +343,9 @@ class MoonrakerPWMOutputPin(BaseMoonrakerEntity, NumberEntity):
         super().__init__(coordinator, entry)
         self.pin = description.sensor_name.replace("output_pin ", "")
         self._attr_mode = NumberMode.SLIDER
+        self._attr_native_min_value = 0.0
+        self._attr_native_max_value = 100.0
+        self._attr_native_step = 1.0
         self.entity_description: MoonrakerNumberSensorDescription = description
         self.sensor_name = description.sensor_name
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
@@ -324,8 +361,14 @@ class MoonrakerPWMOutputPin(BaseMoonrakerEntity, NumberEntity):
             METHODS.PRINTER_GCODE_SCRIPT,
             {"script": f"SET_PIN PIN={self.pin} VALUE={round(value / 100, 2)}"},
         )
-        self._attr_native_value = value
+        self._attr_native_value = round(value, 1)
         self.async_write_ha_state()
+
+    @property
+    def available(self) -> bool:
+        """Return True if last update succeeded and the pin's value is known."""
+        status = self.coordinator.data.get("status", {}).get(self.sensor_name)
+        return super().available and isinstance(status, dict) and "value" in status
 
     def _extract_native_value(self) -> float:
         """Return the current PWM value as percentage."""
@@ -333,7 +376,7 @@ class MoonrakerPWMOutputPin(BaseMoonrakerEntity, NumberEntity):
         obj = status.get(self.sensor_name, {})
         raw_value = obj.get("value") if isinstance(obj, dict) else None
         coerced = _coerce_float(raw_value)
-        return coerced * 100 if coerced is not None else 0.0
+        return round(coerced * 100, 1) if coerced is not None else 0.0
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -361,15 +404,9 @@ class MoonrakerNumber(BaseMoonrakerEntity, NumberEntity):
         self._attr_name = description.name
         self._attr_has_entity_name = True
         self._attr_icon = description.icon
-        self._attr_native_max_value = (
-            float(description.max_value)
-            if description.max_value is not None
-            else None
-        )
+        self._attr_native_max_value = float(description.max_value)
         self._attr_native_min_value = (
-            float(description.min_value)
-            if description.min_value is not None
-            else 0.0
+            float(description.min_value) if description.min_value is not None else 0.0
         )
         self._attr_device_class = description.device_class
         self._attr_native_unit_of_measurement = description.unit
@@ -384,8 +421,19 @@ class MoonrakerNumber(BaseMoonrakerEntity, NumberEntity):
             METHODS.PRINTER_GCODE_SCRIPT,
             {"script": f"{self.update_string}{value}"},
         )
-        self._attr_native_value = value
+        self._attr_native_value = self._state_value(value)
         self.async_write_ha_state()
+
+    @property
+    def available(self) -> bool:
+        """Return True if last update succeeded and the current value is known."""
+        if not super().available:
+            return False
+        status_key = self.entity_description.status_key
+        if status_key is None:
+            return True
+        status = self.coordinator.data.get("status", {}).get(self.sensor_name)
+        return isinstance(status, dict) and status_key in status
 
     def _extract_native_value(self) -> float:
         """Return the current number value, falling back to zero when missing."""
@@ -396,7 +444,15 @@ class MoonrakerNumber(BaseMoonrakerEntity, NumberEntity):
         obj = status.get(self.sensor_name, {})
         raw_value = obj.get(status_key) if isinstance(obj, dict) else None
         coerced = _coerce_float(raw_value)
-        return coerced * self.value_multiplier if coerced is not None else 0.0
+        if coerced is None:
+            return 0.0
+        return self._state_value(coerced * self.value_multiplier)
+
+    def _state_value(self, value: float) -> float:
+        """Keep one decimal for percentages, e.g. fan speed 59/255."""
+        if self._attr_native_unit_of_measurement == PERCENTAGE:
+            return round(value, 1)
+        return value
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -416,7 +472,7 @@ class MoonrakerFanSpeed(MoonrakerNumber):
             METHODS.PRINTER_GCODE_SCRIPT,
             {"script": f"{self.update_string}{int(adjusted_value)}"},
         )
-        self._attr_native_value = value
+        self._attr_native_value = self._state_value(value)
         self.async_write_ha_state()
 
 
@@ -430,5 +486,5 @@ class MoonrakerKlipperFanSpeed(MoonrakerNumber):
             METHODS.PRINTER_GCODE_SCRIPT,
             {"script": f"{self.update_string}{adjusted_value}"},
         )
-        self._attr_native_value = value
+        self._attr_native_value = self._state_value(value)
         self.async_write_ha_state()

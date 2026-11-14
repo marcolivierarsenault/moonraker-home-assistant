@@ -1,5 +1,6 @@
 """Test moonraker number."""
 
+import logging
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -8,7 +9,7 @@ from homeassistant.components.number import DOMAIN as NUMBER_DOMAIN
 from homeassistant.components.number.const import SERVICE_SET_VALUE
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.helpers import entity_registry as er
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.moonraker.const import DOMAIN, METHODS, OBJ
 from custom_components.moonraker.number import (
@@ -63,6 +64,12 @@ async def test_number_set_value(hass, number, get_default_api_response):
     config_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
+
+    state = hass.states.get(f"number.{number}")
+    assert state is not None
+    assert state.attributes["min"] == 0.0
+    assert state.attributes["max"] == 100.0
+    assert state.attributes["step"] == 1.0
 
     with patch(
         "moonraker_api.MoonrakerClient.call_method",
@@ -276,7 +283,7 @@ async def test_fan_speed(hass, get_data):
     await hass.async_block_till_done()
 
     state = hass.states.get("number.mainsail_fan_speed")
-    assert state.state == "51.23"
+    assert state.state == "51.2"
     assert state.attributes["unit_of_measurement"] == "%"
     assert state.attributes["icon"] == "mdi:fan"
     assert state.attributes["mode"] == "slider"
@@ -293,6 +300,48 @@ async def test_fan_speed_update(hass, get_data):
 
     state = hass.states.get("number.mainsail_fan_speed")
     assert state.state == "75.0"
+
+
+@pytest.mark.parametrize(
+    ("entity", "obj", "field"),
+    [
+        ("number.mainsail_fan_speed", "fan", "speed"),
+        ("number.mainsail_output_pin_pwm", "output_pin pwm", "value"),
+    ],
+)
+async def test_percent_number_rounded(hass, get_data, entity, obj, field):
+    """Percent number states keep one decimal."""
+    get_data["status"][obj][field] = 59 / 255
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get(entity).state == "23.1"
+
+
+@pytest.mark.parametrize(
+    "entity", ["number.mainsail_fan_speed", "number.mainsail_output_pin_pwm"]
+)
+async def test_percent_number_set_value_rounded(hass, entity, get_default_api_response):
+    """Percent values set through the service keep one decimal."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={**get_default_api_response},
+    ):
+        await hass.services.async_call(
+            NUMBER_DOMAIN,
+            SERVICE_SET_VALUE,
+            {ATTR_ENTITY_ID: entity, "value": 33.333},
+            blocking=True,
+        )
+
+    assert hass.states.get(entity).state == "33.3"
 
 
 async def test_fan_speed_set_value(hass, get_default_api_response):
@@ -358,7 +407,7 @@ async def test_fan_generic_speed_entity_created(
 
     state = hass.states.get(entity_id)
     assert state is not None
-    assert state.state == "51.23"
+    assert state.state == "51.2"
     assert state.attributes["unit_of_measurement"] == "%"
     assert state.attributes["icon"] == "mdi:fan"
 
@@ -528,7 +577,7 @@ async def test_temperature_fan_config_fallbacks(hass):
     assert uppercase_state.attributes["max"] == 65.0
 
 
-async def test_heater_generic_number_config_fallbacks(hass):
+async def test_heater_generic_number_config_fallbacks(hass, caplog):
     """Ensure heater_generic numbers handle config fallbacks."""
 
     class FakeCoordinator:
@@ -598,10 +647,11 @@ async def test_heater_generic_number_config_fallbacks(hass):
     def capture_entities(entities):
         added_entities.extend(entities)
 
+    caplog.set_level(logging.DEBUG, logger="custom_components.moonraker.number")
     await async_setup_temperature_target(coordinator, entry, capture_entities)
 
-    assert len(coordinator.loaded) == 2
-    assert len(added_entities) == 2
+    assert len(coordinator.loaded) == 1
+    assert len(added_entities) == 1
     added_by_name = {
         entity.entity_description.name: entity for entity in added_entities
     }
@@ -614,16 +664,9 @@ async def test_heater_generic_number_config_fallbacks(hass):
         mixed_entity.update_string == "SET_HEATER_TEMPERATURE HEATER=MIXED_CASE TARGET="
     )
 
-    orphan_entity = added_by_name["Orphan Heater Target"]
-    assert orphan_entity.native_value == 40.0
-    assert orphan_entity.native_max_value is None
-    assert orphan_entity.native_min_value == 0.0
-    assert (
-        orphan_entity.update_string
-        == "SET_HEATER_TEMPERATURE HEATER=orphan_heater TARGET="
-    )
     assert coordinator.query_obj["heater_generic MIXED_CASE"] == {"target"}
-    assert coordinator.query_obj["heater_generic orphan_heater"] == {"target"}
+    assert "heater_generic orphan_heater" not in coordinator.query_obj
+    assert "Skipping heater 'heater_generic orphan_heater'" in caplog.text
 
 
 def test_coerce_float_handles_invalid_input():
@@ -641,6 +684,7 @@ async def test_number_with_no_status_key_defaults_to_zero(hass):
         def __init__(self):
             self.api_device_name = "Mainsail"
             self.data = {"status": {}}
+            self.last_update_success = True
             self._listeners = []
 
         async def async_send_data(self, *_args, **_kwargs):
@@ -658,6 +702,7 @@ async def test_number_with_no_status_key_defaults_to_zero(hass):
         name="Stateless Control",
         status_key=None,
         update_code="M220 S",
+        max_value=200,
     )
 
     number = MoonrakerNumber(coordinator, entry, desc)
@@ -666,3 +711,27 @@ async def test_number_with_no_status_key_defaults_to_zero(hass):
     # Even if coordinator data gains values, the missing status key keeps the value at zero
     coordinator.data["status"]["gcode_move"] = {"speed_factor": 1.5}
     assert number._extract_native_value() == 0.0
+    assert number.available is True
+
+
+async def test_number_unavailable_while_value_missing(hass, get_data):
+    """Number entities are unavailable while their value is missing."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+
+    saved_bed = get_data["status"]["heater_bed"].pop("target")
+    saved_pin = get_data["status"].pop("output_pin pwm")
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert hass.states.get("number.mainsail_bed_target").state == "unavailable"
+    assert hass.states.get("number.mainsail_output_pin_pwm").state == "unavailable"
+
+    get_data["status"]["heater_bed"]["target"] = saved_bed
+    get_data["status"]["output_pin pwm"] = saved_pin
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert hass.states.get("number.mainsail_bed_target").state != "unavailable"
+    assert hass.states.get("number.mainsail_output_pin_pwm").state != "unavailable"
