@@ -456,18 +456,19 @@ async def test_eta(hass):
     """Test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
+    before = dt.datetime.now(dt.timezone.utc)
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
+    after = dt.datetime.now(dt.timezone.utc)
 
     state = hass.states.get("sensor.mainsail_print_eta")
+    eta = dt.datetime.strptime(state.state, "%Y-%m-%dT%H:%M:%S%z")
 
-    # ETA is rounded to nearest minute, so allow ±30 seconds tolerance
-    assert dt.datetime.strptime(state.state, "%Y-%m-%dT%H:%M:%S%z") < dt.datetime.now(
-        dt.timezone.utc
-    ) + dt.timedelta(0, 1182.94 + 30)
-    assert dt.datetime.strptime(state.state, "%Y-%m-%dT%H:%M:%S%z") > dt.datetime.now(
-        dt.timezone.utc
-    ) + dt.timedelta(0, 1182.94 - 30)
+    # The ETA is computed at some point during setup and rounded to the
+    # nearest minute, so it is within 30 s of (that moment + time left).
+    time_left = dt.timedelta(seconds=1182.94)
+    rounding = dt.timedelta(seconds=30)
+    assert before + time_left - rounding <= eta <= after + time_left + rounding
 
 
 async def test_slicer_time_left(hass, get_data):
@@ -1308,6 +1309,39 @@ async def test_spoolman_spool_id_sensor_created(hass, get_default_api_response):
     state = hass.states.get(spool_entry.entity_id)
     assert state is not None
     assert state.state == "1"
+
+
+async def test_queue_and_spoolman_sensors_add_no_printer_objects(
+    hass, get_default_api_response
+):
+    """Queue and Spoolman sensors don't add objects to the printer query."""
+    spoolman_status = {
+        "spoolman_connected": True,
+        "pending_reports": [],
+        "spool_id": 1,
+    }
+
+    def _call_method_side_effect(method, *args, **kwargs):
+        if method == "server.spoolman.status":
+            return spoolman_status
+        return {**get_default_api_response}
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        side_effect=_call_method_side_effect,
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.mainsail_queue_state") is not None
+    assert hass.states.get("sensor.mainsail_spool_id") is not None
+    query_objects = hass.data[DOMAIN][config_entry.entry_id].query_obj["objects"]
+    # A bare string subscription such as ("queue_state") used to add the
+    # objects "q" and "s" with fields "u" and "p".
+    assert "q" not in query_objects
+    assert "s" not in query_objects
 
 
 async def test_spoolman_spool_id_sensor_not_created_on_error(
