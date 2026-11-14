@@ -14,10 +14,14 @@ async def test_connect_client():
     ):
         moonraker_api = MoonrakerApiClient("notaURL", None, port=7125, api_key="1dd2")
         assert not moonraker_api.running
+        assert not moonraker_api.stopped
         await moonraker_api.start()
         assert moonraker_api.running
         await moonraker_api.stop()
         assert not moonraker_api.running
+        assert moonraker_api.stopped
+        await moonraker_api.start()
+        assert not moonraker_api.stopped
 
 
 async def test_none_port_connect_client():

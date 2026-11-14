@@ -3,6 +3,7 @@
 from unittest.mock import patch
 
 import pytest
+import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.data_entry_flow import FlowResultType
@@ -18,6 +19,7 @@ from custom_components.moonraker.const import (
     CONF_URL,
     CONF_OPTION_CAMERA_SNAPSHOT,
     CONF_OPTION_CAMERA_STREAM,
+    CONF_OPTION_POLLING_RATE,
     DOMAIN,
 )
 
@@ -432,6 +434,29 @@ async def test_option_config_camera_services(hass):
     await hass.async_block_till_done()
 
     assert result["type"] == FlowResultType.CREATE_ENTRY
+
+
+@pytest.mark.usefixtures("bypass_connect_client")
+async def test_option_polling_rate_must_be_positive(hass):
+    """The options form rejects a polling rate below 1 second."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init("test")
+    with pytest.raises(vol.Invalid):
+        await hass.config_entries.options.async_configure(
+            result["flow_id"], user_input={CONF_OPTION_POLLING_RATE: 0}
+        )
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={CONF_OPTION_POLLING_RATE: 10}
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert config_entry.options[CONF_OPTION_POLLING_RATE] == 10
 
 
 @pytest.mark.usefixtures("bypass_connect_client")
