@@ -1677,11 +1677,13 @@ async def test_toolhead_position_short_list(hass, get_data):
 async def test_optional_sensors_follow_up_query_error(hass, get_default_api_response):
     """Optional sensors are skipped when the setup probe query fails."""
     probed = {"bme280 bme280_temp", "heater_fan heater_fan", "fan"}
+    probes = []
 
     def call_method(method, **kwargs):
         objects = kwargs.get("objects") or {}
         # The setup probe asks for every field of the probed objects at once.
         if probed <= set(objects) and all(v is None for v in objects.values()):
+            probes.append(method)
             return {"error": {"code": 503, "message": "Klippy Host not connected"}}
         return get_default_api_response
 
@@ -1692,6 +1694,7 @@ async def test_optional_sensors_follow_up_query_error(hass, get_default_api_resp
         await hass.async_block_till_done()
 
     assert config_entry.state.value == "loaded"
+    assert probes == ["printer.objects.query"]
     assert hass.states.get("sensor.mainsail_bme280_temp_pressure") is None
     assert hass.states.get("sensor.mainsail_heater_fan_rpm") is None
     assert hass.states.get("sensor.mainsail_fan_rpm") is None

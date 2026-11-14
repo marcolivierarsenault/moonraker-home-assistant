@@ -2151,3 +2151,55 @@ async def test_reconnect_failure_when_host_went_offline(hass, quiet):
 
     assert (type(err.value) is UpdateFailed) is (not quiet)
     assert await async_unload_entry(hass, config_entry)
+
+
+async def test_refresh_new_data_error_response_retries_later(hass):
+    """A Moonraker error response isn't recorded as fetched."""
+    config_entry, coordinator = await _setup_coordinator(hass)
+    data = coordinator.data
+    coordinator.add_query_objects("new_object", None)
+
+    with patch.object(
+        coordinator,
+        "_async_fetch_data",
+        AsyncMock(return_value={"error": {"code": 503, "message": "not ready"}}),
+    ) as fetch:
+        await coordinator.async_refresh_new_data()
+        await coordinator.async_refresh_new_data()
+
+    assert fetch.await_count == 2
+    assert coordinator.data is data
+    assert await async_unload_entry(hass, config_entry)
+
+
+async def test_full_update_waits_for_new_data_merge(hass):
+    """A full update doesn't run while new data is being merged."""
+    config_entry, coordinator = await _setup_coordinator(hass)
+    order = []
+    release = asyncio.Event()
+
+    async def slow_fetch(*args, **kwargs):
+        order.append("new data started")
+        await release.wait()
+        order.append("new data done")
+        return {"status": {"new_object": {"value": 1}}}
+
+    async def full_fetch():
+        order.append("full update")
+        return {"status": {}}
+
+    coordinator.add_query_objects("new_object", None)
+    with (
+        patch.object(coordinator, "_async_fetch_data", side_effect=slow_fetch),
+        patch.object(coordinator, "_async_fetch_all_data", side_effect=full_fetch),
+    ):
+        merge = hass.async_create_task(coordinator.async_refresh_new_data())
+        await asyncio.sleep(0)
+        update = hass.async_create_task(coordinator._async_update_data())
+        await asyncio.sleep(0)
+        release.set()
+        await merge
+        await update
+
+    assert order == ["new data started", "new data done", "full update"]
+    assert await async_unload_entry(hass, config_entry)

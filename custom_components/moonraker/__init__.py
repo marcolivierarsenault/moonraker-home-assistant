@@ -592,6 +592,13 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self):
         """Update data via library."""
+        # Platform setup merges new data in async_refresh_new_data. Run one at a
+        # time, so an update that started earlier can't overwrite that data.
+        async with self._new_data_lock:
+            return await self._async_fetch_all_data()
+
+    async def _async_fetch_all_data(self):
+        """Run every data updater and return the combined data."""
         data = {}
         updaters = list(self.updaters)
         query = _copy_query(self.query_obj[OBJ])
@@ -867,6 +874,10 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
                     result = {}
             except UpdateFailed as err:
                 _LOGGER.debug("Could not fetch data for new entities: %s", err)
+                return
+            if query and (not isinstance(result, dict) or "status" not in result):
+                # A Moonraker error response: leave it to be fetched again.
+                _LOGGER.debug("Could not fetch data for new entities: %s", result)
                 return
 
             data = dict(self.data)
