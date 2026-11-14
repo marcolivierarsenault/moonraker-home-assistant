@@ -289,19 +289,23 @@ class PreviewCamera(Camera):
             f"{self._scheme}://{self.url}:{self.port}/server/files/gcodes/{quote(path)}"
         )
         _LOGGER.debug(f"Fetching new thumbnail: {url}")
-        response = await self._session.get(url, headers=self._headers)
-        if response.status != 200:
-            _LOGGER.debug(f"Thumbnail request returned HTTP {response.status}: {url}")
-            response.release()
-            return response.status
-        return await response.read()
+        async with self._session.get(url, headers=self._headers) as response:
+            if response.status != 200:
+                _LOGGER.debug(
+                    f"Thumbnail request returned HTTP {response.status}: {url}"
+                )
+                return response.status
+            return await response.read()
 
     async def _async_fetch_thumbnail_from_folder(self, path: str) -> bytes | int | None:
         """Use the image in a per-file thumbnail folder when metadata names a missing file.
 
         Some firmware (for example QIDI's for ``.gcode.3mf`` files) stores the
         thumbnail as ``.thumbs/<file>/plate_<n>.png`` but always reports
-        ``plate_1.png`` in the file metadata.
+        ``plate_1.png`` in the file metadata. Each such folder holds only the
+        printed plate's image: a ``.gcode.3mf`` is sliced from one plate (on a
+        QIDI Q2, all 126 folders held a single ``plate_<n>.png``, and it was the
+        plate named in the file name in all 37 files that name one).
         """
         thumb_dir = posixpath.dirname(path)
         if posixpath.basename(posixpath.dirname(thumb_dir)) != ".thumbs":
