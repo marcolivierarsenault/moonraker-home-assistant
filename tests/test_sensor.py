@@ -1311,6 +1311,39 @@ async def test_spoolman_spool_id_sensor_created(hass, get_default_api_response):
     assert state.state == "1"
 
 
+async def test_queue_and_spoolman_sensors_add_no_printer_objects(
+    hass, get_default_api_response
+):
+    """Queue and Spoolman sensors don't add objects to the printer query."""
+    spoolman_status = {
+        "spoolman_connected": True,
+        "pending_reports": [],
+        "spool_id": 1,
+    }
+
+    def _call_method_side_effect(method, *args, **kwargs):
+        if method == "server.spoolman.status":
+            return spoolman_status
+        return {**get_default_api_response}
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        side_effect=_call_method_side_effect,
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.mainsail_queue_state") is not None
+    assert hass.states.get("sensor.mainsail_spool_id") is not None
+    query_objects = hass.data[DOMAIN][config_entry.entry_id].query_obj["objects"]
+    # A bare string subscription such as ("queue_state") used to add the
+    # objects "q" and "s" with fields "u" and "p".
+    assert "q" not in query_objects
+    assert "s" not in query_objects
+
+
 async def test_spoolman_spool_id_sensor_not_created_on_error(
     hass, get_default_api_response
 ):
