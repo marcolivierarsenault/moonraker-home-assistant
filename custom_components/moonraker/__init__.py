@@ -606,9 +606,13 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         for updater in updaters:
             data.update(await updater(self))
 
+        if "status" in data:
+            self._fetched_query = query
+        else:
+            # The object query failed; let platform setup fetch its objects.
+            self._fetched_query = {}
         data.setdefault("status", {})
         self._fetched_updaters = set(updaters)
-        self._fetched_query = query
 
         # --- Dynamic polling logic ---
         prev_state = getattr(self, "_last_print_state", None)
@@ -823,7 +827,8 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             if self._printer_objects_list is not None:
                 return self._printer_objects_list
             result = await self.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
-            if isinstance(result, dict) and not result.get("error"):
+            # Keep only a usable list, so a later platform can fetch it again.
+            if isinstance(result, dict) and result.get("objects"):
                 self._printer_objects_list = result
             return result
 
@@ -837,7 +842,12 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
                 {OBJ: {"configfile": ["settings"]}},
                 quiet=True,
             )
-            if isinstance(result, dict) and not result.get("error"):
+            settings = (
+                result.get("status", {}).get("configfile", {}).get("settings")
+                if isinstance(result, dict)
+                else None
+            )
+            if settings:
                 self._config_settings = result
             return result
 
@@ -863,34 +873,38 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
                 return
 
             new_data = {}
+            done = []
+            result = {}
             try:
                 for updater in updaters:
                     new_data.update(await updater(self))
+                    done.append(updater)
                 if query:
                     result = await self._async_fetch_data(
                         METHODS.PRINTER_OBJECTS_QUERY, {OBJ: query}
                     )
-                else:
-                    result = {}
             except UpdateFailed as err:
                 _LOGGER.debug("Could not fetch data for new entities: %s", err)
-                return
+                query = {}
             if query and (not isinstance(result, dict) or "status" not in result):
                 # A Moonraker error response: leave it to be fetched again.
                 _LOGGER.debug("Could not fetch data for new entities: %s", result)
+                query = {}
+            if not done and not query:
                 return
 
             data = dict(self.data)
             status = dict(data.get("status", {}))
             data.update(new_data)
-            for obj, values in (result.get("status") or {}).items():
-                if isinstance(values, dict) and isinstance(status.get(obj), dict):
-                    status[obj] = {**status[obj], **values}
-                else:
-                    status[obj] = values
+            if query:
+                for obj, values in (result.get("status") or {}).items():
+                    if isinstance(values, dict) and isinstance(status.get(obj), dict):
+                        status[obj] = {**status[obj], **values}
+                    else:
+                        status[obj] = values
             data["status"] = status
             self.data = data
-            self._fetched_updaters.update(updaters)
+            self._fetched_updaters.update(done)
             _merge_query(self._fetched_query, query)
         self.async_update_listeners()
 

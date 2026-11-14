@@ -2059,30 +2059,94 @@ async def test_refresh_new_data_without_data_runs_full_refresh(hass):
     assert await async_unload_entry(hass, config_entry)
 
 
+_OBJECTS = {"objects": ["fan"]}
+_SETTINGS = {"status": {"configfile": {"settings": {"fan": {}}}}}
+
+
 @pytest.mark.parametrize(
-    ("getter", "method"),
+    ("getter", "method", "bad", "good"),
     [
-        ("async_get_printer_objects_list", METHODS.PRINTER_OBJECTS_LIST),
-        ("async_get_config_settings", METHODS.PRINTER_OBJECTS_QUERY),
+        (
+            "async_get_printer_objects_list",
+            METHODS.PRINTER_OBJECTS_LIST,
+            {"error": "not ready"},
+            _OBJECTS,
+        ),
+        (
+            "async_get_printer_objects_list",
+            METHODS.PRINTER_OBJECTS_LIST,
+            {"objects": []},
+            _OBJECTS,
+        ),
+        (
+            "async_get_config_settings",
+            METHODS.PRINTER_OBJECTS_QUERY,
+            {"error": "not ready"},
+            _SETTINGS,
+        ),
+        (
+            "async_get_config_settings",
+            METHODS.PRINTER_OBJECTS_QUERY,
+            {"status": {"configfile": {}}},
+            _SETTINGS,
+        ),
     ],
 )
-async def test_setup_cache_skips_error_results(hass, getter, method):
-    """An error result is returned but not cached."""
+async def test_setup_cache_skips_unusable_results(hass, getter, method, bad, good):
+    """An error or incomplete result is returned but not cached."""
     config_entry, coordinator = await _setup_coordinator(hass)
     coordinator._printer_objects_list = None
     coordinator._config_settings = None
 
     with patch.object(
-        coordinator,
-        "async_fetch_data",
-        AsyncMock(side_effect=[{"error": "not ready"}, {"objects": []}]),
+        coordinator, "async_fetch_data", AsyncMock(side_effect=[bad, good])
     ) as fetch:
-        assert await getattr(coordinator, getter)() == {"error": "not ready"}
-        assert await getattr(coordinator, getter)() == {"objects": []}
-        assert await getattr(coordinator, getter)() == {"objects": []}
+        assert await getattr(coordinator, getter)() == bad
+        assert await getattr(coordinator, getter)() == good
+        assert await getattr(coordinator, getter)() == good
 
     assert fetch.await_count == 2
     assert fetch.await_args_list[0].args[0] == method
+    assert await async_unload_entry(hass, config_entry)
+
+
+async def test_full_update_with_failed_query_is_not_recorded(hass):
+    """When the full update's object query fails, setup fetches the objects."""
+    config_entry, coordinator = await _setup_coordinator(hass)
+    assert coordinator._fetched_query
+
+    with patch.object(coordinator, "updaters", []):
+        await coordinator._async_update_data()
+
+    assert coordinator._fetched_query == {}
+    assert await async_unload_entry(hass, config_entry)
+
+
+async def test_refresh_new_data_keeps_updaters_when_query_fails(hass):
+    """Updaters that succeeded aren't run again when the object query fails."""
+    config_entry, coordinator = await _setup_coordinator(hass)
+    updater = AsyncMock(return_value={"extra": {"value": 1}})
+    coordinator.add_data_updater(updater)
+    coordinator.add_query_objects("new_object", None)
+
+    with patch.object(
+        coordinator,
+        "_async_fetch_data",
+        AsyncMock(
+            side_effect=[
+                {"error": "not ready"},
+                {"status": {"new_object": {"value": 2}}},
+            ]
+        ),
+    ) as fetch:
+        await coordinator.async_refresh_new_data()
+        assert coordinator.data["extra"] == {"value": 1}
+        assert "new_object" not in coordinator.data["status"]
+        await coordinator.async_refresh_new_data()
+
+    updater.assert_awaited_once_with(coordinator)
+    assert fetch.await_count == 2
+    assert coordinator.data["status"]["new_object"] == {"value": 2}
     assert await async_unload_entry(hass, config_entry)
 
 
