@@ -456,18 +456,19 @@ async def test_eta(hass):
     """Test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
+    before = dt.datetime.now(dt.timezone.utc)
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
+    after = dt.datetime.now(dt.timezone.utc)
 
     state = hass.states.get("sensor.mainsail_print_eta")
+    eta = dt.datetime.strptime(state.state, "%Y-%m-%dT%H:%M:%S%z")
 
-    # ETA is rounded to nearest minute, so allow ±30 seconds tolerance
-    assert dt.datetime.strptime(state.state, "%Y-%m-%dT%H:%M:%S%z") < dt.datetime.now(
-        dt.timezone.utc
-    ) + dt.timedelta(0, 1182.94 + 30)
-    assert dt.datetime.strptime(state.state, "%Y-%m-%dT%H:%M:%S%z") > dt.datetime.now(
-        dt.timezone.utc
-    ) + dt.timedelta(0, 1182.94 - 30)
+    # The ETA is computed at some point during setup and rounded to the
+    # nearest minute, so it is within 30 s of (that moment + time left).
+    time_left = dt.timedelta(seconds=1182.94)
+    rounding = dt.timedelta(seconds=30)
+    assert before + time_left - rounding <= eta <= after + time_left + rounding
 
 
 async def test_slicer_time_left(hass, get_data):
