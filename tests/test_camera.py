@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant.components import camera
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from PIL import Image
@@ -384,7 +385,7 @@ async def test_thumbnail_error_response_is_not_cached(hass, get_data, aioclient_
     test_path = f"{THUMBS_URL}/CE3E3V2_picture_frame_holder.png"
 
     aioclient_mock.get(test_path, status=404, text='{"error": {"code": 404}}')
-    with pytest.raises(Exception):
+    with pytest.raises(HomeAssistantError, match="Unable to get image"):
         await camera.async_get_image(hass, "camera.mainsail_thumbnail")
 
     aioclient_mock.clear_requests()
@@ -439,10 +440,14 @@ async def test_thumbnail_fallback_skips_shared_thumbs_folder(
 
     with (
         patch.object(coordinator, "async_fetch_data", AsyncMock()) as fetch,
-        pytest.raises(Exception),
+        pytest.raises(HomeAssistantError, match="Unable to get image"),
     ):
         await camera.async_get_image(hass, "camera.mainsail_thumbnail")
     fetch.assert_not_awaited()
+    assert aioclient_mock.call_count == 1
+    assert str(aioclient_mock.mock_calls[0][1]) == (
+        f"{THUMBS_URL}/CE3E3V2_picture_frame_holder.png"
+    )
 
 
 async def test_thumbnail_fallback_listing_fails(
@@ -457,7 +462,7 @@ async def test_thumbnail_fallback_listing_fails(
         patch.object(
             coordinator, "async_fetch_data", AsyncMock(side_effect=UpdateFailed)
         ) as fetch,
-        pytest.raises(Exception),
+        pytest.raises(HomeAssistantError, match="Unable to get image"),
     ):
         await camera.async_get_image(hass, "camera.mainsail_thumbnail")
     fetch.assert_awaited_once()
@@ -480,7 +485,7 @@ async def test_thumbnail_fallback_finds_nothing(
     await _setup_printer(hass)
     aioclient_mock.get(f"{THUMBS_URL}/chess_plate_6.gcode/plate_1.png", status=404)
 
-    with pytest.raises(Exception):
+    with pytest.raises(HomeAssistantError, match="Unable to get image"):
         await camera.async_get_image(hass, "camera.mainsail_thumbnail")
     assert aioclient_mock.call_count == 1
 
@@ -497,7 +502,7 @@ async def test_thumbnail_fallback_ignores_non_dict_listing(
         patch.object(
             coordinator, "async_fetch_data", AsyncMock(return_value=[])
         ) as fetch,
-        pytest.raises(Exception),
+        pytest.raises(HomeAssistantError, match="Unable to get image"),
     ):
         await camera.async_get_image(hass, "camera.mainsail_thumbnail")
     fetch.assert_awaited_once()
@@ -593,6 +598,61 @@ async def test_option_config_thumbnail_port(hass, aioclient_mock, get_data):
 
     await camera.async_get_image(hass, "camera.mainsail_thumbnail")
     await camera.async_get_image(hass, "camera.mainsail_thumbnail")
+
+
+async def test_thumbnail_fallback_skips_stale_listing_entry(
+    hass, get_default_api_response, aioclient_mock
+):
+    """A listing that still names the missing file uses another image."""
+    _use_plate_thumbnail(
+        get_default_api_response,
+        [
+            {"filename": "plate_1.png", "size": 999999},
+            {"filename": "plate_6.png", "size": 94791},
+        ],
+    )
+    await _setup_printer(hass)
+    aioclient_mock.get(f"{THUMBS_URL}/chess_plate_6.gcode/plate_1.png", status=404)
+    aioclient_mock.get(
+        f"{THUMBS_URL}/chess_plate_6.gcode/plate_6.png", content=b"plate 6"
+    )
+
+    image = await camera.async_get_image(hass, "camera.mainsail_thumbnail")
+    assert image.content == b"plate 6"
+
+
+@pytest.mark.parametrize("status", [403, 500])
+async def test_thumbnail_fallback_only_for_missing_file(
+    hass, get_default_api_response, aioclient_mock, status
+):
+    """Other HTTP errors are a failed fetch, not a reason to pick another plate."""
+    _use_plate_thumbnail(
+        get_default_api_response, [{"filename": "plate_6.png", "size": 94791}]
+    )
+    coordinator = await _setup_printer(hass)
+    aioclient_mock.get(f"{THUMBS_URL}/chess_plate_6.gcode/plate_1.png", status=status)
+
+    with (
+        patch.object(coordinator, "async_fetch_data", AsyncMock()) as fetch,
+        pytest.raises(HomeAssistantError, match="Unable to get image"),
+    ):
+        await camera.async_get_image(hass, "camera.mainsail_thumbnail")
+    fetch.assert_not_awaited()
+    assert aioclient_mock.call_count == 1
+
+
+async def test_thumbnail_reserved_characters_in_path(
+    hass, get_default_api_response, aioclient_mock
+):
+    """URL-reserved characters in a thumbnail name are percent-encoded."""
+    get_default_api_response["thumbnails"] = [
+        {"size": 0, "relative_path": ".thumbs/part #2 ?v1.png"}
+    ]
+    await _setup_printer(hass)
+    aioclient_mock.get(f"{THUMBS_URL}/part%20%232%20%3Fv1.png", content=b"image")
+
+    image = await camera.async_get_image(hass, "camera.mainsail_thumbnail")
+    assert image.content == b"image"
 
 
 async def test_thumbnail_print_stats_missing(hass, get_data):

@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+from http import HTTPStatus
 import logging
 import posixpath
+from urllib.parse import quote
 
 from homeassistant.components.camera import Camera
 from homeassistant.components.mjpeg.camera import MjpegCamera
@@ -26,12 +28,12 @@ from .const import (
     DOMAIN,
     METHODS,
     PRINTSTATES,
+    THUMBNAIL_EXTENSIONS,
 )
 
 _LOGGER = logging.getLogger(__name__)
 DEFAULT_PORT = 80
 SNAPSHOT_TIMEOUT = 10
-THUMBNAIL_EXTENSIONS = (".png", ".jpg", ".jpeg")
 
 # Moonraker webcam services whose stream_url serves an MJPEG stream
 MJPEG_SERVICES = {"mjpegstreamer", "mjpegstreamer-adaptive", "uv4l-mjpeg"}
@@ -264,9 +266,9 @@ class PreviewCamera(Camera):
             return None
 
         pic = await self._async_fetch_thumbnail(new_path)
-        if pic is None:
+        if pic == HTTPStatus.NOT_FOUND:
             pic = await self._async_fetch_thumbnail_from_folder(new_path)
-        if pic is None:
+        if pic is None or isinstance(pic, int):
             # Do not cache a failed fetch, so the next request tries again
             self._current_pic = None
             self._current_path = ""
@@ -277,20 +279,20 @@ class PreviewCamera(Camera):
 
         return self._current_pic
 
-    async def _async_fetch_thumbnail(self, path: str) -> bytes | None:
-        """Fetch a thumbnail file, returning None if the printer has no such file."""
+    async def _async_fetch_thumbnail(self, path: str) -> bytes | int:
+        """Fetch a thumbnail file, returning the HTTP status if it fails."""
         url = (
-            f"{self._scheme}://{self.url}:{self.port}/server/files/gcodes/"
-            f"{path.replace(' ', '%20')}"
+            f"{self._scheme}://{self.url}:{self.port}/server/files/gcodes/{quote(path)}"
         )
         _LOGGER.debug(f"Fetching new thumbnail: {url}")
         response = await self._session.get(url, headers=self._headers)
         if response.status != 200:
             _LOGGER.debug(f"Thumbnail request returned HTTP {response.status}: {url}")
-            return None
+            response.release()
+            return response.status
         return await response.read()
 
-    async def _async_fetch_thumbnail_from_folder(self, path: str) -> bytes | None:
+    async def _async_fetch_thumbnail_from_folder(self, path: str) -> bytes | int | None:
         """Use the image in a per-file thumbnail folder when metadata names a missing file.
 
         Some firmware (for example QIDI's for ``.gcode.3mf`` files) stores the
@@ -319,13 +321,17 @@ class PreviewCamera(Camera):
             if isinstance(item, dict)
             and str(item.get("filename", "")).lower().endswith(THUMBNAIL_EXTENSIONS)
         ]
+        # A stale listing may still name the file that just failed.
+        images = [
+            item
+            for item in images
+            if posixpath.join(thumb_dir, item["filename"]) != path
+        ]
         if not images:
             return None
 
         best = max(images, key=_thumbnail_size)
         best_path = posixpath.join(thumb_dir, best["filename"])
-        if best_path == path:
-            return None
         _LOGGER.debug(f"Thumbnail {path} is missing, using {best_path}")
         return await self._async_fetch_thumbnail(best_path)
 

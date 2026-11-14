@@ -126,3 +126,7 @@ class PRINTERSTATES(ExtendedEnum):
     STARTUP = "startup"
     SHUTDOWN = "shutdown"
     ERROR = "error"
+
+
+# Image files the thumbnail camera can fall back to in a thumbnail folder
+THUMBNAIL_EXTENSIONS = (".png", ".jpg", ".jpeg")
