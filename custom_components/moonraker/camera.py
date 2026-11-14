@@ -327,13 +327,14 @@ class PreviewCamera(Camera):
             for item in images
             if posixpath.join(thumb_dir, item["filename"]) != path
         ]
-        if not images:
-            return None
-
-        best = max(images, key=_thumbnail_size)
-        best_path = posixpath.join(thumb_dir, best["filename"])
-        _LOGGER.debug(f"Thumbnail {path} is missing, using {best_path}")
-        return await self._async_fetch_thumbnail(best_path)
+        # Try the largest image first, then the others if one can't be fetched.
+        for item in sorted(images, key=_thumbnail_size, reverse=True):
+            candidate = posixpath.join(thumb_dir, item["filename"])
+            _LOGGER.debug(f"Thumbnail {path} is missing, trying {candidate}")
+            pic = await self._async_fetch_thumbnail(candidate)
+            if not isinstance(pic, int):
+                return pic
+        return None
 
 
 def _thumbnail_size(item: dict) -> float:

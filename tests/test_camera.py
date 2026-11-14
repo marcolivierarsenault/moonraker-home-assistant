@@ -621,6 +621,29 @@ async def test_thumbnail_fallback_skips_stale_listing_entry(
     assert image.content == b"plate 6"
 
 
+async def test_thumbnail_fallback_tries_next_image(
+    hass, get_default_api_response, aioclient_mock
+):
+    """If the largest listed image can't be fetched, the next one is used."""
+    _use_plate_thumbnail(
+        get_default_api_response,
+        [
+            {"filename": "plate_6.png", "size": 94791},
+            {"filename": "plate_6_small.png", "size": 1000},
+        ],
+    )
+    await _setup_printer(hass)
+    aioclient_mock.get(f"{THUMBS_URL}/chess_plate_6.gcode/plate_1.png", status=404)
+    aioclient_mock.get(f"{THUMBS_URL}/chess_plate_6.gcode/plate_6.png", status=404)
+    aioclient_mock.get(
+        f"{THUMBS_URL}/chess_plate_6.gcode/plate_6_small.png", content=b"small"
+    )
+
+    image = await camera.async_get_image(hass, "camera.mainsail_thumbnail")
+    assert image.content == b"small"
+    assert aioclient_mock.call_count == 3
+
+
 @pytest.mark.parametrize("status", [403, 500])
 async def test_thumbnail_fallback_only_for_missing_file(
     hass, get_default_api_response, aioclient_mock, status
