@@ -2085,6 +2085,27 @@ async def test_setup_cache_cleared_after_setup(hass):
     assert await async_unload_entry(hass, config_entry)
 
 
+async def test_setup_cache_cleared_when_platform_setup_fails(hass):
+    """The setup caches are freed even if forwarding the platforms raises."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+
+    with (
+        patch.object(
+            hass.config_entries,
+            "async_forward_entry_setups",
+            AsyncMock(side_effect=RuntimeError("platform failed")),
+        ),
+        patch.object(
+            MoonrakerDataUpdateCoordinator, "clear_setup_cache", autospec=True
+        ) as clear,
+    ):
+        assert not await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    clear.assert_called_once()
+
+
 _OBJECTS = {"objects": ["fan"]}
 _SETTINGS = {"status": {"configfile": {"settings": {"fan": {}}}}}
 

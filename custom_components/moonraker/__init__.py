@@ -369,8 +369,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     for platform in PLATFORMS:
         coordinator.platforms.append(platform)
 
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    coordinator.clear_setup_cache()
+    try:
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    finally:
+        coordinator.clear_setup_cache()
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
     async def send_gcode_service(service_call):
