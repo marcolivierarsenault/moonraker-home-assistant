@@ -35,6 +35,14 @@ DEFAULT_POLLING_RATE = 30
 MIN_POLLING_RATE = 1
 PRINTING_POLLING_RATE = 2
 
+# Pushed changes to settings and states are passed to entities at most once
+# per this many seconds (a print state change is passed on straight away)
+PUSH_UPDATE_INTERVAL = 1
+
+# Moonraker websocket notifications
+NOTIFY_KLIPPY_READY = "notify_klippy_ready"
+NOTIFY_STATUS_UPDATE = "notify_status_update"
+
 CONF_OPTION_QUIET_UNREACHABLE = "quiet_unreachable_devices"
 CONF_OPTION_CAMERA_PORT = "camera_port"
 CONF_OPTION_THUMBNAIL_PORT = "thumbnail_port"
