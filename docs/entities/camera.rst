@@ -12,6 +12,11 @@ Camera
 
 * Thumbnail of the current print. (Your slicer needs to generate the thumbnail image) |thum_image|
 
+  * If the file metadata names a thumbnail that does not exist, and the thumbnail
+    is in a folder of its own (``.thumbs/<file>/``), the largest image in that
+    folder is shown instead. QIDI firmware does this for ``.gcode.3mf`` plates: it
+    saves ``plate_<n>.png`` but always reports ``plate_1.png``.
+
 .. _camera_config:
 
 Manual Configuration
