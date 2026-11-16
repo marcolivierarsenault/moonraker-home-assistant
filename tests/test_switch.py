@@ -64,7 +64,13 @@ async def test_switch_setup_skips_output_pin_without_config():
         def load_sensor_data(self, sensors):
             self.loaded = sensors
 
-        async def async_refresh(self):
+        async def async_get_config_settings(self):
+            return await self.async_fetch_data(METHODS.PRINTER_OBJECTS_QUERY)
+
+        async def async_get_printer_objects_list(self):
+            return await self.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
+
+        async def async_refresh_new_data(self):
             self.refreshed = True
 
     coordinator = FakeCoordinator()
