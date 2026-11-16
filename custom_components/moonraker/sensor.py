@@ -1288,7 +1288,10 @@ def calculate_pct_job(data) -> float:
         time_pct = progress
         divider += 1
 
-    if expected_filament != 0:
+    # Leave the filament estimate out once the filament used reaches the
+    # slicer's total (e.g. after a purge in the printer's start macro): it no
+    # longer says how much of the print is left.
+    if expected_filament != 0 and filament_used < expected_filament:
         filament_pct = 1.0 * filament_used / expected_filament
         divider += 1
 

@@ -525,6 +525,42 @@ async def test_calculate_pct_job_no_filament_no_time(data_for_calculate_pct):
     assert calculate_pct_job(data_for_calculate_pct) == 0.6
 
 
+@pytest.mark.parametrize("filament_used", [2, 4])
+async def test_calculate_pct_job_filament_over_estimate(
+    data_for_calculate_pct, filament_used
+):
+    """Filament used beyond the slicer's total leaves the filament estimate out."""
+    data_for_calculate_pct["status"]["print_stats"]["filament_used"] = filament_used
+    assert calculate_pct_job(data_for_calculate_pct) == 0.6
+
+
+async def test_eta_after_start_macro_purge(hass, get_data):
+    """A purge longer than the print's filament doesn't hide the ETA.
+
+    Seen on a QIDI Q2: the slicer expected 50 mm, the start macro had already
+    purged about 105 mm while file progress was still 1.2%.
+    """
+    get_data["status"]["print_stats"]["filament_used"] = 105.0
+    get_data["status"]["print_stats"]["print_duration"] = 180.0
+    get_data["status"]["display_status"]["progress"] = 0.5
+    with patch(
+        "custom_components.moonraker.MoonrakerDataUpdateCoordinator._async_get_gcode_file_detail",
+        return_value={
+            "estimated_time": 678,
+            "filament_total": 50.0,
+            "thumbnails_path": None,
+        },
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.mainsail_print_eta").state != "unknown"
+    # 180 s at 50%: about 180 s left
+    assert float(hass.states.get("sensor.mainsail_print_time_left").state) == 0.05
+
+
 async def test_calculate_pct_job_missing_progress(data_for_calculate_pct):
     """Progress defaults to 0 when missing."""
     data_for_calculate_pct["status"]["display_status"]["progress"] = None
