@@ -1,4 +1,4 @@
-pytest-homeassistant==2026.11.0
+pytest-homeassistant==2026.11.1
 moonraker-api==4.0.0
 pre-commit==4.7.0
 sphinx==9.2.0
