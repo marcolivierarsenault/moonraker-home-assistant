@@ -8,6 +8,16 @@ Calculated Percentage of Completion
 
 We have our own calculation of % of completeness (to mimic Mainsail UI). We assume the current job % completion rate is the midpoint between the % completed from the gcode file and the % of filament used (based on total filament prediction for the print)
 
+Once the filament used reaches the slicer's prediction, for example
+because the printer's start macro purges more than a short print uses, the
+filament part is left out and only the % completed from the gcode file is
+used. Otherwise the estimate would pass 100% and the time left and ETA would
+stop making sense.
+
+Until there is any progress to go on, for example while the start macro runs
+before the printer reports progress, Print Time Left and Print Projected Total
+Duration are unknown, like Print ETA, rather than a negative or zero time.
+
 
 .. _layer:
 

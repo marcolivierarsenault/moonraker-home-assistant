@@ -135,13 +135,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
         key="print_projected_total_duration",
         name="Print Projected Total Duration",
         value_fn=lambda sensor: sensor.empty_result_when_not_printing(
-            (
-                sensor.coordinator.data["status"]["print_stats"]["print_duration"]
-                / calculate_pct_job(sensor.coordinator.data)
-                if calculate_pct_job(sensor.coordinator.data) != 0
-                else 0
-            )
-            / 3600
+            _seconds_to_hours(calculate_projected_total(sensor.coordinator.data))
         ),
         subscriptions=[
             ("print_stats", "total_duration"),
@@ -157,16 +151,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
         key="print_time_left",
         name="Print Time Left",
         value_fn=lambda sensor: sensor.empty_result_when_not_printing(
-            (
-                (
-                    sensor.coordinator.data["status"]["print_stats"]["print_duration"]
-                    / calculate_pct_job(sensor.coordinator.data)
-                    if calculate_pct_job(sensor.coordinator.data) != 0
-                    else 0
-                )
-                - sensor.coordinator.data["status"]["print_stats"]["print_duration"]
-            )
-            / 3600
+            _seconds_to_hours(calculate_time_left(sensor.coordinator.data))
         ),
         subscriptions=[
             ("print_stats", "print_duration"),
@@ -1288,7 +1273,10 @@ def calculate_pct_job(data) -> float:
         time_pct = progress
         divider += 1
 
-    if expected_filament != 0:
+    # Leave the filament estimate out once the filament used reaches the
+    # slicer's total (e.g. after a purge in the printer's start macro): it no
+    # longer says how much of the print is left.
+    if expected_filament != 0 and filament_used < expected_filament:
         filament_pct = 1.0 * filament_used / expected_filament
         divider += 1
 
@@ -1296,6 +1284,30 @@ def calculate_pct_job(data) -> float:
         return progress
 
     return (time_pct + filament_pct) / divider
+
+
+def calculate_projected_total(data) -> float | None:
+    """Projected total print duration in seconds, or None when unknown.
+
+    With no progress yet (for example while the printer's start macro runs
+    before the first progress report), there is nothing to project from.
+    """
+    percent_job = calculate_pct_job(data)
+    if percent_job <= 0:
+        return None
+    return data["status"]["print_stats"]["print_duration"] / percent_job
+
+
+def calculate_time_left(data) -> float | None:
+    """Print time left in seconds, or None when unknown."""
+    projected_total = calculate_projected_total(data)
+    if projected_total is None:
+        return None
+    return projected_total - data["status"]["print_stats"]["print_duration"]
+
+
+def _seconds_to_hours(seconds: float | None) -> float | None:
+    return None if seconds is None else seconds / 3600
 
 
 def calculate_eta(data):
