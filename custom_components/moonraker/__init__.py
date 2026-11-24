@@ -37,6 +37,7 @@ from .const import (
     HOSTNAME,
     METHODS,
     MIN_POLLING_RATE,
+    NOTIFY_FILELIST_CHANGED,
     NOTIFY_KLIPPY_READY,
     NOTIFY_STATUS_UPDATE,
     OBJ,
@@ -583,9 +584,12 @@ async def _printer_objects_updater(coordinator):
     # Keep what is pushed while the query runs, for the update to apply on top
     # of its result (see _async_apply_push).
     coordinator._pushed_since_query = {}
-    return await coordinator._async_fetch_data(
+    coordinator._queried_status = {}
+    result = await coordinator._async_fetch_data(
         METHODS.PRINTER_OBJECTS_QUERY, coordinator.query_obj
     )
+    coordinator._queried_status = result.get("status") or {}
+    return result
 
 
 async def _printer_info_updater(coordinator):
@@ -595,12 +599,17 @@ async def _printer_info_updater(coordinator):
 
 
 async def _gcode_file_detail_updater(coordinator):
-    data = await coordinator._async_fetch_data(
-        METHODS.PRINTER_OBJECTS_QUERY, coordinator.query_obj
+    # The objects updater runs first. Use its result, with what has been pushed
+    # since, instead of querying every object again.
+    status = _merge_status(
+        coordinator._queried_status, coordinator._pushed_since_query or {}
     )
-    filename = ""
-    status = data.get("status") or {}
     print_stats = status.get("print_stats") or {}
+    state = print_stats.get("state")
+    if state != coordinator._file_details_state:
+        # A new print can be of a file sliced again under the same name.
+        coordinator.clear_file_details()
+        coordinator._file_details_state = state
     filename = print_stats.get("filename") or ""
     if not filename:
         virtual_sdcard = status.get("virtual_sdcard") or {}
@@ -652,6 +661,12 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         # Changes pushed while a subscribe request runs, applied on its reply
         self._pushed_since_subscribe: dict[str, Any] | None = None
         self._push_flush_unsub = None
+        # Printer objects returned by the current update's query
+        self._queried_status: dict[str, Any] = {}
+        # Details of the last file, kept until it can have changed. The object
+        # is replaced when cleared, so a request in flight can tell.
+        self._file_details: dict[str, dict[str, Any]] = {}
+        self._file_details_state: str | None = None
         client.notification_handler = self._async_handle_notification
         # A new websocket has no subscription.
         client.connected_handler = self._async_websocket_connected
@@ -732,6 +747,11 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
 
         return data
 
+    @callback
+    def clear_file_details(self) -> None:
+        """Fetch the file details again at the next update."""
+        self._file_details = {}
+
     async def _async_get_gcode_file_detail(self, gcode_filename):
         return_gcode = {
             "thumbnails_path": None,
@@ -754,10 +774,18 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
 
         dirname = os.path.dirname(normalized_filename)
 
-        query_object = {"filename": normalized_filename}
-        gcode = await self._async_fetch_data(
-            METHODS.SERVER_FILES_METADATA, query_object
-        )
+        file_details = self._file_details
+        gcode = file_details.get(normalized_filename)
+        if gcode is None:
+            gcode = await self._async_fetch_data(
+                METHODS.SERVER_FILES_METADATA, {"filename": normalized_filename}
+            )
+            # Keep only complete details: Moonraker can still be reading the
+            # file. Clearing meanwhile replaces self._file_details, so details
+            # that may be out of date are not kept.
+            if gcode.get("estimated_time") is not None:
+                file_details.clear()
+                file_details[normalized_filename] = gcode
         return_gcode["estimated_time"] = gcode.get("estimated_time", 0)
         return_gcode["object_height"] = gcode.get("object_height", 0)
         return_gcode["filament_total"] = gcode.get("filament_total", 0)
@@ -1068,6 +1096,8 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
     def _async_websocket_connected(self) -> None:
         """Subscribe again on a new websocket, which has no subscription."""
         self._subscribed = False
+        # File changes were not notified while disconnected.
+        self.clear_file_details()
         self._async_resubscribe()
 
     async def _async_handle_notification(self, method: str, params: Any) -> None:
@@ -1076,6 +1106,9 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             # Moonraker drops subscriptions when Klippy restarts.
             self._subscribed = False
             self._async_resubscribe()
+            return
+        if method == NOTIFY_FILELIST_CHANGED:
+            self.clear_file_details()
             return
         if method != NOTIFY_STATUS_UPDATE:
             return
@@ -1112,6 +1145,7 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         self.data = {**self.data, "status": status}
 
         if status.get("print_stats", {}).get("state") != old_state:
+            self.clear_file_details()
             # Update now, and run a full update for the print's file details
             # and the polling rate that goes with the new state.
             self._async_flush_push()

@@ -40,6 +40,7 @@ PRINTING_POLLING_RATE = 2
 PUSH_UPDATE_INTERVAL = 1
 
 # Moonraker websocket notifications
+NOTIFY_FILELIST_CHANGED = "notify_filelist_changed"
 NOTIFY_KLIPPY_READY = "notify_klippy_ready"
 NOTIFY_STATUS_UPDATE = "notify_status_update"
 
