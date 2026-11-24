@@ -555,11 +555,16 @@ async def test_eta_after_start_macro_purge(hass, get_data):
     ):
         config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
         config_entry.add_to_hass(hass)
+        before = dt.datetime.now(dt.timezone.utc)
         await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
+        after = dt.datetime.now(dt.timezone.utc)
 
-    assert hass.states.get("sensor.mainsail_print_eta").state != "unknown"
-    # 180 s at 50%: about 180 s left
+    # 180 s at 50%: about 180 s left, rounded to the nearest minute
+    eta = dt.datetime.fromisoformat(hass.states.get("sensor.mainsail_print_eta").state)
+    time_left = dt.timedelta(seconds=180)
+    rounding = dt.timedelta(seconds=30)
+    assert before + time_left - rounding <= eta <= after + time_left + rounding
     assert float(hass.states.get("sensor.mainsail_print_time_left").state) == 0.05
 
 

@@ -1289,8 +1289,9 @@ def calculate_pct_job(data) -> float:
 def calculate_projected_total(data) -> float | None:
     """Projected total print duration in seconds, or None when unknown.
 
-    With no progress yet (for example while the printer's start macro runs
-    before the first progress report), there is nothing to project from.
+    With no progress and no filament estimate to go on (for example when the
+    start macro's purge has used up the slicer's total before the first
+    progress report), there is nothing to project from.
     """
     percent_job = calculate_pct_job(data)
     if percent_job <= 0:

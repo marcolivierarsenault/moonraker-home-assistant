@@ -14,9 +14,9 @@ filament part is left out and only the % completed from the gcode file is
 used. Otherwise the estimate would pass 100% and the time left and ETA would
 stop making sense.
 
-Until there is any progress to go on, for example while the start macro runs
-before the printer reports progress, Print Time Left and Print Projected Total
-Duration are unknown, like Print ETA, rather than a negative or zero time.
+Until there is any progress or filament estimate to go on, Print Time Left and
+Print Projected Total Duration are unknown, like Print ETA, rather than a
+negative or zero time.
 
 
 .. _layer:
