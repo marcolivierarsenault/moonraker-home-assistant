@@ -1312,18 +1312,12 @@ def _seconds_to_hours(seconds: float | None) -> float | None:
 
 def calculate_eta(data):
     """Calculate ETA of current print."""
-    percent_job = calculate_pct_job(data)
-    if (
-        data["status"]["print_stats"]["state"] != PRINTSTATES.PRINTING.value
-        or data["status"]["print_stats"]["print_duration"] <= 0
-        or percent_job <= 0
-        or percent_job >= 1
-    ):
+    if data["status"]["print_stats"]["state"] != PRINTSTATES.PRINTING.value:
         return None
 
-    time_left = (data["status"]["print_stats"]["print_duration"] / percent_job) - data[
-        "status"
-    ]["print_stats"]["print_duration"]
+    time_left = calculate_time_left(data)
+    if time_left is None or time_left <= 0:
+        return None
 
     eta = datetime.now(timezone.utc) + timedelta(seconds=time_left)
     # Round to nearest minute by adding 30s bias before truncating seconds
