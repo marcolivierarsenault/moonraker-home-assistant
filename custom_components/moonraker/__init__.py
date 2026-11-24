@@ -605,15 +605,17 @@ async def _gcode_file_detail_updater(coordinator):
         coordinator._queried_status, coordinator._pushed_since_query or {}
     )
     print_stats = status.get("print_stats") or {}
-    state = print_stats.get("state")
-    if state != coordinator._file_details_state:
-        # A new print can be of a file sliced again under the same name.
-        coordinator.clear_file_details()
-        coordinator._file_details_state = state
     filename = print_stats.get("filename") or ""
     if not filename:
         virtual_sdcard = status.get("virtual_sdcard") or {}
         filename = virtual_sdcard.get("file_path") or ""
+
+    # A new print can be of a file sliced again under the same name, so the
+    # details are fetched again when the print state changes too.
+    details_for = (filename, print_stats.get("state"))
+    if details_for != coordinator._file_details_for:
+        coordinator.clear_file_details()
+        coordinator._file_details_for = details_for
 
     return await coordinator._async_get_gcode_file_detail(filename)
 
@@ -666,7 +668,8 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         # Details of the last file, kept until it can have changed. The object
         # is replaced when cleared, so a request in flight can tell.
         self._file_details: dict[str, dict[str, Any]] = {}
-        self._file_details_state: str | None = None
+        # Filename and print state the details were last fetched for
+        self._file_details_for: tuple[str, str | None] | None = None
         client.notification_handler = self._async_handle_notification
         # A new websocket has no subscription.
         client.connected_handler = self._async_websocket_connected
@@ -784,7 +787,6 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
             # file. Clearing meanwhile replaces self._file_details, so details
             # that may be out of date are not kept.
             if gcode.get("estimated_time") is not None:
-                file_details.clear()
                 file_details[normalized_filename] = gcode
         return_gcode["estimated_time"] = gcode.get("estimated_time", 0)
         return_gcode["object_height"] = gcode.get("object_height", 0)

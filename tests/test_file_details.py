@@ -21,6 +21,15 @@ METADATA = METHODS.SERVER_FILES_METADATA.value
 QUERY = METHODS.PRINTER_OBJECTS_QUERY.value
 
 
+ESTIMATE = "sensor.mainsail_slicer_print_duration_estimate"
+HEIGHT = "sensor.mainsail_object_height"
+FILENAME = "sensor.mainsail_filename"
+
+
+def _state(hass, entity_id):
+    return float(hass.states.get(entity_id).state)
+
+
 class Printer:
     """Answer Moonraker calls and record them."""
 
@@ -28,7 +37,7 @@ class Printer:
         """Init."""
         self.response = response
         self.status = response["status"]
-        self.details = {"estimated_time": 100, "layer_count": 10}
+        self.details = {"estimated_time": 3600, "object_height": 10.0}
         self.calls = []
         # Awaited after a call of this method was made, before its reply
         self.during = (None, None)
@@ -105,17 +114,17 @@ async def coordinator_fixture(hass, printer):
     assert await async_unload_entry(hass, entry)
 
 
-async def test_one_objects_query_per_update(coordinator, printer):
+async def test_one_objects_query_per_update(hass, coordinator, printer):
     """An update queries the printer objects once and keeps the file details."""
     await coordinator.async_refresh()
 
     assert [method for method, _ in printer.calls].count(QUERY) == 1
     assert printer.files() == []
-    assert coordinator.data["estimated_time"] == 100
-    assert coordinator.data["layer_count"] == 10
+    assert _state(hass, ESTIMATE) == 1.0
+    assert _state(hass, HEIGHT) == 10.0
 
 
-async def test_new_file_fetches_details(coordinator, printer):
+async def test_new_file_fetches_details(hass, coordinator, printer):
     """Another file's details are fetched, and only the last file's are kept."""
     printer.set_print(filename="b.gcode")
     await coordinator.async_refresh()
@@ -127,7 +136,33 @@ async def test_new_file_fetches_details(coordinator, printer):
     assert printer.files() == ["b.gcode", "a.gcode"]
 
 
-async def test_virtual_sdcard_file_used(coordinator, printer):
+async def test_incomplete_file_drops_earlier_details(hass, coordinator, printer):
+    """Going back to the earlier file fetches its details again."""
+    complete, printer.details = printer.details, {"size": 1}
+    printer.set_print(filename="b.gcode")
+    await coordinator.async_refresh()
+    printer.details = {**complete, "estimated_time": 7200}
+    printer.set_print(filename="a.gcode")
+    await coordinator.async_refresh()
+
+    assert printer.files() == ["b.gcode", "a.gcode"]
+    assert _state(hass, ESTIMATE) == 2.0
+
+
+async def test_no_file_drops_earlier_details(hass, coordinator, printer):
+    """A file that comes back after no file was loaded is fetched again."""
+    printer.status["virtual_sdcard"] = {"file_path": None}
+    printer.set_print(filename="")
+    await coordinator.async_refresh()
+    printer.details = {"estimated_time": 7200}
+    printer.set_print(filename="a.gcode")
+    await coordinator.async_refresh()
+
+    assert printer.files() == ["a.gcode"]
+    assert _state(hass, ESTIMATE) == 2.0
+
+
+async def test_virtual_sdcard_file_used(hass, coordinator, printer):
     """The file path is used when the print stats name no file."""
     printer.set_print(filename="")
     printer.status["virtual_sdcard"] = {"file_path": "gcodes/c.gcode"}
@@ -136,26 +171,31 @@ async def test_virtual_sdcard_file_used(coordinator, printer):
     assert printer.files() == ["c.gcode"]
 
 
-async def test_no_file_clears_details(coordinator, printer):
+async def test_no_file_clears_details(hass, coordinator, printer):
     """Details of the last file aren't shown once no file is loaded."""
     printer.set_print(filename="")
     printer.status["virtual_sdcard"] = {"file_path": None}
     await coordinator.async_refresh()
 
     assert printer.files() == []
-    assert coordinator.data["layer_count"] is None
+    assert hass.states.get(HEIGHT).state == "unknown"
 
 
 @pytest.mark.parametrize("state", ["paused", "complete", "standby"])
-async def test_state_change_fetches_details(coordinator, printer, state):
+async def test_state_change_fetches_details(hass, coordinator, printer, state):
     """A state change seen by a poll fetches the details again."""
     printer.set_print(state=state)
-    printer.details = {"estimated_time": 200, "layer_count": 20}
     await coordinator.async_refresh()
     await coordinator.async_refresh()
-
     assert printer.files() == ["a.gcode"]
-    assert coordinator.data["estimated_time"] == 200
+
+    # The estimate is only shown while printing
+    printer.set_print(state="printing")
+    printer.details = {"estimated_time": 7200}
+    await coordinator.async_refresh()
+    await coordinator.async_refresh()
+    assert printer.files() == ["a.gcode"] * 2
+    assert _state(hass, ESTIMATE) == 2.0
 
 
 async def test_restart_between_polls_fetches_details(hass, coordinator, printer):
@@ -171,16 +211,16 @@ async def test_restart_between_polls_fetches_details(hass, coordinator, printer)
     assert printer.files() == ["a.gcode"]
 
 
-async def test_changed_files_fetch_details(coordinator, printer):
+async def test_changed_files_fetch_details(hass, coordinator, printer):
     """A file sliced again under the same name is noticed."""
-    printer.details = {"estimated_time": 200}
+    printer.details = {"estimated_time": 7200}
     await coordinator.moonraker.on_notification(
         NOTIFY_FILELIST_CHANGED, [{"action": "modify_file"}]
     )
     await coordinator.async_refresh()
 
     assert printer.files() == ["a.gcode"]
-    assert coordinator.data["estimated_time"] == 200
+    assert _state(hass, ESTIMATE) == 2.0
 
 
 async def test_reconnect_fetches_details(hass, coordinator, printer):
@@ -196,7 +236,9 @@ async def test_reconnect_fetches_details(hass, coordinator, printer):
     "details",
     [{"error": {"message": "not found"}}, {"size": 1}, {"estimated_time": None}],
 )
-async def test_incomplete_details_are_fetched_again(coordinator, printer, details):
+async def test_incomplete_details_are_fetched_again(
+    hass, coordinator, printer, details
+):
     """Details Moonraker hasn't read yet are fetched until they are there."""
     printer.set_print(filename="b.gcode")
     complete, printer.details = printer.details, details
@@ -208,10 +250,10 @@ async def test_incomplete_details_are_fetched_again(coordinator, printer, detail
     await coordinator.async_refresh()
     await coordinator.async_refresh()
     assert printer.files() == ["b.gcode"] * 3
-    assert coordinator.data["estimated_time"] == 100
+    assert _state(hass, ESTIMATE) == 1.0
 
 
-async def test_zero_estimated_time_is_kept(coordinator, printer):
+async def test_zero_estimated_time_is_kept(hass, coordinator, printer):
     """Zero is a value, not missing data."""
     printer.set_print(filename="b.gcode")
     printer.details = {"estimated_time": 0}
@@ -219,9 +261,10 @@ async def test_zero_estimated_time_is_kept(coordinator, printer):
     await coordinator.async_refresh()
 
     assert printer.files() == ["b.gcode"]
+    assert _state(hass, ESTIMATE) == 0.0
 
 
-async def test_change_while_fetching_is_not_lost(coordinator, printer):
+async def test_change_while_fetching_is_not_lost(hass, coordinator, printer):
     """Details requested before a change are not kept."""
     printer.set_print(filename="b.gcode")
 
@@ -231,14 +274,14 @@ async def test_change_while_fetching_is_not_lost(coordinator, printer):
     printer.during = (METADATA, change)
     await coordinator.async_refresh()
     printer.during = (None, None)
-    printer.details = {"estimated_time": 300}
+    printer.details = {"estimated_time": 10800}
     await coordinator.async_refresh()
 
     assert printer.files() == ["b.gcode"] * 2
-    assert coordinator.data["estimated_time"] == 300
+    assert _state(hass, ESTIMATE) == 3.0
 
 
-async def test_file_pushed_during_update_is_used(coordinator, printer):
+async def test_file_pushed_during_update_is_used(hass, coordinator, printer):
     """A file pushed while the objects query runs decides the details fetched."""
 
     async def push():
@@ -250,10 +293,10 @@ async def test_file_pushed_during_update_is_used(coordinator, printer):
     await coordinator.async_refresh()
 
     assert printer.files() == ["b.gcode"]
-    assert coordinator.data["status"]["print_stats"]["filename"] == "b.gcode"
+    assert hass.states.get(FILENAME).state == "b.gcode"
 
 
-async def test_failed_details_are_fetched_again(coordinator, printer):
+async def test_failed_details_are_fetched_again(hass, coordinator, printer):
     """A failed request fails the update, as before, and is made again."""
     printer.set_print(filename="b.gcode")
     printer.fail = METADATA
