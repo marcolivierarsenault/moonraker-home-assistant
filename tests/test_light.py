@@ -178,13 +178,46 @@ async def test_light_turn_on_rgbw(hass, light, get_default_api_response):
         )
 
 
-# test light brightness up while light values r, g, b, w all 0
+# test explicit black color keeps the light off
 @pytest.mark.parametrize(
     "light",
     [("mainsail_led_chamber")],
 )
+async def test_light_turn_on_rgbw_black(hass, light, get_default_api_response):
+    """Test turning on with an all-zero color sends zeros."""
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        return_value={**get_default_api_response},
+    ) as mock_api:
+        await hass.services.async_call(
+            LIGHT_DOMAIN,
+            SERVICE_TURN_ON,
+            {
+                ATTR_ENTITY_ID: f"light.{light}",
+                "rgbw_color": (0, 0, 0, 0),
+                "brightness": 128,
+            },
+            blocking=True,
+        )
+
+        mock_api.assert_any_call(
+            METHODS.PRINTER_GCODE_SCRIPT.value,
+            script=f'SET_LED LED="{light.split("_")[2]}" RED=0.0 GREEN=0.0 BLUE=0.0 WHITE=0.0 SYNC=0 TRANSMIT=1',
+        )
+
+
+# test light brightness up while light values r, g, b, w all 0
+@pytest.mark.parametrize(
+    ("light", "brightness", "level"),
+    [("mainsail_led_chamber", 255, "1.0"), ("mainsail_led_chamber", 128, "0.5")],
+)
 async def test_light_turn_on_with_zero_current_state(
-    hass, light, get_default_api_response
+    hass, light, brightness, level, get_default_api_response
 ):
     """Test turning on with brightness when current state is 0,0,0,0."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
@@ -208,15 +241,16 @@ async def test_light_turn_on_with_zero_current_state(
             SERVICE_TURN_ON,
             {
                 ATTR_ENTITY_ID: f"light.{light}",
-                "brightness": 255,
+                "brightness": brightness,
             },
             blocking=True,
         )
 
         mock_api.assert_any_call(
             METHODS.PRINTER_GCODE_SCRIPT.value,
-            script=f'SET_LED LED="{light.split("_")[2]}" RED=0.0 GREEN=0.0 BLUE=0.0 WHITE=0.0 SYNC=0 TRANSMIT=1',
+            script=f'SET_LED LED="{light.split("_")[2]}" RED={level} GREEN={level} BLUE={level} WHITE={level} SYNC=0 TRANSMIT=1',
         )
+        assert hass.states.get(f"light.{light}").state == "on"
 
 
 # test light off
