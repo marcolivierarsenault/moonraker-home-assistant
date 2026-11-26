@@ -135,13 +135,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
         key="print_projected_total_duration",
         name="Print Projected Total Duration",
         value_fn=lambda sensor: sensor.empty_result_when_not_printing(
-            (
-                sensor.coordinator.data["status"]["print_stats"]["print_duration"]
-                / calculate_pct_job(sensor.coordinator.data)
-                if calculate_pct_job(sensor.coordinator.data) != 0
-                else 0
-            )
-            / 3600
+            _seconds_to_hours(calculate_projected_total(sensor.coordinator.data))
         ),
         subscriptions=[
             ("print_stats", "total_duration"),
@@ -157,16 +151,7 @@ SENSORS: tuple[MoonrakerSensorDescription, ...] = (
         key="print_time_left",
         name="Print Time Left",
         value_fn=lambda sensor: sensor.empty_result_when_not_printing(
-            (
-                (
-                    sensor.coordinator.data["status"]["print_stats"]["print_duration"]
-                    / calculate_pct_job(sensor.coordinator.data)
-                    if calculate_pct_job(sensor.coordinator.data) != 0
-                    else 0
-                )
-                - sensor.coordinator.data["status"]["print_stats"]["print_duration"]
-            )
-            / 3600
+            _seconds_to_hours(calculate_time_left(sensor.coordinator.data))
         ),
         subscriptions=[
             ("print_stats", "print_duration"),
@@ -391,9 +376,10 @@ async def async_setup_basic_sensor(coordinator, entry, async_add_entities):
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in SENSORS])
 
 
-async def _fan_sensor_descriptions(coordinator, obj, key, name, speed_suffix=""):
+def _fan_sensor_descriptions(obj, key, name, fan_status, speed_suffix=""):
     """Build fan speed and, if reported, RPM sensor descriptions.
 
+    fan_status is the fan's current status from the setup probe.
     speed_suffix is appended to the speed sensor's key and name only, so the
     RPM sensor is always <key>_rpm / <name> RPM.
     """
@@ -413,12 +399,7 @@ async def _fan_sensor_descriptions(coordinator, obj, key, name, speed_suffix="")
         )
     ]
 
-    query_obj = {OBJ: {obj: ["rpm"]}}
-    fan_data = await coordinator.async_fetch_data(
-        METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
-    )
-
-    if fan_data.get("status", {}).get(obj, {}).get("rpm") is not None:
+    if fan_status.get("rpm") is not None:
         descs.append(
             MoonrakerSensorDescription(
                 key=f"{key}_rpm",
@@ -463,8 +444,30 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
     fan_keys = ["heater_fan", "controller_fan", "fan_generic", "chamber_fan"]
 
     sensors = []
-    object_list = await coordinator.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
+    object_list = await coordinator.async_get_printer_objects_list()
     objects = set(object_list.get("objects", []))
+
+    # Some sensors depend on what an object reports (fan RPM, pressure,
+    # humidity, filament width). Query all of those objects at once rather
+    # than one request per object.
+    probe_kinds = {
+        "fan",
+        "temperature_fan",
+        "hall_filament_width_sensor",
+        *environmental_keys,
+        *fan_keys,
+    }
+    probe_query = {
+        obj: None
+        for obj in objects
+        if (obj.split(maxsplit=1) or [""])[0] in probe_kinds
+    }
+    probe_status = {}
+    if probe_query:
+        probe = await coordinator.async_fetch_data(
+            METHODS.PRINTER_OBJECTS_QUERY, {OBJ: probe_query}, quiet=True
+        )
+        probe_status = probe.get("status") or {}
 
     # Build a set of names that already have a generic temperature_sensor <name>
     # This will be used to deduplicate sensors reported both as a generic temperature_sensor
@@ -505,11 +508,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                 sensors.append(desc)
 
             if split_obj[0] in environmental_keys:
-                query_obj = {OBJ: {obj: None}}
-                result = await coordinator.async_fetch_data(
-                    METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
-                )
-                env_status = result.get("status", {}).get(obj, {})
+                env_status = probe_status.get(obj) or {}
 
                 if "pressure" in env_status:
                     desc = MoonrakerSensorDescription(
@@ -562,11 +561,11 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
                     sensors.append(desc)
 
             if split_obj[0] == "temperature_fan":
-                sensors += await _fan_sensor_descriptions(
-                    coordinator,
+                sensors += _fan_sensor_descriptions(
                     obj,
                     f"{split_obj[0]}_{split_obj[1]}",
                     split_obj[1].replace("_", " ").title(),
+                    probe_status.get(obj) or {},
                     speed_suffix="Speed",
                 )
         elif split_obj[0] == "mcu":
@@ -633,23 +632,19 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
             )
             sensors.append(desc)
         elif split_obj[0] in fan_keys:
-            sensors += await _fan_sensor_descriptions(
-                coordinator,
+            sensors += _fan_sensor_descriptions(
                 obj,
                 f"{split_obj[0]}_{split_obj[1]}",
                 split_obj[1].replace("_", " ").title(),
+                probe_status.get(obj) or {},
             )
         elif obj == "fan":
-            sensors += await _fan_sensor_descriptions(
-                coordinator, obj, obj, "Fan", speed_suffix="Speed"
+            sensors += _fan_sensor_descriptions(
+                obj, obj, "Fan", probe_status.get(obj) or {}, speed_suffix="Speed"
             )
         elif split_obj[0] == "hall_filament_width_sensor":
             # Hall filament width sensor: expose Diameter (mm) and Raw readings
-            query_obj = {OBJ: {obj: None}}
-            result = await coordinator.async_fetch_data(
-                METHODS.PRINTER_OBJECTS_QUERY, query_obj, quiet=True
-            )
-            status = result.get("status", {}).get(obj, {})
+            status = probe_status.get(obj) or {}
 
             base_key = obj.replace(" ", "_")
             base_name = (
@@ -770,7 +765,7 @@ async def async_setup_optional_sensors(coordinator, entry, async_add_entities):
             sensors.append(desc)
 
     coordinator.load_sensor_data(sensors)
-    await coordinator.async_refresh()
+    await coordinator.async_refresh_new_data()
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
 
 
@@ -835,7 +830,7 @@ async def async_setup_history_sensors(coordinator, entry, async_add_entities):
     ]
 
     coordinator.load_sensor_data(sensors)
-    await coordinator.async_refresh()
+    await coordinator.async_refresh_new_data()
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
 
 
@@ -858,7 +853,7 @@ async def async_setup_queue_sensors(coordinator, entry, async_add_entities):
             key="queue_state",
             name="Queue State",
             value_fn=lambda sensor: sensor.coordinator.data["queue"]["queue_state"],
-            subscriptions=[("queue_state")],
+            subscriptions=[],
         ),
         MoonrakerSensorDescription(
             key="queue_count",
@@ -866,7 +861,7 @@ async def async_setup_queue_sensors(coordinator, entry, async_add_entities):
             value_fn=lambda sensor: len(
                 sensor.coordinator.data["queue"]["queued_jobs"]
             ),
-            subscriptions=[("queued_jobs")],
+            subscriptions=[],
             icon="mdi:numeric",
             unit="Jobs",
             state_class=SensorStateClass.MEASUREMENT,
@@ -875,7 +870,7 @@ async def async_setup_queue_sensors(coordinator, entry, async_add_entities):
     ]
 
     coordinator.load_sensor_data(sensors)
-    await coordinator.async_refresh()
+    await coordinator.async_refresh_new_data()
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
 
 
@@ -896,12 +891,12 @@ async def async_setup_spoolman_sensors(coordinator, entry, async_add_entities):
             key="spool_id",
             name="Spool ID",
             value_fn=lambda sensor: sensor.coordinator.data["spoolman"].get("spool_id"),
-            subscriptions=[("spool_id")],
+            subscriptions=[],
         ),
     ]
 
     coordinator.load_sensor_data(sensors)
-    await coordinator.async_refresh()
+    await coordinator.async_refresh_new_data()
     async_add_entities([MoonrakerSensor(coordinator, entry, desc) for desc in sensors])
 
 
@@ -948,7 +943,7 @@ async def async_setup_u1_sensors(coordinator, entry, async_add_entities):
     sensors = [create_u1_filament_sensor_description(i) for i in range(4)]
 
     coordinator.load_sensor_data(sensors)
-    await coordinator.async_refresh()
+    await coordinator.async_refresh_new_data()
     async_add_entities(
         [U1ExtruderFilamentSensor(coordinator, entry, desc) for desc in sensors]
     )
@@ -1039,7 +1034,7 @@ async def async_setup_machine_update_sensors(coordinator, entry, async_add_entit
             )
     if len(sensors) > 0:
         coordinator.load_sensor_data(sensors)
-        await coordinator.async_refresh()
+        await coordinator.async_refresh_new_data()
         async_add_entities(
             [MoonrakerSensor(coordinator, entry, desc) for desc in sensors]
         )
@@ -1278,7 +1273,10 @@ def calculate_pct_job(data) -> float:
         time_pct = progress
         divider += 1
 
-    if expected_filament != 0:
+    # Leave the filament estimate out once the filament used reaches the
+    # slicer's total (e.g. after a purge in the printer's start macro): it no
+    # longer says how much of the print is left.
+    if expected_filament != 0 and filament_used < expected_filament:
         filament_pct = 1.0 * filament_used / expected_filament
         divider += 1
 
@@ -1288,20 +1286,39 @@ def calculate_pct_job(data) -> float:
     return (time_pct + filament_pct) / divider
 
 
+def calculate_projected_total(data) -> float | None:
+    """Projected total print duration in seconds, or None when unknown.
+
+    With no progress and no filament estimate to go on (for example when the
+    start macro's purge has used up the slicer's total before the first
+    progress report), there is nothing to project from.
+    """
+    percent_job = calculate_pct_job(data)
+    if percent_job <= 0:
+        return None
+    return data["status"]["print_stats"]["print_duration"] / percent_job
+
+
+def calculate_time_left(data) -> float | None:
+    """Print time left in seconds, or None when unknown."""
+    projected_total = calculate_projected_total(data)
+    if projected_total is None:
+        return None
+    return projected_total - data["status"]["print_stats"]["print_duration"]
+
+
+def _seconds_to_hours(seconds: float | None) -> float | None:
+    return None if seconds is None else seconds / 3600
+
+
 def calculate_eta(data):
     """Calculate ETA of current print."""
-    percent_job = calculate_pct_job(data)
-    if (
-        data["status"]["print_stats"]["state"] != PRINTSTATES.PRINTING.value
-        or data["status"]["print_stats"]["print_duration"] <= 0
-        or percent_job <= 0
-        or percent_job >= 1
-    ):
+    if data["status"]["print_stats"]["state"] != PRINTSTATES.PRINTING.value:
         return None
 
-    time_left = (data["status"]["print_stats"]["print_duration"] / percent_job) - data[
-        "status"
-    ]["print_stats"]["print_duration"]
+    time_left = calculate_time_left(data)
+    if time_left is None or time_left <= 0:
+        return None
 
     eta = datetime.now(timezone.utc) + timedelta(seconds=time_left)
     # Round to nearest minute by adding 30s bias before truncating seconds

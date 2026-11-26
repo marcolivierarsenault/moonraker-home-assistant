@@ -35,6 +35,14 @@ DEFAULT_POLLING_RATE = 30
 MIN_POLLING_RATE = 1
 PRINTING_POLLING_RATE = 2
 
+# Pushed changes to settings and states are passed to entities at most once
+# per this many seconds (a print state change is passed on straight away)
+PUSH_UPDATE_INTERVAL = 1
+
+# Moonraker websocket notifications
+NOTIFY_KLIPPY_READY = "notify_klippy_ready"
+NOTIFY_STATUS_UPDATE = "notify_status_update"
+
 CONF_OPTION_QUIET_UNREACHABLE = "quiet_unreachable_devices"
 CONF_OPTION_CAMERA_PORT = "camera_port"
 CONF_OPTION_THUMBNAIL_PORT = "thumbnail_port"
@@ -88,6 +96,7 @@ class METHODS(Enum):
     PRINTER_PRINT_PAUSE = "printer.print.pause"
     PRINTER_PRINT_RESUME = "printer.print.resume"
     PRINTER_FIRMWARE_RESTART = "printer.firmware_restart"
+    SERVER_FILES_GET_DIRECTORY = "server.files.get_directory"
     SERVER_FILES_METADATA = "server.files.metadata"
     SERVER_HISTORY_TOTALS = "server.history.totals"
     SERVER_HISTORY_RESET_TOTALS = "server.history.reset_totals"
@@ -125,3 +134,9 @@ class PRINTERSTATES(ExtendedEnum):
     STARTUP = "startup"
     SHUTDOWN = "shutdown"
     ERROR = "error"
+
+
+# Image files the thumbnail camera can fall back to in a thumbnail folder
+THUMBNAIL_EXTENSIONS = (".png", ".jpg", ".jpeg")
+# Folder images tried when the named thumbnail is missing, largest first
+MAX_FALLBACK_THUMBNAILS = 3

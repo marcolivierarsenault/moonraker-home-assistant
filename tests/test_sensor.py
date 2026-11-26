@@ -17,6 +17,8 @@ from custom_components.moonraker.sensor import (
     calculate_current_layer,
     calculate_pct_job,
     calculate_print_progress,
+    calculate_projected_total,
+    calculate_time_left,
     calculate_total_layer,
     format_idle_timeout_state,
 )
@@ -456,18 +458,19 @@ async def test_eta(hass):
     """Test."""
     config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
     config_entry.add_to_hass(hass)
+    before = dt.datetime.now(dt.timezone.utc)
     await hass.config_entries.async_setup(config_entry.entry_id)
     await hass.async_block_till_done()
+    after = dt.datetime.now(dt.timezone.utc)
 
     state = hass.states.get("sensor.mainsail_print_eta")
+    eta = dt.datetime.strptime(state.state, "%Y-%m-%dT%H:%M:%S%z")
 
-    # ETA is rounded to nearest minute, so allow ±30 seconds tolerance
-    assert dt.datetime.strptime(state.state, "%Y-%m-%dT%H:%M:%S%z") < dt.datetime.now(
-        dt.timezone.utc
-    ) + dt.timedelta(0, 1182.94 + 30)
-    assert dt.datetime.strptime(state.state, "%Y-%m-%dT%H:%M:%S%z") > dt.datetime.now(
-        dt.timezone.utc
-    ) + dt.timedelta(0, 1182.94 - 30)
+    # The ETA is computed at some point during setup and rounded to the
+    # nearest minute, so it is within 30 s of (that moment + time left).
+    time_left = dt.timedelta(seconds=1182.94)
+    rounding = dt.timedelta(seconds=30)
+    assert before + time_left - rounding <= eta <= after + time_left + rounding
 
 
 async def test_slicer_time_left(hass, get_data):
@@ -522,6 +525,90 @@ async def test_calculate_pct_job_no_filament_no_time(data_for_calculate_pct):
     data_for_calculate_pct["filament_total"] = 0
     data_for_calculate_pct["estimated_time"] = 0
     assert calculate_pct_job(data_for_calculate_pct) == 0.6
+
+
+@pytest.mark.parametrize("filament_used", [2, 4])
+async def test_calculate_pct_job_filament_over_estimate(
+    data_for_calculate_pct, filament_used
+):
+    """Filament used beyond the slicer's total leaves the filament estimate out."""
+    data_for_calculate_pct["status"]["print_stats"]["filament_used"] = filament_used
+    assert calculate_pct_job(data_for_calculate_pct) == 0.6
+
+
+async def test_eta_after_start_macro_purge(hass, get_data):
+    """A purge longer than the print's filament doesn't hide the ETA.
+
+    Seen on a QIDI Q2: the slicer expected 50 mm, the start macro had already
+    purged about 105 mm while file progress was still 1.2%.
+    """
+    get_data["status"]["print_stats"]["filament_used"] = 105.0
+    get_data["status"]["print_stats"]["print_duration"] = 180.0
+    get_data["status"]["display_status"]["progress"] = 0.5
+    with patch(
+        "custom_components.moonraker.MoonrakerDataUpdateCoordinator._async_get_gcode_file_detail",
+        return_value={
+            "estimated_time": 678,
+            "filament_total": 50.0,
+            "thumbnails_path": None,
+        },
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        before = dt.datetime.now(dt.timezone.utc)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+        after = dt.datetime.now(dt.timezone.utc)
+
+    # 180 s at 50%: about 180 s left, rounded to the nearest minute
+    eta = dt.datetime.fromisoformat(hass.states.get("sensor.mainsail_print_eta").state)
+    time_left = dt.timedelta(seconds=180)
+    rounding = dt.timedelta(seconds=30)
+    assert before + time_left - rounding <= eta <= after + time_left + rounding
+    assert float(hass.states.get("sensor.mainsail_print_time_left").state) == 0.05
+
+
+async def test_time_left_unknown_before_first_progress(hass, get_data):
+    """No progress yet: time left and projected total are unknown, not negative.
+
+    Seen on a QIDI Q2: during the start macro the printer reports progress 0
+    while the purge (about 300 mm) is already past the slicer's 50 mm, so
+    only the zero progress is left to estimate from.
+    """
+    get_data["status"]["print_stats"]["filament_used"] = 307.0
+    get_data["status"]["print_stats"]["print_duration"] = 180.0
+    get_data["status"]["display_status"]["progress"] = 0.0
+    with patch(
+        "custom_components.moonraker.MoonrakerDataUpdateCoordinator._async_get_gcode_file_detail",
+        return_value={
+            "estimated_time": 678,
+            "filament_total": 50.0,
+            "thumbnails_path": None,
+        },
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.mainsail_print_time_left").state == "unknown"
+    assert (
+        hass.states.get("sensor.mainsail_print_projected_total_duration").state
+        == "unknown"
+    )
+    assert hass.states.get("sensor.mainsail_print_eta").state == "unknown"
+
+
+async def test_calculate_time_left(data_for_calculate_pct):
+    """Projected total and time left in seconds, None without progress."""
+    # progress 0.6 and filament 1 of 2: 55% done after 6 s
+    assert calculate_projected_total(data_for_calculate_pct) == pytest.approx(6 / 0.55)
+    assert calculate_time_left(data_for_calculate_pct) == pytest.approx(6 / 0.55 - 6)
+
+    data_for_calculate_pct["status"]["display_status"]["progress"] = 0.0
+    data_for_calculate_pct["status"]["print_stats"]["filament_used"] = 2
+    assert calculate_projected_total(data_for_calculate_pct) is None
+    assert calculate_time_left(data_for_calculate_pct) is None
 
 
 async def test_calculate_pct_job_missing_progress(data_for_calculate_pct):
@@ -1310,6 +1397,39 @@ async def test_spoolman_spool_id_sensor_created(hass, get_default_api_response):
     assert state.state == "1"
 
 
+async def test_queue_and_spoolman_sensors_add_no_printer_objects(
+    hass, get_default_api_response
+):
+    """Queue and Spoolman sensors don't add objects to the printer query."""
+    spoolman_status = {
+        "spoolman_connected": True,
+        "pending_reports": [],
+        "spool_id": 1,
+    }
+
+    def _call_method_side_effect(method, *args, **kwargs):
+        if method == "server.spoolman.status":
+            return spoolman_status
+        return {**get_default_api_response}
+
+    with patch(
+        "moonraker_api.MoonrakerClient.call_method",
+        side_effect=_call_method_side_effect,
+    ):
+        config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+        config_entry.add_to_hass(hass)
+        await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.mainsail_queue_state") is not None
+    assert hass.states.get("sensor.mainsail_spool_id") is not None
+    query_objects = hass.data[DOMAIN][config_entry.entry_id].query_obj["objects"]
+    # A bare string subscription such as ("queue_state") used to add the
+    # objects "q" and "s" with fields "u" and "p".
+    assert "q" not in query_objects
+    assert "s" not in query_objects
+
+
 async def test_spoolman_spool_id_sensor_not_created_on_error(
     hass, get_default_api_response
 ):
@@ -1675,17 +1795,15 @@ async def test_toolhead_position_short_list(hass, get_data):
 
 
 async def test_optional_sensors_follow_up_query_error(hass, get_default_api_response):
-    """Optional sensors whose follow-up query fails are skipped during setup."""
-    failing = {
-        "bme280 bme280_temp",
-        "heater_fan heater_fan",
-        "fan",
-        "hall_filament_width_sensor",
-    }
+    """Optional sensors are skipped when the setup probe query fails."""
+    probed = {"bme280 bme280_temp", "heater_fan heater_fan", "fan"}
+    probes = []
 
     def call_method(method, **kwargs):
         objects = kwargs.get("objects") or {}
-        if len(objects) == 1 and set(objects) <= failing:
+        # The setup probe asks for every field of the probed objects at once.
+        if probed <= set(objects) and all(v is None for v in objects.values()):
+            probes.append(method)
             return {"error": {"code": 503, "message": "Klippy Host not connected"}}
         return get_default_api_response
 
@@ -1696,6 +1814,7 @@ async def test_optional_sensors_follow_up_query_error(hass, get_default_api_resp
         await hass.async_block_till_done()
 
     assert config_entry.state.value == "loaded"
+    assert probes == ["printer.objects.query"]
     assert hass.states.get("sensor.mainsail_bme280_temp_pressure") is None
     assert hass.states.get("sensor.mainsail_heater_fan_rpm") is None
     assert hass.states.get("sensor.mainsail_fan_rpm") is None

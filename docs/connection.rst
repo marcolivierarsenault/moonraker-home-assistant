@@ -77,6 +77,15 @@ While the printer is printing, the integration polls every 2 seconds, or at
 the configured rate if that is faster. When the print ends, it goes back to
 the configured rate. Each printer uses its own configured rate.
 
+Between polls, Moonraker pushes status changes to the integration as they
+happen. Changes to settings and states, such as a switch, a heater target, a
+fan speed or the print state, reach Home Assistant within about a second.
+Changes to readings only, such as temperatures, power, positions, speeds and
+system load, still update at the polling rate, so Home Assistant does not
+record many more states than before. If Klipper restarts or the connection
+drops, the integration subscribes to the changes again once the printer is
+back.
+
 Camera Manual Configuration
 -------------------------------------
 

@@ -12,12 +12,13 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import MoonrakerApiClient
@@ -36,9 +37,12 @@ from .const import (
     HOSTNAME,
     METHODS,
     MIN_POLLING_RATE,
+    NOTIFY_KLIPPY_READY,
+    NOTIFY_STATUS_UPDATE,
     OBJ,
     PLATFORMS,
     PRINTING_POLLING_RATE,
+    PUSH_UPDATE_INTERVAL,
     TIMEOUT,
     PRINTSTATES,
 )
@@ -369,7 +373,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     for platform in PLATFORMS:
         coordinator.platforms.append(platform)
 
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    try:
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    finally:
+        coordinator.clear_setup_cache()
+    # The platforms have added every object they need, so subscribe to them.
+    coordinator.async_start_push()
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
     async def send_gcode_service(service_call):
@@ -462,7 +471,118 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     return True
 
 
+def _copy_query(query: dict[str, list[str] | None]) -> dict[str, list[str] | None]:
+    """Copy a printer object query so later changes don't affect the copy."""
+    return {obj: None if keys is None else list(keys) for obj, keys in query.items()}
+
+
+def _query_difference(
+    query: dict[str, list[str] | None], fetched: dict[str, list[str] | None]
+) -> dict[str, list[str] | None]:
+    """Return the part of ``query`` that ``fetched`` doesn't cover yet."""
+    missing: dict[str, list[str] | None] = {}
+    for obj, keys in query.items():
+        if obj not in fetched:
+            missing[obj] = None if keys is None else list(keys)
+            continue
+        fetched_keys = fetched[obj]
+        if fetched_keys is None:
+            continue
+        if keys is None:
+            missing[obj] = None
+            continue
+        new_keys = [key for key in keys if key not in fetched_keys]
+        if new_keys:
+            missing[obj] = new_keys
+    return missing
+
+
+def _merge_query(
+    fetched: dict[str, list[str] | None], query: dict[str, list[str] | None]
+) -> None:
+    """Record that ``query`` has now been fetched."""
+    for obj, keys in query.items():
+        if keys is None:
+            fetched[obj] = None
+            continue
+        fetched_keys = fetched.setdefault(obj, [])
+        if fetched_keys is None:
+            continue
+        fetched_keys.extend(key for key in keys if key not in fetched_keys)
+
+
+# Fields that change all the time (readings, positions, counters). Pushed
+# changes to only these fields reach entities with the next poll, so pushes
+# don't multiply the states Home Assistant records.
+_MEASURED_FIELDS = frozenset(
+    {
+        "Diameter",
+        "Raw",
+        "cputime",
+        "estimated_print_time",
+        "file_position",
+        "filament_used",
+        "gas",
+        "gcode_position",
+        "humidity",
+        "last_stats",
+        "live_extruder_velocity",
+        "live_position",
+        "live_velocity",
+        "memavail",
+        "position",
+        "power",
+        "pressure",
+        "print_duration",
+        "print_time",
+        "progress",
+        "rpm",
+        "sysload",
+        "temperature",
+        "total_duration",
+    }
+)
+# Measured fields that share a name with a setting on other objects, by
+# object type ("temperature_fan" covers "temperature_fan <name>")
+_MEASURED_OBJECT_FIELDS = {
+    "controller_fan": frozenset({"speed"}),
+    "gcode_move": frozenset({"speed"}),
+    "heater_fan": frozenset({"speed"}),
+    "temperature_fan": frozenset({"speed"}),
+}
+
+
+def _is_measured_change(changes: dict[str, Any]) -> bool:
+    """Return whether pushed changes are only to always-changing readings."""
+    for obj, values in changes.items():
+        if not isinstance(values, dict):
+            return False
+        object_fields = _MEASURED_OBJECT_FIELDS.get(obj.split(" ", 1)[0], ())
+        for field in values:
+            if field not in _MEASURED_FIELDS and field not in object_fields:
+                return False
+    return True
+
+
+def _merge_status(status: dict[str, Any], changes: dict[str, Any]) -> dict[str, Any]:
+    """Return the printer status with changed object fields merged in.
+
+    Moonraker sends only the fields that changed, so merge them into each
+    object instead of replacing it.
+    """
+    merged = dict(status)
+    for obj, values in changes.items():
+        if isinstance(values, dict) and isinstance(merged.get(obj), dict):
+            merged[obj] = {**merged[obj], **values}
+        else:
+            merged[obj] = values
+    return merged
+
+
 async def _printer_objects_updater(coordinator):
+    # Keep what is pushed while the query runs, for the update to apply on top
+    # of its result (see _async_apply_push).
+    coordinator._pushed_since_query = {}
     return await coordinator._async_fetch_data(
         METHODS.PRINTER_OBJECTS_QUERY, coordinator.query_obj
     )
@@ -512,6 +632,29 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
         self.api_device_name = api_device_name
         self.polling_interval = _entry_polling_interval(config_entry)
         self.query_obj = {OBJ: {}}
+        # What the last update fetched, so platform setup can fetch only
+        # what it adds (see async_refresh_new_data).
+        self._fetched_updaters: set = set()
+        self._fetched_query: dict[str, list[str] | None] = {}
+        self._new_data_lock = asyncio.Lock()
+        # Printer objects and config settings, fetched once per setup and
+        # shared by the platforms.
+        self._printer_objects_list: dict[str, Any] | None = None
+        self._config_settings: dict[str, Any] | None = None
+        self._setup_cache_lock = asyncio.Lock()
+        # Push updates: set once the status subscription is wanted (after
+        # setup), so it is restored when Klippy restarts or we reconnect.
+        self._push_wanted = False
+        self._subscribed = False
+        self._subscribe_task: asyncio.Task | None = None
+        # Changes pushed while a full update runs, applied on top of its result
+        self._pushed_since_query: dict[str, Any] | None = None
+        # Changes pushed while a subscribe request runs, applied on its reply
+        self._pushed_since_subscribe: dict[str, Any] | None = None
+        self._push_flush_unsub = None
+        client.notification_handler = self._async_handle_notification
+        # A new websocket has no subscription.
+        client.connected_handler = self._async_websocket_connected
         self.load_sensor_data(SENSORS)
         self.add_query_objects("virtual_sdcard", "file_path")
 
@@ -542,12 +685,36 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self):
         """Update data via library."""
-        data = {}
+        # Platform setup merges new data in async_refresh_new_data. Run one at a
+        # time, so an update that started earlier can't overwrite that data.
+        async with self._new_data_lock:
+            try:
+                data = await self._async_fetch_all_data()
+            finally:
+                self._pushed_since_query = None
+        if not self._subscribed:
+            # Retry a subscription that failed, now Moonraker answers again.
+            self._async_resubscribe()
+        return data
 
-        for updater in self.updaters:
+    async def _async_fetch_all_data(self):
+        """Run every data updater and return the combined data."""
+        data = {}
+        updaters = list(self.updaters)
+        query = _copy_query(self.query_obj[OBJ])
+
+        for updater in updaters:
             data.update(await updater(self))
 
+        if "status" in data:
+            self._fetched_query = query
+            if self._pushed_since_query:
+                data["status"] = _merge_status(data["status"], self._pushed_since_query)
+        else:
+            # The object query failed; let platform setup fetch its objects.
+            self._fetched_query = {}
         data.setdefault("status", {})
+        self._fetched_updaters = set(updaters)
 
         # --- Dynamic polling logic ---
         prev_state = getattr(self, "_last_print_state", None)
@@ -755,6 +922,227 @@ class MoonrakerDataUpdateCoordinator(DataUpdateCoordinator):
     ):
         """Send data to moonraker."""
         return await self._async_send_data(query_path, query_obj)
+
+    async def async_get_printer_objects_list(self) -> dict[str, Any]:
+        """Return the printer object list, fetched once per setup."""
+        async with self._setup_cache_lock:
+            if self._printer_objects_list is not None:
+                return self._printer_objects_list
+            result = await self.async_fetch_data(METHODS.PRINTER_OBJECTS_LIST)
+            # Keep only a usable list, so a later platform can fetch it again.
+            if isinstance(result, dict) and result.get("objects"):
+                self._printer_objects_list = result
+            return result
+
+    async def async_get_config_settings(self) -> dict[str, Any]:
+        """Return the configfile settings query result, fetched once per setup."""
+        async with self._setup_cache_lock:
+            if self._config_settings is not None:
+                return self._config_settings
+            result = await self.async_fetch_data(
+                METHODS.PRINTER_OBJECTS_QUERY,
+                {OBJ: {"configfile": ["settings"]}},
+                quiet=True,
+            )
+            settings = (
+                result.get("status", {}).get("configfile", {}).get("settings")
+                if isinstance(result, dict)
+                else None
+            )
+            if settings:
+                self._config_settings = result
+            return result
+
+    def clear_setup_cache(self) -> None:
+        """Drop the printer objects and config settings once setup is done.
+
+        Only platform setup reads them, and the config settings can be large.
+        """
+        self._printer_objects_list = None
+        self._config_settings = None
+
+    async def async_refresh_new_data(self) -> None:
+        """Fetch only the data added since the last update and merge it in.
+
+        Platform setup adds query objects and data updaters, and its entities
+        need that data. Fetching just the new part, instead of running a full
+        update for each platform, keeps setup to a single full update.
+        """
+        if self.data is None:
+            await self.async_refresh()
+            return
+
+        async with self._new_data_lock:
+            updaters = [
+                updater
+                for updater in self.updaters
+                if updater not in self._fetched_updaters
+            ]
+            query = _query_difference(self.query_obj[OBJ], self._fetched_query)
+            if not updaters and not query:
+                return
+
+            new_data = {}
+            done = []
+            result = {}
+            try:
+                for updater in updaters:
+                    new_data.update(await updater(self))
+                    done.append(updater)
+                if query:
+                    result = await self._async_fetch_data(
+                        METHODS.PRINTER_OBJECTS_QUERY, {OBJ: query}
+                    )
+            except UpdateFailed as err:
+                _LOGGER.debug("Could not fetch data for new entities: %s", err)
+                query = {}
+            if query and (not isinstance(result, dict) or "status" not in result):
+                # A Moonraker error response: leave it to be fetched again.
+                _LOGGER.debug("Could not fetch data for new entities: %s", result)
+                query = {}
+            if not done and not query:
+                return
+
+            data = dict(self.data)
+            status = data.get("status", {})
+            data.update(new_data)
+            if query:
+                status = _merge_status(status, result.get("status") or {})
+            data["status"] = status
+            self.data = data
+            self._fetched_updaters.update(done)
+            _merge_query(self._fetched_query, query)
+        self.async_update_listeners()
+
+    async def async_subscribe(self) -> None:
+        """Subscribe to status updates for every queried printer object.
+
+        Moonraker then pushes changes as they happen, so entities update
+        between polls. Polling carries on as before and fills any gaps.
+        """
+        self._push_wanted = True
+        self._subscribed = False
+        self._pushed_since_subscribe = {}
+        try:
+            result = await self._async_fetch_data(
+                METHODS.PRINTER_OBJECTS_SUBSCRIBE,
+                {OBJ: _copy_query(self.query_obj[OBJ])},
+                quiet=True,
+            )
+        except UpdateFailed as err:
+            _LOGGER.debug("Could not subscribe to status updates: %s", err)
+            return
+        finally:
+            pushed = self._pushed_since_subscribe
+            self._pushed_since_subscribe = None
+        status = result.get("status") if isinstance(result, dict) else None
+        if not isinstance(status, dict):
+            # e.g. Klippy is not ready; it is retried when Klippy is ready.
+            _LOGGER.debug("Could not subscribe to status updates: %s", result)
+            return
+        self._subscribed = True
+        # The reply holds the current values of every subscribed field.
+        self._async_apply_push(_merge_status(status, pushed))
+
+    @callback
+    def async_start_push(self) -> None:
+        """Start the status subscription once setup is done."""
+        self._push_wanted = True
+        self._async_resubscribe()
+
+    @callback
+    def _async_resubscribe(self) -> None:
+        """Restore the status subscription, if one is wanted.
+
+        A failed attempt is retried after the next successful poll.
+        """
+        if not self._push_wanted:
+            return
+        if self._subscribe_task is not None and not self._subscribe_task.done():
+            return
+        self._subscribe_task = self.config_entry.async_create_background_task(
+            self.hass, self.async_subscribe(), "moonraker status resubscribe"
+        )
+
+    @callback
+    def _async_websocket_connected(self) -> None:
+        """Subscribe again on a new websocket, which has no subscription."""
+        self._subscribed = False
+        self._async_resubscribe()
+
+    async def _async_handle_notification(self, method: str, params: Any) -> None:
+        """Handle a notification pushed by Moonraker."""
+        if method == NOTIFY_KLIPPY_READY:
+            # Moonraker drops subscriptions when Klippy restarts.
+            self._subscribed = False
+            self._async_resubscribe()
+            return
+        if method != NOTIFY_STATUS_UPDATE:
+            return
+        # params: [changed status, eventtime]
+        if not isinstance(params, list) or not params:
+            return
+        changes = params[0]
+        if isinstance(changes, dict) and changes:
+            self._async_apply_push(changes)
+
+    @callback
+    def _async_apply_push(self, changes: dict[str, Any]) -> None:
+        """Merge pushed status changes and pass them on to entities.
+
+        Changes to settings and states (a switch, a target, the print state)
+        reach entities within PUSH_UPDATE_INTERVAL. Changes to readings only
+        are merged but wait for the next poll.
+        """
+        if self.data is None:
+            return
+        # A reply can be handled after pushes that Moonraker sent later, so
+        # requests in flight keep every push for their reply. Applying all of
+        # them is safe: each change is pushed, so the last push for a field
+        # holds its newest value.
+        if self._pushed_since_query is not None:
+            self._pushed_since_query = _merge_status(self._pushed_since_query, changes)
+        if self._pushed_since_subscribe is not None:
+            self._pushed_since_subscribe = _merge_status(
+                self._pushed_since_subscribe, changes
+            )
+        status = self.data.get("status", {})
+        old_state = status.get("print_stats", {}).get("state")
+        status = _merge_status(status, changes)
+        self.data = {**self.data, "status": status}
+
+        if status.get("print_stats", {}).get("state") != old_state:
+            # Update now, and run a full update for the print's file details
+            # and the polling rate that goes with the new state.
+            self._async_flush_push()
+            self.config_entry.async_create_background_task(
+                self.hass, self.async_request_refresh(), "moonraker state refresh"
+            )
+        elif self._push_flush_unsub is None and not _is_measured_change(changes):
+            # Readings alone wait for the next poll.
+            self._push_flush_unsub = async_call_later(
+                self.hass, PUSH_UPDATE_INTERVAL, self._async_flush_push
+            )
+
+    @callback
+    def _async_flush_push(self, _now: Any = None) -> None:
+        """Pass merged pushed changes on to entities."""
+        self._async_cancel_push_flush()
+        self.async_update_listeners()
+
+    @callback
+    def _async_cancel_push_flush(self) -> None:
+        if self._push_flush_unsub is not None:
+            self._push_flush_unsub()
+            self._push_flush_unsub = None
+
+    async def async_shutdown(self) -> None:
+        """Stop handling pushed updates when the entry unloads."""
+        self._push_wanted = False
+        self.moonraker.notification_handler = None
+        self.moonraker.connected_handler = None
+        self._async_cancel_push_flush()
+        await super().async_shutdown()
 
     def add_data_updater(self, updater):
         """Update the data."""
