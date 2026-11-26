@@ -169,6 +169,21 @@ async def async_setup_basic_buttons(coordinator, entry, async_add_entities):
     async_add_entities([MoonrakerButton(coordinator, entry, desc) for desc in BUTTONS])
 
 
+def _macro_name(cmd: str) -> str:
+    """Return the button name for a G-code command.
+
+    Klipper hides commands that start with an underscore. Their names keep
+    the leading underscores and get a "(Hidden)" suffix, so they can't take
+    the same name (and entity ID) as a public command such as
+    BED_MESH_CALIBRATE and _BED_MESH_CALIBRATE.
+    """
+    words = " ".join(part for part in cmd.lower().split("_") if part).title()
+    if cmd.startswith("_"):
+        prefix = "_" * (len(cmd) - len(cmd.lstrip("_")))
+        return f"Macro {prefix}{words} (Hidden)"
+    return f"Macro {words}"
+
+
 async def async_setup_macros(coordinator, entry, async_add_entities):
     """Set optional button platform."""
     cmds = await coordinator.async_fetch_data(METHODS.PRINTER_GCODE_HELP)
@@ -196,7 +211,7 @@ async def async_setup_macros(coordinator, entry, async_add_entities):
         macros.append(
             MoonrakerButtonDescription(
                 key=cmd,
-                name="Macro " + cmd.lower().replace("_", " ").title(),
+                name=_macro_name(cmd),
                 press_fn=lambda button: button.coordinator.async_send_data(
                     METHODS.PRINTER_GCODE_SCRIPT, {"script": button.invoke_name}
                 ),

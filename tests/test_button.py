@@ -9,6 +9,7 @@ from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant.common import MockConfigEntry
 
+from custom_components.moonraker.button import _macro_name
 from custom_components.moonraker.const import DOMAIN, METHODS
 
 from .const import MOCK_CONFIG
@@ -249,4 +250,60 @@ async def test_home_axis_buttons(hass, button, gcode):
         await hass.async_block_till_done()
         mock_api.assert_called_once_with(
             METHODS.PRINTER_GCODE_SCRIPT.value, script=gcode
+        )
+
+
+@pytest.mark.parametrize(
+    "cmd, name",
+    [
+        ("START_PRINT", "Macro Start Print"),
+        ("BED_MESH_CALIBRATE", "Macro Bed Mesh Calibrate"),
+        ("_BED_MESH_CALIBRATE", "Macro _Bed Mesh Calibrate (Hidden)"),
+        ("__KM_OPTIONS", "Macro __Km Options (Hidden)"),
+        ("FOO__BAR_", "Macro Foo Bar"),
+    ],
+)
+def test_macro_name(cmd, name):
+    """Test macro button names."""
+    assert _macro_name(cmd) == name
+
+
+async def test_hidden_macro_does_not_share_entity_id(hass, get_default_api_response):
+    """A hidden macro gets its own entity ID next to its public counterpart."""
+    # Klipper lists the renamed builtin first, as on a QIDI Q2.
+    get_default_api_response["_BED_MESH_CALIBRATE"] = (
+        "Renamed builtin of 'BED_MESH_CALIBRATE'"
+    )
+    get_default_api_response["BED_MESH_CALIBRATE"] = "G-Code macro"
+
+    config_entry = MockConfigEntry(domain=DOMAIN, data=MOCK_CONFIG, entry_id="test")
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    entity_registry = er.async_get(hass)
+    public = entity_registry.async_get("button.mainsail_macro_bed_mesh_calibrate")
+    hidden = entity_registry.async_get(
+        "button.mainsail_macro_bed_mesh_calibrate_hidden"
+    )
+    assert public
+    assert hidden
+    assert public.unique_id == "test_BED_MESH_CALIBRATE"
+    assert hidden.unique_id == "test__BED_MESH_CALIBRATE"
+    assert public.original_name == "Macro Bed Mesh Calibrate"
+    assert hidden.original_name == "Macro _Bed Mesh Calibrate (Hidden)"
+    assert not entity_registry.async_get("button.mainsail_macro_bed_mesh_calibrate_2")
+
+    entity_id = "button.mainsail_macro_bed_mesh_calibrate_hidden"
+    await _enable_button_entity(hass, config_entry, entity_id)
+    with patch("moonraker_api.MoonrakerClient.call_method") as mock_api:
+        await hass.services.async_call(
+            BUTTON_DOMAIN,
+            SERVICE_PRESS,
+            {ATTR_ENTITY_ID: entity_id},
+            blocking=True,
+        )
+        await hass.async_block_till_done()
+        mock_api.assert_called_once_with(
+            METHODS.PRINTER_GCODE_SCRIPT.value, script="_BED_MESH_CALIBRATE"
         )
