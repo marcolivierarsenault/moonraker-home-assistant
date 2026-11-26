@@ -86,6 +86,10 @@ record many more states than before. If Klipper restarts or the connection
 drops, the integration subscribes to the changes again once the printer is
 back.
 
+The details of the printed file, such as the slicer's estimates and the
+thumbnail path, are fetched when a print starts or changes state and when
+Moonraker reports changed files, instead of at every poll.
+
 Camera Manual Configuration
 -------------------------------------
 

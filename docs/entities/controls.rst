@@ -146,7 +146,7 @@ A series of LEDs are available by default as a light control. They are:
     - Description
     - Definition
   * - <type> <name> e.g. neopixel strip
-    - Set a light to a given brightness or rgb value.
+    - Set a light to a given brightness or rgb value. Setting only a brightness while the light is off turns it on in white.
     - From Moonraker API (*printer.gcode.script*)
 
 
