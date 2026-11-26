@@ -173,13 +173,14 @@ def _macro_name(cmd: str) -> str:
     """Return the button name for a G-code command.
 
     Klipper hides commands that start with an underscore. Their names keep
-    the underscore and get a "(Hidden)" suffix, so they can't take the same
-    name (and entity ID) as a public command such as BED_MESH_CALIBRATE and
-    _BED_MESH_CALIBRATE.
+    the leading underscores and get a "(Hidden)" suffix, so they can't take
+    the same name (and entity ID) as a public command such as
+    BED_MESH_CALIBRATE and _BED_MESH_CALIBRATE.
     """
     words = " ".join(part for part in cmd.lower().split("_") if part).title()
     if cmd.startswith("_"):
-        return f"Macro _{words} (Hidden)"
+        prefix = "_" * (len(cmd) - len(cmd.lstrip("_")))
+        return f"Macro {prefix}{words} (Hidden)"
     return f"Macro {words}"
 
 

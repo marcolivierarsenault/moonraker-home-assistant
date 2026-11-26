@@ -259,7 +259,7 @@ async def test_home_axis_buttons(hass, button, gcode):
         ("START_PRINT", "Macro Start Print"),
         ("BED_MESH_CALIBRATE", "Macro Bed Mesh Calibrate"),
         ("_BED_MESH_CALIBRATE", "Macro _Bed Mesh Calibrate (Hidden)"),
-        ("__KM_OPTIONS", "Macro _Km Options (Hidden)"),
+        ("__KM_OPTIONS", "Macro __Km Options (Hidden)"),
         ("FOO__BAR_", "Macro Foo Bar"),
     ],
 )
