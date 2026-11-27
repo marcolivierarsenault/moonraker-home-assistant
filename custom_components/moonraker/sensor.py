@@ -23,6 +23,7 @@ from homeassistant.const import (
 from homeassistant.core import callback
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
+from . import qidi_box
 from .const import (
     DOMAIN,
     METHODS,
@@ -359,6 +360,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     await async_setup_queue_sensors(coordinator, entry, async_add_entities)
     await async_setup_spoolman_sensors(coordinator, entry, async_add_entities)
     await async_setup_u1_sensors(coordinator, entry, async_add_entities)
+    await async_setup_qidi_box_sensors(coordinator, entry, async_add_entities)
 
 
 async def _machine_system_info_updater(coordinator):
@@ -975,6 +977,63 @@ def create_u1_filament_sensor_description(extruder_index):
             (U1_PRINT_TASK_CONFIG, field) for field in U1_FILAMENT_ATTRIBUTES
         ],
         icon="mdi:format-color-highlight",
+    )
+
+
+async def async_setup_qidi_box_sensors(coordinator, entry, async_add_entities):
+    """QIDI Box slot filament sensors, one per slot the printer reports."""
+    try:
+        object_list = await coordinator.async_get_printer_objects_list()
+    except UpdateFailed:
+        _LOGGER.debug("Printer object list failed, don't set up QIDI Box sensors")
+        return
+    indices = qidi_box.slot_indices(object_list.get("objects", []))
+    if not indices:
+        return
+
+    sensors = [create_qidi_box_slot_sensor_description(i) for i in indices]
+    coordinator.load_sensor_data(sensors)
+    await coordinator.async_refresh_new_data()
+    async_add_entities(
+        [U1ExtruderFilamentSensor(coordinator, entry, desc) for desc in sensors]
+    )
+
+
+def _qidi_box_status(sensor):
+    """Return the printer's status while the Box reports, else raise KeyError.
+
+    A Box that is off or still starting reports an empty ``box_extras`` while
+    ``save_variables`` keeps the last filaments: those are not loaded spools.
+    """
+    status = sensor.coordinator.data["status"]
+    if not status.get("box_extras"):
+        raise KeyError("box_extras")
+    return status
+
+
+def create_qidi_box_slot_sensor_description(slot_index):
+    """Create the filament sensor of QIDI Box slot ``slot_index`` (0-based)."""
+
+    def _attributes(sensor):
+        try:
+            return qidi_box.slot_attributes(_qidi_box_status(sensor), slot_index)
+        except KeyError:
+            return {}
+
+    return U1ExtruderFilamentSensorDescription(
+        key=f"box_slot{slot_index}_filament",
+        name=f"Box Slot {slot_index + 1} Filament",
+        value_fn=lambda sensor: qidi_box.slot_filament(
+            _qidi_box_status(sensor), slot_index
+        ),
+        extra_state_fn=_attributes,
+        subscriptions=[
+            ("box_extras", "boxes"),
+            ("box_extras", "loaded_slot"),
+            ("save_variables", "variables"),
+            (f"box_stepper slot{slot_index}", "runout_button"),
+        ],
+        icon="mdi:printer-3d-nozzle",
     )
 
 

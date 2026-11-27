@@ -109,6 +109,9 @@ Sensors that are added on integration startup.
   * - E0 Filament Info to E3 Filament Info
     - Filament loaded in each of the four extruders. The state is the filament color as ``#RRGGBBAA``; vendor, type, sub_type, official, sku, edit and soft are attributes when the printer reports them. Only available on Snapmaker U1.
     - From Klipper (print_task_config)
+  * - Box Slot 1 Filament to Box Slot N Filament
+    - Filament loaded in each slot of a QIDI Box (one sensor per slot the printer reports; slots 1 to 4 are Box 1, 5 to 8 Box 2, and so on). The state is the filament's name, ``Empty`` when the slot's runout switch reports no filament, or ``Unknown``. Attributes: ``color`` (``#RRGGBB``, none for an empty slot), ``active`` (the slot that feeds the toolhead), ``vendor``, ``filament_type``, ``min_temp``, ``max_temp`` and ``runout``. Unavailable while the Box is off. Created when the printer reports a QIDI Box (tested on a Q2 with one Box).
+    - From Klipper (box_extras, save_variables, box_stepper slotN)
 
 
 History Sensors
