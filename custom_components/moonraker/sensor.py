@@ -982,7 +982,11 @@ def create_u1_filament_sensor_description(extruder_index):
 
 async def async_setup_qidi_box_sensors(coordinator, entry, async_add_entities):
     """QIDI Box slot filament sensors, one per slot the printer reports."""
-    object_list = await coordinator.async_get_printer_objects_list()
+    try:
+        object_list = await coordinator.async_get_printer_objects_list()
+    except UpdateFailed:
+        _LOGGER.debug("Printer object list failed, don't set up QIDI Box sensors")
+        return
     indices = qidi_box.slot_indices(object_list.get("objects", []))
     if not indices:
         return

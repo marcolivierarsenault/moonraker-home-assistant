@@ -1,7 +1,7 @@
 """QIDI Box: the filament in each slot of QIDI's multi-filament feeder.
 
-The Box adds ``box_stepper slotN`` and ``box_extras`` objects to Klipper (Q2,
-Plus4 and other QIDI printers that take a Box). Newer firmware reports decoded
+The Box adds ``box_stepper slotN`` and ``box_extras`` objects to Klipper
+(seen on a Q2 with one Box). Newer firmware reports decoded
 per-slot details in ``box_extras.boxes[N].filament_info``; older firmware only
 stores numeric codes in ``save_variables``. The lookup tables below mirror the
 printer's own ``officiall_filas_list.cfg`` (``[filaN]``, ``[colordict]`` and

@@ -1,14 +1,16 @@
 """Tests for the QIDI Box slot filament sensors."""
 
 import copy
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.update_coordinator import UpdateFailed
 import pytest
 from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.moonraker import qidi_box
 from custom_components.moonraker.const import DOMAIN
+from custom_components.moonraker.sensor import async_setup_qidi_box_sensors
 
 from .const import MOCK_CONFIG
 
@@ -199,6 +201,10 @@ async def test_box_slot_sensors(hass, get_default_api_response):
     assert state.attributes["vendor"] == "QIDI"
     assert state.attributes["filament_type"] == "PLA"
     assert state.attributes["active"] is False
+    assert state.attributes["min_temp"] == 190
+    assert state.attributes["max_temp"] == 240
+    assert state.attributes["runout"] is False
+    assert hass.states.get("sensor.mainsail_box_slot_1_filament").attributes["runout"]
     assert hass.states.get("sensor.mainsail_box_slot_4_filament").state == "PLA Basic"
     assert hass.states.get("sensor.mainsail_box_slot_5_filament") is None
 
@@ -242,3 +248,15 @@ async def test_two_boxes(hass, get_default_api_response):
     assert state.attributes["filament_type"] == "PETG"
     assert state.attributes["active"] is True
     assert hass.states.get("sensor.mainsail_box_slot_8_filament") is not None
+
+
+async def test_box_setup_skipped_when_object_list_fails():
+    """A failing object list skips the Box sensors instead of failing the platform."""
+    coordinator = MagicMock()
+    coordinator.async_get_printer_objects_list = AsyncMock(side_effect=UpdateFailed)
+    add_entities = MagicMock()
+
+    await async_setup_qidi_box_sensors(coordinator, MagicMock(), add_entities)
+
+    add_entities.assert_not_called()
+    coordinator.load_sensor_data.assert_not_called()
